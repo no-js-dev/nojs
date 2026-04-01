@@ -5,7 +5,7 @@ optional **compile** step can dramatically close the performance gap with
 hand-written Vanilla JS.
 
 > **TL;DR:** Development → write normal No.JS HTML. Production → run
-> `nojs prebuild --compile` and deploy the output. Your users get near-native
+> `nojs build` and deploy the output. Your users get near-native
 > speed; your DX stays the same.
 
 ---
@@ -30,60 +30,12 @@ That means compiled No.JS runs at roughly **80–85 %** of raw Vanilla JS speed
 
 ---
 
-## Compilation levels
+## How it works
 
-The compiler supports four incremental optimization levels. Higher levels
-produce faster output but perform deeper transformations.
-
-### Level 1 — Static extraction
-
-Evaluates expressions that contain no reactive references and replaces them
-with their literal values. Removes the directive attribute from the element.
-
-```html
-<!-- Before -->
-<span bind="'Hello, ' + 'world'"></span>
-
-<!-- After (level 1) -->
-<span>Hello, world</span>
-```
-
-### Level 2 — Directive inlining
-
-Converts simple reactive directives into lightweight inline scripts that run
-once, eliminating the generic directive processor for those elements.
-
-```html
-<!-- Before -->
-<p bind="user.name"></p>
-
-<!-- After (level 2) -->
-<p data-nojs-c="bind:user.name"></p>
-```
-
-The `data-nojs-c` attribute tells the runtime to use the fast-path binding
-instead of the full expression parser.
-
-### Level 3 — Template pre-compilation
-
-Pre-compiles `each` loops, `if`/`else` blocks, and template includes into
-optimized DOM fragments that the runtime can stamp out without parsing.
-
-```html
-<!-- Before -->
-<ul>
-  <li each="items" bind="name"></li>
-</ul>
-
-<!-- After (level 3) — internal compiled fragment -->
-<ul data-nojs-c="each:items#tpl0"></ul>
-```
-
-### Level 4 — Full optimization
-
-Combines all previous levels plus dead-code elimination, expression
-constant-folding, and scope hoisting. This is the recommended level for
-production deployments.
+The compiler performs several optimization passes. It pre-resolves directives
+at build time so the browser does less work at runtime — including static
+extraction, directive inlining, template pre-compilation, dead-code
+elimination, expression constant-folding, and scope hoisting.
 
 ```html
 <!-- Before -->
@@ -92,7 +44,7 @@ production deployments.
   <button on:click="count = count + 1">+1</button>
 </div>
 
-<!-- After (level 4) — fully optimized -->
+<!-- After (compiled) — fully optimized -->
 <div data-nojs-c="s0">
   <span data-nojs-c="b:s0.count"></span>
   <button data-nojs-c="e:click:s0.count++">+1</button>
@@ -103,28 +55,23 @@ production deployments.
 
 ## CLI usage
 
-The compiler is invoked through the NoJS CLI `prebuild` command:
+The compiler is invoked through the `nojs build` command:
 
 ```bash
-# Compile with default level (4)
-nojs prebuild --compile
-
-# Specify a level
-nojs prebuild --compile --level 2
+# Compile with defaults
+nojs build
 
 # Compile specific files
-nojs prebuild --compile src/index.html src/about.html
+nojs build src/index.html src/about.html
 
 # Compile an entire directory
-nojs prebuild --compile src/ --out dist/
+nojs build src/ --out dist/
 ```
 
 ### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--compile` | — | Enable compilation |
-| `--level` | `4` | Optimization level (1–4) |
 | `--out` | `dist/` | Output directory |
 | `--sourcemap` | `false` | Generate source maps |
 | `--minify` | `true` | Minify HTML output |
@@ -183,7 +130,7 @@ resolution overhead.
 | | Development | Production |
 |--|-------------|------------|
 | **Source** | Normal No.JS HTML | Same source files |
-| **Build step** | None | `nojs prebuild --compile` |
+| **Build step** | None | `nojs build` |
 | **Runtime** | Full interpreter | Fast-path runtime |
 | **Debugging** | Full attribute names visible | Compiled attributes (use `--sourcemap`) |
 | **Hot reload** | Edit and refresh | Use `--watch` for rebuild |
@@ -191,43 +138,32 @@ resolution overhead.
 **Recommended workflow:**
 
 1. Develop with plain No.JS — no build step, instant refresh.
-2. Before deploying, run `nojs prebuild --compile`.
+2. Before deploying, run `nojs build`.
 3. Deploy the `dist/` output.
 
 ---
 
 ## Configuration
 
-Create a `nojs-prebuild.config.js` (or `.mjs`) in your project root:
+Create a `nojs.config.json` in your project root:
 
-```js
-export default {
-  // Input files or directories
-  input: ['src/'],
-
-  // Output directory
-  output: 'dist/',
-
-  // Compilation settings
-  compile: {
-    enabled: true,
-    level: 4,           // 1–4
-    sourcemap: false,
-    minify: true,
+```json
+{
+  "input": ["src/"],
+  "output": "dist/",
+  "compile": {
+    "sourcemap": false,
+    "minify": true
   },
-
-  // Files to exclude from compilation
-  exclude: [
-    'src/admin/**',
-    '**/*.draft.html',
+  "exclude": [
+    "src/admin/**",
+    "**/*.draft.html"
   ],
-
-  // Copy static assets to output
-  assets: ['public/'],
-};
+  "assets": ["public/"]
+}
 ```
 
-When a config file is present, `nojs prebuild` reads it automatically. CLI
+When a config file is present, `nojs build` reads it automatically. CLI
 flags override config-file values.
 
 ---
@@ -257,18 +193,8 @@ separate directory (`dist/` by default). Your source files are never modified.
 compiled `data-nojs-c` attributes in the same document. You can compile your
 critical pages and leave others interpreted.
 
-### Does it work with plugins?
-
-**Yes.** Plugins that register custom directives are supported. The compiler
-calls into the plugin's directive metadata at build time to determine whether
-a custom directive can be compiled.
-
 ### What about SSR / SSG?
 
 Compilation and SSG are complementary. You can run your SSG tool (Eleventy,
-Astro, etc.) first, then run `nojs prebuild --compile` on the SSG output to
+Astro, etc.) first, then run `nojs build` on the SSG output to
 optimize the No.JS directives in the generated HTML.
-
----
-
-**Next:** [Plugins →](plugins.md)

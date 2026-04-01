@@ -65,7 +65,7 @@
       },
       "compile": {
         "title": "Compilation Optionnelle",
-        "desc": "Exécutez nojs prebuild --compile pour optimiser en production. Pré-résout les directives et supprime le surcoût du runtime. Jamais requis, toujours bénéfique."
+        "desc": "Exécutez nojs build pour optimiser en production. Pré-résout les directives et supprime le surcoût du runtime. Jamais requis, toujours bénéfique."
       }
     },
     "cta": {

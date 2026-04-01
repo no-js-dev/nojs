@@ -1284,12 +1284,12 @@
         "rowDebug": "Depuración",
         "rowDebugDev": "Nombres de atributos completos visibles",
         "rowDebugProd": "Atributos compilados (usa --sourcemap)",
-        "callout": "Desarrolla con No.JS plano — sin paso de compilación, recarga instantánea. Antes de desplegar, ejecuta nojs prebuild --compile. Despliega la salida de dist/."
+        "callout": "Desarrolla con No.JS plano — sin paso de compilación, recarga instantánea. Antes de desplegar, ejecuta nojs build. Despliega la salida de dist/."
       },
       "config": {
         "title": "Configuración",
-        "text": "Crea un nojs-prebuild.config.js (o .mjs) en la raíz de tu proyecto:",
-        "override": "Cuando existe un archivo de configuración, nojs prebuild lo lee automáticamente. Los flags del CLI sobreescriben los valores del archivo de configuración."
+        "text": "Crea un nojs.config.js (o .mjs) en la raíz de tu proyecto:",
+        "override": "Cuando existe un archivo de configuración, nojs build lo lee automáticamente. Los flags del CLI sobreescriben los valores del archivo de configuración."
       },
       "faq": {
         "title": "FAQ",
@@ -1304,7 +1304,7 @@
         "pluginsTitle": "¿Funciona con plugins?",
         "pluginsText": "Sí. Los plugins que registran directivas personalizadas son soportados. El compilador consulta los metadatos de directiva del plugin en tiempo de compilación para determinar si una directiva personalizada puede compilarse.",
         "ssgTitle": "¿Qué hay de SSR / SSG?",
-        "ssgText": "La compilación y SSG son complementarios. Puedes ejecutar tu herramienta SSG (Eleventy, Astro, etc.) primero, luego ejecutar nojs prebuild --compile sobre la salida del SSG para optimizar las directivas de No.JS en el HTML generado."
+        "ssgText": "La compilación y SSG son complementarios. Puedes ejecutar tu herramienta SSG (Eleventy, Astro, etc.) primero, luego ejecutar nojs build sobre la salida del SSG para optimizar las directivas de No.JS en el HTML generado."
       }
     },
     "plugins": {

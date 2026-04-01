@@ -90,7 +90,7 @@
       },
       "q15": {
         "question": "Ai-je besoin d'un build ?",
-        "answer": "Non. Une balise script fonctionne directement. La commande optionnelle <code>nojs prebuild --compile</code> optimise pour la production, mais n'est jamais requise. Le déploiement, c'est envoyer des fichiers HTML."
+        "answer": "Non. Une balise script fonctionne directement. La commande optionnelle <code>nojs build</code> optimise pour la production, mais n'est jamais requise. Le déploiement, c'est envoyer des fichiers HTML."
       },
       "q16": {
         "question": "Est-il prêt pour la production ?",

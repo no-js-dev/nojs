@@ -65,7 +65,7 @@
       },
       "compile": {
         "title": "Compilación Opcional",
-        "desc": "Ejecuta nojs prebuild --compile para optimizar en producción. Pre-resuelve directivas y elimina overhead del runtime. Nunca obligatorio, siempre beneficioso."
+        "desc": "Ejecuta nojs build para optimizar en producción. Pre-resuelve directivas y elimina overhead del runtime. Nunca obligatorio, siempre beneficioso."
       }
     },
     "cta": {

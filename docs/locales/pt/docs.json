@@ -1284,12 +1284,12 @@
         "rowDebug": "Debug",
         "rowDebugDev": "Nomes de atributos completos visíveis",
         "rowDebugProd": "Atributos compilados (use --sourcemap)",
-        "callout": "Desenvolva com No.JS puro — sem build, refresh instantâneo. Antes de fazer deploy, execute nojs prebuild --compile. Faça deploy do output dist/."
+        "callout": "Desenvolva com No.JS puro — sem build, refresh instantâneo. Antes de fazer deploy, execute nojs build. Faça deploy do output dist/."
       },
       "config": {
         "title": "Configuração",
-        "text": "Crie um nojs-prebuild.config.js (ou .mjs) na raiz do seu projeto:",
-        "override": "Quando um arquivo de configuração está presente, nojs prebuild o lê automaticamente. Flags do CLI sobrescrevem os valores do arquivo de configuração."
+        "text": "Crie um nojs.config.js (ou .mjs) na raiz do seu projeto:",
+        "override": "Quando um arquivo de configuração está presente, nojs build o lê automaticamente. Flags do CLI sobrescrevem os valores do arquivo de configuração."
       },
       "faq": {
         "title": "FAQ",
@@ -1304,7 +1304,7 @@
         "pluginsTitle": "Funciona com plugins?",
         "pluginsText": "Sim. Plugins que registram diretivas personalizadas são suportados. O compiler consulta os metadados de diretiva do plugin em tempo de build para determinar se uma diretiva personalizada pode ser compilada.",
         "ssgTitle": "E quanto a SSR / SSG?",
-        "ssgText": "Compilation e SSG são complementares. Você pode executar sua ferramenta SSG (Eleventy, Astro, etc.) primeiro, depois executar nojs prebuild --compile no output do SSG para otimizar as diretivas do No.JS no HTML gerado."
+        "ssgText": "Compilation e SSG são complementares. Você pode executar sua ferramenta SSG (Eleventy, Astro, etc.) primeiro, depois executar nojs build no output do SSG para otimizar as diretivas do No.JS no HTML gerado."
       }
     },
     "plugins": {

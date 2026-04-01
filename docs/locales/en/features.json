@@ -65,7 +65,7 @@
       },
       "compile": {
         "title": "Optional Compilation",
-        "desc": "Run nojs prebuild --compile to optimize for production. Pre-resolves directives and strips runtime overhead. Never required, always beneficial."
+        "desc": "Run nojs build to optimize for production. Pre-resolves directives and strips runtime overhead. Never required, always beneficial."
       }
     },
     "cta": {

@@ -90,7 +90,7 @@
       },
       "q15": {
         "question": "Do I need a build step?",
-        "answer": "No. One script tag works out of the box. Optional <code>nojs prebuild --compile</code> optimizes for production, but is never required. Deployment is uploading HTML files."
+        "answer": "No. One script tag works out of the box. Optional <code>nojs build</code> optimizes for production, but is never required. Deployment is uploading HTML files."
       },
       "q16": {
         "question": "Is it production-ready?",

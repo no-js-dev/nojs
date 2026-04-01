@@ -1284,12 +1284,12 @@
         "rowDebug": "Debugging",
         "rowDebugDev": "Full attribute names visible",
         "rowDebugProd": "Compiled attributes (use --sourcemap)",
-        "callout": "Develop with plain No.JS — no build step, instant refresh. Before deploying, run nojs prebuild --compile. Deploy the dist/ output."
+        "callout": "Develop with plain No.JS — no build step, instant refresh. Before deploying, run nojs build. Deploy the dist/ output."
       },
       "config": {
         "title": "Configuration",
-        "text": "Create a nojs-prebuild.config.js (or .mjs) in your project root:",
-        "override": "When a config file is present, nojs prebuild reads it automatically. CLI flags override config-file values."
+        "text": "Create a nojs.config.js (or .mjs) in your project root:",
+        "override": "When a config file is present, nojs build reads it automatically. CLI flags override config-file values."
       },
       "faq": {
         "title": "FAQ",
@@ -1304,7 +1304,7 @@
         "pluginsTitle": "Does it work with plugins?",
         "pluginsText": "Yes. Plugins that register custom directives are supported. The compiler calls into the plugin's directive metadata at build time to determine whether a custom directive can be compiled.",
         "ssgTitle": "What about SSR / SSG?",
-        "ssgText": "Compilation and SSG are complementary. You can run your SSG tool (Eleventy, Astro, etc.) first, then run nojs prebuild --compile on the SSG output to optimize the No.JS directives in the generated HTML."
+        "ssgText": "Compilation and SSG are complementary. You can run your SSG tool (Eleventy, Astro, etc.) first, then run nojs build on the SSG output to optimize the No.JS directives in the generated HTML."
       }
     },
     "plugins": {

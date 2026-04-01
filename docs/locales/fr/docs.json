@@ -1284,12 +1284,12 @@
         "rowDebug": "Débogage",
         "rowDebugDev": "Noms d'attributs complets visibles",
         "rowDebugProd": "Attributs compilés (utilisez --sourcemap)",
-        "callout": "Développez avec No.JS standard — pas de build, rafraîchissement instantané. Avant de déployer, exécutez nojs prebuild --compile. Déployez la sortie dist/."
+        "callout": "Développez avec No.JS standard — pas de build, rafraîchissement instantané. Avant de déployer, exécutez nojs build. Déployez la sortie dist/."
       },
       "config": {
         "title": "Configuration",
-        "text": "Créez un nojs-prebuild.config.js (ou .mjs) à la racine de votre projet :",
-        "override": "Lorsqu'un fichier de configuration est présent, nojs prebuild le lit automatiquement. Les flags CLI écrasent les valeurs du fichier de configuration."
+        "text": "Créez un nojs.config.js (ou .mjs) à la racine de votre projet :",
+        "override": "Lorsqu'un fichier de configuration est présent, nojs build le lit automatiquement. Les flags CLI écrasent les valeurs du fichier de configuration."
       },
       "faq": {
         "title": "FAQ",
@@ -1304,7 +1304,7 @@
         "pluginsTitle": "Est-ce compatible avec les plugins ?",
         "pluginsText": "Oui. Les plugins qui enregistrent des directives personnalisées sont supportés. Le compilateur consulte les métadonnées de directive du plugin au moment du build pour déterminer si une directive personnalisée peut être compilée.",
         "ssgTitle": "Et le SSR / SSG ?",
-        "ssgText": "La compilation et le SSG sont complémentaires. Vous pouvez exécuter votre outil SSG (Eleventy, Astro, etc.) en premier, puis exécuter nojs prebuild --compile sur la sortie du SSG pour optimiser les directives No.JS dans le HTML généré."
+        "ssgText": "La compilation et le SSG sont complémentaires. Vous pouvez exécuter votre outil SSG (Eleventy, Astro, etc.) en premier, puis exécuter nojs build sur la sortie du SSG pour optimiser les directives No.JS dans le HTML généré."
       }
     },
     "plugins": {

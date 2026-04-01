@@ -90,7 +90,7 @@
       },
       "q15": {
         "question": "¿Necesito un paso de build?",
-        "answer": "No. Una etiqueta script funciona directamente. El comando opcional <code>nojs prebuild --compile</code> optimiza para producción, pero nunca es obligatorio. Deploy es subir archivos HTML."
+        "answer": "No. Una etiqueta script funciona directamente. El comando opcional <code>nojs build</code> optimiza para producción, pero nunca es obligatorio. Deploy es subir archivos HTML."
       },
       "q16": {
         "question": "¿Está listo para producción?",

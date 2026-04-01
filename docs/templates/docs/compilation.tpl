@@ -83,17 +83,14 @@
   <div class="doc-section">
     <h2 class="doc-title" t="docs.compilation.cli.title"></h2>
     <p class="doc-text" t="docs.compilation.cli.text"></p>
-    <div class="code-block"><pre><span class="hl-cmt"># Compile with default level (4)</span>
-nojs prebuild --compile
-
-<span class="hl-cmt"># Specify a level</span>
-nojs prebuild --compile --level <span class="hl-num">2</span>
+    <div class="code-block"><pre><span class="hl-cmt"># Compile with defaults</span>
+nojs build
 
 <span class="hl-cmt"># Compile specific files</span>
-nojs prebuild --compile src/index.html src/about.html
+nojs build src/index.html src/about.html
 
 <span class="hl-cmt"># Compile an entire directory</span>
-nojs prebuild --compile src/ --out dist/</pre></div>
+nojs build src/ --out dist/</pre></div>
 
     <h3 class="doc-title" t="docs.compilation.cli.flagsTitle"></h3>
     <table class="doc-table">
@@ -105,16 +102,6 @@ nojs prebuild --compile src/ --out dist/</pre></div>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><code>--compile</code></td>
-          <td>—</td>
-          <td t="docs.compilation.cli.flagCompile"></td>
-        </tr>
-        <tr>
-          <td><code>--level</code></td>
-          <td><code>4</code></td>
-          <td t="docs.compilation.cli.flagLevel"></td>
-        </tr>
         <tr>
           <td><code>--out</code></td>
           <td><code>dist/</code></td>
@@ -159,7 +146,7 @@ nojs prebuild --compile src/ --out dist/</pre></div>
         <tr>
           <td t="docs.compilation.workflow.rowBuild"></td>
           <td t="docs.compilation.workflow.rowBuildDev"></td>
-          <td><code>nojs prebuild --compile</code></td>
+          <td><code>nojs build</code></td>
         </tr>
         <tr>
           <td t="docs.compilation.workflow.rowRuntime"></td>
@@ -180,24 +167,22 @@ nojs prebuild --compile src/ --out dist/</pre></div>
   <div class="doc-section">
     <h2 class="doc-title" t="docs.compilation.config.title"></h2>
     <p class="doc-text" t="docs.compilation.config.text"></p>
-    <div class="code-block"><pre><span class="hl-kw">export default</span> {
-  <span class="hl-attr">input</span>: [<span class="hl-str">'src/'</span>],
-  <span class="hl-attr">output</span>: <span class="hl-str">'dist/'</span>,
+    <div class="code-block"><pre>{
+  <span class="hl-attr">"input"</span>: [<span class="hl-str">"src/"</span>],
+  <span class="hl-attr">"output"</span>: <span class="hl-str">"dist/"</span>,
 
-  <span class="hl-attr">compile</span>: {
-    <span class="hl-attr">enabled</span>: <span class="hl-kw">true</span>,
-    <span class="hl-attr">level</span>: <span class="hl-num">4</span>,
-    <span class="hl-attr">sourcemap</span>: <span class="hl-kw">false</span>,
-    <span class="hl-attr">minify</span>: <span class="hl-kw">true</span>,
+  <span class="hl-attr">"compile"</span>: {
+    <span class="hl-attr">"sourcemap"</span>: <span class="hl-kw">false</span>,
+    <span class="hl-attr">"minify"</span>: <span class="hl-kw">true</span>
   },
 
-  <span class="hl-attr">exclude</span>: [
-    <span class="hl-str">'src/admin/**'</span>,
-    <span class="hl-str">'**/*.draft.html'</span>,
+  <span class="hl-attr">"exclude"</span>: [
+    <span class="hl-str">"src/admin/**"</span>,
+    <span class="hl-str">"**/*.draft.html"</span>
   ],
 
-  <span class="hl-attr">assets</span>: [<span class="hl-str">'public/'</span>],
-};</pre></div>
+  <span class="hl-attr">"assets"</span>: [<span class="hl-str">"public/"</span>]
+}</pre></div>
     <p class="doc-text" t="docs.compilation.config.override"></p>
   </div>
 
@@ -216,9 +201,6 @@ nojs prebuild --compile src/ --out dist/</pre></div>
 
     <h3 class="doc-title" t="docs.compilation.faq.mixTitle"></h3>
     <p class="doc-text" t="docs.compilation.faq.mixText"></p>
-
-    <h3 class="doc-title" t="docs.compilation.faq.pluginsTitle"></h3>
-    <p class="doc-text" t="docs.compilation.faq.pluginsText"></p>
 
     <h3 class="doc-title" t="docs.compilation.faq.ssgTitle"></h3>
     <p class="doc-text" t="docs.compilation.faq.ssgText"></p>

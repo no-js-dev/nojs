@@ -62,6 +62,10 @@
       "zero": {
         "title": "Zero Dependências",
         "desc": "Sem ferramentas de build, sem bundlers, sem npm install. Basta adicionar uma tag script e começar a construir instantaneamente."
+      },
+      "compile": {
+        "title": "Compilação Opcional",
+        "desc": "Execute nojs prebuild --compile para otimizar em produção. Pré-resolve diretivas e remove overhead do runtime. Nunca obrigatório, sempre benéfico."
       }
     },
     "cta": {

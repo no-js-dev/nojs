@@ -6,6 +6,7 @@ import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _onDispose } from "../globals.js";
+import { _getCompiledIndex } from "../compiled.js";
 
 registerDirective("on:*", {
   priority: 20,
@@ -15,13 +16,26 @@ registerDirective("on:*", {
     const event = parts[0];
     const modifiers = new Set(parts.slice(1));
 
+    // Task 2.3: compiled function lookup for on:* directives
+    const _ci = _getCompiledIndex(el, name);
+    const _run = (extras) => {
+      if (_ci !== null && window.NoJS._compiled[_ci]) {
+        const raw = ctx.__raw;
+        Object.assign(raw, extras);
+        window.NoJS._compiled[_ci](ctx);
+        for (const k in extras) delete raw[k];
+      } else {
+        _execStatement(expr, ctx, extras);
+      }
+    };
+
     // Lifecycle hooks
     if (event === "mounted") {
-      requestAnimationFrame(() => _execStatement(expr, ctx, { $el: el }));
+      requestAnimationFrame(() => _run({ $el: el }));
       return;
     }
     if (event === "init") {
-      _execStatement(expr, ctx, { $el: el });
+      _run({ $el: el });
       return;
     }
     if (event === "updated") {
@@ -30,7 +44,7 @@ registerDirective("on:*", {
           updatedObserver.disconnect();
           return;
         }
-        _execStatement(expr, ctx, { $el: el });
+        _run({ $el: el });
       });
       updatedObserver.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
       _onDispose(() => updatedObserver.disconnect());
@@ -39,7 +53,7 @@ registerDirective("on:*", {
     if (event === "error") {
       const errorHandler = (e) => {
         if (el.contains(e.target) || e.target === el) {
-          _execStatement(expr, ctx, { $el: el, $error: e.error || e.message });
+          _run({ $el: el, $error: e.error || e.message });
         }
       };
       window.addEventListener("error", errorHandler);
@@ -51,7 +65,7 @@ registerDirective("on:*", {
         for (const m of mutations) {
           for (const node of m.removedNodes) {
             if (node === el || node.contains?.(el)) {
-              _execStatement(expr, ctx, { $el: el });
+              _run({ $el: el });
               observer.disconnect();
               return;
             }
@@ -116,7 +130,7 @@ registerDirective("on:*", {
       if (modifiers.has("stop")) e.stopPropagation();
       if (modifiers.has("self") && e.target !== el) return;
 
-      _execStatement(expr, ctx, { $event: e, $el: el });
+      _run({ $event: e, $el: el });
     };
 
     // Wrap with debounce

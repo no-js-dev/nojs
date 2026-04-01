@@ -2,12 +2,110 @@
 //  DIRECTIVES: each, foreach
 // ═══════════════════════════════════════════════════════════════════════
 
-import { createContext } from "../context.js";
-import { _watchExpr } from "../globals.js";
-import { evaluate, resolve } from "../evaluate.js";
+import { createContext, createLightContext, _collectKeys } from "../context.js";
+import { _watchExpr, _factories } from "../globals.js";
+import { evaluate, resolve, _evalFast, _parseAndCache } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { registerDirective, processTree, _disposeChildren, _compileTemplate, processTreeFromDescriptor } from "../registry.js";
 import { _animateOut } from "../animations.js";
+
+// Task 2.1: O(n log n) Longest Increasing Subsequence algorithm.
+// Returns indices of `arr` that form the LIS.  Used to minimise DOM moves
+// during keyed reconciliation — nodes whose old positions form an increasing
+// subsequence are already in order and do NOT need insertBefore().
+// Reference: Vue 3's `getSequence()` implementation.
+function getSequence(arr) {
+  const len = arr.length;
+  // `result` holds indices into `arr` whose values form the current best LIS.
+  const result = [0];
+  // `predecessors[i]` stores the index that comes before arr[i] in the LIS.
+  const predecessors = new Array(len);
+
+  for (let i = 1; i < len; i++) {
+    const val = arr[i];
+    // -1 means "new item, has no old position" — always needs a move.
+    if (val === -1) continue;
+
+    const lastIdx = result[result.length - 1];
+    // If val extends the current LIS, append it.
+    if (arr[lastIdx] < val) {
+      predecessors[i] = lastIdx;
+      result.push(i);
+      continue;
+    }
+
+    // Binary search for the first element in result >= val.
+    let lo = 0, hi = result.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (arr[result[mid]] < val) lo = mid + 1;
+      else hi = mid;
+    }
+
+    if (val < arr[result[lo]]) {
+      if (lo > 0) predecessors[i] = result[lo - 1];
+      result[lo] = i;
+    }
+  }
+
+  // Back-trace to build the actual LIS index list.
+  let length = result.length;
+  let idx = result[length - 1];
+  while (length-- > 0) {
+    result[length] = idx;
+    idx = predecessors[idx];
+  }
+  return result;
+}
+
+// Task 2.1 + 2.2: LIS-based DOM reorder using a JS childOrder array.
+// Builds an oldPositions[] array mapping new indices to their current position
+// in childOrder, computes LIS to identify nodes already in order, and only
+// moves the rest via insertBefore.  Updates childOrder in place.
+// `newNodes` is the desired node order (array of DOM nodes).
+// `childOrder` is the current JS position array (mutated in place).
+// `el` is the parent element.
+function _reorderWithLIS(el, newNodes, childOrder) {
+  const count = newNodes.length;
+
+  // Build a reverse lookup: node → current position in childOrder
+  const posMap = new Map();
+  for (let i = 0; i < childOrder.length; i++) posMap.set(childOrder[i], i);
+
+  // Build oldPositions: for each new index, what was its old position?
+  // -1 means "newly inserted, not in old order".
+  const oldPositions = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const pos = posMap.get(newNodes[i]);
+    oldPositions[i] = pos !== undefined ? pos : -1;
+  }
+
+  // Quick check: already in order?
+  let inOrder = childOrder.length === count;
+  if (inOrder) {
+    for (let i = 0; i < count; i++) {
+      if (childOrder[i] !== newNodes[i]) { inOrder = false; break; }
+    }
+  }
+  if (inOrder) return;
+
+  // Compute LIS of oldPositions (ignoring -1 entries, handled inside getSequence)
+  const lisIndices = getSequence(oldPositions);
+  const lisSet = new Set(lisIndices);
+
+  // Move nodes not in the LIS.  Iterate backwards so that each insertBefore
+  // anchors on a node whose position is already finalised.
+  for (let i = count - 1; i >= 0; i--) {
+    if (lisSet.has(i)) continue;
+    const node = newNodes[i];
+    const anchor = i + 1 < count ? newNodes[i + 1] : null;
+    el.insertBefore(node, anchor);
+  }
+
+  // Sync childOrder to the new desired order
+  childOrder.length = count;
+  for (let i = 0; i < count; i++) childOrder[i] = newNodes[i];
+}
 
 // Creates the item node for a loop iteration.
 // Single-root templates: attaches __ctx directly to the root element (no wrapper div).
@@ -49,6 +147,18 @@ function _makeLoopItem(source, childCtx, animEnter, stagger, i) {
   return { node, applyAnim };
 }
 
+// Evaluate a key expression against a lightweight scope derived from the
+// parent context, without creating a full Proxy context.  This avoids the
+// overhead of createContext() + Proxy for every item during reconciliation.
+function _evalKeyFast(keyAst, parentCtx, itemName, item, indexName, index) {
+  const { keys, vals } = _collectKeys(parentCtx);
+  const scope = {};
+  for (let i = 0; i < keys.length; i++) scope[keys[i]] = vals[keys[i]];
+  scope[itemName] = item;
+  scope[indexName || "$index"] = index;
+  return _evalFast(keyAst, scope);
+}
+
 registerDirective("each", {
   priority: 10,
   init(el, name, expr) {
@@ -67,6 +177,20 @@ registerDirective("each", {
     let prevList = null;
     // key → item node (root element or wrapper div for multi-root templates).
     const keyMap = new Map();
+    // Pre-parse the key expression AST once for fast evaluation
+    const keyAst = keyExpr ? _parseAndCache(keyExpr) : null;
+    // Task 2.2: JS position array — avoids live HTMLCollection reads.
+    const childOrder = [];
+    // Task 4.2: cached template descriptor for pre-compiled directives.
+    let _tplDescriptor = null;
+    let _tplDescriptorSource = null;
+
+    function _getDescriptor(tpl) {
+      if (_tplDescriptorSource === tpl && _tplDescriptor !== null) return _tplDescriptor;
+      _tplDescriptorSource = tpl;
+      _tplDescriptor = _compileTemplate(tpl);
+      return _tplDescriptor;
+    }
 
     function update() {
       let list = /[\[\]()\s+\-*\/!?:&|]/.test(listPath)
@@ -75,8 +199,10 @@ registerDirective("each", {
       if (!Array.isArray(list)) return;
 
       // Same-reference optimisation: propagate to children without DOM rebuild.
-      if (list === prevList && list.length > 0 && el.children.length > 0) {
-        for (const child of el.children) {
+      // Task 2.2: use childOrder instead of el.children for the length check.
+      if (list === prevList && list.length > 0 && childOrder.length > 0) {
+        for (let ci = 0; ci < childOrder.length; ci++) {
+          const child = childOrder[ci];
           if (child.__ctx && child.__ctx.$notify) child.__ctx.$notify();
         }
         return;
@@ -89,6 +215,7 @@ registerDirective("each", {
         if (clone) {
           _disposeChildren(el);
           keyMap.clear();
+          childOrder.length = 0; // Task 2.2: sync on clear
           el.innerHTML = "";
           el.appendChild(clone);
           processTree(el);
@@ -100,8 +227,8 @@ registerDirective("each", {
       if (!tpl) return;
 
       // Animate out old items if animate-leave is set
-      if (animLeave && el.children.length > 0) {
-        const oldItems = [...el.children];
+      if (animLeave && childOrder.length > 0) {
+        const oldItems = [...childOrder];
         let remaining = oldItems.length;
         oldItems.forEach((child) => {
           const target = child.firstElementChild || child;
@@ -134,25 +261,114 @@ registerDirective("each", {
     function reconcileItems(tpl, list) {
       const count = list.length;
 
-      // Evaluate the key for every item in the new list up-front.
-      const newOrder = list.map((item, i) => {
-        const tempCtx = createContext({ [itemName]: item, $index: i }, ctx);
-        return { key: evaluate(keyExpr, tempCtx), item, i };
-      });
+      // Evaluate keys using lightweight scope (no Proxy creation per item)
+      // Task 1.5: reuse cached key when item reference is unchanged.
+      const newOrder = new Array(count);
+      for (let i = 0; i < count; i++) {
+        const item = list[i];
+        let key;
+        // Check if an existing node for this item already has a cached key
+        // Only reuse when the item object reference is identical.
+        let cachedNode = null;
+        for (const [, node] of keyMap) {
+          if (node.__ctx && node.__ctx.__raw[itemName] === item && node.__key !== undefined) {
+            cachedNode = node;
+            break;
+          }
+        }
+        if (cachedNode) {
+          key = cachedNode.__key;
+        } else {
+          key = _evalKeyFast(keyAst, ctx, itemName, item, "$index", i);
+        }
+        newOrder[i] = { key, item, i };
+      }
 
-      const nextKeySet = new Set(newOrder.map((e) => e.key));
+      // Build set of keys present in the new list
+      const nextKeySet = new Set();
+      for (let i = 0; i < count; i++) nextKeySet.add(newOrder[i].key);
 
-      // Remove wrappers whose keys are no longer in the list.
-      for (const [key, wrapper] of keyMap) {
-        if (!nextKeySet.has(key)) {
+      // Detect whether this is a same-keys reconciliation (reorder / update only)
+      const sameSize = nextKeySet.size === keyMap.size;
+      let allKeysMatch = sameSize;
+      if (sameSize) {
+        for (const key of nextKeySet) {
+          if (!keyMap.has(key)) { allKeysMatch = false; break; }
+        }
+      }
+
+      // Task 1.4: Single-removal fast path — when exactly one item was removed,
+      // find it, dispose+remove its DOM, delete from keyMap, update $index on
+      // subsequent items, and skip full reconciliation.
+      if (!allKeysMatch && nextKeySet.size === keyMap.size - 1) {
+        let missingKey = null;
+        for (const key of keyMap.keys()) {
+          if (!nextKeySet.has(key)) {
+            if (missingKey !== null) { missingKey = null; break; } // more than 1 missing — bail
+            missingKey = key;
+          }
+        }
+        if (missingKey !== null) {
+          const wrapper = keyMap.get(missingKey);
+          // Task 2.2: remove from childOrder
+          const rmIdx = childOrder.indexOf(wrapper);
+          if (rmIdx !== -1) childOrder.splice(rmIdx, 1);
           _disposeChildren(wrapper);
           wrapper.remove();
-          keyMap.delete(key);
+          keyMap.delete(missingKey);
+
+          // Update $index and positional metadata on surviving items
+          for (let idx = 0; idx < count; idx++) {
+            const { key, item, i } = newOrder[idx];
+            const node = keyMap.get(key);
+            if (node) {
+              node.__key = key; // Task 1.5: refresh cached key
+              const raw = node.__ctx.__raw;
+              const itemChanged = raw[itemName] !== item;
+              const indexChanged = raw.$index !== i;
+              if (itemChanged || indexChanged) {
+                const childData = {
+                  [itemName]: item,
+                  $index: i,
+                  $count: count,
+                  $first: i === 0,
+                  $last: i === count - 1,
+                  $even: i % 2 === 0,
+                  $odd: i % 2 !== 0,
+                };
+                Object.assign(raw, childData);
+                node.__ctx.$notify();
+              }
+            }
+          }
+
+          // Task 2.1 + 2.2: LIS-based reorder using childOrder
+          const desiredNodes = new Array(count);
+          for (let i = 0; i < count; i++) desiredNodes[i] = keyMap.get(newOrder[i].key);
+          _reorderWithLIS(el, desiredNodes, childOrder);
+          return;
+        }
+      }
+
+      // Remove wrappers whose keys are no longer in the list.
+      if (!allKeysMatch) {
+        for (const [key, wrapper] of keyMap) {
+          if (!nextKeySet.has(key)) {
+            // Task 2.2: remove from childOrder
+            const rmIdx = childOrder.indexOf(wrapper);
+            if (rmIdx !== -1) childOrder.splice(rmIdx, 1);
+            _disposeChildren(wrapper);
+            wrapper.remove();
+            keyMap.delete(key);
+          }
         }
       }
 
       // Create new wrappers and update existing ones.
-      newOrder.forEach(({ key, item, i }) => {
+      // When all keys match (swap / partial update), we can be smarter:
+      // only notify items whose data actually changed.
+      for (let idx = 0; idx < count; idx++) {
+        const { key, item, i } = newOrder[idx];
         const childData = {
           [itemName]: item,
           $index: i,
@@ -165,23 +381,40 @@ registerDirective("each", {
 
         if (!keyMap.has(key)) {
           const clone = tpl.content.cloneNode(true);
-          const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
+          const childCtx = createLightContext(childData, ctx);
+          const { node, applyAnim } = _makeLoopItem(clone, childCtx, animEnter, stagger, i);
+          node.__key = key; // Task 1.5: cache key on the node
           keyMap.set(key, node);
           el.appendChild(node); // placed at end; reordered below
-          processTree(node);
+          childOrder.push(node); // Task 2.2: track in childOrder
+          // Task 2.5: use factory when available (Level 4 integration)
+          const factory = tplId && _factories[tplId];
+          if (factory) {
+            factory(node, childCtx, _watchExpr);
+          } else {
+            // Task 4.2: use pre-compiled descriptor when available
+            processTreeFromDescriptor(node, _getDescriptor(tpl));
+          }
           applyAnim();
         } else {
-          // Existing item: update positional metadata and notify watchers.
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
-          keyMap.get(key).__ctx.$notify();
+          const wrapper = keyMap.get(key);
+          wrapper.__key = key; // Task 1.5: refresh cached key
+          const raw = wrapper.__ctx.__raw;
+          // Check if the item data or positional metadata actually changed
+          // before firing a potentially expensive notify to all watchers.
+          const itemChanged = raw[itemName] !== item;
+          const indexChanged = raw.$index !== i;
+          if (itemChanged || indexChanged) {
+            Object.assign(raw, childData);
+            wrapper.__ctx.$notify();
+          }
         }
-      });
-
-      // Reorder DOM to match the new list using a single forward pass.
-      for (let i = 0; i < newOrder.length; i++) {
-        const itemNode = keyMap.get(newOrder[i].key);
-        if (itemNode !== el.children[i]) el.insertBefore(itemNode, el.children[i] ?? null);
       }
+
+      // Task 2.1 + 2.2: LIS-based reorder using childOrder
+      const desiredNodes = new Array(count);
+      for (let i = 0; i < count; i++) desiredNodes[i] = keyMap.get(newOrder[i].key);
+      _reorderWithLIS(el, desiredNodes, childOrder);
     }
 
     // Full rebuild: dispose all children and recreate from scratch.
@@ -190,8 +423,14 @@ registerDirective("each", {
       const count = list.length;
       _disposeChildren(el);
       el.innerHTML = "";
+      childOrder.length = 0; // Task 2.2: sync on clear
 
-      list.forEach((item, i) => {
+      // Use a DocumentFragment to batch DOM insertions and avoid
+      // triggering layout recalculations for each individual append.
+      const frag = document.createDocumentFragment();
+
+      for (let i = 0; i < count; i++) {
+        const item = list[i];
         const childData = {
           [itemName]: item,
           $index: i,
@@ -202,11 +441,36 @@ registerDirective("each", {
           $odd: i % 2 !== 0,
         };
         const clone = tpl.content.cloneNode(true);
-        const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
-        el.appendChild(node);
-        processTree(node);
-        applyAnim();
-      });
+        const { node, applyAnim } = _makeLoopItem(clone, createLightContext(childData, ctx), animEnter, stagger, i);
+        frag.appendChild(node);
+        node.__applyAnim = applyAnim; // Phase 6: stash on node to avoid separate array
+        childOrder.push(node); // Task 2.2: track in childOrder
+      }
+
+      el.appendChild(frag);
+
+      // Process trees after all nodes are in the DOM to allow findContext
+      // and other DOM-dependent lookups to work correctly.
+      // Task 2.5: use factory when available (Level 4 integration)
+      const factory = tplId && _factories[tplId];
+      if (factory) {
+        for (let i = 0; i < childOrder.length; i++) {
+          const node = childOrder[i];
+          factory(node, node.__ctx, _watchExpr);
+          node.__applyAnim();
+          node.__applyAnim = undefined;
+        }
+      } else {
+        // Phase 6: iterate childOrder directly — no pendingNodes[] allocation.
+        // Task 4.2: use pre-compiled descriptor when available
+        const desc = _getDescriptor(tpl);
+        for (let i = 0; i < childOrder.length; i++) {
+          const node = childOrder[i];
+          processTreeFromDescriptor(node, desc);
+          node.__applyAnim();
+          node.__applyAnim = undefined;
+        }
+      }
     }
 
     _watchExpr(expr, ctx, update);
@@ -259,6 +523,20 @@ registerDirective("foreach", {
 
     // key → item node (root element or wrapper div for multi-root templates).
     const keyMap = new Map();
+    // Pre-parse the key expression AST once for fast evaluation
+    const keyAst = keyExpr ? _parseAndCache(keyExpr) : null;
+    // Task 2.2: JS position array — avoids live HTMLCollection reads.
+    const childOrder = [];
+    // Task 4.2: cached template descriptor for pre-compiled directives.
+    let _tplDescriptor = null;
+    let _tplDescriptorSource = null;
+
+    function _getDescriptor(source) {
+      if (_tplDescriptorSource === source && _tplDescriptor !== null) return _tplDescriptor;
+      _tplDescriptorSource = source;
+      _tplDescriptor = _compileTemplate(source);
+      return _tplDescriptor;
+    }
 
     function update() {
       let list = resolve(fromPath, ctx);
@@ -267,7 +545,7 @@ registerDirective("foreach", {
       // Filter
       if (filterExpr) {
         list = list.filter((item, i) => {
-          const tempCtx = createContext(
+          const tempCtx = createLightContext(
             { [itemName]: item, [indexName]: i },
             ctx,
           );
@@ -296,6 +574,7 @@ registerDirective("foreach", {
         if (clone) {
           _disposeChildren(el);
           keyMap.clear();
+          childOrder.length = 0; // Task 2.2: sync on clear
           el.innerHTML = "";
           el.appendChild(clone);
           processTree(el);
@@ -314,7 +593,13 @@ registerDirective("foreach", {
       function renderForeachItems() {
         _disposeChildren(el);
         el.innerHTML = "";
-        list.forEach((item, i) => {
+        childOrder.length = 0; // Task 2.2: sync on clear
+
+        // Use a DocumentFragment to batch DOM insertions
+        const frag = document.createDocumentFragment();
+
+        for (let i = 0; i < count; i++) {
+          const item = list[i];
           const childData = {
             [itemName]: item,
             [indexName]: i,
@@ -326,16 +611,40 @@ registerDirective("foreach", {
             $odd: i % 2 !== 0,
           };
           const clone = tpl ? tpl.content.cloneNode(true) : templateContent.cloneNode(true);
-          const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
-          el.appendChild(node);
-          processTree(node);
-          applyAnim();
-        });
+          const { node, applyAnim } = _makeLoopItem(clone, createLightContext(childData, ctx), animEnter, stagger, i);
+          frag.appendChild(node);
+          node.__applyAnim = applyAnim; // Phase 6: stash on node to avoid separate array
+          childOrder.push(node); // Task 2.2: track in childOrder
+        }
+
+        el.appendChild(frag);
+
+        // Task 2.5: use factory when available (Level 4 integration)
+        const factory = tplId && _factories[tplId];
+        if (factory) {
+          for (let i = 0; i < childOrder.length; i++) {
+            const node = childOrder[i];
+            factory(node, node.__ctx, _watchExpr);
+            node.__applyAnim();
+            node.__applyAnim = undefined;
+          }
+        } else {
+          // Phase 6: iterate childOrder directly — no pendingNodes[] allocation.
+          // Task 4.2: use pre-compiled descriptor when available
+          const descSource = tpl || templateContent;
+          const desc = _getDescriptor(descSource);
+          for (let i = 0; i < childOrder.length; i++) {
+            const node = childOrder[i];
+            processTreeFromDescriptor(node, desc);
+            node.__applyAnim();
+            node.__applyAnim = undefined;
+          }
+        }
       }
 
       // Animate out old items if animate-leave is set
-      if (animLeave && el.children.length > 0) {
-        const oldItems = [...el.children];
+      if (animLeave && childOrder.length > 0) {
+        const oldItems = [...childOrder];
         let remaining = oldItems.length;
         oldItems.forEach((child) => {
           const target = child.firstElementChild || child;
@@ -361,24 +670,114 @@ registerDirective("foreach", {
       // On first render the element may still hold its original inline template
       // markup (the same content that was captured into templateContent).
       // Clear it so only managed wrappers appear as children.
-      if (keyMap.size === 0) el.innerHTML = "";
+      if (keyMap.size === 0) {
+        el.innerHTML = "";
+        childOrder.length = 0; // Task 2.2: sync on clear
+      }
 
-      const newOrder = list.map((item, i) => {
-        const tempCtx = createContext({ [itemName]: item, [indexName]: i }, ctx);
-        return { key: evaluate(keyExpr, tempCtx), item, i };
-      });
+      // Evaluate keys using lightweight scope (no Proxy creation per item)
+      // Task 1.5: reuse cached key when item reference is unchanged.
+      const newOrder = new Array(count);
+      for (let i = 0; i < count; i++) {
+        const item = list[i];
+        let key;
+        let cachedNode = null;
+        for (const [, node] of keyMap) {
+          if (node.__ctx && node.__ctx.__raw[itemName] === item && node.__key !== undefined) {
+            cachedNode = node;
+            break;
+          }
+        }
+        if (cachedNode) {
+          key = cachedNode.__key;
+        } else {
+          key = _evalKeyFast(keyAst, ctx, itemName, item, indexName, i);
+        }
+        newOrder[i] = { key, item, i };
+      }
 
-      const nextKeySet = new Set(newOrder.map((e) => e.key));
+      // Build set of keys present in the new list
+      const nextKeySet = new Set();
+      for (let i = 0; i < count; i++) nextKeySet.add(newOrder[i].key);
 
-      for (const [key, wrapper] of keyMap) {
-        if (!nextKeySet.has(key)) {
-          _disposeChildren(wrapper);
-          wrapper.remove();
-          keyMap.delete(key);
+      // Detect whether this is a same-keys reconciliation
+      const sameSize = nextKeySet.size === keyMap.size;
+      let allKeysMatch = sameSize;
+      if (sameSize) {
+        for (const key of nextKeySet) {
+          if (!keyMap.has(key)) { allKeysMatch = false; break; }
         }
       }
 
-      newOrder.forEach(({ key, item, i }) => {
+      // Task 1.4: Single-removal fast path — when exactly one item was removed,
+      // find it, dispose+remove its DOM, delete from keyMap, update metadata on
+      // surviving items, and skip full reconciliation.
+      if (!allKeysMatch && nextKeySet.size === keyMap.size - 1) {
+        let missingKey = null;
+        for (const key of keyMap.keys()) {
+          if (!nextKeySet.has(key)) {
+            if (missingKey !== null) { missingKey = null; break; }
+            missingKey = key;
+          }
+        }
+        if (missingKey !== null) {
+          const wrapper = keyMap.get(missingKey);
+          // Task 2.2: remove from childOrder
+          const rmIdx = childOrder.indexOf(wrapper);
+          if (rmIdx !== -1) childOrder.splice(rmIdx, 1);
+          _disposeChildren(wrapper);
+          wrapper.remove();
+          keyMap.delete(missingKey);
+
+          // Update $index and positional metadata on surviving items
+          for (let idx = 0; idx < count; idx++) {
+            const { key, item, i } = newOrder[idx];
+            const node = keyMap.get(key);
+            if (node) {
+              node.__key = key; // Task 1.5: refresh cached key
+              const raw = node.__ctx.__raw;
+              const itemChanged = raw[itemName] !== item;
+              const indexChanged = raw.$index !== i;
+              if (itemChanged || indexChanged) {
+                const childData = {
+                  [itemName]: item,
+                  [indexName]: i,
+                  $index: i,
+                  $count: count,
+                  $first: i === 0,
+                  $last: i === count - 1,
+                  $even: i % 2 === 0,
+                  $odd: i % 2 !== 0,
+                };
+                Object.assign(raw, childData);
+                node.__ctx.$notify();
+              }
+            }
+          }
+
+          // Task 2.1 + 2.2: LIS-based reorder using childOrder
+          const desiredNodes = new Array(count);
+          for (let i = 0; i < count; i++) desiredNodes[i] = keyMap.get(newOrder[i].key);
+          _reorderWithLIS(el, desiredNodes, childOrder);
+          return;
+        }
+      }
+
+      if (!allKeysMatch) {
+        for (const [key, wrapper] of keyMap) {
+          if (!nextKeySet.has(key)) {
+            // Task 2.2: remove from childOrder
+            const rmIdx = childOrder.indexOf(wrapper);
+            if (rmIdx !== -1) childOrder.splice(rmIdx, 1);
+            _disposeChildren(wrapper);
+            wrapper.remove();
+            keyMap.delete(key);
+          }
+        }
+      }
+
+      for (let idx = 0; idx < count; idx++) {
+        const { key, item, i } = newOrder[idx];
         const childData = {
           [itemName]: item,
           [indexName]: i,
@@ -392,21 +791,40 @@ registerDirective("foreach", {
 
         if (!keyMap.has(key)) {
           const clone = tpl ? tpl.content.cloneNode(true) : templateContent.cloneNode(true);
-          const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
+          const childCtx = createLightContext(childData, ctx);
+          const { node, applyAnim } = _makeLoopItem(clone, childCtx, animEnter, stagger, i);
+          node.__key = key; // Task 1.5: cache key on the node
           keyMap.set(key, node);
           el.appendChild(node);
-          processTree(node);
+          childOrder.push(node); // Task 2.2: track in childOrder
+          // Task 2.5: use factory when available (Level 4 integration)
+          const factory = tplId && _factories[tplId];
+          if (factory) {
+            factory(node, childCtx, _watchExpr);
+          } else {
+            // Task 4.2: use pre-compiled descriptor when available
+            processTreeFromDescriptor(node, _getDescriptor(tpl || templateContent));
+          }
           applyAnim();
         } else {
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
-          keyMap.get(key).__ctx.$notify();
+          const wrapper = keyMap.get(key);
+          wrapper.__key = key; // Task 1.5: refresh cached key
+          const raw = wrapper.__ctx.__raw;
+          const itemChanged = raw[itemName] !== item;
+          const indexChanged = raw.$index !== i;
+          if (itemChanged || indexChanged) {
+            Object.assign(raw, childData);
+            wrapper.__ctx.$notify();
+          } else {
+            wrapper.__ctx.$notify();
+          }
         }
-      });
-
-      for (let i = 0; i < newOrder.length; i++) {
-        const itemNode = keyMap.get(newOrder[i].key);
-        if (itemNode !== el.children[i]) el.insertBefore(itemNode, el.children[i] ?? null);
       }
+
+      // Task 2.1 + 2.2: LIS-based reorder using childOrder (foreach)
+      const desiredNodes = new Array(count);
+      for (let i = 0; i < count; i++) desiredNodes[i] = keyMap.get(newOrder[i].key);
+      _reorderWithLIS(el, desiredNodes, childOrder);
     }
 
     _watchExpr(fromPath, ctx, update);

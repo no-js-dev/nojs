@@ -784,39 +784,6 @@ describe('Router — prefetch routes from <a route> links', () => {
     window.location.hash = '';
   });
 
-  test.skip('prefetches route templates from <a route> links on init (jsdom navigation not supported)', async () => {
-    const fetchedUrls = [];
-    global.fetch = jest.fn((url) => {
-      fetchedUrls.push(url);
-      return Promise.resolve({ ok: true, text: () => Promise.resolve('<p>Prefetched</p>') });
-    });
-
-    const outlet = document.createElement('div');
-    outlet.setAttribute('route-view', '');
-    outlet.setAttribute('src', 'templates/');
-    outlet.setAttribute('route-index', 'landing');
-    document.body.appendChild(outlet);
-
-    // Route links
-    const link1 = document.createElement('a');
-    link1.setAttribute('route', '/features');
-    document.body.appendChild(link1);
-
-    const link2 = document.createElement('a');
-    link2.setAttribute('route', '/examples');
-    document.body.appendChild(link2);
-
-    const router = _createRouter();
-    setRouterInstance(router);
-    await router.init();
-
-    // Wait for background prefetch to complete
-    await new Promise((r) => setTimeout(r, 50));
-
-    expect(fetchedUrls).toContain('templates/features.html');
-    expect(fetchedUrls).toContain('templates/examples.html');
-  });
-
   test('lazy="ondemand" links are not prefetched', async () => {
     const fetchedUrls = [];
     global.fetch = jest.fn((url) => {
@@ -842,78 +809,6 @@ describe('Router — prefetch routes from <a route> links', () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(fetchedUrls).not.toContain('templates/playground.html');
-  });
-
-  test.skip('lazy="priority" links are prefetched before default links (jsdom navigation not supported)', async () => {
-    const fetchOrder = [];
-    global.fetch = jest.fn((url) => {
-      fetchOrder.push(url);
-      return Promise.resolve({ ok: true, text: () => Promise.resolve('<p>Page</p>') });
-    });
-
-    const outlet = document.createElement('div');
-    outlet.setAttribute('route-view', '');
-    outlet.setAttribute('src', 'templates/');
-    outlet.setAttribute('route-index', 'landing');
-    document.body.appendChild(outlet);
-
-    // Default link
-    const bgLink = document.createElement('a');
-    bgLink.setAttribute('route', '/features');
-    document.body.appendChild(bgLink);
-
-    // Priority link
-    const prioLink = document.createElement('a');
-    prioLink.setAttribute('route', '/docs');
-    prioLink.setAttribute('lazy', 'priority');
-    document.body.appendChild(prioLink);
-
-    const router = _createRouter();
-    setRouterInstance(router);
-    await router.init();
-
-    // Wait for all fetches
-    await new Promise((r) => setTimeout(r, 50));
-
-    const docsIdx = fetchOrder.indexOf('templates/docs.html');
-    const featIdx = fetchOrder.indexOf('templates/features.html');
-    expect(docsIdx).toBeGreaterThanOrEqual(0);
-    expect(featIdx).toBeGreaterThanOrEqual(0);
-    expect(docsIdx).toBeLessThan(featIdx);
-  });
-
-  test.skip('deduplicates links — priority wins over default (jsdom navigation not supported)', async () => {
-    const fetchedUrls = [];
-    global.fetch = jest.fn((url) => {
-      fetchedUrls.push(url);
-      return Promise.resolve({ ok: true, text: () => Promise.resolve('<p>Page</p>') });
-    });
-
-    const outlet = document.createElement('div');
-    outlet.setAttribute('route-view', '');
-    outlet.setAttribute('src', 'templates/');
-    outlet.setAttribute('route-index', 'landing');
-    document.body.appendChild(outlet);
-
-    // Same path, two links: one default, one priority
-    const link1 = document.createElement('a');
-    link1.setAttribute('route', '/docs');
-    document.body.appendChild(link1);
-
-    const link2 = document.createElement('a');
-    link2.setAttribute('route', '/docs');
-    link2.setAttribute('lazy', 'priority');
-    document.body.appendChild(link2);
-
-    const router = _createRouter();
-    setRouterInstance(router);
-    await router.init();
-
-    await new Promise((r) => setTimeout(r, 50));
-
-    // Should only fetch once
-    const docsFetches = fetchedUrls.filter((u) => u === 'templates/docs.html');
-    expect(docsFetches.length).toBe(1);
   });
 
   test('current route is not prefetched', async () => {

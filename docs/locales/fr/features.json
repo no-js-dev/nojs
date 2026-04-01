@@ -62,6 +62,10 @@
       "zero": {
         "title": "Zéro dépendance",
         "desc": "Pas d'outils de build, pas de bundlers, pas de npm install. Ajoutez simplement une balise script et commencez à construire instantanément."
+      },
+      "compile": {
+        "title": "Compilation Optionnelle",
+        "desc": "Exécutez nojs prebuild --compile pour optimiser en production. Pré-résout les directives et supprime le surcoût du runtime. Jamais requis, toujours bénéfique."
       }
     },
     "cta": {

@@ -1228,6 +1228,85 @@
         "cspSecText1": "No.JS utiliza un parser de expresiones personalizado totalmente compatible con CSP — no se usa eval() ni el constructor Function(). No se requiere la directiva unsafe-eval en tu Content Security Policy."
       }
     },
+    "compilation": {
+      "hero": {
+        "badge": "Referencia de API",
+        "title": "Compilación",
+        "subtitle": "Paso de compilación opcional que acerca No.JS a ~1.2x del rendimiento de Vanilla JS"
+      },
+      "why": {
+        "title": "¿Por qué compilar?",
+        "text": "No.JS interpreta las directivas en tiempo de ejecución: recorre el DOM, analiza las expresiones de atributos y crea enlaces reactivos en cada carga de página. El compilador pre-resuelve las directivas en tiempo de compilación para que el navegador haga menos trabajo en tiempo de ejecución.",
+        "callout": "No.JS compilado se ejecuta aproximadamente al 80–85 % de la velocidad de Vanilla JS puro — sin cambios en tu HTML fuente.",
+        "thMode": "Modo",
+        "thPerformance": "Relativo a Vanilla JS",
+        "interpreted": "No.JS (interpretado)",
+        "compiled": "No.JS (compilado)"
+      },
+      "levels": {
+        "title": "Niveles de Compilación",
+        "text": "El compilador soporta cuatro niveles de optimización incrementales. Los niveles más altos producen una salida más rápida pero realizan transformaciones más profundas.",
+        "level1Title": "Nivel 1 — Extracción Estática",
+        "level1Text": "Evalúa expresiones que no contienen referencias reactivas y las reemplaza con sus valores literales. Elimina el atributo de directiva del elemento.",
+        "level2Title": "Nivel 2 — Inlining de Directivas",
+        "level2Text": "Convierte directivas reactivas simples en enlaces fast-path ligeros, eliminando el procesador genérico de directivas para esos elementos.",
+        "level3Title": "Nivel 3 — Pre-compilación de Templates",
+        "level3Text": "Pre-compila loops each, bloques if/else e includes de templates en fragmentos DOM optimizados que el runtime puede estampar sin analizar.",
+        "level4Title": "Nivel 4 — Optimización Completa",
+        "level4Text": "Combina todos los niveles anteriores más eliminación de código muerto, constant-folding de expresiones y scope hoisting. Recomendado para despliegues en producción."
+      },
+      "cli": {
+        "title": "Uso del CLI",
+        "text": "El compilador se invoca a través del comando prebuild del CLI de NoJS:",
+        "flagsTitle": "Flags",
+        "thFlag": "Flag",
+        "thDefault": "Default",
+        "thDescription": "Descripción",
+        "flagCompile": "Habilitar compilación",
+        "flagLevel": "Nivel de optimización (1–4)",
+        "flagOut": "Directorio de salida",
+        "flagSourcemap": "Generar source maps",
+        "flagMinify": "Minificar salida HTML",
+        "flagWatch": "Re-compilar ante cambios de archivos"
+      },
+      "workflow": {
+        "title": "Modo Dev vs Modo Producción",
+        "thDev": "Desarrollo",
+        "thProd": "Producción",
+        "rowSource": "Fuente",
+        "rowSourceDev": "HTML normal de No.JS",
+        "rowSourceProd": "Los mismos archivos fuente",
+        "rowBuild": "Paso de compilación",
+        "rowBuildDev": "Ninguno",
+        "rowRuntime": "Runtime",
+        "rowRuntimeDev": "Intérprete completo",
+        "rowRuntimeProd": "Runtime fast-path",
+        "rowDebug": "Depuración",
+        "rowDebugDev": "Nombres de atributos completos visibles",
+        "rowDebugProd": "Atributos compilados (usa --sourcemap)",
+        "callout": "Desarrolla con No.JS plano — sin paso de compilación, recarga instantánea. Antes de desplegar, ejecuta nojs prebuild --compile. Despliega la salida de dist/."
+      },
+      "config": {
+        "title": "Configuración",
+        "text": "Crea un nojs-prebuild.config.js (o .mjs) en la raíz de tu proyecto:",
+        "override": "Cuando existe un archivo de configuración, nojs prebuild lo lee automáticamente. Los flags del CLI sobreescriben los valores del archivo de configuración."
+      },
+      "faq": {
+        "title": "FAQ",
+        "needTitle": "¿Necesito esto?",
+        "needText": "No. No.JS funciona perfectamente sin compilación. El intérprete en tiempo de ejecución está listo para producción y es usado por muchos sitios sin un paso de compilación. La compilación es puramente una optimización.",
+        "shouldTitle": "¿Debería usarlo?",
+        "shouldText": "Para producción, sí. Si te importa exprimir cada milisegundo de la carga inicial de página y las actualizaciones reactivas, el compilador te acerca a ~20 % del rendimiento de Vanilla JS escrito a mano — gratis.",
+        "sourceTitle": "¿Cambia mis archivos fuente?",
+        "sourceText": "No. El compilador lee tu fuente y escribe la salida compilada en un directorio separado (dist/ por defecto). Tus archivos fuente nunca se modifican.",
+        "mixTitle": "¿Puedo mezclar páginas compiladas y no compiladas?",
+        "mixText": "Sí. El runtime de No.JS maneja tanto atributos de directivas regulares como atributos data-nojs-c compilados en el mismo documento. Puedes compilar tus páginas críticas y dejar otras interpretadas.",
+        "pluginsTitle": "¿Funciona con plugins?",
+        "pluginsText": "Sí. Los plugins que registran directivas personalizadas son soportados. El compilador consulta los metadatos de directiva del plugin en tiempo de compilación para determinar si una directiva personalizada puede compilarse.",
+        "ssgTitle": "¿Qué hay de SSR / SSG?",
+        "ssgText": "La compilación y SSG son complementarios. Puedes ejecutar tu herramienta SSG (Eleventy, Astro, etc.) primero, luego ejecutar nojs prebuild --compile sobre la salida del SSG para optimizar las directivas de No.JS en el HTML generado."
+      }
+    },
     "plugins": {
       "hero": {
         "badge": "Referencia de API",

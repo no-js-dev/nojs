@@ -1,6 +1,6 @@
 # No.JS
 
-> No.JS is an HTML-first reactive framework for building dynamic web applications using only HTML attributes. ~24 KB gzipped, zero dependencies, no build step, no virtual DOM, CSP-compliant. Include one script tag and start writing directives.
+> No.JS is an HTML-first reactive framework for building dynamic web applications using only HTML attributes. ~24 KB gzipped, zero dependencies, no required build step (optional compilation for production performance), no virtual DOM, CSP-compliant. Include one script tag and start writing directives.
 
 No.JS replaces JavaScript framework boilerplate with declarative HTML attributes. Directives like `get`, `bind`, `state`, `each`, `if`, and `on:click` handle data fetching, rendering, state management, and interactivity — all without writing JavaScript. Data lives in reactive contexts (Proxy-backed) that inherit through the DOM like lexical scoping. Directives execute by priority: state (0) → HTTP/error-boundary (1) → computed/watch (2) → ref (5) → structural (10) → rendering/events (20) → validation (30).
 

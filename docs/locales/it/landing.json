@@ -3,7 +3,7 @@
     "hero": {
       "badge": "Framework reattivo HTML-first",
       "headline": "Costruisci app reattive\nsenza JavaScript.",
-      "subtitle": "No.JS è un framework HTML-first che trasforma gli attributi in un motore reattivo completo. Zero dipendenze, nessun build step.",
+      "subtitle": "No.JS è un framework HTML-first che trasforma gli attributi in un motore reattivo completo. Zero dipendenze. Nessun build step richiesto.",
       "getStarted": "Inizia Ora",
       "playground": "Playground"
     },
@@ -14,7 +14,7 @@
       "reactMeta": "25 righe  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
       "nojsMeta": "4 righe  ·  0 import",
-      "nojsNote": "✓ Reattivo  ·  ✓ Auto-fetch  ·  ✓ Nessun build step"
+      "nojsNote": "✓ Reattivo  ·  ✓ Auto-fetch  ·  ✓ Nessun build richiesto"
     },
     "featuresGrid": {
       "kicker": "COSA OTTIENI",
@@ -37,7 +37,7 @@
       "badge": "Il risultato.",
       "h1": "Il tuo bundle è 2,3 MB.",
       "h2": "Il nostro è 24 KB.",
-      "subtitle": "Nessun build step. Nessun bundler. Nessuna scusa.",
+      "subtitle": "Nessun build richiesto. Nessun bundler. Nessuna scusa.",
       "getStarted": "Inizia Ora",
       "seeFeatures": "Leggi la Documentazione"
     },

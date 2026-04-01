@@ -7,7 +7,7 @@
 **The HTML-First Reactive Framework**
 
 Build dynamic, reactive web applications using nothing but HTML attributes.
-No build step. No virtual DOM. No transpiler. No JSX. Just HTML.
+No required build step. No virtual DOM. No transpiler. No JSX. Just HTML.
 
 ```html
 <div get="/users/1" as="user">
@@ -200,6 +200,18 @@ Full documentation is available in the [docs/](docs/) folder:
 | [NoJS-MCP](https://github.com/ErickXavier/nojs-mcp) | MCP server — AI tools for building No.JS apps |
 | [NoJS-Skill](https://github.com/ErickXavier/nojs-skill) | Claude Code skill — guided No.JS project generation |
 | [NoJS-CLI](https://github.com/ErickXavier/nojs-cli) | CLI tool — scaffold, dev server, build & deploy No.JS apps |
+
+---
+
+## Optional Compiler
+
+No.JS works perfectly with zero build steps — just include the script and write HTML. For production performance, an optional compiler is available that pre-compiles templates into optimized output, achieving near-Svelte performance while keeping the same declarative HTML authoring experience.
+
+```bash
+nojs build
+```
+
+The compiler is never required. It's a bonus for teams that want the best possible runtime performance.
 
 ---
 

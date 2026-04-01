@@ -2,11 +2,12 @@
 //  DIRECTIVES: if, else-if, else, show, hide, switch
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _watchExpr, _onDispose } from "../globals.js";
+import { _watchExpr, _onDispose, _compiledFns } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 import { _animateIn, _animateOut } from "../animations.js";
+import { _getCompiledIndex } from "../compiled.js";
 
 registerDirective("if", {
   priority: 10,
@@ -24,8 +25,12 @@ registerDirective("if", {
     let _cancelAnim = null;
     _onDispose(() => { if (_cancelAnim) { _cancelAnim(); _cancelAnim = null; } });
 
+    // Task 2.4: use compiled function when available
+    const _ci = _getCompiledIndex(el, "if");
+    const _compiledFn = _ci !== null ? _compiledFns[_ci] : null;
+
     function update() {
-      const result = !!evaluate(expr, ctx);
+      const result = !!(_compiledFn ? _compiledFn(ctx) : evaluate(expr, ctx));
       if (result === currentState) return;
       currentState = result;
 
@@ -195,8 +200,12 @@ registerDirective("show", {
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
     let currentState = undefined;
 
+    // Task 2.4: use compiled function when available
+    const _ci = _getCompiledIndex(el, "show");
+    const _compiledFn = _ci !== null ? _compiledFns[_ci] : null;
+
     function update() {
-      const result = !!evaluate(expr, ctx);
+      const result = !!(_compiledFn ? _compiledFn(ctx) : evaluate(expr, ctx));
       if (result === currentState) return;
       currentState = result;
 
@@ -226,8 +235,12 @@ registerDirective("hide", {
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
     let currentState = undefined;
 
+    // Task 2.4: use compiled function when available
+    const _ci = _getCompiledIndex(el, "hide");
+    const _compiledFn = _ci !== null ? _compiledFns[_ci] : null;
+
     function update() {
-      const result = !evaluate(expr, ctx);
+      const result = !(_compiledFn ? _compiledFn(ctx) : evaluate(expr, ctx));
       if (result === currentState) return;
       currentState = result;
 

@@ -28,10 +28,12 @@ import {
   _CANCEL,
   _RESPOND,
   _REPLACE,
+  _compiledFns,
+  _factories,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale } from "./i18n.js";
 import { createContext } from "./context.js";
-import { evaluate, resolve } from "./evaluate.js";
+import { evaluate, resolve, _exprCache } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes } from "./dom.js";
 import { registerDirective, processTree } from "./registry.js";
 import { _createRouter } from "./router.js";
@@ -57,6 +59,32 @@ import "./directives/head.js";
 // Lock core directives — plugins can only register NEW names
 import { _freezeDirectives } from "./registry.js";
 _freezeDirectives();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  V8 HIDDEN CLASS PRE-INITIALIZATION (Task 5.1)
+// ═══════════════════════════════════════════════════════════════════════
+// Pre-set prototype properties used by the caching system so V8 creates
+// optimized hidden classes upfront rather than transitioning shapes at
+// runtime.  Dynamic-key caches (__cls_*, __sty_*, __a_*) cannot be
+// pre-inited since the keys depend on attribute/class names, but fixed-
+// name properties benefit significantly.
+// Inspired by Svelte's operations.js lines 49-66.
+if (typeof Element !== "undefined") {
+  Element.prototype.__ctx = undefined;
+  Element.prototype.__key = undefined;
+  Element.prototype.__declared = undefined;
+  Element.prototype.__disposers = undefined;
+  Element.prototype.__t = undefined;
+  Element.prototype.__srcBase = undefined;
+  Element.prototype.__srcLoaded = undefined;
+  Element.prototype.__loadFailed = undefined;
+}
+if (typeof Text !== "undefined") {
+  Text.prototype.__t = undefined;
+}
+if (typeof DocumentFragment !== "undefined") {
+  DocumentFragment.prototype.__srcBase = undefined;
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  PLUGIN SYSTEM INTERNALS
@@ -355,6 +383,24 @@ const NoJS = {
       root = root || document.body;
       _log("Initializing...");
 
+      // ── AST cache bootstrap ──────────────────────────────────────────
+      // If the compiler pre-serialized ASTs into a <script> tag, hydrate
+      // the expression cache so expressions skip parsing at runtime.
+      const astCacheEl = document.getElementById("__nojs_ast_cache");
+      if (astCacheEl) {
+        try {
+          const entries = JSON.parse(astCacheEl.textContent);
+          if (entries && typeof entries === "object") {
+            for (const [expr, ast] of Object.entries(entries)) {
+              _exprCache.set(expr, ast);
+            }
+            _log(`AST cache hydrated: ${Object.keys(entries).length} entries.`);
+          }
+        } catch (e) {
+          _warn("Failed to parse __nojs_ast_cache:", e.message);
+        }
+      }
+
       // Load external locale files (blocking — translations must be available for first paint)
       if (_config.i18n.loadPath) {
         const locales = new Set([_i18n.locale, _config.i18n.fallbackLocale]);
@@ -497,6 +543,13 @@ const NoJS = {
 Object.defineProperty(NoJS, "CANCEL",  { value: _CANCEL,  writable: false, configurable: false });
 Object.defineProperty(NoJS, "RESPOND", { value: _RESPOND, writable: false, configurable: false });
 Object.defineProperty(NoJS, "REPLACE", { value: _REPLACE, writable: false, configurable: false });
+
+// ─── Compiler namespace ────────────────────────────────────────────────
+// Use shared references from globals.js so directive files can access them
+// without importing NoJS (which would create circular dependencies).
+Object.defineProperty(NoJS, "_compiled",  { value: _compiledFns, writable: true, configurable: true });
+Object.defineProperty(NoJS, "_factories", { value: _factories, writable: true, configurable: true });
+Object.defineProperty(NoJS, "_filters",   { value: _filters, writable: false, configurable: false });
 
 // Backward-compat: _initialized getter/setter (tests use `NoJS._initialized = false` to reset)
 Object.defineProperty(NoJS, "_initialized", {

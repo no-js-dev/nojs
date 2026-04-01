@@ -15,6 +15,7 @@
       <a href="#plugins" class="sidebar-link" t="shell.sidebar.plugins"></a>
       <a href="#error-handling" class="sidebar-link" t="shell.sidebar.errorHandling"></a>
       <a href="#configuration" class="sidebar-link" t="shell.sidebar.configuration"></a>
+      <a href="#compilation" class="sidebar-link" t="shell.sidebar.compilation"></a>
     </div>
 
     <div class="sidebar-group">

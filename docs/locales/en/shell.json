@@ -40,6 +40,7 @@
       "customDirectives": "Custom Directives",
       "errorHandling": "Error Handling",
       "configuration": "Configuration",
+      "compilation": "Compilation",
       "guides": "Guides",
       "stateManagement": "State Management",
       "eventHandling": "Event Handling",

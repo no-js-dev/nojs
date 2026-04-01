@@ -90,7 +90,7 @@
       },
       "q15": {
         "question": "Serve un build step?",
-        "answer": "No. Un tag script, zero configurazione. Nessuna compilazione, transpilazione o bundling. Il deploy è caricare file HTML."
+        "answer": "No. Un tag script funziona direttamente. Il comando opzionale <code>nojs prebuild --compile</code> ottimizza per la produzione, ma non è mai richiesto. Il deploy è caricare file HTML."
       },
       "q16": {
         "question": "È pronto per la produzione?",

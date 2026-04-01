@@ -2,20 +2,24 @@
 //  DIRECTIVES: bind, bind-html, bind-*, model
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _watchExpr, _onDispose, _config, _warn } from "../globals.js";
+import { _watchExpr, _onDispose, _config, _warn, _compiledFns } from "../globals.js";
 import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext, _sanitizeHtml } from "../dom.js";
 import { registerDirective, _disposeChildren } from "../registry.js";
+import { _getCompiledIndex } from "../compiled.js";
 
 registerDirective("bind", {
   priority: 20,
   init(el, name, expr) {
     const ctx = findContext(el);
+    const _ci = _getCompiledIndex(el, "bind");
+    const _compiledFn = _ci !== null ? _compiledFns[_ci] : null;
     function update() {
-      const val = evaluate(expr, ctx);
-      el.textContent = (val !== undefined && val !== null) ? String(val) : '';
+      const val = _compiledFn ? _compiledFn(ctx) : evaluate(expr, ctx);
+      const text = (val !== undefined && val !== null) ? String(val) : '';
+      if (el.__t !== text) { el.__t = text; el.textContent = text; }
     }
-    _watchExpr(expr, ctx, update);
+    _watchExpr(_compiledFn || expr, ctx, update);
     update();
   },
 });
@@ -114,6 +118,10 @@ registerDirective("bind-*", {
     const attrName = name.replace("bind-", "");
     const ctx = findContext(el);
 
+    // Task 2.1: use compiled function when available (bind-html excluded by spec)
+    const _ci = _getCompiledIndex(el, name);
+    const _compiledFn = _ci !== null ? _compiledFns[_ci] : null;
+
     // Two-way binding for value
     if (
       attrName === "value" &&
@@ -129,8 +137,9 @@ registerDirective("bind-*", {
       _onDispose(() => el.removeEventListener("input", inputHandler));
     }
 
+    const _cacheKey = "__a_" + attrName;
     function update() {
-      const val = evaluate(expr, ctx);
+      const val = _compiledFn ? _compiledFn(ctx) : evaluate(expr, ctx);
       // Boolean attributes
       if (
         [
@@ -142,15 +151,23 @@ registerDirective("bind-*", {
           "required",
         ].includes(attrName)
       ) {
-        if (val) el.setAttribute(attrName, "");
-        else el.removeAttribute(attrName);
-        if (attrName in el) el[attrName] = !!val;
+        const boolVal = !!val;
+        if (el[_cacheKey] !== boolVal) {
+          el[_cacheKey] = boolVal;
+          if (boolVal) el.setAttribute(attrName, "");
+          else el.removeAttribute(attrName);
+          if (attrName in el) el[attrName] = boolVal;
+        }
         return;
       }
-      if (val != null) el.setAttribute(attrName, String(_sanitizeAttrValue(attrName, val)));
-      else el.removeAttribute(attrName);
+      const strVal = val != null ? String(_sanitizeAttrValue(attrName, val)) : null;
+      if (el[_cacheKey] !== strVal) {
+        el[_cacheKey] = strVal;
+        if (strVal != null) el.setAttribute(attrName, strVal);
+        else el.removeAttribute(attrName);
+      }
     }
-    _watchExpr(expr, ctx, update);
+    _watchExpr(_compiledFn || expr, ctx, update);
     update();
   },
 });

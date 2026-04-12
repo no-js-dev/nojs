@@ -21,7 +21,9 @@ coverage/
 
 # Build output
 playwright-report
+playwright-transform-cache-*
 test-results
 .github/specs
 .github/reviews
 .github/agents
+node-compile-cache

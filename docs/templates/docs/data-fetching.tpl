@@ -89,7 +89,7 @@
      <span class="hl-attr">refresh</span>=<span class="hl-str">"30000"</span>
      <span class="hl-attr">cached</span><span class="hl-tag">&gt;</span>
 
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"user in users"</span> <span class="hl-attr">template</span>=<span class="hl-str">"userCard"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"user in users"</span> <span class="hl-attr">template</span>=<span class="hl-str">"userCard"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 
 <span class="hl-tag">&lt;/div&gt;</span>
 
@@ -198,7 +198,7 @@
       <div class="demo-code">
         <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"https://jsonplaceholder.typicode.com/users?_limit=3"</span>
      <span class="hl-attr">as</span>=<span class="hl-str">"users"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"user in users"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"user in users"</span><span class="hl-tag">&gt;</span>
     <span class="hl-tag">&lt;strong</span> <span class="hl-attr">bind</span>=<span class="hl-str">"user.name"</span><span class="hl-tag">&gt;&lt;/strong&gt;</span>
     <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"user.email"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
@@ -207,7 +207,7 @@
       <div class="demo-preview">
         <span class="demo-result-label" t="docs.dataFetching.liveDemo.label"></span>
         <div get="https://jsonplaceholder.typicode.com/users?_limit=3" as="users">
-          <div each="user in users" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+          <div foreach="user in users" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
             <strong bind="user.name"></strong><br>
             <span style="color: var(--text-muted); font-size: 0.875rem;" bind="user.email"></span>
           </div>

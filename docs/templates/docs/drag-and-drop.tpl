@@ -33,14 +33,14 @@
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:8px;font-weight:600;" t="docs.dnd.drag.fruitsLabel"></p>
             <div style="display:flex;flex-direction:column;gap:6px;">
-              <div each="fruit in fruits" template="dnd-fruit-tpl" style="display:contents"></div>
+              <div foreach="fruit in fruits" template="dnd-fruit-tpl" style="display:contents"></div>
             </div>
           </div>
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:8px;font-weight:600;"><span t="docs.dnd.drag.basketLabel"></span> (<span bind="bin.length"></span>)</p>
             <div drop="bin = [...bin, $drag]" drop-accept="fruit"
                  style="min-height:100px;padding:8px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s;">
-              <div each="item in bin" template="dnd-bin-tpl" style="display:contents"></div>
+              <div foreach="item in bin" template="dnd-bin-tpl" style="display:contents"></div>
             </div>
           </div>
         </div>
@@ -94,21 +94,21 @@
         <div class="demo-result-label" t="docs.dnd.drop.preview"></div>
         <p class="text-sm text-muted mb-2" t="docs.dnd.drop.demoText"></p>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-          <div each="color in colors" template="dnd-color-tpl" style="display:contents"></div>
+          <div foreach="color in colors" template="dnd-color-tpl" style="display:contents"></div>
         </div>
         <div style="display:flex;gap:12px;">
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:6px;font-weight:600;" t="docs.dnd.drop.zoneALabel"></p>
             <div drop="zone1 = [...zone1, $drag]" drop-accept="color"
                  style="min-height:80px;padding:8px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;gap:4px;">
-              <div each="c in zone1" template="dnd-dropped-color" style="display:contents"></div>
+              <div foreach="c in zone1" template="dnd-dropped-color" style="display:contents"></div>
             </div>
           </div>
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:6px;font-weight:600;" t="docs.dnd.drop.zoneBLabel"></p>
             <div drop="zone2 = [...zone2, $drag]" drop-accept="color" drop-max="2"
                  style="min-height:80px;padding:8px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;gap:4px;">
-              <div each="c in zone2" template="dnd-dropped-color" style="display:contents"></div>
+              <div foreach="c in zone2" template="dnd-dropped-color" style="display:contents"></div>
             </div>
           </div>
         </div>
@@ -296,14 +296,14 @@
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:8px;font-weight:600;" t="docs.dnd.dragMultiple.availableLabel"></p>
             <div style="display:flex;flex-direction:column;gap:6px;">
-              <div each="card in items" template="sel-card-tpl" style="display:contents"></div>
+              <div foreach="card in items" template="sel-card-tpl" style="display:contents"></div>
             </div>
           </div>
           <div style="flex:1;">
             <p class="text-sm" style="margin-bottom:8px;font-weight:600;"><span t="docs.dnd.dragMultiple.collectedLabel"></span> (<span bind="collected.length"></span>)</p>
             <div drop="collected = [...collected, ...(Array.isArray($drag) ? $drag : [$drag])]" drop-accept="sel-card"
                  style="min-height:100px;padding:8px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;gap:6px;">
-              <div each="c in collected" template="sel-collected-tpl" style="display:contents"></div>
+              <div foreach="c in collected" template="sel-collected-tpl" style="display:contents"></div>
             </div>
           </div>
         </div>
@@ -368,7 +368,7 @@
         <div class="demo-result-label" t="docs.dnd.implicitVars.preview"></div>
         <p class="text-sm text-muted mb-2" t-html="docs.dnd.implicitVars.demoText"></p>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-          <div each="it in items" template="iv-item-tpl" style="display:contents"></div>
+          <div foreach="it in items" template="iv-item-tpl" style="display:contents"></div>
         </div>
         <div drop="info = '📦 $drag = ' + $drag + '\n📝 $dragType = ' + $dragType + '\n🔧 $dragEffect = ' + $dragEffect" drop-accept="*"
              style="min-height:60px;padding:12px;border:2px dashed var(--border);border-radius:8px;text-align:center;color:var(--text-dim);" t="docs.dnd.implicitVars.dropHere">
@@ -421,12 +421,12 @@
         </style>
         <p class="text-sm text-muted mb-2" t="docs.dnd.cssClasses.demoText"></p>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-          <div each="ci in cssItems" template="css-item-tpl" style="display:contents"></div>
+          <div foreach="ci in cssItems" template="css-item-tpl" style="display:contents"></div>
         </div>
         <div class="css-demo-zone" drop="cssBin = [...cssBin, $drag]" drop-accept="css-demo" drop-max="2"
              style="min-height:60px;padding:10px;border:2px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;gap:4px;transition:all .2s;">
           <span style="color:var(--text-dim);font-size:0.85rem;" show="cssBin.length === 0" t-html="docs.dnd.cssClasses.dropZoneHint"></span>
-          <div each="ci in cssBin" template="css-dropped-tpl" style="display:contents"></div>
+          <div foreach="ci in cssBin" template="css-dropped-tpl" style="display:contents"></div>
         </div>
         <template id="css-item-tpl">
           <div class="css-demo-item" drag="ci" drag-type="css-demo" style="padding:8px 12px;background:var(--primary-surface);border:1px solid var(--primary);border-radius:6px;cursor:grab;font-size:0.9rem;transition:all .2s;">

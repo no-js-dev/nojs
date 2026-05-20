@@ -4,7 +4,7 @@
 
 let _stylesInjected = false;
 
-function _injectBuiltInStyles() {
+export function _injectBuiltInStyles() {
   if (_stylesInjected || typeof document === "undefined") return;
   _stylesInjected = true;
 
@@ -23,6 +23,61 @@ function _injectBuiltInStyles() {
 @keyframes zoomOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.5); } }
 @keyframes bounceIn { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes bounceOut { 0% { opacity: 1; transform: scale(1); } 20% { transform: scale(0.9); } 50%,55% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(0.3); } }
+
+/* ── View Transition API presets ── */
+::view-transition-old(route-content),
+::view-transition-new(route-content) {
+  animation-duration: 0.3s;
+  animation-timing-function: ease;
+}
+
+/* Slide (directional) — forward */
+:root:active-view-transition-type(slide):active-view-transition-type(forward) ::view-transition-old(route-content) {
+  animation-name: slideOutLeft;
+}
+:root:active-view-transition-type(slide):active-view-transition-type(forward) ::view-transition-new(route-content) {
+  animation-name: slideInRight;
+}
+
+/* Slide (directional) — backward */
+:root:active-view-transition-type(slide):active-view-transition-type(backward) ::view-transition-old(route-content) {
+  animation-name: slideOutRight;
+}
+:root:active-view-transition-type(slide):active-view-transition-type(backward) ::view-transition-new(route-content) {
+  animation-name: slideInLeft;
+}
+
+/* Fade */
+:root:active-view-transition-type(fade) ::view-transition-old(route-content) {
+  animation-name: fadeOut;
+}
+:root:active-view-transition-type(fade) ::view-transition-new(route-content) {
+  animation-name: fadeIn;
+}
+
+/* Scale */
+:root:active-view-transition-type(scale) ::view-transition-old(route-content) {
+  animation-name: zoomOut;
+}
+:root:active-view-transition-type(scale) ::view-transition-new(route-content) {
+  animation-name: zoomIn;
+}
+
+/* None (disable animation) */
+:root:active-view-transition-type(none) ::view-transition-group(*),
+:root:active-view-transition-type(none) ::view-transition-old(*),
+:root:active-view-transition-type(none) ::view-transition-new(*) {
+  animation: none !important;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
 `.trim();
 
   const style = document.createElement("style");

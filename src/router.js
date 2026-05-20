@@ -19,10 +19,29 @@ function _interpolateRaw(str, ctx) {
 }
 import { findContext, _clearDeclared, _loadTemplateElement, _processTemplateIncludes } from "./dom.js";
 import { processTree, _disposeTree } from "./registry.js";
-import { _animateIn } from "./animations.js";
+import { _animateIn, _injectBuiltInStyles } from "./animations.js";
 import { _devtoolsEmit } from "./devtools.js";
 
 const _BUILTIN_404_HTML = '<div style="text-align:center;padding:3rem 1rem;font-family:system-ui,sans-serif"><h1 style="font-size:4rem;margin:0;opacity:.3">404</h1><p style="font-size:1.25rem;color:#666">Page not found</p></div>';
+
+// ── View Transition API helpers ──────────────────────────────────────────────
+let _navDirection = "forward"; // track navigation direction for transition types
+
+function _getTransitionTypes(outletEls) {
+  const types = new Set();
+  for (const el of outletEls) {
+    const t = el.getAttribute("transition");
+    if (t && t !== "true") types.add(t);
+  }
+  types.add(_navDirection);
+  return [...types];
+}
+
+function _useViewTransition() {
+  return typeof document !== "undefined"
+    && typeof document.startViewTransition === "function"
+    && _config.router.viewTransition !== false;
+}
 
 function _clearOutlets() {
   for (const outletEl of document.querySelectorAll("[route-view]")) {
@@ -84,6 +103,13 @@ export function _createRouter() {
   }
 
   async function navigate(path, replace = false) {
+    // Track navigation direction for View Transition types.
+    // Programmatic navigate (push) = forward. The popstate/hashchange
+    // handlers pre-set _navDirection to "backward" before calling.
+    if (!replace) {
+      _navDirection = "forward";
+    }
+
     const hashIdx = path.indexOf("#");
     const hash = hashIdx >= 0 ? path.slice(hashIdx + 1) : "";
     const withoutHash = hashIdx >= 0 ? path.slice(0, hashIdx) : path;
@@ -158,8 +184,41 @@ export function _createRouter() {
       else window.history.pushState({}, "", fullPath);
     }
 
-    // Render
-    await _renderRoute(matched);
+    // Render — wrap in View Transition API when available and enabled
+    const outletEls = document.querySelectorAll("[route-view]");
+    const hasTransition = [...outletEls].some(el => el.getAttribute("transition"));
+
+    if (_useViewTransition() && hasTransition) {
+      // Ensure View Transition CSS presets are injected
+      _injectBuiltInStyles();
+
+      // Set view-transition-name on outlets that declare a transition
+      for (const el of outletEls) {
+        if (el.getAttribute("transition")) {
+          el.style.viewTransitionName = "route-content";
+        }
+      }
+
+      const types = _getTransitionTypes(outletEls);
+      const vt = document.startViewTransition({
+        update: async () => {
+          await _renderRoute(matched);
+        },
+        types,
+      });
+
+      vt.finished.catch((err) => {
+        if (err.name !== "AbortError") {
+          _warn("View transition failed:", err);
+        }
+      });
+
+      // Wait for the DOM update to complete before firing listeners
+      await vt.updateCallbackDone;
+    } else {
+      await _renderRoute(matched);
+    }
+
     listeners.forEach((fn) => fn(current));
 
     _devtoolsEmit("route:navigate", {
@@ -364,7 +423,10 @@ export function _createRouter() {
         _log("[ROUTER] all nested loads done for route:", current.path);
 
         const transition = outletEl.getAttribute("transition");
-        if (transition) _animateIn(wrapper, null, transition);
+        if (transition && !_useViewTransition()) {
+          _animateIn(wrapper, null, transition);
+          _warn("Class-based route transitions are deprecated. The View Transition API is now used by default. Set router.viewTransition to false to keep legacy behavior.");
+        }
 
         _clearDeclared(wrapper);
         processTree(wrapper);
@@ -591,6 +653,7 @@ export function _createRouter() {
       // Listen for URL changes
       if (_config.router.useHash) {
         const _hashchangeHandler = () => {
+          _navDirection = "backward"; // conservative default for hashchange/back
           const raw = window.location.hash.slice(1) || "/";
           if (!raw.startsWith("/")) {
             const el = document.getElementById(raw);
@@ -612,6 +675,10 @@ export function _createRouter() {
         await navigate(path, true);
       } else {
         const _popstateHandler = () => {
+          // Detect direction: popstate fires for back AND forward.
+          // Use Navigation API when available; otherwise fall back to
+          // comparing history.length (imperfect but sufficient).
+          _navDirection = "backward"; // conservative default for popstate
           const path = _stripBase(window.location.pathname);
           // Guard: don't re-navigate if only the hash changed
           if (path === current.path) {

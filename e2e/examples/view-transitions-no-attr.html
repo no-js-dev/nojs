@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>View Transitions No Attr — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    nav a { margin-right: 1rem; text-decoration: none; color: #333; }
+    main { min-height: 100px; padding: 1rem; border: 1px solid #ccc; border-radius: 4px; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+
+  <nav data-test="nav">
+    <a route="/" route-active-exact="active" data-test="link-home">Home</a>
+    <a route="/page-a" data-test="link-a">Page A</a>
+  </nav>
+
+  <!-- Outlet WITHOUT transition attr — VT API should NOT be called -->
+  <main route-view data-test="outlet"></main>
+
+  <template route="/">
+    <div data-test="page-home">Home</div>
+  </template>
+
+  <template route="/page-a">
+    <div data-test="page-a">Page A</div>
+  </template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    NoJS.config({ router: { useHash: true } });
+    NoJS.init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>View Transitions — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    nav a { margin-right: 1rem; text-decoration: none; color: #333; }
+    nav a.active { color: #2196f3; font-weight: 600; }
+    main { min-height: 100px; padding: 1rem; border: 1px solid #ccc; border-radius: 4px; margin: 1rem 0; }
+
+    /* CSS class-based animations for fallback / non-router tests */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .fadeIn { animation: fadeIn 0.3s ease forwards; }
+    .fade-enter { opacity: 0; }
+    .fade-enter-active { transition: opacity 0.3s; opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation for route transitions -->
+  <nav data-test="nav">
+    <a route="/" route-active-exact="active" data-test="link-home">Home</a>
+    <a route="/page-a" data-test="link-a">Page A</a>
+    <a route="/page-b" data-test="link-b">Page B</a>
+    <a route="/page-c" data-test="link-c">Page C</a>
+  </nav>
+
+  <!-- Route outlet with transition attribute -->
+  <main route-view transition="slide" data-test="outlet"></main>
+
+  <!-- Route templates -->
+  <template route="/">
+    <div data-test="page-home">
+      <h2>Home</h2>
+      <p>Welcome to the home page</p>
+    </div>
+  </template>
+
+  <template route="/page-a">
+    <div data-test="page-a">
+      <h2>Page A</h2>
+      <p>Page A Content</p>
+    </div>
+  </template>
+
+  <template route="/page-b">
+    <div data-test="page-b">
+      <h2>Page B</h2>
+      <p>Page B Content</p>
+    </div>
+  </template>
+
+  <template route="/page-c">
+    <div data-test="page-c">
+      <h2>Page C</h2>
+      <p>Page C Content</p>
+    </div>
+  </template>
+
+  <!-- Test 9: Non-router element with animate (regression test) -->
+  <section state="{ showNonRouter: false }">
+    <button data-test="non-router-toggle" on:click="showNonRouter = !showNonRouter">Toggle</button>
+    <div if="showNonRouter" animate="fadeIn" data-test="non-router-animate">Animated element</div>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    NoJS.config({ router: { useHash: true } });
+    NoJS.init();
+  </script>
+</body>
+</html>

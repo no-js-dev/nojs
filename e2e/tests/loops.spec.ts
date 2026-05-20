@@ -69,4 +69,27 @@ test.describe('Loops', () => {
     await expect(emptyMsg).toBeVisible();
     await expect(emptyMsg).toHaveText('No items found');
   });
+
+  test('6 — Inline children: renders items without template attr', async ({ page }) => {
+    const items = page.getByTestId('inline-item');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toHaveText('HTML');
+    await expect(items.nth(1)).toHaveText('CSS');
+    await expect(items.nth(2)).toHaveText('JS');
+  });
+
+  test('7 — for alias: renders items using for directive', async ({ page }) => {
+    const items = page.getByTestId('for-item');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toHaveText('10');
+    await expect(items.nth(1)).toHaveText('20');
+    await expect(items.nth(2)).toHaveText('30');
+  });
+
+  test('8 — each with filter + sort: filters and sorts correctly', async ({ page }) => {
+    const items = page.getByTestId('filter-item');
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toHaveText('Cal');
+    await expect(items.nth(1)).toHaveText('Ana');
+  });
 });

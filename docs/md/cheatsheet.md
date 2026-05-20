@@ -52,10 +52,10 @@ Complete reference of every No.JS directive.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
-| `each` | `each="item in items"` | Simple loop |
-| `foreach` | `foreach="item"` | Extended loop |
-| `from` | `from="items"` | Source array |
-| `template` | `template="tplId"` | Template to clone |
+| `foreach` | `foreach="item in items"` | Iterate over arrays (primary directive) |
+| `each` | `each="item in items"` | Alias for `foreach` |
+| `for` | `for="item in items"` | Alias for `foreach` |
+| `template` | `template="tplId"` | Template to clone (optional — inline children used when omitted) |
 | `index` | `index="i"` | Index variable name |
 | `key` | `key="item.id"` | Unique key for diffing |
 | `filter` | `filter="item.active"` | Filter expression |

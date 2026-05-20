@@ -2,7 +2,7 @@
 
 > No.JS is an HTML-first reactive framework for building dynamic web applications using only HTML attributes. ~24 KB gzipped, zero dependencies, no build step, no virtual DOM, CSP-compliant. Include one script tag and start writing directives.
 
-No.JS replaces JavaScript framework boilerplate with declarative HTML attributes. Directives like `get`, `bind`, `state`, `each`, `if`, and `on:click` handle data fetching, rendering, state management, and interactivity — all without writing JavaScript. Data lives in reactive contexts (Proxy-backed) that inherit through the DOM like lexical scoping. Directives execute by priority: state (0) → HTTP/error-boundary (1) → computed/watch (2) → ref (5) → structural (10) → rendering/events (20) → validation (30).
+No.JS replaces JavaScript framework boilerplate with declarative HTML attributes. Directives like `get`, `bind`, `state`, `foreach`, `if`, and `on:click` handle data fetching, rendering, state management, and interactivity — all without writing JavaScript. Data lives in reactive contexts (Proxy-backed) that inherit through the DOM like lexical scoping. Directives execute by priority: state (0) → HTTP/error-boundary (1) → computed/watch (2) → ref (5) → structural (10) → rendering/events (20) → validation (30).
 
 ## Getting Started
 
@@ -14,7 +14,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute), `model` (two-way input binding)
 - [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
-- [Loops](https://no-js.dev/#/loops): `each` (template-based iteration), `foreach` (inline iteration), loop variables (`$index`, `$first`, `$last`), keyed updates, nesting
+- [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, nesting
 - [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src`, preloading
 
 ## Interaction

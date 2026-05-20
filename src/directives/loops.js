@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  DIRECTIVES: each, foreach
+//  DIRECTIVES: foreach, each, for  (aliases — single handler)
 // ═══════════════════════════════════════════════════════════════════════
 
 import { createContext } from "../context.js";
@@ -7,7 +7,6 @@ import { _watchExpr } from "../globals.js";
 import { evaluate, resolve } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
-import { _animateOut } from "../animations.js";
 
 // Creates the item node for a loop iteration.
 // Single-root templates: attaches __ctx directly to the root element (no wrapper div).
@@ -49,22 +48,36 @@ function _makeLoopItem(source, childCtx, animEnter, stagger, i) {
   return { node, applyAnim };
 }
 
-registerDirective("each", {
+const _loopHandler = {
   priority: 10,
   init(el, name, expr) {
     const ctx = findContext(el);
     const match = expr.match(/^(\w+)\s+in\s+(\S+)$/);
     if (!match) return;
     const [, itemName, listPath] = match;
-    const tplId = el.getAttribute("template");
+    const indexName = el.getAttribute("index") || "$index";
     const elseTpl = el.getAttribute("else");
+    const filterExpr = el.getAttribute("filter");
+    const sortProp = el.getAttribute("sort");
+    const limit = parseInt(el.getAttribute("limit")) || Infinity;
+    const offset = parseInt(el.getAttribute("offset")) || 0;
+    const tplId = el.getAttribute("template");
     const keyExpr = el.getAttribute("key");
-    const animEnter =
-      el.getAttribute("animate-enter") || el.getAttribute("animate");
+    const animEnter = el.getAttribute("animate-enter") || el.getAttribute("animate");
     const animLeave = el.getAttribute("animate-leave");
     const stagger = parseInt(el.getAttribute("animate-stagger")) || 0;
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
     let prevList = null;
+
+    // Capture inline children as template fragment (before any render).
+    // When no external template is specified, the element's children become
+    // the repeating unit and the element itself acts as the container.
+    let inlineTemplate = null;
+    if (!tplId && el.childNodes.length > 0) {
+      inlineTemplate = document.createDocumentFragment();
+      while (el.firstChild) inlineTemplate.appendChild(el.firstChild);
+    }
+
     // key → item node (root element or wrapper div for multi-root templates).
     const keyMap = new Map();
 
@@ -82,187 +95,6 @@ registerDirective("each", {
         return;
       }
       prevList = list;
-
-      // Empty state
-      if (list.length === 0 && elseTpl) {
-        const clone = _cloneTemplate(elseTpl);
-        if (clone) {
-          _disposeChildren(el);
-          keyMap.clear();
-          el.innerHTML = "";
-          el.appendChild(clone);
-          processTree(el);
-        }
-        return;
-      }
-
-      const tpl = tplId ? document.getElementById(tplId) : null;
-      if (!tpl) return;
-
-      // Animate out old items if animate-leave is set
-      if (animLeave && el.children.length > 0) {
-        const oldItems = [...el.children];
-        let remaining = oldItems.length;
-        oldItems.forEach((child) => {
-          const target = child.firstElementChild || child;
-          target.classList.add(animLeave);
-          const done = () => {
-            target.classList.remove(animLeave);
-            remaining--;
-            if (remaining <= 0) renderItems(tpl, list);
-          };
-          target.addEventListener("animationend", done, { once: true });
-          // || 0: unblocks the next render on the next tick when no CSS animation fires.
-          setTimeout(done, animDuration || 0);
-        });
-      } else {
-        renderItems(tpl, list);
-      }
-    }
-
-    function renderItems(tpl, list) {
-      if (keyExpr) {
-        reconcileItems(tpl, list);
-      } else {
-        rebuildItems(tpl, list);
-      }
-    }
-
-    // Key-based reconciliation: reuses existing wrapper divs for items whose
-    // key is still present in the new list, only creating/removing DOM nodes
-    // for items that genuinely appeared or disappeared.
-    function reconcileItems(tpl, list) {
-      const count = list.length;
-
-      // Evaluate the key for every item in the new list up-front.
-      const newOrder = list.map((item, i) => {
-        const tempCtx = createContext({ [itemName]: item, $index: i }, ctx);
-        return { key: evaluate(keyExpr, tempCtx), item, i };
-      });
-
-      const nextKeySet = new Set(newOrder.map((e) => e.key));
-
-      // Remove wrappers whose keys are no longer in the list.
-      for (const [key, wrapper] of keyMap) {
-        if (!nextKeySet.has(key)) {
-          _disposeChildren(wrapper);
-          wrapper.remove();
-          keyMap.delete(key);
-        }
-      }
-
-      // Create new wrappers and update existing ones.
-      newOrder.forEach(({ key, item, i }) => {
-        const childData = {
-          [itemName]: item,
-          $index: i,
-          $count: count,
-          $first: i === 0,
-          $last: i === count - 1,
-          $even: i % 2 === 0,
-          $odd: i % 2 !== 0,
-        };
-
-        if (!keyMap.has(key)) {
-          const clone = tpl.content.cloneNode(true);
-          const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
-          keyMap.set(key, node);
-          el.appendChild(node); // placed at end; reordered below
-          processTree(node);
-          applyAnim();
-        } else {
-          // Existing item: update positional metadata and notify watchers.
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
-          keyMap.get(key).__ctx.$notify();
-        }
-      });
-
-      // Reorder DOM to match the new list using a single forward pass.
-      for (let i = 0; i < newOrder.length; i++) {
-        const itemNode = keyMap.get(newOrder[i].key);
-        if (itemNode !== el.children[i]) el.insertBefore(itemNode, el.children[i] ?? null);
-      }
-    }
-
-    // Full rebuild: dispose all children and recreate from scratch.
-    // Used when no `key` attribute is set (backward-compatible behaviour).
-    function rebuildItems(tpl, list) {
-      const count = list.length;
-      _disposeChildren(el);
-      el.innerHTML = "";
-
-      list.forEach((item, i) => {
-        const childData = {
-          [itemName]: item,
-          $index: i,
-          $count: count,
-          $first: i === 0,
-          $last: i === count - 1,
-          $even: i % 2 === 0,
-          $odd: i % 2 !== 0,
-        };
-        const clone = tpl.content.cloneNode(true);
-        const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
-        el.appendChild(node);
-        processTree(node);
-        applyAnim();
-      });
-    }
-
-    _watchExpr(expr, ctx, update);
-    update();
-  },
-});
-
-registerDirective("foreach", {
-  priority: 10,
-  init(el, name, itemName) {
-    const ctx = findContext(el);
-    const fromPath = el.getAttribute("from");
-    const indexName = el.getAttribute("index") || "$index";
-    const elseTpl = el.getAttribute("else");
-    const filterExpr = el.getAttribute("filter");
-    const sortProp = el.getAttribute("sort");
-    const limit = parseInt(el.getAttribute("limit")) || Infinity;
-    const offset = parseInt(el.getAttribute("offset")) || 0;
-    const tplId = el.getAttribute("template");
-    const keyExpr = el.getAttribute("key");
-    const animEnter = el.getAttribute("animate-enter") || el.getAttribute("animate");
-    const animLeave = el.getAttribute("animate-leave");
-    const stagger = parseInt(el.getAttribute("animate-stagger")) || 0;
-    const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
-
-    if (!fromPath || !itemName) return;
-
-    const templateContent = tplId
-      ? null // Will use external template
-      : el.cloneNode(true); // Use the element itself as template
-
-    // Prevent infinite recursion: strip directive attributes from inline template clone
-    if (templateContent) {
-      templateContent.removeAttribute("foreach");
-      templateContent.removeAttribute("from");
-      templateContent.removeAttribute("index");
-      templateContent.removeAttribute("filter");
-      templateContent.removeAttribute("sort");
-      templateContent.removeAttribute("limit");
-      templateContent.removeAttribute("offset");
-      templateContent.removeAttribute("else");
-      templateContent.removeAttribute("template");
-      templateContent.removeAttribute("key");
-      templateContent.removeAttribute("animate-enter");
-      templateContent.removeAttribute("animate");
-      templateContent.removeAttribute("animate-leave");
-      templateContent.removeAttribute("animate-stagger");
-      templateContent.removeAttribute("animate-duration");
-    }
-
-    // key → item node (root element or wrapper div for multi-root templates).
-    const keyMap = new Map();
-
-    function update() {
-      let list = resolve(fromPath, ctx);
-      if (!Array.isArray(list)) return;
 
       // Filter
       if (filterExpr) {
@@ -290,7 +122,7 @@ registerDirective("foreach", {
       // Offset and limit
       list = list.slice(offset, offset + limit);
 
-      // Empty
+      // Empty state
       if (list.length === 0 && elseTpl) {
         const clone = _cloneTemplate(elseTpl);
         if (clone) {
@@ -303,15 +135,13 @@ registerDirective("foreach", {
         return;
       }
 
-      const tpl = tplId ? document.getElementById(tplId) : null;
-      const count = list.length;
-
       if (keyExpr) {
-        reconcileForeachItems(tpl, list, count);
+        reconcileForeachItems(list, list.length);
         return;
       }
 
       function renderForeachItems() {
+        const count = list.length;
         _disposeChildren(el);
         el.innerHTML = "";
         list.forEach((item, i) => {
@@ -325,7 +155,10 @@ registerDirective("foreach", {
             $even: i % 2 === 0,
             $odd: i % 2 !== 0,
           };
-          const clone = tpl ? tpl.content.cloneNode(true) : templateContent.cloneNode(true);
+          const clone = tplId
+            ? document.getElementById(tplId)?.content.cloneNode(true)
+            : inlineTemplate?.cloneNode(true);
+          if (!clone) return;
           const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
           el.appendChild(node);
           processTree(node);
@@ -357,10 +190,8 @@ registerDirective("foreach", {
     // Key-based reconciliation for foreach — mirrors each's reconcileItems.
     // Applied to the final (filtered, sorted, sliced) list so keys always
     // correspond to what is actually rendered.
-    function reconcileForeachItems(tpl, list, count) {
-      // On first render the element may still hold its original inline template
-      // markup (the same content that was captured into templateContent).
-      // Clear it so only managed wrappers appear as children.
+    function reconcileForeachItems(list, count) {
+      // On first render clear any residual content so only managed nodes appear.
       if (keyMap.size === 0) el.innerHTML = "";
 
       const newOrder = list.map((item, i) => {
@@ -391,7 +222,10 @@ registerDirective("foreach", {
         };
 
         if (!keyMap.has(key)) {
-          const clone = tpl ? tpl.content.cloneNode(true) : templateContent.cloneNode(true);
+          const clone = tplId
+            ? document.getElementById(tplId)?.content.cloneNode(true)
+            : inlineTemplate?.cloneNode(true);
+          if (!clone) return;
           const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
           keyMap.set(key, node);
           el.appendChild(node);
@@ -409,7 +243,11 @@ registerDirective("foreach", {
       }
     }
 
-    _watchExpr(fromPath, ctx, update);
+    _watchExpr(listPath, ctx, update);
     update();
   },
-});
+};
+
+registerDirective("foreach", _loopHandler);
+registerDirective("each", _loopHandler);
+registerDirective("for", _loopHandler);

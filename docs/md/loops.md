@@ -1,10 +1,32 @@
 # Loops
 
-## `each` — Iterate Over Arrays
+## `foreach` — Iterate Over Arrays
+
+`foreach` is the primary iteration directive. It repeats its content for each item in an array.
+
+### Inline Children (default)
+
+When no `template` attribute is provided, the element's children are used as the repeating template:
 
 ```html
 <div get="/posts" as="posts">
-  <div each="post in posts" key="post.id" template="postCard"></div>
+  <ul>
+    <li foreach="post in posts" key="post.id">
+      <h2 bind="post.title"></h2>
+      <p bind="post.body"></p>
+      <span bind="'#' + $index"></span>
+    </li>
+  </ul>
+</div>
+```
+
+### External Template
+
+Use the `template` attribute to reference a `<template>` element by ID:
+
+```html
+<div get="/posts" as="posts">
+  <div foreach="post in posts" key="post.id" template="postCard"></div>
 </div>
 
 <template id="postCard">
@@ -16,29 +38,11 @@
 </template>
 ```
 
-### Attributes
-
-| Attribute | Description |
-|---|---|
-| `each` | `"item in array"` — variable name and source expression |
-| `template` | ID of the `<template>` element to clone for each item |
-| `key` | Expression for a unique, stable item identity. Enables DOM reconciliation. |
-| `else` | Template ID to render when the array is empty |
-| `animate` / `animate-enter` | CSS class added to each new item on insert |
-| `animate-leave` | CSS class added to items before removal |
-| `animate-stagger` | Delay (ms) between each item's enter animation |
-| `animate-duration` | Max duration (ms) before leave animation is force-completed |
-
----
-
-## `foreach` — Extended Loop
-
-Offers more control with filtering, sorting, pagination, and custom variable names.
+### Filtering, Sorting & Pagination
 
 ```html
 <ul>
-  <li foreach="item"
-      from="menuItems"
+  <li foreach="item in menuItems"
       index="idx"
       key="item.id"
       else="#noItems"
@@ -61,8 +65,8 @@ Offers more control with filtering, sorting, pagination, and custom variable nam
 
 | Attribute | Description |
 |-----------|-------------|
-| `foreach` | Variable name for current item |
-| `from` | Source array from context |
+| `foreach` | `"item in array"` — variable name and source expression |
+| `template` | ID of the `<template>` element to clone for each item (optional — when omitted, inline children are the template) |
 | `index` | Variable name for the index (default: `$index`) |
 | `key` | Unique key expression for DOM diffing |
 | `else` | Template ID to render when array is empty |
@@ -70,6 +74,25 @@ Offers more control with filtering, sorting, pagination, and custom variable nam
 | `sort` | Property path to sort by (prefix with `-` for descending) |
 | `limit` | Maximum number of items to render |
 | `offset` | Number of items to skip |
+| `animate` / `animate-enter` | CSS class added to each new item on insert |
+| `animate-leave` | CSS class added to items before removal |
+| `animate-stagger` | Delay (ms) between each item's enter animation |
+| `animate-duration` | Max duration (ms) before leave animation is force-completed |
+
+---
+
+## Aliases: `each` and `for`
+
+`each` and `for` are aliases for `foreach`. They share the same handler and support all the same attributes — `filter`, `sort`, `limit`, `offset`, `key`, `animate-*`, `else`, `template`, `index`, and loop variables.
+
+```html
+<!-- All three are equivalent -->
+<div foreach="item in items" key="item.id">...</div>
+<div each="item in items" key="item.id">...</div>
+<div for="item in items" key="item.id">...</div>
+```
+
+Use whichever reads best for your context. `foreach` is the canonical name used throughout this documentation.
 
 ---
 
@@ -81,10 +104,10 @@ When you supply a `key` attribute, the directive switches to **key-based reconci
 
 ```html
 <!-- Without key: full rebuild on every change -->
-<div each="item in items" template="itemTpl"></div>
+<div foreach="item in items" template="itemTpl"></div>
 
 <!-- With key: only changed items are added/removed -->
-<div each="item in items" key="item.id" template="itemTpl"></div>
+<div foreach="item in items" key="item.id" template="itemTpl"></div>
 ```
 
 The `key` value must be **unique and stable** across renders — typically a database ID or UUID. Using a non-unique key (e.g. `$index`) defeats reconciliation since items will always appear to match.
@@ -128,16 +151,14 @@ Inside any loop, these variables are automatically available:
 | `$odd` | `true` if index is odd |
 
 ```html
-<div each="item in items" template="itemTpl"></div>
-
-<template id="itemTpl">
+<div foreach="item in items">
   <div class-first="$first"
        class-last="$last"
        class-striped="$odd">
     <span bind="($index + 1) + ' of ' + $count"></span>
     <span bind="item.name"></span>
   </div>
-</template>
+</div>
 ```
 
 ---
@@ -147,11 +168,11 @@ Inside any loop, these variables are automatically available:
 Child loops can access parent scope variables:
 
 ```html
-<div each="category in categories" template="catTpl"></div>
+<div foreach="category in categories" template="catTpl"></div>
 
 <template id="catTpl">
   <h3 bind="category.name"></h3>
-  <div each="product in category.products" template="prodTpl"></div>
+  <div foreach="product in category.products" template="prodTpl"></div>
 </template>
 
 <template id="prodTpl">

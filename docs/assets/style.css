@@ -27,6 +27,7 @@
   --radius-lg: 12px;
   --header-h: 70px;
   --sidebar-w: 240px;
+  --toc-w: 200px;
   --font-heading: 'Space Grotesk', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -1143,6 +1144,104 @@ body:has(.docs-layout-wrapper .sidebar-link.active) > .content {
 .docs-layout-wrapper .skl-sidebar-link.w65 { width: 65%; }
 .docs-layout-wrapper:has(.sidebar) .sidebar-skeleton { display: none; }
 
+/* ── Page TOC (right-side "On This Page" table of contents) ── */
+.page-toc {
+  width: var(--toc-w);
+  min-width: var(--toc-w);
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  padding: 24px 0;
+  align-self: flex-start;
+}
+.page-toc-title {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0 16px 12px;
+}
+.page-toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 16px;
+}
+.page-toc-link {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  transition: color 0.2s, border-color 0.2s;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-toc-link:hover {
+  color: var(--text-muted);
+}
+.page-toc-link.active {
+  color: var(--primary);
+  border-left-color: var(--primary);
+  font-weight: 500;
+}
+.page-toc-link.toc-indent {
+  padding-left: 24px;
+  font-size: 12px;
+}
+
+/* ── Page TOC skeleton ── */
+.page-toc-skeleton {
+  width: var(--toc-w);
+  min-width: var(--toc-w);
+  padding: 24px 0;
+  align-self: flex-start;
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100vh - var(--header-h));
+  overflow: hidden;
+}
+.page-toc-skeleton-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 16px;
+}
+.skl-toc-title {
+  width: 65%;
+  height: 11px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, var(--border) 25%, #f1f5f9 50%, var(--border) 75%);
+  background-size: 600px 100%;
+  animation: skl-shimmer 1.5s infinite linear;
+  border-radius: 4px;
+}
+.skl-toc-link {
+  width: 100%;
+  height: 10px;
+  background: linear-gradient(90deg, var(--border) 25%, #f1f5f9 50%, var(--border) 75%);
+  background-size: 600px 100%;
+  animation: skl-shimmer 1.5s infinite linear;
+  border-radius: 4px;
+}
+.skl-toc-link.w85 { width: 85%; }
+.skl-toc-link.w75 { width: 75%; }
+.skl-toc-link.w65 { width: 65%; }
+.skl-toc-link.w55 { width: 55%; }
+
+/* Hide TOC skeleton once the real TOC content is populated */
+.doc-with-sidebar:has(.page-toc-nav a) .page-toc-skeleton {
+  display: none;
+}
+
 /* ── Doc with Sidebar Layout (used in docs, faq) ── */
 .doc-with-sidebar {
   display: flex;
@@ -1170,6 +1269,13 @@ body:has(.docs-layout-wrapper .sidebar-link.active) > .content {
 /* ══════════════════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 1280px) {
+  .page-toc,
+  .page-toc-skeleton {
+    display: none;
+  }
+}
+
 @media (max-width: 1024px) {
   .header { padding: 0 24px; }
   .hero-section { padding: 40px 24px; }

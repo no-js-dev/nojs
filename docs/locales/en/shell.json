@@ -56,7 +56,8 @@
       "animations": "Animations",
       "filters": "Filters",
       "i18n": "i18n",
-      "plugins": "Plugins"
+      "plugins": "Plugins",
+      "onThisPage": "On This Page"
     },
     "langSwitcher": {
       "en": "EN",

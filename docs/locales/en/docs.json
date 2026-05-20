@@ -118,9 +118,10 @@
         "col1": "Directive",
         "col2": "Example",
         "col3": "Description",
-        "each": "Simple loop",
-        "foreach": "Extended loop",
-        "from": "Source array",
+        "foreach": "Primary loop directive",
+        "each": "Alias of foreach",
+        "for": "Alias of foreach",
+        "from": "Source array (DEPRECATED — use \"item in array\" syntax instead)",
         "template": "Template to clone",
         "index": "Index variable name",
         "key": "Unique key for diffing",
@@ -415,27 +416,41 @@
     "loops": {
       "hero": {
         "badge": "Guides",
-        "title": "Loops",
-        "subtitle": "Iterate over arrays with each and foreach"
-      },
-      "each": {
-        "title": "each — Iterate Over Arrays",
-        "preview": "Preview"
+        "title": "Iteration Directives",
+        "subtitle": "Iterate over arrays with foreach, each, and for"
       },
       "foreach": {
-        "title": "foreach — Extended Loop",
-        "text": "Offers more control with filtering, sorting, pagination, and custom variable names.",
+        "title": "foreach — Iterate Over Arrays",
+        "text": "The primary iteration directive. Use foreach=\"item in array\" to loop over arrays. each and for are aliases with identical behavior.",
+        "preview": "Preview",
         "col1": "Attribute",
         "col2": "Description",
-        "foreach": "Variable name for current item",
-        "from": "Source array from context",
+        "foreach": "Expression: item in array",
+        "from": "Source array (DEPRECATED — use item in array syntax)",
         "index": "Variable name for the index (default: $index)",
         "key": "Unique key expression for element identification and tracking",
         "else": "Template ID to render when array is empty",
         "filter": "Expression to filter items",
         "sort": "Property path to sort by (prefix - for descending)",
         "limit": "Maximum number of items to render",
-        "offset": "Number of items to skip"
+        "offset": "Number of items to skip",
+        "template": "External template ID (optional — children become template if omitted)"
+      },
+      "fullExample": {
+        "title": "Full Example with All Attributes",
+        "text": "A complete example showing foreach with filtering, sorting, pagination, and an empty-state fallback."
+      },
+      "aliases": {
+        "title": "Aliases: each and for",
+        "text": "each and for are aliases of foreach — they share the same handler and support all the same attributes."
+      },
+      "inline": {
+        "title": "Inline Children Template",
+        "text": "When no template attribute is specified, the element's children become the repeating template."
+      },
+      "deprecated": {
+        "title": "Deprecated: from Attribute",
+        "text": "The from attribute still works but is deprecated. Use the \"item in array\" syntax instead. Using from will emit a console warning."
       },
       "contextVars": {
         "title": "Loop Context Variables",
@@ -450,7 +465,7 @@
       },
       "nested": {
         "title": "Nested Loops",
-        "text": "Child loops can access parent scope variables."
+        "text": "Child loops (foreach, each, or for) can access parent scope variables."
       }
     },
     "templates": {
@@ -863,7 +878,7 @@
       },
       "loopAnimations": {
         "title": "Loop Animations",
-        "text": "Both each and foreach loops support enter/leave animations and stagger."
+        "text": "All loop directives (foreach, each, for) support enter/leave animations and stagger."
       },
       "builtIn": {
         "title": "Built-in Animation Names",

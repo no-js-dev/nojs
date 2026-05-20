@@ -96,6 +96,22 @@ Use whichever reads best for your context. `foreach` is the canonical name used 
 
 ---
 
+## Deprecated: `from` Attribute
+
+The legacy `from` syntax is still supported but **deprecated**. Using it emits a console warning.
+
+```html
+<!-- DEPRECATED — still works, but warns -->
+<div foreach="item" from="items" template="tpl"></div>
+
+<!-- Use this instead -->
+<div foreach="item in items" template="tpl"></div>
+```
+
+The `from` attribute will be removed in a future major version. Migrate to the `"item in array"` syntax.
+
+---
+
 ## Key-Based Reconciliation
 
 By default, when the source array changes, the loop directive performs a **full rebuild** — all child nodes are disposed and recreated from scratch. This is simple and correct, but destroys and re-mounts DOM nodes on every update.

@@ -118,9 +118,10 @@
         "col1": "Direttiva",
         "col2": "Esempio",
         "col3": "Descrizione",
-        "each": "Ciclo semplice",
-        "foreach": "Ciclo esteso",
-        "from": "Array sorgente",
+        "foreach": "Direttiva di ciclo primaria",
+        "each": "Alias di foreach",
+        "for": "Alias di foreach",
+        "from": "Array sorgente (DEPRECATED — usa la sintassi \"item in array\")",
         "template": "Template da clonare",
         "index": "Nome della variabile indice",
         "key": "Chiave univoca per il diffing",
@@ -415,30 +416,44 @@
     "loops": {
       "hero": {
         "badge": "Guide",
-        "title": "Cicli",
-        "subtitle": "Itera sugli array con each e foreach"
-      },
-      "each": {
-        "title": "each — Itera sugli Array",
-        "preview": "Anteprima"
+        "title": "Direttive di iterazione",
+        "subtitle": "Itera sugli array con foreach, each e for"
       },
       "foreach": {
-        "title": "foreach — Ciclo Esteso",
-        "text": "Offre più controllo con filtri, ordinamento, paginazione e nomi di variabili personalizzati.",
+        "title": "foreach — Itera sugli array",
+        "text": "La direttiva di iterazione principale. Usa foreach=\"item in array\" per iterare sugli array. each e for sono alias con comportamento identico.",
         "col1": "Attributo",
         "col2": "Descrizione",
-        "foreach": "Nome della variabile per l'elemento corrente",
-        "from": "Array sorgente dal contesto",
+        "foreach": "Espressione: item in array",
+        "from": "Array sorgente (DEPRECATED — usa la sintassi item in array)",
         "index": "Nome della variabile per l'indice (default: $index)",
         "key": "Espressione chiave univoca per l'identificazione e il tracciamento degli elementi",
         "else": "ID del template da renderizzare quando l'array è vuoto",
         "filter": "Espressione per filtrare gli elementi",
         "sort": "Percorso della proprietà per l'ordinamento (prefisso - per ordine decrescente)",
         "limit": "Numero massimo di elementi da renderizzare",
-        "offset": "Numero di elementi da saltare"
+        "offset": "Numero di elementi da saltare",
+        "preview": "Anteprima",
+        "template": "ID di template esterno (opzionale — i figli diventano il template se omesso)"
+      },
+      "fullExample": {
+        "title": "Esempio completo con tutti gli attributi",
+        "text": "Un esempio completo che mostra foreach con filtraggio, ordinamento, paginazione e un template di fallback per lo stato vuoto."
+      },
+      "aliases": {
+        "title": "Alias: each e for",
+        "text": "each e for sono alias di foreach — condividono lo stesso handler e supportano tutti gli stessi attributi."
+      },
+      "inline": {
+        "title": "Template figli inline",
+        "text": "Quando nessun attributo template è specificato, i figli dell'elemento diventano il template ripetuto."
+      },
+      "deprecated": {
+        "title": "Deprecato: attributo from",
+        "text": "L'attributo from funziona ancora ma è deprecato. Usa la sintassi \"item in array\" al suo posto. L'uso di from emetterà un avviso nella console."
       },
       "contextVars": {
-        "title": "Variabili di Contesto del Ciclo",
+        "title": "Variabili di contesto del ciclo",
         "col1": "Variabile",
         "col2": "Descrizione",
         "index": "Indice corrente (base 0)",
@@ -449,8 +464,8 @@
         "odd": "true se l'indice è dispari"
       },
       "nested": {
-        "title": "Cicli Annidati",
-        "text": "I cicli figli possono accedere alle variabili dello scope genitore."
+        "title": "Cicli annidati",
+        "text": "I cicli figli (foreach, each o for) possono accedere alle variabili dello scope genitore."
       }
     },
     "templates": {
@@ -862,8 +877,8 @@
         "row6": "Stato finale dell'uscita"
       },
       "loopAnimations": {
-        "title": "Animazioni nei Cicli",
-        "text": "Sia each che foreach supportano animazioni di entrata/uscita e stagger."
+        "title": "Animazioni nei cicli",
+        "text": "Tutte le direttive di ciclo (foreach, each, for) supportano animazioni di entrata/uscita e stagger."
       },
       "builtIn": {
         "title": "Nomi di Animazione Integrati",

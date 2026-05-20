@@ -118,9 +118,10 @@
         "col1": "Directiva",
         "col2": "Ejemplo",
         "col3": "Descripción",
-        "each": "Bucle simple",
-        "foreach": "Bucle extendido",
-        "from": "Array de origen",
+        "foreach": "Directiva de bucle primaria",
+        "each": "Alias de foreach",
+        "for": "Alias de foreach",
+        "from": "Array de origen (DEPRECATED — usa la sintaxis \"item in array\")",
         "template": "Plantilla a clonar",
         "index": "Nombre de variable de índice",
         "key": "Clave única para diffing",
@@ -415,27 +416,41 @@
     "loops": {
       "hero": {
         "badge": "Guías",
-        "title": "Bucles",
-        "subtitle": "Itera sobre arrays con each y foreach"
-      },
-      "each": {
-        "title": "each — Iterar Sobre Arrays",
-        "preview": "Vista previa"
+        "title": "Directivas de Iteración",
+        "subtitle": "Itera sobre arrays con foreach, each y for"
       },
       "foreach": {
-        "title": "foreach — Bucle Extendido",
-        "text": "Ofrece más control con filtrado, ordenamiento, paginación y nombres de variables personalizados.",
+        "title": "foreach — Iterar Sobre Arrays",
+        "text": "La directiva de iteración primaria. Usa foreach=\"item in array\" para iterar sobre arrays. each y for son aliases con comportamiento idéntico.",
         "col1": "Atributo",
         "col2": "Descripción",
-        "foreach": "Nombre de variable para el elemento actual",
-        "from": "Array de origen del contexto",
+        "foreach": "Expresión: item in array",
+        "from": "Array de origen (DEPRECATED — usa la sintaxis item in array)",
         "index": "Nombre de variable para el índice (por defecto: $index)",
         "key": "Expresión de clave única para identificación y seguimiento de elementos",
         "else": "ID de plantilla a renderizar cuando el array está vacío",
         "filter": "Expresión para filtrar elementos",
         "sort": "Ruta de propiedad para ordenar (prefijo - para descendente)",
         "limit": "Número máximo de elementos a renderizar",
-        "offset": "Número de elementos a omitir"
+        "offset": "Número de elementos a omitir",
+        "preview": "Vista previa",
+        "template": "ID de plantilla externa (opcional — los hijos se convierten en la plantilla si se omite)"
+      },
+      "fullExample": {
+        "title": "Ejemplo completo con todos los atributos",
+        "text": "Un ejemplo completo mostrando foreach con filtrado, ordenación, paginación y un fallback para estado vacío."
+      },
+      "aliases": {
+        "title": "Aliases: each y for",
+        "text": "each y for son aliases de foreach — comparten el mismo handler y soportan todos los mismos atributos."
+      },
+      "inline": {
+        "title": "Plantilla Inline de Hijos",
+        "text": "Cuando no se especifica el atributo template, los hijos del elemento se convierten en la plantilla de repetición."
+      },
+      "deprecated": {
+        "title": "Deprecated: Atributo from",
+        "text": "El atributo from aún funciona pero está deprecated. Usa la sintaxis \"item in array\" en su lugar. Usar from emitirá una advertencia en la consola."
       },
       "contextVars": {
         "title": "Variables de Contexto del Bucle",
@@ -450,7 +465,7 @@
       },
       "nested": {
         "title": "Bucles Anidados",
-        "text": "Los bucles hijos pueden acceder a las variables del ámbito padre."
+        "text": "Los bucles hijos (foreach, each o for) pueden acceder a las variables del ámbito padre."
       }
     },
     "templates": {
@@ -863,7 +878,7 @@
       },
       "loopAnimations": {
         "title": "Animaciones en Bucles",
-        "text": "Tanto los bucles each como foreach soportan animaciones de entrada/salida y escalonamiento."
+        "text": "Todas las directivas de bucle (foreach, each, for) soportan animaciones de entrada/salida y escalonamiento."
       },
       "builtIn": {
         "title": "Nombres de Animación Integrados",

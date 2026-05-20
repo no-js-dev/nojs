@@ -86,6 +86,13 @@
     <template id="score-tpl"><li data-test="filter-item" bind="s.name"></li></template>
   </section>
 
+  <!-- 9. Deprecated from syntax (still works, warns) -->
+  <section state="{ animals: ['Cat', 'Dog', 'Bird'] }">
+    <p class="test-label">Test 9: Deprecated from syntax</p>
+    <ul data-test="from-list" foreach="animal" from="animals" template="from-tpl"></ul>
+    <template id="from-tpl"><li data-test="from-item" bind="animal"></li></template>
+  </section>
+
   <script src="../../dist/iife/no.js"></script>
   <script>NoJS.init();</script>
 </body>

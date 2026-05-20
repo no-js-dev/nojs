@@ -81,9 +81,10 @@
     <table class="doc-table">
       <thead><tr><th t="docs.cheatsheet.loops.col1"></th><th t="docs.cheatsheet.loops.col2"></th><th t="docs.cheatsheet.loops.col3"></th></tr></thead>
       <tbody>
+        <tr><td><code>foreach</code></td><td><code>foreach="item in items"</code></td><td t="docs.cheatsheet.loops.foreach"></td></tr>
         <tr><td><code>each</code></td><td><code>each="item in items"</code></td><td t="docs.cheatsheet.loops.each"></td></tr>
-        <tr><td><code>foreach</code></td><td><code>foreach="item"</code></td><td t="docs.cheatsheet.loops.foreach"></td></tr>
-        <tr><td><code>from</code></td><td><code>from="items"</code></td><td t="docs.cheatsheet.loops.from"></td></tr>
+        <tr><td><code>for</code></td><td><code>for="item in items"</code></td><td t="docs.cheatsheet.loops.for"></td></tr>
+        <tr class="deprecated-row"><td><code>from</code></td><td><code>from="items"</code></td><td t="docs.cheatsheet.loops.from"></td></tr>
         <tr><td><code>template</code></td><td><code>template="tplId"</code></td><td t="docs.cheatsheet.loops.template"></td></tr>
         <tr><td><code>index</code></td><td><code>index="i"</code></td><td t="docs.cheatsheet.loops.index"></td></tr>
         <tr><td><code>key</code></td><td><code>key="item.id"</code></td><td t="docs.cheatsheet.loops.key"></td></tr>

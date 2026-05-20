@@ -92,4 +92,12 @@ test.describe('Loops', () => {
     await expect(items.nth(0)).toHaveText('Cal');
     await expect(items.nth(1)).toHaveText('Ana');
   });
+
+  test('9 — Deprecated from syntax: still renders correctly', async ({ page }) => {
+    const items = page.getByTestId('from-item');
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toHaveText('Cat');
+    await expect(items.nth(1)).toHaveText('Dog');
+    await expect(items.nth(2)).toHaveText('Bird');
+  });
 });

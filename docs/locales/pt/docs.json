@@ -118,9 +118,10 @@
         "col1": "Diretiva",
         "col2": "Exemplo",
         "col3": "Descrição",
-        "each": "Loop simples",
-        "foreach": "Loop estendido",
-        "from": "Array de origem",
+        "foreach": "Diretiva de loop primária",
+        "each": "Alias de foreach",
+        "for": "Alias de foreach",
+        "from": "Array de origem (DEPRECATED — use a sintaxe \"item in array\")",
         "template": "Template para clonar",
         "index": "Nome da variável de índice",
         "key": "Chave única para diffing",
@@ -415,27 +416,41 @@
     "loops": {
       "hero": {
         "badge": "Guias",
-        "title": "Loops",
-        "subtitle": "Itere sobre arrays com each e foreach"
-      },
-      "each": {
-        "title": "each — Iterar Sobre Arrays",
-        "preview": "Pré-visualização"
+        "title": "Diretivas de Iteração",
+        "subtitle": "Itere sobre arrays com foreach, each e for"
       },
       "foreach": {
-        "title": "foreach — Loop Estendido",
-        "text": "Oferece mais controle com filtragem, ordenação, paginação e nomes de variáveis personalizados.",
+        "title": "foreach — Iterar Sobre Arrays",
+        "text": "A diretiva de iteração primária. Use foreach=\"item in array\" para iterar sobre arrays. each e for são aliases com comportamento idêntico.",
         "col1": "Atributo",
         "col2": "Descrição",
-        "foreach": "Nome da variável para o item atual",
-        "from": "Array de origem do contexto",
+        "foreach": "Expressão: item in array",
+        "from": "Array de origem (DEPRECATED — use a sintaxe item in array)",
         "index": "Nome da variável para o índice (padrão: $index)",
         "key": "Expressão de chave única para identificação e rastreamento de elementos",
         "else": "ID do template para renderizar quando o array está vazio",
         "filter": "Expressão para filtrar itens",
         "sort": "Caminho da propriedade para ordenar (prefixo - para descendente)",
         "limit": "Número máximo de itens para renderizar",
-        "offset": "Número de itens para pular"
+        "offset": "Número de itens para pular",
+        "preview": "Prévia",
+        "template": "ID de template externo (opcional — os filhos se tornam o template se omitido)"
+      },
+      "fullExample": {
+        "title": "Exemplo completo com todos os atributos",
+        "text": "Um exemplo completo mostrando foreach com filtragem, ordenação, paginação e um fallback para estado vazio."
+      },
+      "aliases": {
+        "title": "Aliases: each e for",
+        "text": "each e for são aliases de foreach — compartilham o mesmo handler e suportam todos os mesmos atributos."
+      },
+      "inline": {
+        "title": "Template Inline de Filhos",
+        "text": "Quando nenhum atributo template é especificado, os filhos do elemento se tornam o template de repetição."
+      },
+      "deprecated": {
+        "title": "Deprecated: Atributo from",
+        "text": "O atributo from ainda funciona mas está deprecated. Use a sintaxe \"item in array\" em vez disso. Usar from emitirá um aviso no console."
       },
       "contextVars": {
         "title": "Variáveis de Contexto do Loop",
@@ -450,7 +465,7 @@
       },
       "nested": {
         "title": "Loops Aninhados",
-        "text": "Loops filhos podem acessar variáveis do escopo pai."
+        "text": "Loops filhos (foreach, each ou for) podem acessar variáveis do escopo pai."
       }
     },
     "templates": {
@@ -863,7 +878,7 @@
       },
       "loopAnimations": {
         "title": "Animações em Loops",
-        "text": "Tanto each quanto foreach suportam animações de entrada/saída e stagger."
+        "text": "Todas as diretivas de loop (foreach, each, for) suportam animações de entrada/saída e stagger."
       },
       "builtIn": {
         "title": "Nomes de Animação Integrados",

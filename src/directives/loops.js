@@ -52,9 +52,19 @@ const _loopHandler = {
   priority: 10,
   init(el, name, expr) {
     const ctx = findContext(el);
+    let itemName, listPath;
     const match = expr.match(/^(\w+)\s+in\s+(\S+)$/);
-    if (!match) return;
-    const [, itemName, listPath] = match;
+    if (match) {
+      [, itemName, listPath] = match;
+    } else {
+      const fromAttr = el.getAttribute("from");
+      if (!fromAttr || !/^\w+$/.test(expr)) return;
+      itemName = expr;
+      listPath = fromAttr;
+      console.warn(
+        `[NoJS] "${name}" with "from" is deprecated. Use ${name}="${itemName} in ${listPath}" instead.`,
+      );
+    }
     const indexName = el.getAttribute("index") || "$index";
     const elseTpl = el.getAttribute("else");
     const filterExpr = el.getAttribute("filter");

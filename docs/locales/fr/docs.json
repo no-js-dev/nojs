@@ -118,9 +118,10 @@
         "col1": "Directive",
         "col2": "Exemple",
         "col3": "Description",
-        "each": "Boucle simple",
-        "foreach": "Boucle étendue",
-        "from": "Tableau source",
+        "foreach": "Directive de boucle primaire",
+        "each": "Alias de foreach",
+        "for": "Alias de foreach",
+        "from": "Tableau source (DEPRECATED — utilisez la syntaxe \"item in array\")",
         "template": "Template à cloner",
         "index": "Nom de la variable d'index",
         "key": "Clé unique pour le diffing",
@@ -415,27 +416,41 @@
     "loops": {
       "hero": {
         "badge": "Guides",
-        "title": "Boucles",
-        "subtitle": "Itérez sur des tableaux avec each et foreach"
-      },
-      "each": {
-        "title": "each — Itérer sur des tableaux",
-        "preview": "Aperçu"
+        "title": "Directives d'itération",
+        "subtitle": "Itérez sur des tableaux avec foreach, each et for"
       },
       "foreach": {
-        "title": "foreach — Boucle étendue",
-        "text": "Offre plus de contrôle avec le filtrage, le tri, la pagination et des noms de variables personnalisés.",
+        "title": "foreach — Itérer sur des tableaux",
+        "text": "La directive d'itération principale. Utilisez foreach=\"item in array\" pour itérer sur des tableaux. each et for sont des alias avec un comportement identique.",
         "col1": "Attribut",
         "col2": "Description",
-        "foreach": "Nom de la variable pour l'élément courant",
-        "from": "Tableau source du contexte",
+        "foreach": "Expression : item in array",
+        "from": "Tableau source (DEPRECATED — utilisez la syntaxe item in array)",
         "index": "Nom de la variable d'index (par défaut : $index)",
         "key": "Expression de clé unique pour l'identification et le suivi des éléments",
         "else": "ID du template à afficher quand le tableau est vide",
         "filter": "Expression pour filtrer les éléments",
         "sort": "Chemin de propriété pour le tri (préfixe - pour l'ordre décroissant)",
         "limit": "Nombre maximum d'éléments à afficher",
-        "offset": "Nombre d'éléments à ignorer"
+        "offset": "Nombre d'éléments à ignorer",
+        "preview": "Aperçu",
+        "template": "ID de template externe (optionnel — les enfants deviennent le template si omis)"
+      },
+      "fullExample": {
+        "title": "Exemple complet avec tous les attributs",
+        "text": "Un exemple complet montrant foreach avec filtrage, tri, pagination et un template de secours pour l'état vide."
+      },
+      "aliases": {
+        "title": "Alias : each et for",
+        "text": "each et for sont des alias de foreach — ils partagent le même handler et supportent tous les mêmes attributs."
+      },
+      "inline": {
+        "title": "Template enfants inline",
+        "text": "Quand aucun attribut template n'est spécifié, les enfants de l'élément deviennent le template répété."
+      },
+      "deprecated": {
+        "title": "Déprécié : attribut from",
+        "text": "L'attribut from fonctionne encore mais est déprécié. Utilisez la syntaxe \"item in array\" à la place. L'utilisation de from émettra un avertissement dans la console."
       },
       "contextVars": {
         "title": "Variables de contexte de boucle",
@@ -450,7 +465,7 @@
       },
       "nested": {
         "title": "Boucles imbriquées",
-        "text": "Les boucles enfants peuvent accéder aux variables de la portée parente."
+        "text": "Les boucles enfants (foreach, each ou for) peuvent accéder aux variables de la portée parente."
       }
     },
     "templates": {
@@ -863,7 +878,7 @@
       },
       "loopAnimations": {
         "title": "Animations de boucle",
-        "text": "Les boucles each et foreach supportent les animations d'entrée/sortie et l'échelonnement."
+        "text": "Toutes les directives de boucle (foreach, each, for) supportent les animations d'entrée/sortie et l'échelonnement."
       },
       "builtIn": {
         "title": "Noms d'animations intégrés",

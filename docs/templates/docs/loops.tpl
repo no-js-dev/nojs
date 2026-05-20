@@ -1,4 +1,4 @@
-<!-- Loops — from loops.md -->
+<!-- Loops — Iteration Directives -->
 
 <section class="hero-section">
   <span class="badge" t="docs.loops.hero.badge"></span>
@@ -8,12 +8,13 @@
 
 <div class="doc-content">
 
-  <!-- each -->
+  <!-- foreach — primary -->
   <div class="doc-section">
-    <h2 class="doc-title" t="docs.loops.each.title"></h2>
+    <h2 class="doc-title" t="docs.loops.foreach.title"></h2>
+    <p class="doc-text" t="docs.loops.foreach.text"></p>
     <div class="demo-split">
       <div class="demo-code"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/posts"</span> <span class="hl-attr">as</span>=<span class="hl-str">"posts"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"post in posts"</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"post in posts"</span>
        <span class="hl-attr">template</span>=<span class="hl-str">"postCard"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span>
 
@@ -24,8 +25,8 @@
   <span class="hl-tag">&lt;/article&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
       <div class="demo-preview" state="{ fruits: ['Apple', 'Banana', 'Cherry', 'Date'] }">
-        <div class="demo-result-label" t="docs.loops.each.preview"></div>
-        <div each="fruit in fruits" template="fruitItem"></div>
+        <div class="demo-result-label" t="docs.loops.foreach.preview"></div>
+        <div foreach="fruit in fruits" template="fruitItem"></div>
         <template id="fruitItem">
           <div class="item-row">
             <span class="item-index" bind="$index + 1"></span>
@@ -36,19 +37,18 @@
     </div>
   </div>
 
-  <!-- foreach -->
+  <!-- full example with all attributes -->
   <div class="doc-section">
-    <h2 class="doc-title" t="docs.loops.foreach.title"></h2>
-    <p class="doc-text" t="docs.loops.foreach.text"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;ul&gt;</span>
-  <span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item"</span>
-      <span class="hl-attr">from</span>=<span class="hl-str">"menuItems"</span>
-      <span class="hl-attr">index</span>=<span class="hl-str">"idx"</span>
-      <span class="hl-attr">key</span>=<span class="hl-str">"item.id"</span>
-      <span class="hl-attr">else</span>=<span class="hl-str">"#noItems"</span>
-      <span class="hl-attr">filter</span>=<span class="hl-str">"item.active"</span>
-      <span class="hl-attr">sort</span>=<span class="hl-str">"order"</span>
-      <span class="hl-attr">limit</span>=<span class="hl-str">"10"</span><span class="hl-tag">&gt;</span>
+    <h2 class="doc-title" t="docs.loops.fullExample.title"></h2>
+    <p class="doc-text" t="docs.loops.fullExample.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;ul</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in menuItems"</span>
+    <span class="hl-attr">index</span>=<span class="hl-str">"idx"</span>
+    <span class="hl-attr">key</span>=<span class="hl-str">"item.id"</span>
+    <span class="hl-attr">else</span>=<span class="hl-str">"#noItems"</span>
+    <span class="hl-attr">filter</span>=<span class="hl-str">"item.active"</span>
+    <span class="hl-attr">sort</span>=<span class="hl-str">"order"</span>
+    <span class="hl-attr">limit</span>=<span class="hl-str">"10"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;li&gt;</span>
     <span class="hl-tag">&lt;a</span> <span class="hl-attr">bind-href</span>=<span class="hl-str">"item.link"</span><span class="hl-tag">&gt;</span>
       <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
     <span class="hl-tag">&lt;/a&gt;</span>
@@ -64,8 +64,8 @@
         <tr><th t="docs.loops.foreach.col1"></th><th t="docs.loops.foreach.col2"></th></tr>
       </thead>
       <tbody>
-        <tr><td><code>foreach</code></td><td t="docs.loops.foreach.foreach"></td></tr>
-        <tr><td><code>from</code></td><td t="docs.loops.foreach.from"></td></tr>
+        <tr><td><code>foreach</code> / <code>each</code> / <code>for</code></td><td t="docs.loops.foreach.foreach"></td></tr>
+        <tr><td><code>template</code></td><td t="docs.loops.foreach.template"></td></tr>
         <tr><td><code>index</code></td><td t="docs.loops.foreach.index"></td></tr>
         <tr><td><code>key</code></td><td t="docs.loops.foreach.key"></td></tr>
         <tr><td><code>else</code></td><td t="docs.loops.foreach.else"></td></tr>
@@ -73,8 +73,39 @@
         <tr><td><code>sort</code></td><td t="docs.loops.foreach.sort"></td></tr>
         <tr><td><code>limit</code></td><td t="docs.loops.foreach.limit"></td></tr>
         <tr><td><code>offset</code></td><td t="docs.loops.foreach.offset"></td></tr>
+        <tr class="deprecated-row"><td><code>from</code></td><td t="docs.loops.foreach.from"></td></tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- inline children template -->
+  <div class="doc-section">
+    <h2 class="doc-title" t="docs.loops.inline.title"></h2>
+    <p class="doc-text" t="docs.loops.inline.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;ul</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"user in users"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;li</span> <span class="hl-attr">bind</span>=<span class="hl-str">"user.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
+<span class="hl-tag">&lt;/ul&gt;</span></pre></div>
+  </div>
+
+  <!-- aliases -->
+  <div class="doc-section">
+    <h2 class="doc-title" t="docs.loops.aliases.title"></h2>
+    <p class="doc-text" t="docs.loops.aliases.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- All three are identical: --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"tpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"tpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">for</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"tpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- deprecated from -->
+  <div class="doc-section deprecated-section">
+    <h2 class="doc-title" t="docs.loops.deprecated.title"></h2>
+    <p class="doc-text" t="docs.loops.deprecated.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- DEPRECATED — still works, emits console warning --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item"</span> <span class="hl-attr">from</span>=<span class="hl-str">"items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"tpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+
+<span class="hl-cmt">&lt;!-- Use this instead: --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"tpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
   </div>
 
   <!-- loop context variables -->
@@ -93,7 +124,7 @@
         <tr><td><code>$odd</code></td><td t="docs.loops.contextVars.odd"></td></tr>
       </tbody>
     </table>
-    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span>
      <span class="hl-attr">template</span>=<span class="hl-str">"contextItem"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"contextItem"</span><span class="hl-tag">&gt;</span>
@@ -109,12 +140,12 @@
   <div class="doc-section">
     <h2 class="doc-title" t="docs.loops.nested.title"></h2>
     <p class="doc-text" t="docs.loops.nested.text"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"category in categories"</span>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"category in categories"</span>
      <span class="hl-attr">template</span>=<span class="hl-str">"categoryTpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"categoryTpl"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;h3</span> <span class="hl-attr">bind</span>=<span class="hl-str">"category.name"</span><span class="hl-tag">&gt;&lt;/h3&gt;</span>
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"product in category.products"</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"product in category.products"</span>
        <span class="hl-attr">template</span>=<span class="hl-str">"productTpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span>
 
@@ -125,4 +156,3 @@
   </div>
 
 </div>
-

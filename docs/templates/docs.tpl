@@ -443,90 +443,9 @@
     <!-- Right-side "On This Page" table of contents -->
     <aside class="page-toc" id="page-toc">
         <div class="page-toc-title" t="shell.sidebar.onThisPage"></div>
-        <nav class="page-toc-nav" id="page-toc-nav"></nav>
+        <nav class="page-toc-nav"></nav>
     </aside>
 
 </div><!-- /doc-with-sidebar -->
-
-<script>
-(function () {
-  var tocNav = document.getElementById('page-toc-nav');
-  var docMain = document.querySelector('.doc-main');
-  if (!tocNav || !docMain) return;
-
-  var headingSelector = '.doc-title[id], .doc-subtitle[id]';
-  var activeLink = null;
-
-  /* ── Build TOC links from visible headings ── */
-  function buildToc() {
-    var headings = docMain.querySelectorAll(headingSelector);
-    if (!headings.length) return;
-
-    /* Clear stale entries */
-    tocNav.innerHTML = '';
-
-    headings.forEach(function (h) {
-      var a = document.createElement('a');
-      a.href = '#' + h.id;
-      a.className = 'page-toc-link' + (h.classList.contains('doc-subtitle') ? ' toc-indent' : '');
-      a.textContent = h.textContent;
-      a.setAttribute('title', h.textContent);
-      tocNav.appendChild(a);
-    });
-
-    observeHeadings();
-  }
-
-  /* ── IntersectionObserver scroll spy ── */
-  var observer = null;
-
-  function observeHeadings() {
-    if (observer) observer.disconnect();
-
-    var headings = docMain.querySelectorAll(headingSelector);
-    if (!headings.length) return;
-
-    /* rootMargin: trigger when heading crosses top 70px header + 16px pad */
-    observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          setActive(entry.target.id);
-        }
-      });
-    }, {
-      rootMargin: '-' + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 70) + 'px 0px -60% 0px',
-      threshold: 0
-    });
-
-    headings.forEach(function (h) { observer.observe(h); });
-  }
-
-  function setActive(id) {
-    if (activeLink) activeLink.classList.remove('active');
-    var link = tocNav.querySelector('a[href="#' + CSS.escape(id) + '"]');
-    if (link) {
-      link.classList.add('active');
-      activeLink = link;
-      /* Keep active link visible in scrollable TOC */
-      link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }
-
-  /* ── Watch for dynamically loaded section templates ── */
-  var mutation = new MutationObserver(function () {
-    /* Rebuild whenever new headings appear (lazy-loaded templates) */
-    var headings = docMain.querySelectorAll(headingSelector);
-    var currentCount = tocNav.querySelectorAll('a').length;
-    if (headings.length !== currentCount) {
-      buildToc();
-    }
-  });
-
-  mutation.observe(docMain, { childList: true, subtree: true });
-
-  /* Initial build (some headings may already be present) */
-  buildToc();
-})();
-</script>
 </div>
 

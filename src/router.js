@@ -306,7 +306,235 @@ export function _createRouter() {
     }
   }
 
+  // ── Helpers: fetch or retrieve a file-based template ──────────────────────
+  // Creates (or retrieves from cache) a <template> element for the given src
+  // path.  Returns the element — the caller must still call _loadTemplateElement
+  // if __srcLoaded is false.
+  function _getOrCreateAutoTemplate(baseSrc, segment, ext, outletName, routePath) {
+    const fullSrc = baseSrc + segment + ext;
+    const cacheKey = outletName + ":" + fullSrc;
+    if (_autoTemplateCache.has(cacheKey)) {
+      return _autoTemplateCache.get(cacheKey);
+    }
+    const tpl = document.createElement("template");
+    tpl.setAttribute("src", fullSrc);
+    tpl.setAttribute("route", routePath);
+    document.body.appendChild(tpl);
+    _autoTemplateCache.set(cacheKey, tpl);
+    return tpl;
+  }
+
+  // ── NOJS-21: Hierarchical segment resolution ─────────────────────────────
+  // For multi-segment paths (e.g. /docs/loops), try loading segment-by-segment
+  // layouts before falling back to the flat path.
+  //
+  // Returns { tpl, remainingSegments } where:
+  //   - tpl is the resolved <template> element (layout or flat)
+  //   - remainingSegments are the path parts NOT yet consumed (to be resolved
+  //     by NOJS-22 post-render re-scan into nested [route-view] outlets)
+  async function _resolveHierarchicalTemplate(outletEl, outletName) {
+    const configTemplates = _config.router.templates || "";
+    if (!outletEl.hasAttribute("src") && !configTemplates) return null;
+
+    const rawSrc = outletEl.getAttribute("src") || configTemplates;
+    const baseSrc = rawSrc.replace(/\/?$/, "/");
+    const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl" || ".html";
+    const indexName = outletEl.getAttribute("route-index") || "index";
+
+    // For root path or single-segment paths, use flat resolution (original behavior)
+    if (current.path === "/") {
+      const segment = indexName;
+      const tpl = _getOrCreateAutoTemplate(baseSrc, segment, ext, outletName, current.path);
+      _log("[ROUTER] File-based route:", current.path, "→", baseSrc + segment + ext);
+      // Auto i18n namespace
+      if (outletEl.hasAttribute("i18n-ns") && !tpl.getAttribute("i18n-ns")) {
+        tpl.setAttribute("i18n-ns", segment);
+      }
+      return { tpl, remainingSegments: [], baseSrc, ext, indexName };
+    }
+
+    const pathSegments = current.path.replace(/^\//, "").split("/").filter(Boolean);
+
+    // Single segment — no hierarchy needed, use flat resolution
+    if (pathSegments.length <= 1) {
+      const segment = pathSegments[0] || indexName;
+      const tpl = _getOrCreateAutoTemplate(baseSrc, segment, ext, outletName, current.path);
+      _log("[ROUTER] File-based route:", current.path, "→", baseSrc + segment + ext);
+      if (outletEl.hasAttribute("i18n-ns") && !tpl.getAttribute("i18n-ns")) {
+        tpl.setAttribute("i18n-ns", segment);
+      }
+      return { tpl, remainingSegments: [], baseSrc, ext, indexName };
+    }
+
+    // Multi-segment path — try hierarchical layout resolution.
+    // For /docs/loops: try templates/docs.tpl as a layout first.
+    const firstSegment = pathSegments[0];
+    const layoutCacheKey = outletName + ":layout:" + baseSrc + firstSegment + ext;
+
+    let layoutExists;
+    if (_autoTemplateCache.has(layoutCacheKey)) {
+      // We've already probed this layout path — check the cached result
+      const cached = _autoTemplateCache.get(layoutCacheKey);
+      layoutExists = cached && !cached.__loadFailed;
+    } else {
+      // Probe: try to load the layout template
+      const layoutTpl = _getOrCreateAutoTemplate(baseSrc, firstSegment, ext, outletName, "/" + firstSegment);
+      // Also cache under the layout-specific key for future probes
+      _autoTemplateCache.set(layoutCacheKey, layoutTpl);
+
+      if (!layoutTpl.__srcLoaded) {
+        await _loadTemplateElement(layoutTpl);
+      }
+      layoutExists = !layoutTpl.__loadFailed;
+    }
+
+    if (layoutExists) {
+      // Layout exists — render it and leave remaining segments for re-scan
+      const layoutTpl = _autoTemplateCache.get(layoutCacheKey)
+        || _getOrCreateAutoTemplate(baseSrc, firstSegment, ext, outletName, "/" + firstSegment);
+      _log("[ROUTER] Hierarchical layout:", current.path, "→ layout", baseSrc + firstSegment + ext, "remaining:", pathSegments.slice(1));
+      if (outletEl.hasAttribute("i18n-ns") && !layoutTpl.getAttribute("i18n-ns")) {
+        layoutTpl.setAttribute("i18n-ns", firstSegment);
+      }
+      return { tpl: layoutTpl, remainingSegments: pathSegments.slice(1), baseSrc, ext, indexName };
+    }
+
+    // Layout doesn't exist — fall back to flat resolution (original behavior)
+    const flatSegment = pathSegments.join("/");
+    const tpl = _getOrCreateAutoTemplate(baseSrc, flatSegment, ext, outletName, current.path);
+    _log("[ROUTER] File-based route (flat fallback):", current.path, "→", baseSrc + flatSegment + ext);
+    if (outletEl.hasAttribute("i18n-ns") && !tpl.getAttribute("i18n-ns")) {
+      tpl.setAttribute("i18n-ns", flatSegment);
+    }
+    return { tpl, remainingSegments: [], baseSrc, ext, indexName };
+  }
+
+  // ── NOJS-22: Post-render outlet re-scan ───────────────────────────────────
+  // After rendering a layout, scan for newly appeared [route-view] outlets and
+  // resolve remaining path segments into them.  Recurses for N levels deep.
+  // The `renderedPaths` set prevents infinite loops when a layout re-introduces
+  // the same outlet with the same segment.
+  async function _resolveNestedOutlets(parentEl, remainingSegments, baseSrc, ext, indexName, renderedPaths) {
+    if (!remainingSegments.length) return;
+
+    // Find NEW [route-view] outlets inside the just-rendered content
+    const nestedOutlets = [...parentEl.querySelectorAll("[route-view]")];
+    if (!nestedOutlets.length) return;
+
+    const nextSegment = remainingSegments[0];
+    const childRemaining = remainingSegments.slice(1);
+
+    for (const nestedOutlet of nestedOutlets) {
+      const nestedName = (nestedOutlet.getAttribute("route-view") || "").trim() || "default";
+
+      // Use the nested outlet's own src if present, otherwise inherit baseSrc
+      const nestedRawSrc = nestedOutlet.getAttribute("src");
+      const nestedBaseSrc = nestedRawSrc
+        ? nestedRawSrc.replace(/\/?$/, "/")
+        : baseSrc;
+      const nestedExt = nestedOutlet.getAttribute("ext") || ext;
+
+      // Guard against infinite loops: same outlet + same segment = stop
+      const loopKey = nestedName + ":" + nestedBaseSrc + nextSegment;
+      if (renderedPaths.has(loopKey)) {
+        _warn("[ROUTER] Infinite loop detected for nested outlet:", loopKey);
+        continue;
+      }
+      renderedPaths.add(loopKey);
+
+      // Determine whether this segment is a layout (has further segments)
+      // or a leaf template
+      let tpl;
+      let segmentRemaining = childRemaining;
+
+      if (childRemaining.length > 0) {
+        // More segments remain — try this segment as a layout first
+        const layoutCacheKey = nestedName + ":layout:" + nestedBaseSrc + nextSegment + nestedExt;
+        if (!_autoTemplateCache.has(layoutCacheKey)) {
+          const layoutTpl = _getOrCreateAutoTemplate(nestedBaseSrc, nextSegment, nestedExt, nestedName, "/" + nextSegment);
+          _autoTemplateCache.set(layoutCacheKey, layoutTpl);
+          if (!layoutTpl.__srcLoaded) {
+            await _loadTemplateElement(layoutTpl);
+          }
+        }
+        const cached = _autoTemplateCache.get(layoutCacheKey);
+        if (cached && !cached.__loadFailed) {
+          tpl = cached;
+          _log("[ROUTER] Nested layout:", nextSegment, "→", nestedBaseSrc + nextSegment + nestedExt);
+        } else {
+          // No layout — try flat path with all remaining segments
+          const flatSegment = [nextSegment, ...childRemaining].join("/");
+          tpl = _getOrCreateAutoTemplate(nestedBaseSrc, flatSegment, nestedExt, nestedName, current.path);
+          segmentRemaining = [];
+          _log("[ROUTER] Nested flat fallback:", nextSegment, "→", nestedBaseSrc + flatSegment + nestedExt);
+        }
+      } else {
+        // Leaf segment — load directly
+        tpl = _getOrCreateAutoTemplate(nestedBaseSrc, nextSegment, nestedExt, nestedName, current.path);
+        _log("[ROUTER] Nested leaf:", nextSegment, "→", nestedBaseSrc + nextSegment + nestedExt);
+      }
+
+      // Load template if needed
+      if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+        await _loadTemplateElement(tpl);
+      }
+
+      if (tpl.__loadFailed) {
+        // Try wildcard, then built-in 404
+        const wildcardTpl = _wildcards.get(nestedName)
+          || (nestedName !== "default" ? _wildcards.get("default") : null);
+        if (wildcardTpl && !wildcardTpl.__loadFailed) {
+          tpl = wildcardTpl;
+          if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+            await _loadTemplateElement(tpl);
+          }
+        }
+        if (!tpl || tpl.__loadFailed) {
+          _disposeTree(nestedOutlet);
+          nestedOutlet.innerHTML = _BUILTIN_404_HTML;
+          continue;
+        }
+      }
+
+      // Render template into the nested outlet
+      _disposeTree(nestedOutlet);
+      nestedOutlet.innerHTML = "";
+
+      // i18n namespace loading
+      const i18nNs = tpl.getAttribute("i18n-ns");
+      if (i18nNs) {
+        const { _loadI18nNamespace } = await import("./i18n.js");
+        await _loadI18nNamespace(i18nNs);
+      }
+
+      const clone = tpl.content.cloneNode(true);
+      const routeCtx = createContext(
+        { $route: current },
+        findContext(nestedOutlet),
+      );
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "contents";
+      wrapper.__ctx = routeCtx;
+      if (tpl.content.__srcBase) wrapper.__srcBase = tpl.content.__srcBase;
+      wrapper.appendChild(clone);
+      nestedOutlet.appendChild(wrapper);
+
+      _processTemplateIncludes(wrapper);
+      const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
+      await Promise.all(nestedTpls.map(_loadTemplateElement));
+
+      _clearDeclared(wrapper);
+      processTree(wrapper);
+
+      // Recurse — resolve further segments into outlets introduced by this template
+      if (segmentRemaining.length > 0) {
+        await _resolveNestedOutlets(wrapper, segmentRemaining, nestedBaseSrc, nestedExt, indexName, renderedPaths);
+      }
+    }
+  }
+
   async function _renderRoute(matched) {
+    // Snapshot existing outlets BEFORE rendering (used by NOJS-22 re-scan)
     const outletEls = document.querySelectorAll("[route-view]");
     for (const outletEl of outletEls) {
       // Determine outlet name ("" or missing attribute value → "default")
@@ -316,31 +544,20 @@ export function _createRouter() {
       // Find the template for this outlet in the matched route
       let tpl = matched?.route?.outlets?.[outletName];
 
-      // ── File-based routing: auto-resolve from route-view[src] or config ──
+      // ── File-based routing: hierarchical segment resolution (NOJS-21) ──
+      let remainingSegments = [];
+      let resolvedBaseSrc = "";
+      let resolvedExt = "";
+      let resolvedIndexName = "index";
       const configTemplates = _config.router.templates || "";
       if (!tpl && (outletEl.hasAttribute("src") || configTemplates)) {
-        const rawSrc = outletEl.getAttribute("src") || configTemplates;
-        const baseSrc = rawSrc.replace(/\/?$/, "/");
-        const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl" || ".html";
-        const indexName = outletEl.getAttribute("route-index") || "index";
-        const segment = current.path === "/" ? indexName : current.path.replace(/^\//, "");
-        const fullSrc = baseSrc + segment + ext;
-        const cacheKey = outletName + ":" + fullSrc;
-
-        if (_autoTemplateCache.has(cacheKey)) {
-          tpl = _autoTemplateCache.get(cacheKey);
-        } else {
-          tpl = document.createElement("template");
-          tpl.setAttribute("src", fullSrc);
-          tpl.setAttribute("route", current.path);
-          document.body.appendChild(tpl);
-          _autoTemplateCache.set(cacheKey, tpl);
-          _log("[ROUTER] File-based route:", current.path, "→", fullSrc);
-        }
-
-        // Auto i18n namespace (convention: filename = namespace)
-        if (outletEl.hasAttribute("i18n-ns") && !tpl.getAttribute("i18n-ns")) {
-          tpl.setAttribute("i18n-ns", segment);
+        const resolved = await _resolveHierarchicalTemplate(outletEl, outletName);
+        if (resolved) {
+          tpl = resolved.tpl;
+          remainingSegments = resolved.remainingSegments;
+          resolvedBaseSrc = resolved.baseSrc;
+          resolvedExt = resolved.ext;
+          resolvedIndexName = resolved.indexName;
         }
       }
 
@@ -430,6 +647,15 @@ export function _createRouter() {
 
         _clearDeclared(wrapper);
         processTree(wrapper);
+
+        // ── NOJS-22: Post-render outlet re-scan ──────────────────────────
+        // If this was a hierarchical layout render with remaining segments,
+        // re-scan the just-rendered content for new [route-view] outlets and
+        // resolve the remaining path segments into them.
+        if (remainingSegments.length > 0) {
+          const renderedPaths = new Set();
+          await _resolveNestedOutlets(wrapper, remainingSegments, resolvedBaseSrc, resolvedExt, resolvedIndexName, renderedPaths);
+        }
 
         // page-title: update document.title if the route template declares one.
         // Accepts both a static string literal and a full No.JS expression:

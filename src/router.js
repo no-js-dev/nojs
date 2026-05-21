@@ -772,6 +772,8 @@ export function _createRouter() {
   function _prefetchRoutes() {
     const outletEls = document.querySelectorAll("[route-view]");
     for (const outletEl of outletEls) {
+      // Skip nested outlets — they get templates loaded during navigation
+      if (outletEl.parentElement && outletEl.parentElement.closest("[route-view]")) continue;
       const rawSrc = outletEl.getAttribute("src") || _config.router.templates || "";
       if (!rawSrc) continue;
       const baseSrc = rawSrc.replace(/\/?$/, "/");

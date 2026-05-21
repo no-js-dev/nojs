@@ -228,7 +228,7 @@ export function _createRouter() {
       hash: current.hash,
     });
 
-    // Scroll to anchor if hash is present (e.g. route="/docs#cheatsheet")
+    // Scroll to anchor if hash is present
     if (current.hash) {
       const anchorId = current.hash.slice(1);
       requestAnimationFrame(() => {
@@ -324,14 +324,9 @@ export function _createRouter() {
     return tpl;
   }
 
-  // ── NOJS-21: Hierarchical segment resolution ─────────────────────────────
-  // For multi-segment paths (e.g. /docs/loops), try loading segment-by-segment
-  // layouts before falling back to the flat path.
-  //
-  // Returns { tpl, remainingSegments } where:
-  //   - tpl is the resolved <template> element (layout or flat)
-  //   - remainingSegments are the path parts NOT yet consumed (to be resolved
-  //     by NOJS-22 post-render re-scan into nested [route-view] outlets)
+  // ── Hierarchical segment resolution ──────────────────────────────────────
+  // For multi-segment paths, try loading segment-by-segment layouts before
+  // falling back to the flat path.
   async function _resolveHierarchicalTemplate(outletEl, outletName) {
     const configTemplates = _config.router.templates || "";
     if (!outletEl.hasAttribute("src") && !configTemplates) return null;
@@ -367,7 +362,6 @@ export function _createRouter() {
     }
 
     // Multi-segment path — try hierarchical layout resolution.
-    // For /docs/loops: try templates/docs.tpl as a layout first.
     const firstSegment = pathSegments[0];
     const layoutCacheKey = outletName + ":layout:" + baseSrc + firstSegment + ext;
 
@@ -409,11 +403,9 @@ export function _createRouter() {
     return { tpl, remainingSegments: [], baseSrc, ext, indexName };
   }
 
-  // ── NOJS-22: Post-render outlet re-scan ───────────────────────────────────
-  // After rendering a layout, scan for newly appeared [route-view] outlets and
-  // resolve remaining path segments into them.  Recurses for N levels deep.
-  // The `renderedPaths` set prevents infinite loops when a layout re-introduces
-  // the same outlet with the same segment.
+  // ── Post-render outlet re-scan ──────────────────────────────────────────
+  // After rendering a layout, scan for newly appeared [route-view] outlets
+  // and resolve remaining path segments into them. Recurses for N levels.
   async function _resolveNestedOutlets(parentEl, remainingSegments, baseSrc, ext, indexName, renderedPaths) {
     if (!remainingSegments.length) return;
 
@@ -428,8 +420,7 @@ export function _createRouter() {
       const nestedName = (nestedOutlet.getAttribute("route-view") || "").trim() || "default";
 
       // Use the nested outlet's own src if present, otherwise inherit baseSrc.
-      // Resolve "./" relative paths against the parent template's __srcBase
-      // so that src="./docs/" inside templates/docs.tpl → "templates/docs/".
+      // Resolve "./" relative paths against the parent template's __srcBase.
       let nestedRawSrc = nestedOutlet.getAttribute("src");
       if (nestedRawSrc && nestedRawSrc.startsWith("./")) {
         let node = nestedOutlet.parentNode;
@@ -547,7 +538,7 @@ export function _createRouter() {
   }
 
   async function _renderRoute(matched) {
-    // Snapshot existing outlets BEFORE rendering (used by NOJS-22 re-scan)
+    // Snapshot existing outlets BEFORE rendering
     const outletEls = document.querySelectorAll("[route-view]");
     for (const outletEl of outletEls) {
       // Determine outlet name ("" or missing attribute value → "default")
@@ -557,7 +548,7 @@ export function _createRouter() {
       // Find the template for this outlet in the matched route
       let tpl = matched?.route?.outlets?.[outletName];
 
-      // ── File-based routing: hierarchical segment resolution (NOJS-21) ──
+      // ── File-based routing: hierarchical segment resolution ──
       let remainingSegments = [];
       let resolvedBaseSrc = "";
       let resolvedExt = "";
@@ -661,7 +652,7 @@ export function _createRouter() {
         _clearDeclared(wrapper);
         processTree(wrapper);
 
-        // ── NOJS-22: Post-render outlet re-scan ──────────────────────────
+        // ── Post-render outlet re-scan ──────────────────────────────────
         // If this was a hierarchical layout render with remaining segments,
         // re-scan the just-rendered content for new [route-view] outlets and
         // resolve the remaining path segments into them.
@@ -784,17 +775,15 @@ export function _createRouter() {
         const segment = path === "/" ? indexName : path.replace(/^\//, "");
         const pathSegments = path === "/" ? [] : path.replace(/^\//, "").split("/").filter(Boolean);
 
-        // ── NOJS-23: Layout-aware prefetch for multi-segment routes ───────
-        // When we know a segment is a layout (cached by _resolveHierarchicalTemplate
-        // or _resolveNestedOutlets), prefetch BOTH the layout template and the
-        // child template instead of only the flat path.
+        // Layout-aware prefetch: when a segment is a known layout, prefetch
+        // the child template instead of the flat path.
         if (pathSegments.length > 1) {
           const firstSegment = pathSegments[0];
           const layoutCacheKey = outletName + ":layout:" + baseSrc + firstSegment + ext;
           const layoutCached = _autoTemplateCache.get(layoutCacheKey);
 
           if (layoutCached && !layoutCached.__loadFailed) {
-            // Layout is known — prefetch the child template (e.g. docs/loops.tpl)
+            // Layout is known — prefetch the child template
             const childSegment = pathSegments.join("/");
             const childTpl = _getOrCreateAutoTemplate(baseSrc, childSegment, ext, outletName, path);
             if (!childTpl.__srcLoaded) {

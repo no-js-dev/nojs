@@ -314,9 +314,10 @@
 .skl-line.w50 { width: 50%; }
 .skl-code.sm  { height: 80px; margin-top: 4px; }
 
-/* Hide skeleton once real content has arrived */
-.doc-with-sidebar .doc-main > [id]:has(.doc-section) .doc-skeleton,
-.doc-with-sidebar .doc-main > [id]:has(.hero-section) .doc-skeleton {
+/* Hide skeleton once real content has arrived
+   (router wraps content in display:contents divs, so use :has instead of >) */
+.doc-with-sidebar .doc-main:has(.doc-section) .doc-skeleton,
+.doc-with-sidebar .doc-main:has(.hero-section) .doc-skeleton {
   display: none;
 }
 

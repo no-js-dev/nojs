@@ -284,23 +284,41 @@
       }
     });
 
-    // ── page-toc directive — populates a static <aside page-toc> with heading links + scroll spy ──
+    // ── page-toc directive — injects TOC after hero inside doc-main, scroll spy + i18n-aware ──
     NoJS.directive('page-toc', {
       priority: 25,
       init: function(el) {
-        var nav = el.querySelector('.page-toc-nav');
-        if (!nav) return;
-        var docMain = el.parentElement && el.parentElement.querySelector('.doc-main');
-        if (!docMain) return;
         var sel = '.doc-title[id], .doc-subtitle[id]';
         var activeLink = null;
         var scrollObs = null;
         var timer = null;
         var lastHash = '';
+        var nav = null;
+
+        function ensureToc() {
+          var hero = el.querySelector('.hero-section');
+          if (!hero) return null;
+          var existing = el.querySelector('.page-toc');
+          if (existing) return existing.querySelector('.page-toc-nav');
+          var aside = document.createElement('aside');
+          aside.className = 'page-toc';
+          var title = document.createElement('div');
+          title.className = 'page-toc-title';
+          title.setAttribute('t', 'shell.sidebar.onThisPage');
+          var n = document.createElement('nav');
+          n.className = 'page-toc-nav';
+          aside.appendChild(title);
+          aside.appendChild(n);
+          hero.insertAdjacentElement('afterend', aside);
+          if (NoJS.processTree) NoJS.processTree(title);
+          return n;
+        }
 
         function build() {
-          var headings = docMain.querySelectorAll(sel);
-          if (!headings.length) { schedule(); return; }
+          nav = ensureToc();
+          if (!nav) { schedule(); return; }
+          var headings = el.querySelectorAll(sel);
+          if (!headings.length) return;
           if (!headings[0].textContent.trim()) { schedule(); return; }
           nav.innerHTML = '';
           activeLink = null;
@@ -332,11 +350,11 @@
         function schedule() { clearTimeout(timer); timer = setTimeout(build, 300); }
 
         new MutationObserver(function() {
-          var headings = docMain.querySelectorAll(sel);
-          var count = nav.querySelectorAll('a').length;
+          var headings = el.querySelectorAll(sel);
+          var count = nav ? nav.querySelectorAll('a').length : 0;
           var hash = Array.prototype.map.call(headings, function(h) { return h.textContent; }).join('|');
           if (headings.length !== count || !count || hash !== lastHash) { lastHash = hash; schedule(); }
-        }).observe(docMain, { childList: true, subtree: true, characterData: true });
+        }).observe(el, { childList: true, subtree: true, characterData: true });
         schedule();
       }
     });

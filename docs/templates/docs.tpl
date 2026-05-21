@@ -397,7 +397,13 @@
     </div>
     <template src="./docs/sidebar.tpl"></template>
 
-    <div class="doc-main" route-view="docs" src="./docs/" route-index="getting-started" transition="fade"></div>
+    <div class="doc-main" route-view="docs" src="./docs/" route-index="getting-started" transition="fade">
+    </div>
+
+    <aside class="page-toc" page-toc>
+      <div class="page-toc-title" t="shell.sidebar.onThisPage"></div>
+      <nav class="page-toc-nav"></nav>
+    </aside>
 
 </div><!-- /doc-with-sidebar -->
 </div>

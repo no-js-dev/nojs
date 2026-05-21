@@ -284,93 +284,62 @@
       }
     });
 
-    // ── Inline TOC (injected after hero, scroll spy + heading scan) ──
-    (function() {
-      var headingSelector = '.doc-title[id], .doc-subtitle[id]';
-      var activeLink = null;
-      var scrollObserver = null;
-      var buildTimer = null;
-
-      function ensureToc() {
-        var docMain = document.querySelector('.doc-main');
-        if (!docMain) return null;
-        var hero = docMain.querySelector('.hero-section');
-        if (!hero) return null;
-        var existing = docMain.querySelector('.page-toc');
-        if (existing) return existing.querySelector('.page-toc-nav');
-        var aside = document.createElement('aside');
-        aside.className = 'page-toc';
-        aside.id = 'page-toc';
-        var title = document.createElement('div');
-        title.className = 'page-toc-title';
-        title.setAttribute('t', 'shell.sidebar.onThisPage');
-        var nav = document.createElement('nav');
-        nav.className = 'page-toc-nav';
-        aside.appendChild(title);
-        aside.appendChild(nav);
-        hero.insertAdjacentElement('afterend', aside);
-        if (typeof NoJS !== 'undefined' && NoJS.processTree) NoJS.processTree(title);
-        return nav;
-      }
-
-      function buildToc() {
-        var docMain = document.querySelector('.doc-main');
+    // ── page-toc directive — populates a static <aside page-toc> with heading links + scroll spy ──
+    NoJS.directive('page-toc', {
+      priority: 25,
+      init: function(el) {
+        var nav = el.querySelector('.page-toc-nav');
+        if (!nav) return;
+        var docMain = el.parentElement && el.parentElement.querySelector('.doc-main');
         if (!docMain) return;
-        var nav = ensureToc();
-        if (!nav) { scheduleBuild(); return; }
-        var headings = docMain.querySelectorAll(headingSelector);
-        if (!headings.length) return;
-        var h = docMain.querySelector(headingSelector);
-        if (!h || !h.textContent.trim()) { scheduleBuild(); return; }
-        nav.innerHTML = '';
-        activeLink = null;
-        headings.forEach(function(h) {
-          if (!h.textContent.trim()) return;
-          var a = document.createElement('a');
-          a.href = '#' + h.id;
-          a.className = 'page-toc-link' + (h.classList.contains('doc-subtitle') ? ' toc-indent' : '');
-          a.textContent = h.textContent;
-          a.title = h.textContent;
-          nav.appendChild(a);
-        });
-        observeScroll(docMain, nav);
-      }
+        var sel = '.doc-title[id], .doc-subtitle[id]';
+        var activeLink = null;
+        var scrollObs = null;
+        var timer = null;
+        var lastHash = '';
 
-      function scheduleBuild() {
-        clearTimeout(buildTimer);
-        buildTimer = setTimeout(buildToc, 300);
-      }
-
-      function observeScroll(docMain, nav) {
-        if (scrollObserver) scrollObserver.disconnect();
-        var headings = docMain.querySelectorAll(headingSelector);
-        if (!headings.length) return;
-        scrollObserver = new IntersectionObserver(function(entries) {
-          entries.forEach(function(entry) {
-            if (entry.isIntersecting) {
-              if (activeLink) activeLink.classList.remove('active');
-              var link = nav.querySelector('a[href="#' + CSS.escape(entry.target.id) + '"]');
-              if (link) { link.classList.add('active'); activeLink = link; }
-            }
+        function build() {
+          var headings = docMain.querySelectorAll(sel);
+          if (!headings.length) { schedule(); return; }
+          if (!headings[0].textContent.trim()) { schedule(); return; }
+          nav.innerHTML = '';
+          activeLink = null;
+          headings.forEach(function(h) {
+            if (!h.textContent.trim()) return;
+            var a = document.createElement('a');
+            a.href = '#' + h.id;
+            a.className = 'page-toc-link' + (h.classList.contains('doc-subtitle') ? ' toc-indent' : '');
+            a.textContent = h.textContent;
+            a.title = h.textContent;
+            nav.appendChild(a);
           });
-        }, {
-          rootMargin: '-' + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 70) + 'px 0px -60% 0px',
-          threshold: 0
-        });
-        headings.forEach(function(h) { scrollObserver.observe(h); });
-      }
+          if (scrollObs) scrollObs.disconnect();
+          scrollObs = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+              if (entry.isIntersecting) {
+                if (activeLink) activeLink.classList.remove('active');
+                var link = nav.querySelector('a[href="#' + CSS.escape(entry.target.id) + '"]');
+                if (link) { link.classList.add('active'); activeLink = link; }
+              }
+            });
+          }, {
+            rootMargin: '-' + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 70) + 'px 0px -60% 0px',
+            threshold: 0
+          });
+          headings.forEach(function(h) { scrollObs.observe(h); });
+        }
 
-      // Watch for DOM changes (route navigation, i18n translations, lazy content)
-      var domObs = new MutationObserver(function() {
-        var docMain = document.querySelector('.doc-main');
-        if (!docMain) return;
-        var nav = docMain.querySelector('.page-toc-nav');
-        var headings = docMain.querySelectorAll(headingSelector);
-        var current = nav ? nav.querySelectorAll('a').length : 0;
-        if (headings.length !== current || !current) scheduleBuild();
-      });
-      domObs.observe(document.body, { childList: true, subtree: true, characterData: true });
-    })();
+        function schedule() { clearTimeout(timer); timer = setTimeout(build, 300); }
+
+        new MutationObserver(function() {
+          var headings = docMain.querySelectorAll(sel);
+          var count = nav.querySelectorAll('a').length;
+          var hash = Array.prototype.map.call(headings, function(h) { return h.textContent; }).join('|');
+          if (headings.length !== count || !count || hash !== lastHash) { lastHash = hash; schedule(); }
+        }).observe(docMain, { childList: true, subtree: true, characterData: true });
+        schedule();
+      }
+    });
 
     NoJS.directive('faq-filter', {
       priority: 25,

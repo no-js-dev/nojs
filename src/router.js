@@ -769,15 +769,40 @@ export function _createRouter() {
       for (const [path, lazy] of routeLazy) {
         if (lazy === "ondemand" || path === current.path || path === "*") continue;
         const segment = path === "/" ? indexName : path.replace(/^\//, "");
+        const pathSegments = path === "/" ? [] : path.replace(/^\//, "").split("/").filter(Boolean);
+
+        // ── NOJS-23: Layout-aware prefetch for multi-segment routes ───────
+        // When we know a segment is a layout (cached by _resolveHierarchicalTemplate
+        // or _resolveNestedOutlets), prefetch BOTH the layout template and the
+        // child template instead of only the flat path.
+        if (pathSegments.length > 1) {
+          const firstSegment = pathSegments[0];
+          const layoutCacheKey = outletName + ":layout:" + baseSrc + firstSegment + ext;
+          const layoutCached = _autoTemplateCache.get(layoutCacheKey);
+
+          if (layoutCached && !layoutCached.__loadFailed) {
+            // Layout is known — prefetch the child template (e.g. docs/loops.tpl)
+            const childSegment = pathSegments.join("/");
+            const childTpl = _getOrCreateAutoTemplate(baseSrc, childSegment, ext, outletName, path);
+            if (!childTpl.__srcLoaded) {
+              _log("[ROUTER] Prefetch (layout child):", path, "→", baseSrc + childSegment + ext, lazy === "priority" ? "(priority)" : "(background)");
+              if (outletEl.hasAttribute("i18n-ns")) {
+                childTpl.setAttribute("i18n-ns", childSegment);
+              }
+              if (lazy === "priority") priorityFetches.push(childTpl);
+              else backgroundFetches.push(childTpl);
+            }
+            // Layout itself is already cached/loaded — no need to prefetch it again
+            continue;
+          }
+        }
+
+        // ── Flat path prefetch (original behavior) ────────────────────────
         const fullSrc = baseSrc + segment + ext;
         const cacheKey = outletName + ":" + fullSrc;
         if (_autoTemplateCache.has(cacheKey)) continue;
 
-        const tpl = document.createElement("template");
-        tpl.setAttribute("src", fullSrc);
-        tpl.setAttribute("route", path);
-        document.body.appendChild(tpl);
-        _autoTemplateCache.set(cacheKey, tpl);
+        const tpl = _getOrCreateAutoTemplate(baseSrc, segment, ext, outletName, path);
         _log("[ROUTER] Prefetch:", path, "→", fullSrc, lazy === "priority" ? "(priority)" : "(background)");
 
         if (outletEl.hasAttribute("i18n-ns")) {

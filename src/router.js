@@ -427,8 +427,21 @@ export function _createRouter() {
     for (const nestedOutlet of nestedOutlets) {
       const nestedName = (nestedOutlet.getAttribute("route-view") || "").trim() || "default";
 
-      // Use the nested outlet's own src if present, otherwise inherit baseSrc
-      const nestedRawSrc = nestedOutlet.getAttribute("src");
+      // Use the nested outlet's own src if present, otherwise inherit baseSrc.
+      // Resolve "./" relative paths against the parent template's __srcBase
+      // so that src="./docs/" inside templates/docs.tpl → "templates/docs/".
+      let nestedRawSrc = nestedOutlet.getAttribute("src");
+      if (nestedRawSrc && nestedRawSrc.startsWith("./")) {
+        let node = nestedOutlet.parentNode;
+        while (node) {
+          if (node.__srcBase) {
+            nestedRawSrc = node.__srcBase + nestedRawSrc.slice(2);
+            break;
+          }
+          node = node.parentNode;
+        }
+        if (nestedRawSrc.startsWith("./")) nestedRawSrc = nestedRawSrc.slice(2);
+      }
       const nestedBaseSrc = nestedRawSrc
         ? nestedRawSrc.replace(/\/?$/, "/")
         : baseSrc;

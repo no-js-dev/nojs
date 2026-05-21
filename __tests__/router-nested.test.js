@@ -514,7 +514,7 @@ describe('Nested routing — edge cases', () => {
           ),
         });
       }
-      if (url === 'docs-pages/loops.tpl') {
+      if (url === 'pages/docs-pages/loops.tpl') {
         return Promise.resolve({
           ok: true,
           text: () => Promise.resolve('<p class="nested-loops">Loops from docs-pages</p>'),
@@ -537,7 +537,7 @@ describe('Nested routing — edge cases', () => {
     const nestedOutlet = outlet.querySelector('[route-view="docs"]');
     expect(nestedOutlet).not.toBeNull();
     expect(nestedOutlet.querySelector('.nested-loops')).not.toBeNull();
-    expect(global.fetch).toHaveBeenCalledWith('docs-pages/loops.tpl');
+    expect(global.fetch).toHaveBeenCalledWith('pages/docs-pages/loops.tpl');
   });
 
   // No file-based routing config at all — hierarchical resolution is skipped

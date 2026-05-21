@@ -31,12 +31,14 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Advanced
 
-- [Routing](#routing--spa-navigation) — SPA navigation, params, guards, nested routes
+- [Routing](#routing--spa-navigation) — SPA navigation, params, guards, nested routes, View Transitions
+- [Head Management](#head-management) — Per-route `page-title`, `page-description`, `page-canonical`, `page-jsonld`
 - [Internationalization](#internationalization-i18n) — `t`, pluralization, locale switching
 - [Custom Directives](#custom-directives) — Extend No.JS with your own directives
 - [Error Handling](#error-handling) — Per-element errors, boundaries, global handler
 - [Configuration](#configuration--security) — Global settings, interceptors, CSRF, security
 - [Drag and Drop](#drag-and-drop) — `drag`, `drop`, sortable lists, multi-select
+- [Plugins](#plugins) — Plugin system with lifecycle hooks, interceptors, globals
 
 ## Reference
 
@@ -58,7 +60,29 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ### Self-hosted
 
-Download `dist/iife/no.js` and include it with a `<script>` tag. It's a single file, ~24 KB gzipped.
+Download `dist/iife/no.js` and include it with a `<script>` tag.
+
+### npm / ESM
+
+```bash
+npm install @erickxavier/no-js
+```
+
+```javascript
+import NoJS from '@erickxavier/no-js';
+NoJS.init();
+```
+
+Or with CommonJS:
+
+```javascript
+const NoJS = require('@erickxavier/no-js');
+NoJS.init();
+```
+
+> When using npm, you must call `NoJS.init()` manually after the DOM is ready. The CDN script handles this automatically.
+
+---
 
 ## Minimal Example
 
@@ -81,12 +105,16 @@ Download `dist/iife/no.js` and include it with a `<script>` tag. It's a single f
 
 That's it. No `app.mount()`. No `createApp()`. No `NgModule`. It just works.
 
+---
+
 ## How It Works
 
 1. **Parse** — On `DOMContentLoaded`, No.JS walks the DOM looking for elements with known attributes.
 2. **Resolve** — Each attribute maps to a **directive** that is executed by priority (data fetching first, then conditionals, then rendering).
 3. **React** — All data lives in **reactive contexts** (Proxy-backed). When data changes, every bound element updates automatically.
-4. **Scope** — Contexts inherit from parent elements, like lexical scoping. A `bind` inside a `foreach` loop can access both the loop item and ancestor data.
+4. **Scope** — Contexts inherit from parent elements, like lexical scoping. A `bind` inside an `each` loop can access both the loop item and ancestor data.
+
+---
 
 ## Core Concepts
 
@@ -98,7 +126,7 @@ Every element can have a **context** — a reactive data object. Contexts are cr
 body          → context: { baseUrl }
   div[get]    → context: { user: { name, email } }  ← inherits from body
     span[bind="user.name"]                           ← reads from div's context
-    div[foreach] → context: { post: { title } }       ← inherits from div (can access user + post)
+    div[each] → context: { post: { title } }         ← inherits from div (can access user + post)
 ```
 
 ### Directive Priority
@@ -108,13 +136,12 @@ Directives run in a defined order:
 | Priority | Directives | Description |
 |----------|-----------|-------------|
 | 0 | `state`, `store` | Initialize local/global state |
-| 1 | `get`, `post`, `put`, `patch`, `delete`, `error-boundary`, `i18n-ns` | Fetch data and error/i18n setup |
-| 2 | `computed`, `watch` | Derive values and observe changes |
+| 1 | `get`, `post`, `put`, `patch`, `delete`, `error-boundary`, `i18n-ns` | Fetch data, error boundaries, i18n namespace |
+| 2 | `computed`, `watch` | Derived values and side-effect watchers |
 | 5 | `ref` | Element references |
-| 10 | `if`, `else-if`, `else`, `switch`, `foreach`/`each`/`for`, `use`, `drag-list` | Structural (add/remove DOM) |
+| 10 | `if`, `switch`, `foreach`, `each`, `for`, `use`, `drag-list` | Structural (add/remove DOM) |
 | 15 | `drag`, `drop` | Drag and drop setup |
-| 16 | `drag-multiple` | Multi-select drag |
-| 20 | `bind`, `bind-*`, `bind-html`, `model`, `class-*`, `style-*`, `on:*`, `show`, `hide`, `t`, `call`, `trigger` | Rendering, events, i18n, actions |
+| 20 | `bind`, `bind-*`, `model`, `class-*`, `style-*`, `on:*`, `show`, `hide`, `t`, `call`, `trigger`, `page-title`, `page-description` | Rendering, events, i18n, actions, head |
 | 30 | `validate` | Form validation side effects |
 
 ### Expression Syntax
@@ -137,6 +164,16 @@ Most directive values accept **JavaScript expressions** evaluated against the cu
 <!-- Template literals (bind-html) -->
 <div bind-html="`<strong>${user.name}</strong>`"></div>
 ```
+
+---
+
+## See Also
+
+- [Data Fetching](data-fetching.md) — make your first API call
+- [Directive Cheatsheet](cheatsheet.md) — every directive at a glance
+- [Configuration](configuration.md) — global settings and security
+
+**Next:** [Data Fetching →](data-fetching.md)
 
 # Data Fetching
 
@@ -184,6 +221,8 @@ Absolute URLs skip base resolution:
 </script>
 ```
 
+> **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
+
 ### Per-Request Headers
 
 ```html
@@ -192,6 +231,8 @@ Absolute URLs skip base resolution:
      as="user">
 </div>
 ```
+
+---
 
 ## `get` — Fetch and Render Data
 
@@ -216,8 +257,7 @@ Absolute URLs skip base resolution:
 | `debounce` | `number` | Debounce in ms (useful with reactive URLs) |
 | `headers` | `string` | JSON string of additional headers |
 | `params` | `string` | Expression that resolves to query params object |
-| `retry` | `number` | Override global retry count for this request |
-| `retry-delay` | `number` | Override global retry delay in ms (default: 1000) |
+| `skeleton` | `string` | ID of a DOM element to show while loading and hide when done |
 
 ### Full Example
 
@@ -263,11 +303,31 @@ URLs that reference state variables re-fetch automatically when those values cha
 </div>
 ```
 
+### URL Interpolation and Encoding
+
+> ⚠️ **Breaking change (v1.10):** Values inside `{…}` placeholders are encoded with `encodeURIComponent`. This means `/` is encoded as `%2F`, which is correct for **query-string values** but will break **path segments** that intentionally contain slashes.
+>
+> ```html
+> <!-- ✅ Safe — query value, encoding is correct -->
+> <div get="/search?q={query}">...</div>
+>
+> <!-- ✅ Safe — single-level path segment, no slashes -->
+> <div get="/users/{user.id}/profile">...</div>
+>
+> <!-- ❌ Broken — path contains "/", will become "%2F" -->
+> <div get="/files/{path}">...</div>  <!-- path = "reports/2026" -->
+>
+> <!-- ✅ Workaround — concatenate outside {} -->
+> <div get="'/files/' + path">...</div>
+> ```
+
+---
+
 ## `post`, `put`, `patch`, `delete` — Mutating Requests
 
 Used on forms or triggered via `call`.
 
-> **Tip:** The `call` directive now supports the same attributes as form-based HTTP directives — including `loading`, `headers`, `redirect`, and `body`. See [Actions & Refs → `call`](#call--trigger-api-requests-from-any-element) for full details.
+> **Tip:** The `call` directive now supports the same attributes as form-based HTTP directives — including `loading`, `headers`, `redirect`, and `body`. See [Actions & Refs → `call`](actions-refs.md) for full details.
 
 ### Form Submission
 
@@ -332,7 +392,201 @@ Used on forms or triggered via `call`.
                     `redirect`
 ```
 
+---
+
+## Skeleton Placeholders (`skeleton=`)
+
+The `skeleton` attribute keeps a pre-rendered placeholder element visible while
+a request is in flight, then hides it once the response arrives. This prevents
+Cumulative Layout Shift (CLS) — the page holds its shape during loading instead
+of collapsing and re-expanding.
+
+```html
+<!-- Skeleton lives in the DOM (SSG-friendly, no JS needed to render it) -->
+<div id="product-skeleton" class="skeleton-card">
+  <div class="skeleton-line"></div>
+  <div class="skeleton-line short"></div>
+</div>
+
+<!-- skeleton= points to the element's id (without #) -->
+<div get="/api/products/42" as="product" skeleton="product-skeleton">
+  <h1 bind="product.name"></h1>
+  <p bind="product.description"></p>
+</div>
+```
+
+The skeleton is hidden automatically when:
+- The response arrives (success)
+- A cached response is used
+- The response is empty (before rendering the `empty=` template)
+- The request fails (before rendering the `error=` template)
+
+### Combined with `loading=`
+
+`skeleton=` and `loading=` serve different purposes and can be used together:
+
+| | `skeleton=` | `loading=` |
+|---|---|---|
+| Content | Pre-rendered element already in the DOM | Template cloned into the fetch element |
+| Visibility | Shown before JS, hidden after response | Injected by JS, replaced after response |
+| CLS impact | None — space is already reserved | May cause layout shift |
+| SSG-friendly | Yes | No |
+
+```html
+<div id="skeleton" class="skeleton-pulse"><!-- pre-rendered placeholder --></div>
+
+<div get="/api/feed" as="items"
+     skeleton="skeleton"
+     loading="#spinnerTpl"
+     empty="#emptyTpl">
+  <div each="item in items" template="feedItem"></div>
+</div>
+```
+
+### Skeleton element visibility
+
+The skeleton element (`id="skeleton"`) should start **visible** in the HTML
+(no `display: none` in CSS). `_hideSkeleton` sets `display: none` as an
+inline style, and `_showSkeleton` removes that inline style. If the
+skeleton has `display: none` in a CSS rule, removing the inline style will
+reveal the CSS `display: none` again — effectively keeping it hidden.
+
+Start the skeleton visible and let No.JS control its visibility:
+
+```html
+<!-- Correct: starts visible, No.JS hides after response -->
+<div id="skeleton" class="skeleton-pulse">…placeholder…</div>
+
+<!-- Incorrect: display:none in CSS conflicts with No.JS show/hide logic -->
+<div id="skeleton" class="hidden skeleton-pulse">…placeholder…</div>
+```
+
+### Accessibility
+
+Consider adding `aria-busy="true"` on the fetch container while the request
+is in progress and `aria-hidden="true"` on the skeleton element when it is
+hidden. These attributes are not injected automatically in the current release.
+
+---
+
+## Interceptors
+
+Interceptors hook into the fetch pipeline to modify requests, inspect responses, or short-circuit the entire flow. They support async functions and have a 5-second timeout per interceptor.
+
+### Basic Usage
+
+```html
+<script>
+  // Add a header to every request
+  NoJS.interceptor('request', (url, options) => {
+    options.headers['X-Request-ID'] = crypto.randomUUID();
+    return options;
+  });
+
+  // Handle 401 responses globally
+  NoJS.interceptor('response', (response, url) => {
+    if (response.status === 401) {
+      NoJS.store.auth.user = null;
+      NoJS.notify();
+      NoJS.router.push('/login');
+      throw new Error('Unauthorized');
+    }
+    return response;
+  });
+</script>
+```
+
+### Async Interceptors
+
+Interceptor functions can be async. Each interceptor is given a 5-second timeout — if it does not resolve within that window, it is skipped with a warning and the chain continues.
+
+```html
+<script>
+  NoJS.interceptor('request', async (url, options) => {
+    const token = await refreshTokenIfExpired();
+    options.headers['Authorization'] = 'Bearer ' + token;
+    return options;
+  });
+</script>
+```
+
+### Cancelling Requests with `NoJS.CANCEL`
+
+Return an object keyed by `NoJS.CANCEL` from a request interceptor to abort the fetch. The request throws an `AbortError`, which triggers the element's `error` template if one is set.
+
+```html
+<script>
+  NoJS.interceptor('request', (url, opts) => {
+    if (!navigator.onLine) {
+      return { [NoJS.CANCEL]: true };
+    }
+    return opts;
+  });
+</script>
+```
+
+### Serving Cached Responses with `NoJS.RESPOND`
+
+Return an object keyed by `NoJS.RESPOND` from a request interceptor to skip the HTTP call entirely and return the value directly as the response data.
+
+```html
+<script>
+  const cache = new Map();
+
+  NoJS.interceptor('request', (url, opts) => {
+    if (opts.method === 'GET' && cache.has(url)) {
+      return { [NoJS.RESPOND]: cache.get(url) };
+    }
+    return opts;
+  });
+</script>
+```
+
+### Replacing Response Data with `NoJS.REPLACE`
+
+Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace the parsed response body with custom data.
+
+```html
+<script>
+  NoJS.interceptor('response', (response, url) => {
+    if (url.includes('/users')) {
+      return { [NoJS.REPLACE]: { users: [], normalized: true } };
+    }
+    return response;
+  });
+</script>
+```
+
+### Header Redaction
+
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
+
+Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
+
+### Sentinel Summary
+
+| Sentinel | Interceptor Type | Effect |
+| -------- | ---------------- | ------ |
+| `NoJS.CANCEL` | Request | Aborts the request (`AbortError`) |
+| `NoJS.RESPOND` | Request | Returns data directly, no HTTP call |
+| `NoJS.REPLACE` | Response | Replaces the parsed response body |
+
+---
+
+## See Also
+
+- [Actions & Refs](actions-refs.md) — `call` directive for click-triggered requests
+- [State Management](state-management.md) — `into` for writing responses to stores
+- [Configuration](configuration.md) — global API settings, CSRF, interceptors
+- [Error Handling](error-handling.md) — per-element and global error handling
+
+---
+
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Data Binding →](data-binding.md)
+
 # Data Binding
+
+Data binding connects your reactive state to the DOM. When state changes, bound elements update automatically — no manual DOM manipulation needed.
 
 ## `bind` — Text Content
 
@@ -344,6 +598,16 @@ Replaces the element's `textContent` with the evaluated expression.
 <span bind="items.length === 0 ? 'Empty' : items.length + ' items'"></span>
 ```
 
+Expressions inside `bind` are reactive — they re-evaluate automatically whenever the referenced state changes. You can also use [filters](filters.md) to transform values for display:
+
+```html
+<span bind="price | currency"></span>
+<span bind="user.name | uppercase"></span>
+<span bind="user.bio | truncate:100"></span>
+```
+
+---
+
 ## `bind-html` — Inner HTML
 
 Renders evaluated expression as HTML. Sanitized by default.
@@ -354,6 +618,10 @@ Renders evaluated expression as HTML. Sanitized by default.
 ```
 
 > ⚠️ Uses DOMPurify-compatible sanitization to prevent XSS.
+
+> **Tip:** You can configure a custom sanitizer via `NoJS.config({ sanitizeHtml: fn })`. See [Configuration → Security](configuration.md#security) for details.
+
+---
 
 ## `bind-*` — Attribute Binding
 
@@ -378,6 +646,8 @@ Bind any HTML attribute dynamically.
      bind-data-role="user.role"></div>
 ```
 
+---
+
 ## `model` — Two-Way Binding
 
 For form inputs, `model` creates automatic two-way data binding:
@@ -398,6 +668,61 @@ For form inputs, `model` creates automatic two-way data binding:
 
 </div>
 ```
+
+### Radio Buttons
+
+```html
+<div state="{ color: 'red' }">
+  <label><input type="radio" model="color" value="red" /> Red</label>
+  <label><input type="radio" model="color" value="green" /> Green</label>
+  <label><input type="radio" model="color" value="blue" /> Blue</label>
+  <p>Selected: <span bind="color"></span></p>
+</div>
+```
+
+### Multi-Select
+
+```html
+<div state="{ selected: [] }">
+  <select model="selected" multiple>
+    <option value="a">Option A</option>
+    <option value="b">Option B</option>
+    <option value="c">Option C</option>
+  </select>
+  <p bind="selected | join:', '"></p>
+</div>
+```
+
+---
+
+## Common Mistakes
+
+```html
+<!-- WRONG: bind-html without understanding sanitization -->
+<div bind-html="userInput"></div>
+
+<!-- RIGHT: use bind for user-generated text content -->
+<span bind="userInput"></span>
+
+<!-- WRONG: model on a non-form element -->
+<div model="name"></div>
+
+<!-- RIGHT: model only on input, select, textarea -->
+<input model="name" />
+```
+
+---
+
+## See Also
+
+- [State Management](state-management.md) — creating the state that `bind` reads from
+- [Filters & Pipes](filters.md) — transform bound values for display
+- [Forms & Validation](forms-validation.md) — `model` with form validation
+- [Dynamic Styling](styling.md) — bind CSS classes and styles reactively
+
+---
+
+**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [State Management →](state-management.md)
 
 # Conditionals
 
@@ -422,6 +747,8 @@ Renders one of two templates based on a condition.
 <div if="cart.items.length > 0" then="cartTpl" else="emptyCartTpl"></div>
 ```
 
+---
+
 ## `else-if` — Chained Conditionals
 
 ```html
@@ -430,6 +757,8 @@ Renders one of two templates based on a condition.
 <div else-if="status === 'empty'" then="emptyTpl"></div>
 <div else then="contentTpl"></div>
 ```
+
+---
 
 ## `show` / `hide`
 
@@ -450,6 +779,8 @@ Toggles `display: none` without adding/removing DOM elements. Better for frequen
 | Mechanism | Adds/removes DOM elements | Toggles CSS `display` |
 | Best for | Rarely toggled content | Frequently toggled content |
 | Preserves state | No (re-creates) | Yes |
+
+---
 
 ## Switch / Case
 
@@ -488,11 +819,23 @@ Render one of many templates based on a value.
 </div>
 ```
 
+---
+
+---
+
+## See Also
+
+- [Loops](loops.md) — `foreach` with `filter` for conditional rendering of list items
+- [Dynamic Styling](styling.md) — `show`/`hide` alternative via `class-*`
+- [Templates](templates.md) — template-based conditional content with `then`/`else`
+
+**Previous:** [State Management ←](state-management.md) | **Next:** [Loops →](loops.md)
+
 # Loops
 
 ## `foreach` — Iterate Over Arrays
 
-`foreach` is the primary iteration directive. It repeats its content for each item in an array. `each` and `for` are aliases — they share the same handler and support all the same attributes.
+`foreach` is the primary iteration directive. It repeats its content for each item in an array.
 
 ### Inline Children (default)
 
@@ -511,6 +854,8 @@ When no `template` attribute is provided, the element's children are used as the
 ```
 
 ### External Template
+
+Use the `template` attribute to reference a `<template>` element by ID:
 
 ```html
 <div get="/posts" as="posts">
@@ -567,6 +912,80 @@ When no `template` attribute is provided, the element's children are used as the
 | `animate-stagger` | Delay (ms) between each item's enter animation |
 | `animate-duration` | Max duration (ms) before leave animation is force-completed |
 
+---
+
+## Aliases: `each` and `for`
+
+`each` and `for` are aliases for `foreach`. They share the same handler and support all the same attributes — `filter`, `sort`, `limit`, `offset`, `key`, `animate-*`, `else`, `template`, `index`, and loop variables.
+
+```html
+<!-- All three are equivalent -->
+<div foreach="item in items" key="item.id">...</div>
+<div each="item in items" key="item.id">...</div>
+<div for="item in items" key="item.id">...</div>
+```
+
+Use whichever reads best for your context. `foreach` is the canonical name used throughout this documentation.
+
+---
+
+## Deprecated: `from` Attribute
+
+The legacy `from` syntax is still supported but **deprecated**. Using it emits a console warning.
+
+```html
+<!-- DEPRECATED — still works, but warns -->
+<div foreach="item" from="items" template="tpl"></div>
+
+<!-- Use this instead -->
+<div foreach="item in items" template="tpl"></div>
+```
+
+The `from` attribute will be removed in a future major version. Migrate to the `"item in array"` syntax.
+
+---
+
+## Key-Based Reconciliation
+
+By default, when the source array changes, the loop directive performs a **full rebuild** — all child nodes are disposed and recreated from scratch. This is simple and correct, but destroys and re-mounts DOM nodes on every update.
+
+When you supply a `key` attribute, the directive switches to **key-based reconciliation**: existing DOM nodes for items whose key is still in the list are reused and their context is updated in place. Only items that genuinely appeared or disappeared trigger DOM mutations.
+
+```html
+<!-- Without key: full rebuild on every change -->
+<div foreach="item in items" template="itemTpl"></div>
+
+<!-- With key: only changed items are added/removed -->
+<div foreach="item in items" key="item.id" template="itemTpl"></div>
+```
+
+The `key` value must be **unique and stable** across renders — typically a database ID or UUID. Using a non-unique key (e.g. `$index`) defeats reconciliation since items will always appear to match.
+
+### When to use `key`
+
+| Use case | Recommendation |
+|---|---|
+| Static lists, rendered once | No key needed |
+| Lists with < ~10 items, infrequent updates | No key needed (full rebuild is negligible) |
+| Large lists (50+ items) with frequent updates | Use `key` |
+| `push` / `splice` / `sort` on reactive arrays | Use `key` to preserve focus, scroll, and input state |
+| Items with embedded inputs, video, canvas | Use `key` — full rebuild resets state |
+
+### Positional metadata after reorder
+
+After a reorder (e.g. sort), the reconciler calls `$notify()` on the context of each retained wrapper. This propagates the updated `$index`, `$first`, `$last`, `$even`, `$odd`, and `$count` values to all child watchers, including nested bindings and class expressions that depend on position.
+
+```html
+<template id="itemTpl">
+  <!-- $index, $odd, $first re-render correctly after sort or reorder -->
+  <div class-striped="$odd" class-first="$first">
+    <span bind="($index + 1) + '. ' + item.name"></span>
+  </div>
+</template>
+```
+
+---
+
 ## Loop Context Variables
 
 Inside any loop, these variables are automatically available:
@@ -581,17 +1000,17 @@ Inside any loop, these variables are automatically available:
 | `$odd` | `true` if index is odd |
 
 ```html
-<div foreach="item in items" template="itemTpl"></div>
-
-<template id="itemTpl">
+<div foreach="item in items">
   <div class-first="$first"
        class-last="$last"
        class-striped="$odd">
     <span bind="($index + 1) + ' of ' + $count"></span>
     <span bind="item.name"></span>
   </div>
-</template>
+</div>
 ```
+
+---
 
 ## Nested Loops
 
@@ -611,6 +1030,42 @@ Child loops can access parent scope variables:
 </template>
 ```
 
+---
+
+---
+
+## Reactivity
+
+Loop directives are fully reactive. When the source array changes (push, splice, sort, or full reassignment), the loop re-renders automatically. No `$notify()` call is needed when mutations happen inside HTML expressions:
+
+```html
+<div state="{ items: ['A', 'B', 'C'] }">
+  <div foreach="item in items">
+    <span bind="item"></span>
+  </div>
+  <button on:click="items.push('New')">Add Item</button>
+  <!-- Loop updates automatically -->
+</div>
+```
+
+> **Note:** `foreach`/`each`/`for` iterate over arrays only. Object iteration is not directly supported — use the `keys` or `values` filter to convert objects to arrays first:
+> ```html
+> <div foreach="key in settings | keys">
+>   <span bind="key"></span>: <span bind="settings[key]"></span>
+> </div>
+> ```
+
+---
+
+## See Also
+
+- [Templates](templates.md) — external templates referenced by loops
+- [Animations](animations.md) — `animate-stagger` for list enter/leave effects
+- [Filters & Pipes](filters.md) — `count`, `first`, `last`, `reverse`, `sortBy` filters
+- [Drag & Drop](drag-and-drop.md) — `drag-list` for sortable lists
+
+**Previous:** [Conditionals ←](conditionals.md) | **Next:** [Templates →](templates.md)
+
 # Templates
 
 Templates are reusable HTML fragments that are never rendered directly. They are cloned when referenced by directives like `then`, `else`, `template`, `loading`, `error`, etc.
@@ -625,6 +1080,8 @@ Templates are reusable HTML fragments that are never rendered directly. They are
   </div>
 </template>
 ```
+
+---
 
 ## Template Variables (`var`)
 
@@ -643,6 +1100,8 @@ Templates can declare which variable they expect from the calling context:
   <p>Error <span bind="error.code"></span>: <span bind="error.message"></span></p>
 </template>
 ```
+
+---
 
 ## Template Slots
 
@@ -664,6 +1123,8 @@ Allow templates to accept projected content:
   <span slot="footer">Footer info</span>
 </div>
 ```
+
+---
 
 ## Remote Templates (`src`)
 
@@ -717,9 +1178,9 @@ By default, No.JS loads all remote templates **before the first render** in two 
 
 ### Remote Templates in Routes
 
-Remote templates inside route content are also automatically resolved before the route renders. See [Routing → Remote Templates in Routes](#remote-templates-in-routes).
+Remote templates inside route content are also automatically resolved before the route renders. See [Routing → Remote Templates in Routes](routing.md).
 
-> **Tip:** For projects with many route pages, consider [File-Based Routing](#file-based-routing) — point your `route-view` at a folder and let No.JS resolve templates automatically, no explicit `<template route>` declarations needed.
+> **Tip:** For projects with many route pages, consider [File-Based Routing](routing.md) — point your `route-view` at a folder and let No.JS resolve templates automatically, no explicit `<template route>` declarations needed.
 
 ### Loading Placeholder (`loading`)
 
@@ -761,6 +1222,18 @@ Both plain IDs and `#id` syntax are accepted. Each `include` creates a fresh ind
 
 > `include` and `loading` serve different purposes: `include` inserts inline content **permanently**; `loading` inserts a **temporary** placeholder that disappears once a remote template finishes loading.
 
+---
+
+---
+
+## See Also
+
+- [Loops](loops.md) — `template` attribute for loop item templates
+- [Routing](routing.md) — route templates and file-based routing
+- [Data Fetching](data-fetching.md) — `loading`, `error`, `success` templates
+
+**Previous:** [Loops ←](loops.md) | **Next:** [Events →](events.md)
+
 # State Management
 
 ## `state` — Local State
@@ -775,6 +1248,8 @@ Creates a reactive context scoped to the element and its children.
   <button on:click="count = 0">Reset</button>
 </div>
 ```
+
+---
 
 ## `store` — Global Store
 
@@ -825,6 +1300,8 @@ You can also create stores programmatically with `NoJS.config()`. This is useful
 
 > Stores created via `config()` won't be overwritten by a later `<div store>` with the same name.
 
+---
+
 ## `into` — Write Fetch Results to a Store
 
 The `into` attribute on any HTTP directive writes the response directly into a named global store.
@@ -860,6 +1337,8 @@ The store doesn't need to be pre-defined — `into` will create it if it doesn't
 <span bind="$store.session.expiresAt"></span>
 ```
 
+---
+
 ## `computed` — Derived State
 
 Values that are automatically recalculated when dependencies change:
@@ -880,6 +1359,8 @@ Values that are automatically recalculated when dependencies change:
 </div>
 ```
 
+---
+
 ## `watch` — Side Effects on State Change
 
 Execute an action whenever a value changes:
@@ -893,6 +1374,8 @@ Execute an action whenever a value changes:
 
 </div>
 ```
+
+---
 
 ## State Persistence
 
@@ -912,15 +1395,61 @@ Persist state across page reloads:
      persist-key="cart">
   ...
 </div>
+```
 
-<!-- Persist only specific fields -->
-<div state="{ theme: 'dark', sidebar: true, tempData: null }"
+### `persist-fields` — Selective Persistence
+
+Use `persist-fields` to control exactly which fields are saved and restored. Fields not listed are never written to storage, which is useful for keeping sensitive values (tokens, passwords) out of `localStorage`/`sessionStorage`.
+
+```html
+<!-- Only `theme` and `sidebar` are persisted — `token` never touches storage -->
+<div state="{ theme: 'dark', sidebar: true, token: '' }"
      persist="localStorage"
      persist-key="app-settings"
      persist-fields="theme, sidebar">
-  <!-- Only theme and sidebar are persisted; tempData is not -->
+  ...
 </div>
 ```
+
+`persist-fields` accepts a comma-separated list of field names. Whitespace around each name is trimmed, so `"theme, sidebar"` and `"theme,sidebar"` are equivalent.
+
+| Attribute | Description |
+|-----------|-------------|
+| `persist` | Storage backend: `"localStorage"` or `"sessionStorage"` |
+| `persist-key` | Unique storage key. **Required** when `persist` is set |
+| `persist-fields` | Comma-separated list of fields to persist. Omit to persist all fields |
+
+### `persist-schema` — Validate Restored State
+
+Add `persist-schema` to validate that keys restored from storage match the initial state schema. Unknown keys are ignored and type mismatches trigger a console warning:
+
+```html
+<div state="{ theme: 'dark', sidebar: true }"
+     persist="localStorage"
+     persist-key="settings"
+     persist-schema>
+  <!-- If storage has { theme: 123, unknown: true }, warns about type mismatch
+       on "theme" and ignores "unknown" -->
+</div>
+```
+
+---
+
+### Context Scoping
+
+Reactive contexts inherit from parent elements, like lexical scoping. A child `state` can shadow a parent's property:
+
+```html
+<div state="{ color: 'red' }">
+  <span bind="color"></span> <!-- "red" -->
+
+  <div state="{ color: 'blue' }">
+    <span bind="color"></span> <!-- "blue" (shadows parent) -->
+  </div>
+</div>
+```
+
+---
 
 ## `NoJS.notify()` — Flush Store Updates from JavaScript
 
@@ -958,6 +1487,18 @@ When external JavaScript (interceptors, helper functions, `<script>` blocks) mut
 
 > **When do I need `notify()`?** Only when you mutate `NoJS.store` from plain JavaScript — outside of HTML expressions like `on:click` or `bind`. If you write `on:click="$store.cart.count++"` directly in HTML, the framework handles notification automatically.
 
+---
+
+---
+
+## See Also
+
+- [Data Binding](data-binding.md) — reading state with `bind` and `model`
+- [Data Fetching](data-fetching.md) — `into` for writing fetch results to stores
+- [Configuration](configuration.md) — pre-initializing stores via `config()`
+
+**Previous:** [Data Binding ←](data-binding.md) | **Next:** [Conditionals →](conditionals.md)
+
 # Events
 
 ## `on:*` — Event Handlers
@@ -987,6 +1528,8 @@ Bind any DOM event directly in HTML:
 <div on:custom-event="handleCustom($event.detail)"></div>
 ```
 
+---
+
 ## Event Modifiers
 
 ```html
@@ -1008,14 +1551,35 @@ Bind any DOM event directly in HTML:
 <!-- .throttle — throttle the handler -->
 <div on:scroll.throttle.100="handleScroll()">
 
-<!-- Key modifiers (predefined: enter, escape, tab, space, delete, backspace, up, down, left, right, ctrl, alt, shift, meta) -->
+<!-- Key modifiers -->
 <input on:keydown.enter="submit()"
-       on:keydown.ctrl.enter="save()"
+       on:keydown.ctrl.s="save()"
        on:keydown.shift.delete="deleteAll()" />
 
 <!-- Combine modifiers -->
 <form on:submit.prevent.once="register()">
 ```
+
+### All Key Modifiers
+
+| Modifier | Key |
+|----------|-----|
+| `.enter` | Enter |
+| `.escape` | Escape |
+| `.tab` | Tab |
+| `.space` | Space |
+| `.delete` | Delete or Backspace |
+| `.backspace` | Delete or Backspace (alias) |
+| `.up` | ArrowUp |
+| `.down` | ArrowDown |
+| `.left` | ArrowLeft |
+| `.right` | ArrowRight |
+| `.ctrl` | Control key held |
+| `.alt` | Alt key held |
+| `.shift` | Shift key held |
+| `.meta` | Meta/Command key held |
+
+---
 
 ## `$event` — The Event Object
 
@@ -1026,12 +1590,16 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 <div on:click="handleClick($event.clientX, $event.clientY)"></div>
 ```
 
+---
+
 ## `$el` — The Current Element
 
 ```html
 <input on:focus="$el.select()" />
 <div on:click="$el.classList.toggle('expanded')"></div>
 ```
+
+---
 
 ## Lifecycle Hooks
 
@@ -1055,9 +1623,25 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 |------|------|
 | `on:init` | Directive first processed |
 | `on:mounted` | Element inserted into visible DOM |
-| `on:updated` | Any reactive dependency changed |
+| `on:updated` | DOM mutation observed (childList, attributes, characterData) |
 | `on:unmounted` | Element removed from DOM |
 | `on:error` | Any error in this element's subtree |
+
+---
+
+## `trigger` — Emit Custom Events
+
+The `trigger` directive emits a custom event from the element, typically used for child-to-parent communication. See [Actions & Refs → trigger](actions-refs.md#trigger--emit-custom-events) for full details.
+
+---
+
+## See Also
+
+- [Actions & Refs](actions-refs.md) — `call`, `trigger`, and `ref` directives
+- [Forms & Validation](forms-validation.md) — form event handling with `$form`
+- [Data Binding](data-binding.md) — `$event` and `$el` in context
+
+**Previous:** [Templates ←](templates.md) | **Next:** [Forms & Validation →](forms-validation.md)
 
 # Forms & Validation
 
@@ -1080,6 +1664,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 </form>
 ```
 
+---
+
 ## Validation Rules
 
 No.JS automatically detects **native HTML5 validation attributes** — no `validate` attribute needed for standard rules:
@@ -1100,6 +1686,8 @@ The `validate` attribute is only needed for **No.JS-specific validators** that g
 <input validate="custom:validateUsername" />  <!-- Custom function -->
 ```
 
+---
+
 ## Per-Rule Error Messages
 
 Use `error-{rule}` attributes to set a custom message for a specific validation rule, or `error` for a generic fallback:
@@ -1112,6 +1700,8 @@ Use `error-{rule}` attributes to set a custom message for a specific validation 
 ```
 
 When multiple rules fail, errors are resolved by **priority** (required → type-based → length → pattern → range).
+
+---
 
 ## Error Templates
 
@@ -1136,6 +1726,8 @@ Per-rule templates work too:
        error-custom="#customTpl" />
 ```
 
+---
+
 ## Error CSS Class
 
 Use `error-class` on the form or on individual fields to automatically toggle a CSS class when a field is invalid **and touched**:
@@ -1151,6 +1743,8 @@ Use `error-class` on the form or on individual fields to automatically toggle a 
 ```
 
 The class is added only after the field has been touched (focused and blurred), so users don't see errors before interacting with the form.
+
+---
 
 ## `$form` — Form Context
 
@@ -1190,6 +1784,8 @@ Inside any `<form>` with the `validate` attribute, `$form` provides:
 </form>
 ```
 
+---
+
 ## `$form.fields` — Per-Field State
 
 `$form.fields` exposes individual field state keyed by field `name`:
@@ -1225,6 +1821,8 @@ Use the `as` attribute to expose a field's state under a custom name in the cont
 </form>
 ```
 
+---
+
 ## Validation Triggers (`validate-on`)
 
 By default, validation runs on `input` and `focusout`. Use `validate-on` to change when visual feedback appears:
@@ -1244,6 +1842,8 @@ By default, validation runs on `input` and `focusout`. Use `validate-on` to chan
 
 > **Note:** Internally, `$form` data is always kept up-to-date regardless of `validate-on`. The trigger only controls when **visual feedback** (error messages, error classes) is shown.
 
+---
+
 ## Conditional Validation (`validate-if`)
 
 Skip validation for a field based on a condition:
@@ -1261,6 +1861,8 @@ Skip validation for a field based on a condition:
 
 When `validate-if` evaluates to `false`, the field is treated as valid and excluded from `$form.errors`.
 
+---
+
 ## Auto-Disable Submit Buttons
 
 Submit buttons (`<button type="submit">`, `<input type="submit">`, and `<button>` without a `type`) are **automatically disabled** when the form is invalid. No `bind-disabled` needed:
@@ -1273,6 +1875,8 @@ Submit buttons (`<button type="submit">`, `<input type="submit">`, and `<button>
 ```
 
 Buttons with `type="button"` are not affected. If you set a custom `bind-disabled` expression, the auto-disable is skipped for that button.
+
+---
 
 ## Custom Validators
 
@@ -1288,6 +1892,19 @@ Buttons with `type="button"` are not affected. If you set a custom `bind-disable
 
 <input type="password" validate="strongPassword" />
 ```
+
+---
+
+---
+
+## See Also
+
+- [Data Binding](data-binding.md) — `model` for two-way binding on form inputs
+- [Data Fetching](data-fetching.md) — HTTP form submission with `post`, `put`, `patch`
+- [Events](events.md) — `on:submit` and event modifiers
+- [Actions & Refs](actions-refs.md) — `call` for form-like API requests
+
+**Previous:** [Events ←](events.md) | **Next:** [Actions & Refs →](actions-refs.md)
 
 # Actions & Refs
 
@@ -1407,6 +2024,8 @@ click → [confirm?] → [loading] → [success | error]
                                  `redirect`
 ```
 
+---
+
 ## `trigger` — Emit Custom Events
 
 ```html
@@ -1421,6 +2040,34 @@ click → [confirm?] → [loading] → [success | error]
 </div>
 ```
 
+### Trigger Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `trigger` | `string` | Name of the custom event to emit |
+| `trigger-data` | `expression` | Data to include in `event.detail` |
+
+The event is dispatched as a `CustomEvent` that bubbles up the DOM. Parent elements can listen with `on:{event-name}`:
+
+```html
+<div on:item-selected="selectedItem = $event.detail">
+
+  <div each="item in items">
+    <button on:click
+            trigger="item-selected"
+            trigger-data="item">
+      Select <span bind="item.name"></span>
+    </button>
+  </div>
+
+  <p show="selectedItem">
+    Selected: <span bind="selectedItem.name"></span>
+  </p>
+</div>
+```
+
+---
+
 ## `ref` — Named References
 
 Access DOM elements without `querySelector`:
@@ -1433,6 +2080,8 @@ Access DOM elements without `querySelector`:
 </div>
 ```
 
+---
+
 ## `$refs` — Ref Map
 
 All elements with `ref` are accessible via `$refs` in the current scope:
@@ -1443,25 +2092,70 @@ All elements with `ref` are accessible via `$refs` in the current scope:
 <button on:click="$refs.player.pause()">⏸ Pause</button>
 ```
 
+---
+
+---
+
+## See Also
+
+- [Events](events.md) — `on:*` event handling and modifiers
+- [Data Fetching](data-fetching.md) — HTTP directives that `call` wraps
+- [Templates](templates.md) — `use` for template instantiation with `ref`
+
+**Previous:** [Forms & Validation ←](forms-validation.md) | **Next:** [Dynamic Styling →](styling.md)
+
 # Dynamic Styling
 
-## `class-*` — Toggle Classes
+Apply CSS classes and inline styles reactively based on your state. When state changes, styles update automatically.
+
+---
+
+## `class-*` — Toggle Individual Classes
+
+Toggle a single CSS class based on an expression. The class is added when the expression is truthy and removed when falsy.
 
 ```html
-<!-- Toggle a single class based on expression -->
-<div class-active="isActive"
-     class-disabled="!isEnabled"
-     class-highlighted="score > 90">
+<div state="{ isActive: true, score: 95, isAdmin: false }">
+  <div class-active="isActive"
+       class-disabled="!isActive"
+       class-highlighted="score > 90">
+    This element's classes react to state
+  </div>
 </div>
-
-<!-- Multiple classes from object -->
-<div class-map="{ active: isActive, 'text-bold': isBold, error: hasError }"></div>
-
-<!-- From array -->
-<div class-list="['base-class', isAdmin ? 'admin' : 'user']"></div>
 ```
 
+`class-*` directives work alongside static `class` attributes — they add or remove the specified class without affecting other classes on the element:
+
+```html
+<!-- Static "card" class is always present; "selected" toggles reactively -->
+<div class="card" class-selected="isSelected">...</div>
+```
+
+---
+
+## `class-map` — Classes from Object
+
+Apply multiple classes at once using an object expression where keys are class names and values are boolean conditions:
+
+```html
+<div class-map="{ active: isActive, 'text-bold': isBold, error: hasError }"></div>
+```
+
+---
+
+## `class-list` — Classes from Array
+
+Apply classes from an array expression. Useful when class names are computed dynamically:
+
+```html
+<div class-list="['base-class', isAdmin ? 'admin' : 'user', theme + '-theme']"></div>
+```
+
+---
+
 ## `style-*` — Inline Styles
+
+Set individual inline style properties reactively. Use the CSS property name in kebab-case after `style-`:
 
 ```html
 <div style-color="isError ? 'red' : 'green'"
@@ -1469,14 +2163,53 @@ All elements with `ref` are accessible via `$refs` in the current scope:
      style-opacity="isVisible ? 1 : 0.5"
      style-background="'linear-gradient(135deg, ' + color1 + ', ' + color2 + ')'">
 </div>
+```
 
-<!-- From object -->
+CSS custom properties (variables) work too:
+
+```html
+<div style---primary-color="themeColor"
+     style---spacing="gap + 'px'">
+</div>
+```
+
+---
+
+## `style-map` — Styles from Object
+
+Apply multiple inline styles at once using an object expression:
+
+```html
 <div style-map="{
   color: textColor,
   fontSize: size + 'px',
   transform: 'rotate(' + rotation + 'deg)'
 }"></div>
 ```
+
+---
+
+## Common Mistakes
+
+```html
+<!-- WRONG: camelCase in style-* (use kebab-case) -->
+<div style-fontSize="size + 'px'"></div>
+
+<!-- RIGHT: kebab-case matches CSS property names -->
+<div style-font-size="size + 'px'"></div>
+```
+
+---
+
+## See Also
+
+- [Data Binding](data-binding.md) — `bind-*` for non-style attributes
+- [Animations](animations.md) — CSS animations and transitions
+- [Conditionals](conditionals.md) — `show`/`hide` for visibility toggling
+
+---
+
+**Previous:** [Actions & Refs ←](actions-refs.md) | **Next:** [Animations →](animations.md)
 
 # Animations & Transitions
 
@@ -1494,6 +2227,25 @@ All elements with `ref` are accessible via `$refs` in the current scope:
   Content
 </div>
 ```
+
+### Animation attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `animate` / `animate-enter` | CSS animation class added when the element enters |
+| `animate-leave` | CSS animation class added when the element leaves |
+| `animate-duration` | Duration in milliseconds forwarded to `animationDuration` and used as the fallback timeout. When omitted the fallback fires on the next event-loop tick (0 ms) — see note below |
+| `animate-stagger` | Delay in milliseconds between each item in a loop (`each` / `foreach`) |
+
+> **Fallback timeout.** No.JS listens for `animationend` / `transitionend` to clean up
+> classes and trigger re-renders after leave animations. If the event never fires (e.g.
+> CSS is absent, element is detached) a `setTimeout` safety net ensures the pipeline
+> is never permanently stalled. When `animate-duration` is omitted the timeout is 0 ms —
+> it fires on the next event-loop tick with no artificial wait. Passing an explicit
+> `animate-duration="300"` sets both `animation-duration` on the target element *and*
+> the safety-net timeout to 300 ms.
+
+---
 
 ## `transition` — CSS Transition Classes
 
@@ -1523,6 +2275,8 @@ No.JS adds/removes classes during the transition:
 }
 ```
 
+---
+
 ## Loop Animations
 
 ```html
@@ -1534,11 +2288,77 @@ No.JS adds/removes classes during the transition:
 </div>
 ```
 
+---
+
+## View Transitions (Route Navigation)
+
+No.JS uses the [View Transition API](https://developer.chrome.com/docs/web-platform/view-transitions/) for smooth route transitions. This is the recommended approach for route animations — it is enabled by default.
+
+Add a `transition` attribute to your `route-view` outlet:
+
+```html
+<main route-view transition="slide"></main>
+```
+
+### Built-in Presets
+
+| Preset | Effect |
+|--------|--------|
+| `slide` | Slides content left/right (auto-detects forward/backward navigation) |
+| `fade` | Cross-fade between old and new content |
+| `scale` | Scale down old content, scale up new content |
+| `none` | Disables the transition for this outlet |
+
+### Custom CSS
+
+Target the transition pseudo-elements for custom styling:
+
+```css
+::view-transition-old(route-content) {
+  animation: slide-out 0.3s ease-in;
+}
+::view-transition-new(route-content) {
+  animation: slide-in 0.3s ease-out;
+}
+```
+
+### Configuration
+
+View Transitions are enabled by default. Disable them globally:
+
+```javascript
+NoJS.config({ router: { viewTransition: false } });
+```
+
+When disabled, the `transition` attribute on `route-view` falls back to legacy class-based transitions.
+
+### Accessibility
+
+View Transitions automatically respect `prefers-reduced-motion: reduce` — animations are skipped when the user has requested reduced motion.
+
+---
+
 ## Built-in Animation Names
 
 No.JS ships with these CSS animations:
 
-`fadeIn`, `fadeOut`, `fadeInUp`, `fadeInDown`, `fadeOutUp`, `fadeOutDown`, `slideInLeft`, `slideInRight`, `slideOutLeft`, `slideOutRight`, `zoomIn`, `zoomOut`, `bounceIn`, `bounceOut`
+`fadeIn`, `fadeOut`, `slideInLeft`, `slideInRight`, `slideInUp`, `slideInDown`, `slideOutLeft`, `slideOutRight`, `slideOutUp`, `slideOutDown`, `zoomIn`, `zoomOut`, `bounceIn`, `flipIn`
+
+---
+
+## Accessibility
+
+No.JS includes a `prefers-reduced-motion: reduce` media query that disables all built-in CSS keyframe animations when the user has reduced motion enabled.
+
+---
+
+## See Also
+
+- [Routing](routing.md) — route-level transitions and navigation
+- [Dynamic Styling](styling.md) — reactive CSS classes for animation triggers
+- [Loops](loops.md) — `animate-stagger` for list enter/leave animations
+
+**Previous:** [Dynamic Styling ←](styling.md) | **Next:** [Internationalization →](i18n.md)
 
 # Filters & Pipes
 
@@ -1553,11 +2373,11 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 <span bind="name | lowercase"></span>           <!-- john -->
 <span bind="name | capitalize"></span>          <!-- John doe → John Doe -->
 <span bind="text | truncate:100"></span>        <!-- First 100 chars + ... -->
-<span bind="text | trim"></span>                <!-- Trim whitespace -->
 <span bind="text | stripHtml"></span>           <!-- Remove HTML tags -->
 <span bind="slug | slugify"></span>             <!-- hello-world -->
 <span bind="text | nl2br"></span>               <!-- Newlines to <br> -->
-<span bind="value | encodeUri"></span>          <!-- URL-encode string -->
+<span bind="name | trim"></span>               <!-- Remove whitespace -->
+<span bind="url | encodeUri"></span>            <!-- URL-encode value -->
 ```
 
 ### Numbers
@@ -1581,27 +2401,30 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 <span bind="items | unique"></span>             <!-- Deduplicated -->
 <span bind="items | pluck:'name'"></span>       <!-- Extract property -->
 <span bind="items | sortBy:'date'"></span>      <!-- Sort by property -->
-<span bind="items | where:'active':true"></span> <!-- Filter by property value -->
+<span bind="items | where:'status','active'"></span>  <!-- Filter by property value -->
 ```
 
 ### Date
 
 ```html
 <span bind="date | date:'short'"></span>        <!-- 02/25/26 -->
-<span bind="date | datetime"></span>            <!-- Full date + time -->
 <span bind="date | relative"></span>            <!-- 3 days ago -->
 <span bind="date | fromNow"></span>             <!-- in 2 hours -->
 ```
+
+> **Note:** `relative` looks backward ("3 days ago"), while `fromNow` looks forward ("in 2 hours"). For past dates, `fromNow` falls back to `relative`.
 
 ### Utility
 
 ```html
 <span bind="value | default:'N/A'"></span>      <!-- Fallback for null/undefined -->
 <span bind="obj | json"></span>                 <!-- JSON.stringify -->
-<span bind="obj | keys"></span>                 <!-- Object keys as array -->
-<span bind="obj | values"></span>               <!-- Object values as array -->
 <span bind="items | debug"></span>              <!-- console.log + passthrough -->
+<span bind="obj | keys"></span>                <!-- Object.keys() -->
+<span bind="obj | values"></span>              <!-- Object.values() -->
 ```
+
+---
 
 ## Chaining Filters
 
@@ -1609,6 +2432,8 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 <span bind="user.bio | stripHtml | truncate:200 | capitalize"></span>
 <span bind="price | number:2 | currency:'USD'"></span>
 ```
+
+---
 
 ## Custom Filters
 
@@ -1630,6 +2455,55 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 <span bind="user.name | initials"></span>      <!-- JD -->
 <span bind="post.createdAt | timeAgo"></span>   <!-- 3h ago -->
 ```
+
+---
+
+## Complete Filter Reference
+
+| Filter | Arguments | Description |
+|--------|-----------|-------------|
+| `uppercase` | — | Convert to UPPERCASE |
+| `lowercase` | — | Convert to lowercase |
+| `capitalize` | — | Capitalize First Letter Of Each Word |
+| `truncate` | `length` (default: 100) | Truncate with "..." |
+| `trim` | — | Remove leading/trailing whitespace |
+| `stripHtml` | — | Remove HTML tags |
+| `slugify` | — | Convert to url-safe-slug |
+| `nl2br` | — | Newlines to `<br>` (HTML-escaped) |
+| `encodeUri` | — | `encodeURIComponent()` |
+| `number` | `decimals` (default: 0) | Locale-formatted number |
+| `currency` | `code` (default: "USD") | Locale-formatted currency |
+| `percent` | `decimals` (default: 0) | Percentage (multiplies by 100) |
+| `filesize` | — | Human-readable file size |
+| `ordinal` | — | 1st, 2nd, 3rd, etc. |
+| `count` | — | Array length |
+| `first` | — | First array element |
+| `last` | — | Last array element |
+| `join` | `separator` (default: ", ") | Join array elements |
+| `reverse` | — | Reverse array |
+| `unique` | — | Deduplicate array |
+| `pluck` | `key` | Extract property from each item |
+| `sortBy` | `key` (prefix `-` for desc) | Sort array by property |
+| `where` | `key`, `value` | Filter array where key equals value |
+| `date` | `format` (short/long/full) | Locale-formatted date |
+| `datetime` | — | Locale-formatted date and time |
+| `relative` | — | Relative time ("3d ago") |
+| `fromNow` | — | Future relative time ("in 2h") |
+| `default` | `fallback` (default: "") | Fallback for null/empty |
+| `json` | `indent` (default: 2) | JSON.stringify |
+| `debug` | — | console.log + passthrough |
+| `keys` | — | Object.keys() |
+| `values` | — | Object.values() |
+
+---
+
+## See Also
+
+- [Data Binding](data-binding.md) — using filters in `bind` expressions
+- [Internationalization](i18n.md) — locale-aware formatting filters
+- [Custom Directives](custom-directives.md) — `NoJS.filter()` for custom filters
+
+**Previous:** [Animations ←](animations.md) | **Next:** [Actions & Refs →](actions-refs.md)
 
 # Routing — SPA Navigation
 
@@ -1673,6 +2547,8 @@ Full client-side routing with no page reloads.
 </body>
 ```
 
+---
+
 ## Route Parameters & Query
 
 ```html
@@ -1688,6 +2564,8 @@ Full client-side routing with no page reloads.
 </template>
 ```
 
+---
+
 ## `$route` — Route Context
 
 | Property | Description |
@@ -1698,6 +2576,8 @@ Full client-side routing with no page reloads.
 | `$route.hash` | URL hash (e.g. `"#section"`) |
 | `$route.matched` | Whether an explicit route matched (`true`) or a wildcard/fallback is rendering (`false`) |
 
+---
+
 ## Active Route Styling
 
 ```html
@@ -1707,6 +2587,8 @@ Full client-side routing with no page reloads.
 <!-- Exact match only (won't match /users/123) -->
 <a route="/users" route-active-exact="active">Users</a>
 ```
+
+---
 
 ## Route Guards
 
@@ -1722,12 +2604,13 @@ Full client-side routing with no page reloads.
 </template>
 ```
 
+---
+
 ## Programmatic Navigation
 
 ```html
 <button on:click="$router.push('/users/42')">Go to User</button>
 <button on:click="$router.back()">Go Back</button>
-<button on:click="$router.forward()">Go Forward</button>
 <button on:click="$router.replace('/new-path')">Replace</button>
 ```
 
@@ -1738,6 +2621,8 @@ Full client-side routing with no page reloads.
 >   await NoJS.router.push('/dashboard');
 > </script>
 > ```
+
+---
 
 ## Nested Routes
 
@@ -1759,6 +2644,8 @@ Full client-side routing with no page reloads.
 </template>
 ```
 
+---
+
 ## Remote Templates in Routes
 
 Route templates can include `<template src="...">` to load content from external files. They are automatically resolved before the route renders:
@@ -1772,6 +2659,8 @@ Route templates can include `<template src="...">` to load content from external
 ```
 
 Nested remote templates (a remote template that itself contains more `<template src>`) are recursively loaded.
+
+---
 
 ## File-Based Routing
 
@@ -1851,6 +2740,8 @@ When the `route-view` element has an `i18n-ns` attribute (even without a value),
 
 This replaces the need to add `i18n-ns="..."` on each route template individually.
 
+---
+
 ## Lazy Template Loading
 
 Route templates support a `lazy` attribute to control when their remote file is fetched:
@@ -1876,6 +2767,8 @@ Route templates support a `lazy` attribute to control when their remote file is 
 ```
 
 > `lazy="ondemand"` is skipped entirely during initialisation. The router fetches the file on the first navigation and caches it for all subsequent visits.
+
+---
 
 ## Anchor Links
 
@@ -1916,6 +2809,8 @@ Anchor links that point to an element `id` on the page are intercepted by the ro
 
 > **Tip:** Style the active anchor link with `.active` in your CSS — the router manages the class for you.
 
+---
+
 ## Named Outlets
 
 Multiple `route-view` outlets can coexist in the same layout. Give each outlet a name (the attribute value), then point route templates at specific outlets using the `outlet` attribute.
@@ -1954,6 +2849,8 @@ router.register('/home', mainTpl);                // → "default" outlet
 router.register('/home', sidebarTpl, 'sidebar');  // → "sidebar" outlet
 ```
 
+---
+
 ## 404 / Catch-All Routes
 
 Use `route="*"` to define a **wildcard catch-all** template that renders when no explicit route matches the current path. The wildcard is always evaluated last, regardless of DOM order.
@@ -1984,6 +2881,8 @@ Use `route="*"` to define a **wildcard catch-all** template that renders when no
 
 Explicit routes **always take priority** — the wildcard only fires when `matchRoute()` returns no match.
 
+---
+
 ### Automatic 404 Fallback
 
 If you don't define a `route="*"` template, No.JS automatically shows a minimal built-in 404 page when no route matches. This ensures users always see something meaningful instead of a blank outlet.
@@ -2000,6 +2899,8 @@ If you don't define a `route="*"` template, No.JS automatically shows a minimal 
 ```
 
 > **Tip:** The built-in fallback is intentionally minimal and unstyled. Define your own `route="*"` template for production apps.
+
+---
 
 ### Named Outlet Wildcards
 
@@ -2034,6 +2935,8 @@ Each named outlet can have its own wildcard fallback. When no route matches for 
 
 If the sidebar has no local wildcard, it falls back to the global `route="*"`. If neither exists, the built-in 404 is used.
 
+---
+
 ### `$route.matched`
 
 The `$route.matched` boolean tells you whether the current path hit an explicit route (`true`) or a wildcard/fallback (`false`). Use it for conditional rendering inside your templates:
@@ -2050,6 +2953,8 @@ The `$route.matched` boolean tells you whether the current path hit an explicit 
 
 `$route.matched` is set **before** the template renders, so it's always available during processing.
 
+---
+
 ### Remote 404 Template
 
 Wildcard routes support all the same attributes as regular route templates, including `src` for remote loading:
@@ -2059,6 +2964,8 @@ Wildcard routes support all the same attributes as regular route templates, incl
 ```
 
 The remote template is fetched, cached, and rendered just like any other route template — and it has full access to `$route.path`, `$route.matched`, and all other framework features.
+
+---
 
 ### File-Based Routing 404
 
@@ -2076,6 +2983,545 @@ When using [file-based routing](#file-based-routing), navigating to a path whose
 ```
 
 The failed HTTP response is **not** cached — subsequent navigations to other paths are unaffected.
+
+---
+
+## Deployment
+
+No.JS uses the HTML5 History API by default (`useHash: false`), which produces clean URLs like `/about` and `/products/42`. These are indexable by search engines and shareable — but they require your server to serve the same `index.html` for **every route**, not just `/`.
+
+Without this configuration, a direct visit to `https://your-site.com/about` returns a 404 from the server, because `/about` is only a client-side route that exists in JavaScript — the server has no file at that path.
+
+### nginx
+
+```nginx
+server {
+  listen 80;
+  root /var/www/your-app;
+  index index.html;
+
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
+```
+
+### Apache
+
+Create a `.htaccess` file in your app's root:
+
+```apache
+Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [QSA,L]
+```
+
+### Netlify
+
+Create a `_redirects` file in your publish directory:
+
+```
+/*  /index.html  200
+```
+
+Or use `netlify.toml`:
+
+```toml
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+### Vercel
+
+Create a `vercel.json` in your project root:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+### Cloudflare Pages
+
+Create a `_redirects` file in your project's output directory:
+
+```
+/*  /index.html  200
+```
+
+Or add a `_headers` file if you need finer control:
+
+```
+_redirects
+/*  /index.html  200
+```
+
+### Firebase Hosting
+
+In `firebase.json`:
+
+```json
+{
+  "hosting": {
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}
+```
+
+### Hash mode
+
+If you cannot configure your server (e.g., static file hosting without rewrite rules), you can use hash mode:
+
+```js
+NoJS.config({ router: { useHash: true } });
+```
+
+Hash mode produces URLs like `https://your-site.com/#/about`. These work on any server without configuration, but **search engines do not index hash fragments as separate pages** — all routes appear as a single URL to Googlebot. Use hash mode only when History API routing is not possible.
+
+> **Note:** No.JS emits a console warning when `useHash: true` is detected. If you are intentionally using hash mode (e.g. GitHub Pages) and want to suppress the warning, add:
+> ```js
+> NoJS.config({ router: { useHash: true, suppressHashWarning: true } });
+> ```
+
+---
+
+> **See also:** For SEO-optimised routing without a server, consider generating static HTML per route at build time — see [SSG & Pre-Rendering →](ssg.md).
+
+---
+
+## Per-Route Document Title (`page-title`)
+
+Set `document.title` declaratively on each `<template route>` element. The
+value is a No.JS expression; `$route` and `$store` are available in scope.
+
+```html
+<!-- Static string literal -->
+<template route="/about" page-title="'About Us | My Store'">
+  <h1>About</h1>
+</template>
+
+<!-- Expression using route params -->
+<template route="/products/:id" page-title="'Product ' + $route.params.id + ' | Store'">
+  <h1>Product Detail</h1>
+</template>
+
+<!-- Expression using global store (e.g. after login) -->
+<template route="/account" page-title="$store.user.name + ' — My Account'">
+  <h1>Account</h1>
+</template>
+```
+
+---
+
+## Route Head Attributes
+
+Declare SEO metadata directly on `<template route>` elements. All four
+attributes are evaluated on every navigation and update the corresponding
+`<head>` nodes — no extra elements needed inside the template body.
+
+```html
+<template route="/products/:id"
+  page-title="'Product ' + $route.params.id + ' | Store'"
+  page-description="'Shop our full catalogue of products'"
+  page-canonical="'/products/' + $route.params.id"
+  page-jsonld='{"@context":"https://schema.org","@type":"Product","name":"Sneaker X"}'>
+
+  <h1>Product Detail</h1>
+</template>
+```
+
+### Supported attributes
+
+| Attribute | Updates | Value |
+|---|---|---|
+| `page-title` | `document.title` | No.JS expression |
+| `page-description` | `<meta name="description" content="...">` | No.JS expression |
+| `page-canonical` | `<link rel="canonical" href="...">` | No.JS expression |
+| `page-jsonld` | `<script type="application/ld+json" data-nojs>` | JSON string (verbatim) |
+
+`$route` and `$store` are available as implicit variables in all expressions.
+
+### Static and dynamic values
+
+```html
+<!-- Static -->
+<template route="/about"
+  page-title="'About Us | My Store'"
+  page-description="'Learn more about us'"
+  page-canonical="'/about'">
+  <h1>About</h1>
+</template>
+
+<!-- Dynamic — $route.params -->
+<template route="/products/:id"
+  page-title="'Product ' + $route.params.id + ' | Store'"
+  page-canonical="'/products/' + $route.params.id">
+  <h1>Product</h1>
+</template>
+
+<!-- Dynamic — $store -->
+<template route="/account"
+  page-title="$store.user.name + ' — Account'"
+  page-description="'Manage your account settings'">
+  <h1>Account</h1>
+</template>
+```
+
+The title is updated on every navigation. If the attribute is absent on a
+template, `document.title` is not changed — allowing a default title set in
+`<head>` to persist for that route.
+
+### Template literal syntax
+
+String literals inside HTML attributes must use **single quotes** inside the
+outer double-quote attribute delimiters. Backtick template literals are not
+supported inside HTML attributes:
+
+```html
+<!-- ✅ Correct -->
+<template route="/about" page-title="'About Us | My Store'">
+
+<!-- ❌ Backtick not valid inside HTML attribute -->
+<template route="/about" page-title="`About Us | My Store`">
+```
+
+### Reactivity
+
+`page-title` is evaluated **once per navigation**, not continuously. If your
+`$store` changes after navigation (e.g. the user logs in), `document.title`
+is **not** automatically updated. For continuous reactivity, place a
+`<div hidden page-title="...">` body directive alongside the route template —
+it uses `_watchExpr` and updates whenever the expression changes.
+
+### Precedence with body directives
+
+If both a `<div hidden page-title="...">` body directive and a route template
+`page-title` attribute are present, whichever runs last wins. Body directives
+run when the element is processed; route `page-title` runs on each navigation.
+For SPAs with a router, prefer route attributes — they update automatically on
+every navigation.
+
+> **Tip:** For full head management (description, canonical URL, JSON-LD) from
+> route templates see [Route Head Attributes →](#route-head-attributes).
+> For non-routing pages see [Head Management →](head-management.md).
+### JSON-LD
+
+`page-jsonld` supports `{placeholder}` interpolation for dynamic values.
+The same JSON-safe regex used by the body `page-jsonld` directive is applied —
+it skips `{` starting with `"` or `'` so JSON structural braces are not consumed:
+
+```html
+<!-- Static JSON-LD -->
+<template route="/about"
+  page-jsonld='{"@context":"https://schema.org","@type":"WebPage","name":"About Us"}'>
+  <h1>About</h1>
+</template>
+
+<!-- Dynamic JSON-LD — {placeholder} values are evaluated -->
+<template route="/products/:id"
+  page-jsonld='{"@context":"https://schema.org","@type":"Product","name":"{$route.params.id}","url":"https://mystore.com/products/{$route.params.id}"}'>
+  <h1>Product</h1>
+</template>
+```
+
+The `data-nojs` marker on the injected script tag distinguishes it from
+hand-written JSON-LD blocks — both can coexist in `<head>`.
+
+### Notes
+
+- Only fires from the **default** outlet. Named outlets (e.g. sidebar) do not
+  overwrite page metadata.
+- Existing `<head>` nodes (from server-rendered HTML) are updated in place —
+  never duplicated.
+- If an attribute is absent, the corresponding `<head>` node is left unchanged.
+- `$store` and `$route` are in scope, but changes to `$store` after navigation
+  do **not** automatically re-run — metadata is evaluated once per navigation.
+
+> For non-routing pages (product pages, landing pages without a router), see
+> [Head Management →](head-management.md).
+
+---
+
+## Accessibility — Focus Management (`focusBehavior`)
+
+By default, SPA navigation does not move keyboard focus — the browser's native
+focus restoration only applies to full-page loads. Screen-reader users may not
+notice that the page content has changed.
+
+Enable automatic focus management with:
+
+```js
+NoJS.config({
+  router: { focusBehavior: 'auto' }
+});
+```
+
+When set to `'auto'`, after each route render No.JS moves focus to the first
+suitable target in the new content, in this priority order:
+
+1. `[autofocus]` — explicit opt-in by the developer
+2. `[tabindex="-1"]` — element programmatically marked as a focus target
+3. `h1` — the page heading (most common landmark)
+4. The outlet element itself (fallback)
+
+```html
+<!-- Option 1: explicit autofocus on the primary action -->
+<template route="/login">
+  <h1>Login</h1>
+  <input type="email" autofocus />
+</template>
+
+<!-- Option 2: focus the heading (default fallback) -->
+<template route="/about">
+  <h1>About Us</h1>
+  <p>...</p>
+</template>
+```
+
+### Default
+
+`focusBehavior` defaults to `'none'` — no change to existing behaviour. Opt in
+per-app when accessibility is a requirement.
+
+### Timing
+
+Focus fires after `processTree` and after all async `src=` templates in the
+route have finished loading — the user is never focused into an empty container.
+
+### Side effects
+
+When the focus target does not already have `tabindex`, No.JS automatically
+injects `tabindex="-1"` to make programmatic focus possible. This attribute
+persists across subsequent navigations (it is not removed after the first
+navigation). For the route outlet, this is harmless — `tabindex="-1"` keeps
+the element out of the tab order while remaining focusable programmatically.
+
+### Future values
+
+Currently only `'auto'` and `'none'` are supported. Future releases may add
+additional modes such as `'first-heading'` (focus first `<h1>` or `<h2>` in
+the outlet) or `'custom'` (developer-supplied selector). Set `'auto'` now and
+you will benefit from those improvements automatically.
+
+### Aria live region
+
+For users who keep `focusBehavior: 'none'` (the default), consider adding
+`aria-live="polite"` to the `[route-view]` outlet so screen readers announce
+content changes without requiring focus movement:
+
+```html
+<div route-view aria-live="polite" aria-atomic="true"></div>
+```
+---
+
+## View Transitions
+
+No.JS uses the View Transition API for smooth route transitions. Add a `transition` attribute to your `route-view` outlet to enable animated navigation:
+
+```html
+<main route-view transition="slide"></main>
+```
+
+Built-in presets: `slide` (auto-detects direction), `fade`, `scale`, `none`. View Transitions are enabled by default when `transition` is set. Disable globally with `NoJS.config({ router: { viewTransition: false } })`.
+
+> **Note:** View Transitions require browser support for the View Transition API. When unsupported, No.JS falls back to instant content swaps. See [Animations → View Transitions](animations.md#view-transitions-route-navigation) for custom CSS and configuration details.
+
+---
+
+## `$router.forward()` — Forward Navigation
+
+In addition to `push()`, `replace()`, and `back()`, the router exposes `forward()` for browser forward navigation:
+
+```html
+<button on:click="$router.forward()">Go Forward</button>
+```
+
+---
+
+## See Also
+
+- [Animations](animations.md) — View Transition presets and custom CSS
+- [Head Management](head-management.md) — body-level head directives for non-routing pages
+- [SSG & Pre-Rendering](ssg.md) — SEO and deployment strategies
+- [Templates](templates.md) — remote templates and lazy loading
+
+**Previous:** [Filters ←](filters.md) | **Next:** [Internationalization →](i18n.md)
+
+# Head Management
+
+No.JS provides four reactive directives that update `<head>` elements from body
+markup — useful for product pages, landing pages, and any route that is not
+managed by the SPA router.
+
+> **Routing use case:** If you are using `<template route>`, prefer the
+> [`page-title`, `page-description`, `page-canonical`, and `page-jsonld`
+> attributes on the template element](routing.md#route-head-attributes) —
+> they are more declarative and do not require extra elements in the body.
+
+---
+
+## Placement
+
+Place the directive on a `<div hidden>` element anywhere in the page body (not
+inside `<head>`). The element is invisible and semantically neutral:
+
+```html
+<div hidden page-title="product.name + ' | My Store'"></div>
+<div hidden page-description="product.description"></div>
+<div hidden page-canonical="'/products/' + product.slug"></div>
+<div hidden page-jsonld>{"@type":"Product","name":"{product.name}","price":"{product.price}"}</div>
+```
+
+All directives are reactive — they re-apply whenever the surrounding state
+changes.
+
+---
+
+## `page-title`
+
+Updates `document.title`.
+
+```html
+<!-- Static string -->
+<div hidden page-title="'About Us | My Store'"></div>
+
+<!-- Expression against local state -->
+<div state='{"name":"Sneaker X"}'>
+  <div hidden page-title="name + ' | Store'"></div>
+</div>
+```
+
+The value is a No.JS expression. Any expression that evaluates to a non-null
+value sets the title.
+
+---
+
+## `page-description`
+
+Creates or updates `<meta name="description" content="...">` in `<head>`.
+
+```html
+<div hidden page-description="product.description"></div>
+
+<!-- Static -->
+<div hidden page-description="'The best sneakers online'"></div>
+```
+
+If a `<meta name="description">` already exists (e.g. set server-side), it is
+updated in place — no duplicate is created.
+
+---
+
+## `page-canonical`
+
+Creates or updates `<link rel="canonical" href="...">` in `<head>`.
+
+```html
+<div hidden page-canonical="'/products/' + product.slug"></div>
+
+<!-- Static -->
+<div hidden page-canonical="'https://mystore.com/about'"></div>
+```
+
+The value is a No.JS expression evaluated to a URL string. If a canonical link
+already exists, it is updated in place.
+
+---
+
+## `page-jsonld`
+
+Creates or updates `<script type="application/ld+json" data-nojs>` in `<head>`.
+
+Unlike the other three directives, the JSON-LD template is written as the
+**body of the element**, not as the attribute value. Use `{expression}`
+placeholders for dynamic values:
+
+```html
+<div hidden page-jsonld>
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "{product.name}",
+    "description": "{product.description}",
+    "offers": {
+      "@type": "Offer",
+      "price": "{product.price}",
+      "priceCurrency": "USD"
+    }
+  }
+</div>
+```
+
+> **Note:** `<script>` elements are skipped by No.JS processing. Always use
+> `<div hidden page-jsonld>` as the host element.
+
+The `data-nojs` marker distinguishes the managed tag from any hand-written
+JSON-LD blocks already in `<head>` — they coexist safely.
+
+### Full product page example
+
+```html
+<div state='{"product": null}'>
+  <div get="/api/products/{slug}" as="product"></div>
+
+  <div hidden page-title="product.name + ' | My Store'"></div>
+  <div hidden page-description="product.description"></div>
+  <div hidden page-canonical="'/products/' + product.slug"></div>
+  <div hidden page-jsonld>
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "{product.name}",
+      "offers": {"@type":"Offer","price":"{product.price}","priceCurrency":"USD"}
+    }
+  </div>
+
+  <h1 bind="product.name"></h1>
+  <p bind="product.description"></p>
+</div>
+```
+
+---
+
+## Notes and edge cases
+
+### Multiple directives competing for the same element
+
+If two `<div hidden page-description>` elements exist on the same page, both
+write to the same `<meta name="description">` tag — the last one processed
+wins. Keep one directive per head element per page.
+
+### Cleanup on unmount
+
+Head elements (`<title>`, `<meta name="description">`, etc.) injected by
+these directives are **not removed** if the host `<div hidden>` is later
+removed from the DOM (e.g. via an `if=` directive). The head element remains
+with its last value. This is by design for the common case (always-present
+host element), but worth noting for conditional page-metadata patterns.
+
+### `page-jsonld` template capture
+
+The `page-jsonld` watcher captures the element's `innerHTML` as a static
+template string once at directive init time. `{placeholder}` expressions
+inside the JSON are re-evaluated on every reactive update, but structural
+changes to the element's children after init are not picked up.
+
+---
+
+## See Also
+
+- [Routing → Route Head Attributes](routing.md#route-head-attributes) — head management for SPA routes
+- [SSG & Pre-Rendering](ssg.md) — server-side head tags
+- [Configuration](configuration.md) — global settings
+
+---
+
+**Previous:** [Drag & Drop ←](drag-and-drop.md) | **Next:** [Custom Directives →](custom-directives.md)
 
 # Internationalization (i18n)
 
@@ -2107,6 +3553,8 @@ The failed HTTP response is **not** cached — subsequent navigations to other p
   });
 </script>
 ```
+
+---
 
 ## External Locale Files
 
@@ -2170,6 +3618,44 @@ Fetched JSON files are cached in memory by default. Disable in development:
 </script>
 ```
 
+### Fallback Behavior
+
+When a translation key is missing from the current locale, No.JS falls back to the `fallbackLocale`:
+
+```html
+<script>
+  NoJS.i18n({
+    defaultLocale: 'pt-BR',
+    fallbackLocale: 'en',
+    locales: {
+      en: { greeting: 'Hello', farewell: 'Goodbye' },
+      'pt-BR': { greeting: 'Olá' }
+      // farewell missing → falls back to English "Goodbye"
+    }
+  });
+</script>
+```
+
+If the key is missing from both the current locale and the fallback, the raw key string is displayed.
+
+### Browser Locale Detection
+
+Enable automatic locale detection from the browser's `navigator.language`:
+
+```html
+<script>
+  NoJS.i18n({
+    detectBrowser: true,
+    defaultLocale: 'en',
+    fallbackLocale: 'en'
+  });
+</script>
+```
+
+When `detectBrowser` is `true`, No.JS checks `navigator.language` and uses the matching locale if available. Falls back to `defaultLocale` if no match is found.
+
+---
+
 ## Usage
 
 ```html
@@ -2192,6 +3678,21 @@ Fetched JSON files are cached in memory by default. Disable in development:
 <span bind="$i18n.locale"></span>
 ```
 
+---
+
+## HTML Translations (`t-html`)
+
+Add the `t-html` attribute to render a translation value as sanitized HTML instead of plain text.
+
+```html
+<!-- Translation: "Read our <a href='/terms'>terms</a>" -->
+<div t="legal.notice" t-html></div>
+```
+
+The output is passed through `_sanitizeHtml()` to prevent XSS.
+
+---
+
 ## Number & Date Formatting
 
 ```html
@@ -2210,6 +3711,18 @@ Fetched JSON files are cached in memory by default. Disable in development:
 <span bind="value | number:0"></span>            <!-- 1,235 -->
 <span bind="value | percent"></span>             <!-- 45% -->
 ```
+
+---
+
+---
+
+## See Also
+
+- [Filters & Pipes](filters.md) — `currency`, `date`, `number`, `percent` filters
+- [Routing](routing.md) — `i18n-ns` for per-route namespace loading
+- [Configuration](configuration.md) — i18n config options
+
+**Previous:** [Routing ←](routing.md) | **Next:** [Drag & Drop →](drag-and-drop.md)
 
 # Custom Directives
 
@@ -2261,12 +3774,57 @@ Extend No.JS with your own attribute-driven behaviors.
 </script>
 ```
 
+---
+
+### Priority Levels
+
+The `priority` number controls when your directive runs relative to built-in directives:
+
+| Priority Range | Category | Example |
+|---------------|----------|---------|
+| 0-1 | State/Fetch | `state`, `get` |
+| 2-5 | Computed/Refs | `computed`, `ref` |
+| 10 | Structural | `if`, `foreach`, `use` |
+| 15-20 | Rendering | `drag`, `bind`, `on:*` |
+| 25+ | Custom | Your directives |
+| 30 | Validation | `validate` |
+
+Default priority when omitted: 50 (runs after all built-in directives).
+
+### Cleanup / Disposal
+
+If your directive adds event listeners, observers, or timers, register cleanup via the element's disposal system. Return a cleanup function or use `_onDispose`:
+
+```html
+<script>
+  NoJS.directive('auto-resize', {
+    priority: 25,
+    init(el, name, value) {
+      const observer = new ResizeObserver(() => {
+        el.style.height = el.scrollHeight + 'px';
+      });
+      observer.observe(el);
+
+      // Cleanup when element is removed from DOM
+      el.__nojs_dispose = el.__nojs_dispose || [];
+      el.__nojs_dispose.push(() => observer.disconnect());
+    }
+  });
+</script>
+```
+
+> **Warning:** Custom directives cannot override built-in (core) directives — they are frozen after framework initialization. See [Plugins](plugins.md) for details.
+
+---
+
 ## Usage
 
 ```html
 <button tooltip="'Click to copy'" clipboard="user.email">📋 Copy Email</button>
 <img lazy-src="user.avatarUrl" alt="avatar" />
 ```
+
+---
 
 ## Web Components Compatibility
 
@@ -2308,55 +3866,65 @@ No.JS directives work on custom elements:
 <div use="counter-component" var-config="{ label: 'Oranges', initial: 3 }"></div>
 ```
 
+---
+
+---
+
+## See Also
+
+- [Plugins](plugins.md) — full plugin system with lifecycle hooks and globals
+- [Configuration](configuration.md) — `NoJS.directive()` API reference
+- [Filters & Pipes](filters.md) — `NoJS.filter()` for custom data transformations
+
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Plugins →](plugins.md)
+
 # Error Handling
+
+No.JS provides multiple layers of error handling — from per-element HTTP errors to global error boundaries — so failures are caught and displayed gracefully without crashing the page.
+
+---
 
 ## Per-Element Error Handling
 
+Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an error template. When the request fails, the template renders inside the element:
+
 ```html
-<div get="/api/users"
-     as="users"
-     error="#usersError"
-     retry="3"
-     retry-delay="2000">
-  ...
+<div get="/api/users" as="users" error="#usersError">
+  <div each="user in users" template="userCard"></div>
 </div>
 
 <template id="usersError" var="err">
   <div class="error-box">
     <p bind="err.message"></p>
     <p>Status: <span bind="err.status"></span></p>
-    <button on:click="$el.parentElement.dispatchEvent(new Event('retry'))">
-      Try Again
-    </button>
   </div>
 </template>
 ```
 
-## Global Error Handler
+### Retry on Failure
+
+Add `retry` and `retry-delay` to automatically retry failed requests before showing the error template:
 
 ```html
-<script>
-  NoJS.on('error', (error, context) => {
-    console.error('[No.JS Error]', error);
-    // Send to error tracking service
-  });
-
-  NoJS.on('fetch:error', (data) => {
-    if (data.error.status === 401) {
-      NoJS.store.auth.user = null;
-      NoJS.router.push('/login');
-    }
-    // data.url — the request URL
-    // data.error — the error object
-  });
-</script>
+<div get="/api/users" as="users"
+     error="#usersError"
+     retry="3"
+     retry-delay="2000">
+  <!-- Retries up to 3 times with 2s between attempts -->
+  <!-- Error template only renders after all retries fail -->
+</div>
 ```
 
-## `error-boundary` — Catch Errors in Subtree
+Retries use linear delay (not exponential backoff). The `loading` template remains visible during retries. HTTP status codes 5xx and network errors trigger retries; 4xx errors (client errors) do not.
+
+---
+
+## `error-boundary` — Catch Errors in a Subtree
+
+Wrap a section of your page with `error-boundary` to catch any error that occurs within it — including expression evaluation errors, failed HTTP requests, and runtime exceptions:
 
 ```html
 <div error-boundary="#errorFallback">
-  <!-- If anything in here throws, errorFallback renders instead -->
   <div get="/api/fragile-endpoint" as="data">
     <span bind="data.deep.nested.value"></span>
   </div>
@@ -2369,6 +3937,75 @@ No.JS directives work on custom elements:
   </div>
 </template>
 ```
+
+When an error is caught, the boundary dispatches a `nojs:error` CustomEvent on the boundary element with the error details in `event.detail`.
+
+---
+
+## Global Error Handler
+
+Use `NoJS.on()` to listen for errors globally — useful for logging, analytics, or session management:
+
+```html
+<script>
+  // Catch all framework errors
+  NoJS.on('error', (error, context) => {
+    console.error('[No.JS Error]', error);
+    // Send to error tracking service
+  });
+
+  // Catch HTTP-specific errors
+  NoJS.on('fetch:error', (url, error) => {
+    if (error.status === 401) {
+      NoJS.store.auth.user = null;
+      NoJS.notify();
+      NoJS.router.push('/login');
+    }
+  });
+</script>
+```
+
+---
+
+## Expression Errors
+
+When a `bind`, `on:click`, or other expression throws an error, No.JS catches it, logs a warning via `_warn()`, and returns `undefined`. One broken expression does not crash the rest of the page:
+
+```html
+<!-- If user is null, user.name throws — but the page keeps working -->
+<span bind="user.name"></span>
+<!-- Renders nothing (undefined), logs a warning -->
+```
+
+> **Tip:** Enable `NoJS.config({ debug: true })` to see detailed expression evaluation warnings in the console.
+
+---
+
+## Common Mistakes
+
+```html
+<!-- WRONG: error template without var — can't access error details -->
+<template id="myError">
+  <p>Something failed</p>
+</template>
+
+<!-- RIGHT: use var to name the error object -->
+<template id="myError" var="err">
+  <p bind="err.message"></p>
+</template>
+```
+
+---
+
+## See Also
+
+- [Data Fetching](data-fetching.md) — `error`, `retry`, `retry-delay` on HTTP directives
+- [Configuration](configuration.md) — global error settings and interceptors
+- [Plugins](plugins.md) — plugin-level error handling and disposal
+
+---
+
+**Previous:** [Plugins ←](plugins.md) | **Next:** [Configuration →](configuration.md)
 
 # Configuration & Security
 
@@ -2430,9 +4067,20 @@ No.JS directives work on custom elements:
 
     // Security
     sanitize: true,            // Sanitize bind-html
+
+    // Performance
+    exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
   });
 </script>
 ```
+
+### `devtools`
+
+**Type:** `boolean` | **Default:** `false`
+
+Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
+
+---
 
 ## Pre-initializing Stores
 
@@ -2454,6 +4102,8 @@ This is useful when stores need to exist before any HTML directive runs — for 
 Stores created via `config()` behave exactly like those declared with the `store` HTML attribute — they are reactive contexts accessible via `$store.name` in expressions and `NoJS.store.name` in JavaScript.
 
 If a store name already exists, `config()` will **not** overwrite it. This means you can safely call `config()` multiple times without resetting store data.
+
+---
 
 ## Request Interceptors
 
@@ -2478,13 +4128,29 @@ If a store name already exists, `config()` will **not** overwrite it. This means
 </script>
 ```
 
+---
+
 ## Security
 
 ### XSS Protection
 
 - `bind` always sets `textContent`, never `innerHTML` — safe by default.
-- `bind-html` sanitizes content through a DOMPurify-compatible sanitizer.
+- `bind-html` sanitizes content using a DOMParser-based structural sanitizer. Regex-based sanitizers are bypassable via SVG/MathML event handlers and entity encoding — DOMParser resolves entities first, making all vectors uniformly detectable.
 - Template expressions are evaluated by a custom sandboxed parser — no `eval()` or `Function()` is used, and dangerous properties like `__proto__` and `constructor` are blocked.
+
+#### Custom sanitizer hook (`sanitizeHtml`)
+
+To use an external sanitizer like [DOMPurify](https://github.com/cure53/DOMPurify) instead of the built-in one:
+
+```js
+NoJS.config({
+  sanitizeHtml: (html) => DOMPurify.sanitize(html)
+});
+```
+
+When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `sanitize: false` to disable sanitization entirely (not recommended — see [Security](#security)).
+
+The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 
 ### CSRF Protection
 
@@ -2503,6 +4169,8 @@ If a store name already exists, `config()` will **not** overwrite it. This means
 
 No.JS uses a custom expression parser that is fully CSP-compliant — no `eval()` or `Function()` constructor is used. No `unsafe-eval` directive is required in your Content Security Policy.
 
+---
+
 ### `templates.cache`
 
 **Type:** `boolean` | **Default:** `true`
@@ -2518,6 +4186,8 @@ NoJS.config({ templates: { cache: true } });
 ```
 
 Set to `false` during local development if you want changes to `.tpl` files to be reflected without a hard page reload.
+
+---
 
 ### `i18n.loadPath`
 
@@ -2555,6 +4225,55 @@ Controls whether fetched locale JSON files are stored in an in-memory `Map` afte
 NoJS.i18n({ cache: false }); // Always re-fetch locale files
 ```
 
+---
+
+### `exprCacheSize`
+
+**Type:** `number` | **Default:** `500`
+
+Maximum number of entries in each of the two internal LRU caches used by the expression evaluator: one for parsed expression ASTs (`_exprCache`) and one for parsed statement ASTs (`_stmtCache`). When the limit is reached the least-recently-used entry is evicted to make room.
+
+The default of 500 is suitable for most applications. Increase it if your app evaluates a large number of distinct template expressions (e.g. a dynamic form with hundreds of unique field bindings). Decrease it to reduce memory pressure in memory-constrained environments.
+
+```js
+// Larger cache for apps with many distinct expressions
+NoJS.config({ exprCacheSize: 1000 });
+
+// Smaller cache for memory-constrained environments
+NoJS.config({ exprCacheSize: 100 });
+```
+
+Non-positive or non-numeric values are ignored and the default of 500 is used.
+
+---
+
+## Plugin System
+
+No.JS includes a plugin system for extending the framework with reusable packages. The following methods are available on the `NoJS` object:
+
+| Method | Description |
+| ------ | ----------- |
+| `NoJS.use(plugin, options?)` | Register a plugin. Accepts an object with `{ name, install }` or a named function |
+| `NoJS.global(name, value)` | Inject a reactive variable accessible as `$name` in templates |
+| `NoJS.dispose()` | Full app teardown — disposes plugins in reverse order, clears globals and interceptors |
+| `NoJS.CANCEL` | Sentinel Symbol — return from a request interceptor to abort the request |
+| `NoJS.RESPOND` | Sentinel Symbol — return from a request interceptor to serve a cached response |
+| `NoJS.REPLACE` | Sentinel Symbol — return from a response interceptor to replace the response data |
+
+See [Plugins →](plugins.md) for the full API reference, plugin lifecycle, security guidelines, and examples.
+
+---
+
+## See Also
+
+- [Plugins](plugins.md) — full plugin system reference
+- [Data Fetching](data-fetching.md) — interceptors, caching, retry configuration
+- [Error Handling](error-handling.md) — global error handler via `NoJS.on()`
+
+---
+
+**Previous:** [Error Handling ←](error-handling.md) | **Next:** [SSG & Pre-Rendering →](ssg.md)
+
 # Drag and Drop
 
 ## `drag` — Make an Element Draggable
@@ -2590,6 +4309,8 @@ NoJS.i18n({ cache: false }); // Always re-fetch locale files
 | `drag-class` | string | `"nojs-dragging"` | Class added while dragging |
 | `drag-ghost-class` | string | — | Class added to the drag image element |
 | `drag-group` | string | — | Group name for multi-select |
+
+---
 
 ## `drop` — Define a Drop Zone
 
@@ -2632,9 +4353,11 @@ NoJS.i18n({ cache: false }); // Always re-fetch locale files
 | `drop-settle-class` | string | `"nojs-drop-settle"` | Custom CSS class for the settle animation |
 | `drop-empty-class` | string | `"nojs-drag-list-empty"` | Custom CSS class for empty state on drop zone |
 
+---
+
 ## `drag-list` — Sortable List
 
-High-level shorthand for sortable lists bound to arrays. Combines `foreach` + `drag` + `drop` in one element.
+High-level shorthand for sortable lists bound to arrays. Combines `each` + `drag` + `drop` in one element.
 
 ```html
 <!-- Basic sortable list -->
@@ -2679,7 +4402,7 @@ High-level shorthand for sortable lists bound to arrays. Combines `foreach` + `d
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `drag-list` | path | *required* | Path to array in state |
-| `template` | template ID | — | Template for each item (same as `foreach`) |
+| `template` | template ID | — | Template for each item (same as `each`) |
 | `drag-list-key` | property name | — | Unique key per item for stable identity |
 | `drag-list-item` | variable name | `"item"` | Loop variable name in template |
 | `drop-sort` | `"vertical"` \| `"horizontal"` \| `"grid"` | `"vertical"` | Layout direction |
@@ -2700,6 +4423,8 @@ High-level shorthand for sortable lists bound to arrays. Combines `foreach` + `d
 | `on:reorder` | `{ list, item, from, to }` | Item reordered within same list |
 | `on:receive` | `{ list, item, from, fromList }` | Item received from another list |
 | `on:remove` | `{ list, item, index }` | Item removed (dragged out) |
+
+---
 
 ## `drag-multiple` — Multi-Select
 
@@ -2729,6 +4454,8 @@ Enables click-to-select before dragging multiple items as a group.
 - **Escape** clears the selection
 - When dragging a selected item, `$drag` becomes an **array** of all selected items
 
+---
+
 ## Implicit Variables
 
 Available inside `drop` expressions:
@@ -2741,6 +4468,8 @@ Available inside `drop` expressions:
 | `$dropIndex` | number | Insertion index within the drop zone |
 | `$source` | object \| null | `{ list, index, el }` — source info |
 | `$target` | object \| null | `{ list, index, el }` — target info |
+
+---
 
 ## CSS Classes
 
@@ -2756,6 +4485,8 @@ No.JS automatically injects these classes:
 | `.nojs-drop-settle` | Brief settle animation on drop |
 | `.nojs-drag-list-empty` | On a `drag-list` when it has no items |
 
+---
+
 ## Accessibility
 
 No.JS automatically adds:
@@ -2768,9 +4499,558 @@ No.JS automatically adds:
 - `tabindex="0"` for keyboard access
 - **Space** to grab, **Escape** to cancel, **Arrow keys** to navigate, **Enter** to drop
 
+### Touch Devices
+
+Drag and drop uses the HTML Drag and Drop API, which has limited support on touch devices. For mobile-friendly drag interactions, consider using a touch-event polyfill or the `drag-list` directive which provides a higher-level abstraction.
+
+---
+
+## See Also
+
+- [Loops](loops.md) — `foreach`/`each` for rendering list items
+- [Events](events.md) — `on:reorder`, `on:receive`, `on:remove` event handling
+- [Animations](animations.md) — settle animations on drop
+
+---
+
+**Previous:** [Internationalization ←](i18n.md) | **Next:** [Head Management →](head-management.md)
+
+# Plugins
+
+The plugin system lets you extend No.JS with reusable packages — analytics, auth, feature flags, UI libraries — without modifying the core framework. Plugins can register interceptors, inject reactive globals, add custom directives, and hook into the app lifecycle.
+
+## `NoJS.use()`
+
+Register a plugin before or after `NoJS.init()`. If the app is already initialized, the plugin's `init` hook runs immediately.
+
+```html
+<script>
+  NoJS.use(analyticsPlugin);
+  NoJS.use(authPlugin, { trusted: true });
+</script>
+```
+
+### Object Form
+
+The standard way to define a plugin:
+
+```html
+<script>
+  const analyticsPlugin = {
+    name: 'analytics',
+    version: '1.0.0',
+    capabilities: ['interceptor', 'global'],
+
+    install(app, options) {
+      // Called immediately by NoJS.use()
+      // Register interceptors, globals, directives, etc.
+      app.global('analytics', { pageViews: 0 });
+
+      app.interceptor('response', (response, url) => {
+        app.store.analytics?.track('api_call', { url });
+        return response;
+      });
+    },
+
+    init(app) {
+      // Called after NoJS.init() completes
+      // Safe to access the DOM, router, stores
+      console.log('Analytics ready');
+    },
+
+    dispose(app) {
+      // Called during NoJS.dispose()
+      // Clean up timers, listeners, connections
+      console.log('Analytics disposed');
+    }
+  };
+
+  NoJS.use(analyticsPlugin);
+</script>
+```
+
+### Function Shorthand
+
+For simple plugins, pass a named function. The function name becomes the plugin name:
+
+```html
+<script>
+  function myLogger(app, options) {
+    app.interceptor('request', (url, opts) => {
+      console.log(`[${options.prefix || 'LOG'}]`, url);
+      return opts;
+    });
+  }
+
+  NoJS.use(myLogger, { prefix: 'API' });
+</script>
+```
+
+> Anonymous functions and arrow functions are rejected — the plugin must have a name.
+
+### Options
+
+The second argument to `NoJS.use()` is passed to the plugin's `install` function:
+
+```html
+<script>
+  NoJS.use(analyticsPlugin, {
+    trackingId: 'UA-123456',
+    debug: true
+  });
+</script>
+```
+
+The `trusted` option is special — see [Trusted Interceptors](#trusted-interceptors) below.
+
+---
+
+## Plugin Interface
+
+| Property | Type | Required | Description |
+| -------- | ---- | -------- | ----------- |
+| `name` | `string` | Yes | Unique identifier. Duplicate names are rejected |
+| `version` | `string` | No | Semver string for debugging |
+| `capabilities` | `string[]` | No | Declared capabilities (logged in debug mode) |
+| `install` | `function(app, options)` | Yes | Called synchronously by `NoJS.use()` |
+| `init` | `function(app)` | No | Called after `NoJS.init()` completes (DOM is ready) |
+| `dispose` | `function(app)` | No | Called during `NoJS.dispose()` for cleanup |
+
+### Lifecycle
+
+```
+NoJS.use(plugin)     →  plugin.install(app, options)
+NoJS.init()          →  ... DOM processed ...  →  plugin.init(app)
+NoJS.dispose()       →  plugin.dispose(app)  →  ... teardown ...
+```
+
+- `install` runs immediately and synchronously. Use it to register interceptors, globals, directives, event listeners, and stores.
+- `init` runs after the DOM is processed and the router is active. Use it for work that depends on rendered elements or route state.
+- `dispose` runs during app teardown. Use it to close WebSocket connections, clear intervals, flush pending analytics, etc.
+
+### Duplicate Detection
+
+A plugin name can only be registered once. If `NoJS.use()` is called again with the same name but a different object, a warning is logged and the call is ignored:
+
+```html
+<script>
+  NoJS.use(pluginA);     // installed
+  NoJS.use(pluginA);     // silently skipped (same object)
+  NoJS.use(pluginB);     // warning: name collision (different object, same name)
+</script>
+```
+
+### Directive Registry Freezing
+
+Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the framework loads. Plugins can register new directives via `app.directive()` but cannot override built-in ones:
+
+```html
+<script>
+  const myPlugin = {
+    name: 'charts',
+    install(app) {
+      app.directive('chart', {            // ✅ new directive — allowed
+        priority: 25,
+        init(el, name, value) { /* ... */ }
+      });
+      app.directive('bind', { /* ... */ }); // ❌ core directive — warning, ignored
+    }
+  };
+</script>
+```
+
+---
+
+## `NoJS.global()`
+
+Inject a reactive variable accessible as `$name` in any template expression.
+
+```html
+<script>
+  NoJS.global('theme', { mode: 'dark', accent: 'blue' });
+</script>
+
+<span bind="$theme.mode"></span>
+<button on:click="$theme.mode = $theme.mode === 'dark' ? 'light' : 'dark'">
+  Toggle
+</button>
+```
+
+### Naming Conventions
+
+- Global names are accessed with a `$` prefix in templates: `NoJS.global('foo', ...)` becomes `$foo`.
+- Use your plugin name as a namespace to avoid collisions: `$analytics`, `$auth`, `$featureFlags`.
+
+### Reserved Names
+
+The following names cannot be used with `NoJS.global()`:
+
+`store`, `route`, `router`, `i18n`, `refs`, `form`, `parent`, `watch`, `set`, `notify`, `raw`, `isProxy`, `listeners`, `app`, `config`, `env`, `debug`, `version`, `plugins`, `globals`, `el`, `event`, `self`, `this`, `super`, `window`, `document`, `toString`, `valueOf`, `hasOwnProperty`
+
+Prototype pollution vectors (`__proto__`, `constructor`, `prototype`) are also blocked.
+
+### Reactivity
+
+Object values passed to `NoJS.global()` are automatically wrapped in a reactive context. Mutations trigger DOM updates just like store or state changes:
+
+```html
+<script>
+  NoJS.global('user', { name: 'Guest', role: 'viewer' });
+</script>
+
+<!-- Updates reactively when $user.name changes -->
+<span bind="$user.name"></span>
+```
+
+### Ownership Tracking
+
+When a plugin registers a global during its `install` phase, it becomes the owner. If a different plugin overwrites that global, a warning is logged:
+
+```
+[No.JS] Global "$theme" owned by "ui-kit" is being overwritten.
+```
+
+---
+
+## Interceptor Sentinels
+
+Request interceptors can return special objects keyed by sentinel Symbols to control the fetch pipeline.
+
+### `NoJS.CANCEL` — Abort the Request
+
+Return an object with `[NoJS.CANCEL]: true` to prevent the request from being sent. The fetch throws an `AbortError`.
+
+```html
+<script>
+  NoJS.use({
+    name: 'offline-guard',
+    install(app) {
+      app.interceptor('request', (url, opts) => {
+        if (!navigator.onLine) {
+          return { [app.CANCEL]: true };
+        }
+        return opts;
+      });
+    }
+  });
+</script>
+```
+
+### `NoJS.RESPOND` — Serve a Cached Response
+
+Return an object with `[NoJS.RESPOND]: data` to short-circuit the request and return `data` directly as the response. No HTTP request is made.
+
+```html
+<script>
+  const cache = new Map();
+
+  NoJS.use({
+    name: 'cache-plugin',
+    install(app) {
+      app.interceptor('request', (url, opts) => {
+        if (opts.method === 'GET' && cache.has(url)) {
+          return { [app.RESPOND]: cache.get(url) };
+        }
+        return opts;
+      });
+
+      app.interceptor('response', (response, url) => {
+        // Cache successful responses by URL
+        if (response.ok) {
+          cache.set(url, response);
+        }
+        return response;
+      });
+    }
+  });
+</script>
+```
+
+### `NoJS.REPLACE` — Replace Response Data
+
+Return an object with `[NoJS.REPLACE]: data` from a **response** interceptor to replace the parsed response body with custom data.
+
+```html
+<script>
+  NoJS.use({
+    name: 'transform-plugin',
+    install(app) {
+      app.interceptor('response', (response, url) => {
+        if (url.includes('/users')) {
+          // Replace the response with a normalized shape
+          return {
+            [app.REPLACE]: {
+              timestamp: Date.now(),
+              source: url
+            }
+          };
+        }
+        return response;
+      });
+    }
+  });
+</script>
+```
+
+### Summary
+
+| Sentinel | Used In | Effect |
+| -------- | ------- | ------ |
+| `NoJS.CANCEL` | Request interceptor | Aborts the request (throws `AbortError`) |
+| `NoJS.RESPOND` | Request interceptor | Returns data directly, skips HTTP call |
+| `NoJS.REPLACE` | Response interceptor | Replaces the parsed response body |
+
+---
+
+## Trusted Interceptors
+
+By default, interceptors receive **redacted** copies of requests and responses — sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) and URL parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are stripped or replaced with `[REDACTED]`.
+
+Auth plugins that need access to the real headers can be installed with `{ trusted: true }`:
+
+```html
+<script>
+  NoJS.use(authPlugin, { trusted: true });
+</script>
+```
+
+Trusted interceptors receive the full, unredacted request options and response object.
+
+> A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
+
+### Redacted Headers
+
+**Request** (stripped before passing to untrusted interceptors):
+`authorization`, `x-api-key`, `x-auth-token`, `cookie`, `proxy-authorization`, `set-cookie`, `x-csrf-token`
+
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+
+**Response** (stripped from the response proxy):
+`set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
+
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+
+---
+
+## `NoJS.dispose()`
+
+Tears down the entire application: disposes plugins, clears globals, and removes interceptors.
+
+```html
+<script>
+  // Full app teardown
+  await NoJS.dispose();
+</script>
+```
+
+### Disposal Order
+
+1. Plugins are disposed in **reverse** installation order (last installed, first disposed).
+2. Each plugin's `dispose` function is given a **3-second timeout**. If it exceeds the timeout, an error is logged and disposal continues with the next plugin.
+3. After all plugins are disposed, globals and interceptors are cleared.
+
+```
+NoJS.dispose()
+  → pluginC.dispose()   (last installed)
+  → pluginB.dispose()
+  → pluginA.dispose()   (first installed)
+  → clear globals
+  → clear interceptors
+```
+
+### Async Dispose
+
+Plugin `dispose` functions can be async. The framework awaits each one (subject to the 3-second timeout):
+
+```html
+<script>
+  const analyticsPlugin = {
+    name: 'analytics',
+    install(app) { /* ... */ },
+    async dispose(app) {
+      await flushPendingEvents();   // Runs within 3s timeout
+    }
+  };
+</script>
+```
+
+> Plugins cannot be installed during disposal. Calls to `NoJS.use()` while `dispose()` is running are ignored with a warning.
+
+<!-- -->
+
+> **Note:** The 3-second timeout protects against long-running async dispose operations. Synchronous infinite loops cannot be interrupted — this is a fundamental JavaScript limitation. Plugin authors must ensure their `dispose()` functions do not block the main thread.
+
+---
+
+## Security Guidelines
+
+When authoring plugins, follow these practices:
+
+### Namespace Everything
+
+Prefix globals, stores, and event names with your plugin name to avoid collisions:
+
+```js
+// ✅ Good
+app.global('myPlugin', { ... });
+app.on('myPlugin:ready', fn);
+
+// ❌ Bad
+app.global('data', { ... });
+app.on('ready', fn);
+```
+
+### Never Use `eval` or `Function`
+
+Values passed to `NoJS.global()` are checked for dangerous references. `eval` and `Function` are blocked:
+
+```js
+// ❌ Rejected
+app.global('run', eval);
+app.global('exec', Function);
+```
+
+### Clean Up in `dispose`
+
+Always provide a `dispose` hook that clears intervals, closes connections, and removes event listeners:
+
+```js
+const myPlugin = {
+  name: 'heartbeat',
+  _interval: null,
+  install(app) {
+    this._interval = setInterval(() => fetch('/ping'), 30000);
+  },
+  dispose() {
+    clearInterval(this._interval);
+  }
+};
+```
+
+### Avoid Overwriting Others' Globals
+
+If your plugin detects that a global is already owned by another plugin, consider logging a warning or using a different name rather than silently overwriting.
+
+### Validate Options
+
+Check required options in `install` and warn early:
+
+```js
+install(app, options) {
+  if (!options.apiKey) {
+    console.warn('[my-plugin] Missing required option: apiKey');
+    return;
+  }
+}
+```
+
+---
+
+## Complete Example
+
+A full analytics plugin demonstrating the plugin lifecycle, globals, interceptors, and disposal:
+
+```html
+<script>
+  const analyticsPlugin = {
+    name: 'analytics',
+    version: '1.0.0',
+    capabilities: ['interceptor', 'global'],
+
+    _queue: [],
+    _flushInterval: null,
+
+    install(app, options) {
+      const trackingId = options.trackingId;
+      if (!trackingId) {
+        console.warn('[analytics] Missing trackingId option');
+        return;
+      }
+      this._trackingId = trackingId;
+
+      // Inject reactive global
+      app.global('analytics', {
+        pageViews: 0,
+        events: []
+      });
+
+      // Track all API calls
+      app.interceptor('response', (response, url) => {
+        this._queue.push({
+          type: 'api_call',
+          url,
+          status: response.status,
+          timestamp: Date.now()
+        });
+        return response;
+      });
+
+      // Listen for route changes
+      app.on('route:change', (route) => {
+        this._queue.push({
+          type: 'page_view',
+          path: route.path,
+          timestamp: Date.now()
+        });
+      });
+
+      // Flush events periodically
+      this._flushInterval = setInterval(() => {
+        this._flush(trackingId);
+      }, options.flushInterval || 10000);
+    },
+
+    init(app) {
+      // Track initial page view after DOM is ready
+      this._queue.push({
+        type: 'page_view',
+        path: location.pathname,
+        timestamp: Date.now()
+      });
+    },
+
+    async dispose(app) {
+      clearInterval(this._flushInterval);
+      // Flush remaining events before shutdown
+      await this._flush(this._trackingId);
+    },
+
+    _flush(trackingId) {
+      if (this._queue.length === 0) return;
+      const events = this._queue.splice(0);
+      return fetch('/analytics/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingId, events })
+      }).catch(() => {
+        // Re-queue on failure
+        this._queue.unshift(...events);
+      });
+    }
+  };
+
+  NoJS.use(analyticsPlugin, { trackingId: 'UA-123456' });
+</script>
+
+<!-- Use the injected global in templates -->
+<span bind="$analytics.pageViews + ' page views'"></span>
+```
+
+---
+
+## See Also
+
+- [Custom Directives](custom-directives.md) — simpler extension point for single-attribute behaviors
+- [Configuration](configuration.md) — `NoJS.use()`, `NoJS.global()`, `NoJS.dispose()` overview
+- [Data Fetching](data-fetching.md) — interceptor sentinels (CANCEL, RESPOND, REPLACE)
+
+---
+
+**Previous:** [Custom Directives ←](custom-directives.md) | **Next:** [Error Handling →](error-handling.md)
+
 # Directive Cheatsheet
 
-Complete reference of every No.JS directive and its companion attributes. **Directives** (bold in tables) are registered handlers that drive behaviour. **Attributes** are configuration read by those directives — they have no effect on their own.
+Complete reference of every No.JS directive.
 
 ## Data
 
@@ -2789,8 +5069,10 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |
 | `into` | `into="currentUser"` | Write response to a named global store |
 | `debounce` | `debounce="300"` | Debounce reactive URL refetches (ms) |
-| `retry` | `retry="3"` | Override global retry count for this request |
-| `retry-delay` | `retry-delay="2000"` | Override global retry delay in ms |
+| `refresh` | `refresh="5000"` | Auto-refresh interval in ms (polling) |
+| `skeleton` | `skeleton="cardSkel"` | Show/hide a placeholder element during loading |
+| `retry` | `retry="3"` | Number of retry attempts on failure |
+| `retry-delay` | `retry-delay="1000"` | Delay between retries in ms |
 
 ## State
 
@@ -2801,7 +5083,9 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 | `computed` | `computed="total" expr="a+b"` | Derived reactive value |
 | `watch` | `watch="search"` | React to value changes |
 | `persist` | `persist="localStorage"` | Persist state to storage |
-| `persist-fields` | `persist-fields="theme, lang"` | Persist only specific state fields |
+| `persist-key` | `persist-key="settings"` | Storage key for persistence |
+| `persist-fields` | `persist-fields="theme,lang"` | Comma-separated fields to persist |
+| `persist-schema` | `persist-schema` | Validate restored keys against initial state |
 | `model` | `model="name"` | Two-way binding for inputs |
 
 ## Rendering
@@ -2844,10 +5128,11 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 | `on:submit` | `on:submit.prevent="..."` | Submit handler |
 | `on:input` | `on:input="..."` | Input handler |
 | `on:keydown.*` | `on:keydown.enter="..."` | Key handler |
-| `on:init` | `on:init="setup()"` | Lifecycle: immediate (sync) |
-| `on:mounted` | `on:mounted="init()"` | Lifecycle: mounted (next frame) |
-| `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM changed |
+| `on:mounted` | `on:mounted="init()"` | Lifecycle: mounted |
 | `on:unmounted` | `on:unmounted="cleanup()"` | Lifecycle: unmounted |
+| `on:init` | `on:init="setup()"` | Lifecycle: first processed |
+| `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM mutation observed |
+| `on:error` | `on:error="log($event)"` | Lifecycle: error in subtree |
 
 ## Styling
 
@@ -2887,6 +5172,12 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 | `lazy` | `lazy="ondemand"` | Defer route template fetch until first visit |
 | `lazy` | `lazy="priority"` | Force template to load before all others |
 | `$route.matched` | `if="$route.matched"` | `true` if an explicit route matched, `false` for wildcard/fallback |
+| `transition` | `transition="slide"` | View Transition API preset (slide/fade/scale/none) |
+| `page-title` | `page-title="'Title'"` | Route document title |
+| `page-description` | `page-description="'...'"` | Route meta description |
+| `page-canonical` | `page-canonical="'/path'"` | Route canonical URL |
+| `page-jsonld` | `page-jsonld='{"@type":"..."}'` | Route JSON-LD data |
+| `redirect` | `redirect="/login"` | Redirect path when guard fails |
 
 ## Animation
 
@@ -2935,6 +5226,16 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 |-----------|---------|-------------|
 | `t` | `t="greeting"` | Translate key |
 | `t-*` | `t-name="user.name"` | Translation param |
+| `t-html` | `t="key" t-html` | Render translation as sanitized HTML |
+
+## Head Management
+
+| Directive | Example | Description |
+|-----------|---------|-------------|
+| `page-title` | `page-title="'About \| Store'"` | Set `document.title` reactively |
+| `page-description` | `page-description="product.desc"` | Set `<meta name="description">` |
+| `page-canonical` | `page-canonical="'/about'"` | Set `<link rel="canonical">` |
+| `page-jsonld` | `<div hidden page-jsonld>` | Set `<script type="application/ld+json">` |
 
 ## Misc
 
@@ -2948,10 +5249,17 @@ Complete reference of every No.JS directive and its companion attributes. **Dire
 | `loading` (on template) | `<template src="..." loading="#skl">` | Placeholder shown while remote template loads; removed on arrival |
 | `include` (on template) | `<template include="#fragment">` | Synchronously clone an inline template into the current position |
 | `error-boundary` | `error-boundary="#fb"` | Error boundary |
+| `var` | `<template var="data">` | Template variable name |
+
+---
+
+**Previous:** [Playground ←](playground.md) | **Next:** [Examples →](examples.md)
 
 # Examples
 
 Real-world patterns you'll actually use in production — in pure HTML.
+
+---
 
 ## 1. Login with JWT
 
@@ -3002,6 +5310,8 @@ via a request interceptor.
 
 **Key concepts:** `interceptor('request')` · `store` · `form` · `validate` · `post` · `guard` · `redirect` · `success/error` templates · `notify()`
 
+---
+
 ## 2. Protected Route & Token Validation
 
 A route guarded by the auth store, paired with a **response interceptor** that
@@ -3048,6 +5358,8 @@ The two interceptors from Examples 1 and 2 work together: the request
 interceptor stamps the token on the way out; the response interceptor revokes
 it on the way back if the server rejects it.
 
+---
+
 ## 3. Live Search
 
 An instant search input that fires a debounced GET request on every keystroke,
@@ -3079,6 +5391,8 @@ manipulation.
 ```
 
 **Key concepts:** `model` · `watch` · `debounce` · dynamic `get` with interpolation · `show`
+
+---
 
 ## 4. Shopping Cart with Global Store
 
@@ -3114,15 +5428,17 @@ simultaneously — no event bus, no shared component.
 
 **Key concepts:** `store` · `$store.*` cross-component reactivity · `each` · `show`
 
+---
+
 ## 5. Live Polling
 
 A server-status dashboard that refreshes automatically every 5 seconds using the
-`poll` attribute. Conditional styling reacts instantly to the health state — no
+`refresh` attribute. Conditional styling reacts instantly to the health state — no
 `setInterval`, no fetch loop.
 
 ```html
 <!-- Refetches /api/status every 5 seconds -->
-<div get="/api/status" poll="5000" as="s">
+<div get="/api/status" refresh="5000" as="s">
 
   <!-- Badge: green when healthy, red otherwise -->
   <span class-success="s.healthy"
@@ -3138,7 +5454,9 @@ A server-status dashboard that refreshes automatically every 5 seconds using the
 </div>
 ```
 
-**Key concepts:** `poll` · `class-*` conditional styling · `bind` expression
+**Key concepts:** `refresh` · `class-*` conditional styling · `bind` expression
+
+---
 
 ## Full SPA
 
@@ -3218,6 +5536,20 @@ All five patterns combined into a single production-grade SPA:
 </html>
 ```
 
+---
+
+## See Also
+
+- [Getting Started](getting-started.md) — installation and first steps
+- [Routing](routing.md) — route guards, params, and navigation
+- [Forms & Validation](forms-validation.md) — declarative form handling
+- [Plugins](plugins.md) — interceptors and the plugin system
+- [Playground](playground.md) — try these examples interactively
+
+---
+
+**Previous:** [Directive Cheatsheet ←](cheatsheet.md)
+
 # Playground
 
 The No.JS Playground is an interactive code editor where you can experiment
@@ -3232,35 +5564,29 @@ and conditionals. Your edits are **automatically saved** to localStorage.
 ## Features
 
 ### Multi-File Editor
-
 Edit HTML, CSS, templates (.tpl), and JSON data files. All default files
 open as tabs in the editor. **Create new files** with the `+` button
 in the tab bar. Changes are reflected in the preview immediately.
 
 ### Auto-Save
-
 All your edits are automatically saved to `localStorage`. Close the
 browser and come back later — your work will be right where you left it.
 Use "Reset" to start fresh.
 
 ### Live Preview
-
 An isolated iframe renders your code in real-time with a 300ms debounce.
 The No.JS framework is automatically loaded and initialized.
 
 ### Console
-
 An integrated console captures `console.log`, `console.warn`,
 `console.error`, and `console.info` from your code, plus No.JS debug
 messages.
 
 ### Share
-
 Click "Share" to copy a URL that encodes your code. Send it to anyone
 and they'll see your exact playground state.
 
 ### Download
-
 Export your project as a single HTML file with all templates and CSS
 inlined.
 
@@ -3280,3 +5606,15 @@ inlined.
 - **Limited file system** — Files are stored in memory
 - **CORS restrictions** — External API calls from the iframe may be
   blocked; use inline JSON data instead
+
+---
+
+## See Also
+
+- [Examples](examples.md) — real-world patterns to try in the playground
+- [Getting Started](getting-started.md) — framework basics
+- [Directive Cheatsheet](cheatsheet.md) — quick reference for all directives
+
+---
+
+**Previous:** [SSG & Pre-Rendering ←](ssg.md) | **Next:** [Directive Cheatsheet →](cheatsheet.md)

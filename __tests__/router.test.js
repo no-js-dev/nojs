@@ -1320,6 +1320,12 @@ describe('File-based routing', () => {
   });
 
   test('handles nested route paths', async () => {
+    // With NOJS-21 hierarchical resolution, multi-segment paths first try
+    // the first segment as a layout.  When the layout probe succeeds (the
+    // generic mock returns ok:true for everything), the router loads
+    // pages/settings.tpl as a layout and then resolves "profile" as a child.
+    // When the layout probe fails, it falls back to flat pages/settings/profile.tpl.
+    // Here the mock always returns ok:true, so the layout probe succeeds first.
     const outlet = document.createElement('div');
     outlet.setAttribute('route-view', '');
     outlet.setAttribute('src', './pages/');
@@ -1330,7 +1336,8 @@ describe('File-based routing', () => {
 
     await router.push('/settings/profile');
 
-    expect(global.fetch).toHaveBeenCalledWith('pages/settings/profile.tpl');
+    // Hierarchical resolution tries pages/settings.tpl first (layout probe)
+    expect(global.fetch).toHaveBeenCalledWith('pages/settings.tpl');
   });
 
   test('normalizes src path with trailing slash', async () => {

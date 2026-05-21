@@ -115,6 +115,26 @@ export function _createRouter() {
     const withoutHash = hashIdx >= 0 ? path.slice(0, hashIdx) : path;
     const [cleanPath, search = ""] = withoutHash.split("?");
 
+    // Hash-only change — update state and scroll, skip re-render
+    if (cleanPath === current.path && hash) {
+      current.hash = "#" + hash;
+      if (_config.router.useHash) {
+        const newHash = "#" + path;
+        if (replace) window.location.replace(newHash);
+        else window.location.hash = path;
+      } else {
+        const fullPath = (_config.router.base || "/").replace(/\/$/, "") + path;
+        if (replace) window.history.replaceState({}, "", fullPath);
+        else window.history.pushState({}, "", fullPath);
+      }
+      requestAnimationFrame(() => {
+        const el = document.getElementById(hash);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      });
+      listeners.forEach((fn) => fn(current));
+      return;
+    }
+
     current = {
       path: cleanPath,
       params: {},
@@ -192,10 +212,13 @@ export function _createRouter() {
       // Ensure View Transition CSS presets are injected
       _injectBuiltInStyles();
 
-      // Set view-transition-name on outlets that declare a transition
+      // Set unique view-transition-name per outlet to avoid duplicates
       for (const el of outletEls) {
         if (el.getAttribute("transition")) {
-          el.style.viewTransitionName = "route-content";
+          const name = (el.getAttribute("route-view") || "").trim();
+          el.style.viewTransitionName = name && name !== "default"
+            ? "route-content-" + name
+            : "route-content";
         }
       }
 
@@ -541,6 +564,9 @@ export function _createRouter() {
     // Snapshot existing outlets BEFORE rendering
     const outletEls = document.querySelectorAll("[route-view]");
     for (const outletEl of outletEls) {
+      // Skip outlets detached from the DOM (cleared by a previous iteration)
+      if (!outletEl.isConnected) continue;
+
       // Determine outlet name ("" or missing attribute value → "default")
       const outletAttr = outletEl.getAttribute("route-view");
       const outletName = outletAttr && outletAttr.trim() !== "" ? outletAttr.trim() : "default";

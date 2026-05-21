@@ -242,6 +242,8 @@ export function _createRouter() {
       await _renderRoute(matched);
     }
 
+    await _loadNestedIndexRoutes();
+
     listeners.forEach((fn) => fn(current));
 
     _devtoolsEmit("route:navigate", {
@@ -426,6 +428,75 @@ export function _createRouter() {
     return { tpl, remainingSegments: [], baseSrc, ext, indexName };
   }
 
+  // ── Route-index auto-load ────────────────────────────────────────────────
+  // Scan for nested [route-view] outlets that declare a route-index and are
+  // still empty (no child elements). Load their default template.
+  async function _loadNestedIndexRoutes() {
+    const outlets = document.querySelectorAll("[route-view][route-index]");
+    for (const outlet of outlets) {
+      if (outlet.children.length > 0) continue;
+
+      const indexName = outlet.getAttribute("route-index");
+      if (!indexName) continue;
+
+      const outletName = (outlet.getAttribute("route-view") || "").trim() || "default";
+      const ext = outlet.getAttribute("ext") || _config.router.ext || ".tpl";
+
+      let rawSrc = outlet.getAttribute("src");
+      if (rawSrc && rawSrc.startsWith("./")) {
+        let node = outlet.parentNode;
+        while (node) {
+          if (node.__srcBase) {
+            rawSrc = node.__srcBase + rawSrc.slice(2);
+            break;
+          }
+          node = node.parentNode;
+        }
+        if (rawSrc.startsWith("./")) rawSrc = rawSrc.slice(2);
+      }
+      const baseSrc = rawSrc ? rawSrc.replace(/\/?$/, "/") : "";
+
+      const tpl = _getOrCreateAutoTemplate(baseSrc, indexName, ext, outletName, "/" + indexName);
+      if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+        await _loadTemplateElement(tpl);
+      }
+      if (tpl.__loadFailed) continue;
+      // Remove route attr so the prefetcher doesn't pick up this nested-index template
+      tpl.removeAttribute("route");
+
+      _log("[ROUTER] Nested index route:", baseSrc + indexName + ext);
+
+      if (outlet.hasAttribute("i18n-ns") && !tpl.getAttribute("i18n-ns")) {
+        tpl.setAttribute("i18n-ns", indexName);
+      }
+
+      _disposeTree(outlet);
+      outlet.innerHTML = "";
+
+      const i18nNs = tpl.getAttribute("i18n-ns");
+      if (i18nNs) {
+        const { _loadI18nNamespace } = await import("./i18n.js");
+        await _loadI18nNamespace(i18nNs);
+      }
+
+      const clone = tpl.content.cloneNode(true);
+      const routeCtx = createContext({ $route: current }, findContext(outlet));
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "contents";
+      wrapper.__ctx = routeCtx;
+      if (tpl.content.__srcBase) wrapper.__srcBase = tpl.content.__srcBase;
+      wrapper.appendChild(clone);
+      outlet.appendChild(wrapper);
+
+      _processTemplateIncludes(wrapper);
+      const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
+      await Promise.all(nestedTpls.map(_loadTemplateElement));
+
+      _clearDeclared(wrapper);
+      processTree(wrapper);
+    }
+  }
+
   // ── Post-render outlet re-scan ──────────────────────────────────────────
   // After rendering a layout, scan for newly appeared [route-view] outlets
   // and resolve remaining path segments into them. Recurses for N levels.
@@ -566,6 +637,9 @@ export function _createRouter() {
     for (const outletEl of outletEls) {
       // Skip outlets detached from the DOM (cleared by a previous iteration)
       if (!outletEl.isConnected) continue;
+
+      // Skip nested outlets — they are handled by _resolveNestedOutlets or _loadNestedIndexRoutes
+      if (outletEl.parentElement && outletEl.parentElement.closest("[route-view]")) continue;
 
       // Determine outlet name ("" or missing attribute value → "default")
       const outletAttr = outletEl.getAttribute("route-view");

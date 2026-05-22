@@ -63,6 +63,7 @@ _freezeDirectives();
 // ═══════════════════════════════════════════════════════════════════════
 
 let _initPromise = null;
+let _configLocked = false;
 
 // Keep in sync with context.js proxy handler $xxx variables.
 // Any new $xxx context variable requires adding xxx to this list.
@@ -82,9 +83,16 @@ function _isUnsafeGlobalValue(value) {
   return _DANGEROUS_REFS.has(value);
 }
 
+const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 function _deepCheckUnsafe(obj, seen = new Set()) {
   if (!obj || typeof obj !== "object" || seen.has(obj)) return;
   seen.add(obj);
+  for (const key of Object.keys(obj)) {
+    if (_FORBIDDEN_GLOBAL_KEYS.has(key)) {
+      _warn("NoJS.global(): value contains a forbidden key: " + key);
+      throw new Error("unsafe_global");
+    }
+  }
   for (const val of Object.values(obj)) {
     if (_isUnsafeGlobalValue(val)) {
       _warn("NoJS.global(): value contains a forbidden reference (eval/Function).");
@@ -130,6 +138,16 @@ const NoJS = {
   },
 
   config(opts = {}) {
+    // Block security-critical config changes after init
+    if (_configLocked) {
+      const locked = ["sanitize", "dangerouslyDisableSanitize", "sanitizeHtml"];
+      for (const key of locked) {
+        if (key in opts) {
+          _warn(`config.${key} cannot be changed after init()`);
+          delete opts[key];
+        }
+      }
+    }
     // Save nested objects before shallow assign overwrites them
     const prevHeaders = { ..._config.headers };
     const prevCache = { ..._config.cache };
@@ -340,6 +358,8 @@ const NoJS = {
       // Clean up devtools listener
       destroyDevtools();
 
+      _configLocked = false;
+
       _initPromise = null;
       _log("Disposed.");
     } finally {
@@ -393,6 +413,8 @@ const NoJS = {
         if (plugin.init) await plugin.init(NoJS);
       }
       _emitEvent("plugins:ready");
+
+      _configLocked = true;
     })();
     return _initPromise;
   },

@@ -2,7 +2,7 @@
 //  DIRECTIVES: state, store, computed, watch
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _stores, _log, _warn, _watchExpr, _onDispose } from "../globals.js";
+import { _config, _stores, _log, _warn, _watchExpr, _onDispose } from "../globals.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext } from "../dom.js";
@@ -36,12 +36,15 @@ registerDirective("state", {
         const persistFields = persistFieldsAttr
           ? new Set(persistFieldsAttr.split(",").map((f) => f.trim()))
           : null;
+        const storeKey = "nojs_" + (_config.appId || "") + "state_" + persistKey;
         try {
-          const saved = store.getItem("nojs_state_" + persistKey);
+          const saved = store.getItem(storeKey);
           if (saved) {
             const parsed = JSON.parse(saved);
             const schemaCheck = el.hasAttribute("persist-schema");
+            const _forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
             for (const [k, v] of Object.entries(parsed)) {
+              if (_forbiddenKeys.has(k)) continue;
               if (!persistFields || persistFields.has(k)) {
                 if (schemaCheck) {
                   if (!(k in initialState)) { _warn('persist-schema: ignoring unknown key "' + k + '"'); continue; }
@@ -72,7 +75,7 @@ registerDirective("state", {
             const data = persistFields
               ? Object.fromEntries(Object.entries(raw).filter(([k]) => persistFields.has(k)))
               : raw;
-            store.setItem("nojs_state_" + persistKey, JSON.stringify(data));
+            store.setItem(storeKey, JSON.stringify(data));
           } catch {
             /* ignore */
           }

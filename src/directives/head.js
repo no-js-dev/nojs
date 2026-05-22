@@ -97,7 +97,9 @@ registerDirective("page-canonical", {
         link.rel = "canonical";
         document.head.appendChild(link);
       }
-      link.href = String(val);
+      const href = String(val);
+      if (/^\s*(javascript|vbscript|data):/i.test(href)) return;
+      link.href = href;
     }
     _watchExpr(expr, ctx, update);
     update();
@@ -134,7 +136,7 @@ registerDirective("page-jsonld", {
         script.setAttribute("data-nojs", "");
         document.head.appendChild(script);
       }
-      script.textContent = json;
+      script.textContent = json.replace(/<\//g, '<\\/');
     }
     _watchExpr(template, ctx, update);
     update();

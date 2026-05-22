@@ -89,6 +89,9 @@ export async function _doFetch(
   retryDelay = undefined,
 ) {
   const fullUrl = resolveUrl(url, el);
+  if (_config.credentials !== "omit" && fullUrl.startsWith("http://")) {
+    _warn("Credentials sent over insecure HTTP:", fullUrl);
+  }
   let opts = {
     method: method.toUpperCase(),
     headers: { ...(_config.headers || {}), ...extraHeaders },
@@ -112,10 +115,14 @@ export async function _doFetch(
     }
   }
 
-  // CSRF
+  // CSRF — only inject for same-origin requests to prevent token leakage
   if (_config.csrf && method !== "GET") {
-    opts.headers[_config.csrf.header || "X-CSRF-Token"] =
-      _config.csrf.token || "";
+    const isSameOrigin = !fullUrl.startsWith("http") ||
+      (typeof window !== "undefined" && new URL(fullUrl, window.location.href).origin === window.location.origin);
+    if (isSameOrigin) {
+      opts.headers[_config.csrf.header || "X-CSRF-Token"] =
+        _config.csrf.token || "";
+    }
   }
 
   // ── Request interceptors ──

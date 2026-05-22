@@ -18,6 +18,11 @@ function _interpolateRaw(str, ctx) {
   });
 }
 import { findContext, _clearDeclared, _loadTemplateElement, _processTemplateIncludes } from "./dom.js";
+
+function _isSafeRedirect(path) {
+  if (!path || typeof path !== "string") return false;
+  return path.startsWith("/") || path.startsWith("#") || path.startsWith(".");
+}
 import { processTree, _disposeTree } from "./registry.js";
 import { _animateIn, _injectBuiltInStyles } from "./animations.js";
 import { _devtoolsEmit } from "./devtools.js";
@@ -158,8 +163,11 @@ export function _createRouter() {
         ctx.__raw.$route = current;
         const allowed = evaluate(guardExpr, ctx);
         if (!allowed) {
-          if (redirectPath) {
+          if (redirectPath && _isSafeRedirect(redirectPath)) {
             await navigate(redirectPath, true);
+          } else if (redirectPath) {
+            _warn(`Route guard redirect blocked — "${redirectPath}" is not a relative path.`);
+            _clearOutlets();
           } else {
             _warn(`Route guard failed for "${path}" but no redirect is defined. The route will not render.`);
             _clearOutlets();
@@ -181,8 +189,11 @@ export function _createRouter() {
           ctx.__raw.$route = current;
           const allowed = evaluate(guardExpr, ctx);
           if (!allowed) {
-            if (redirectPath) {
+            if (redirectPath && _isSafeRedirect(redirectPath)) {
               await navigate(redirectPath, true);
+            } else if (redirectPath) {
+              _warn(`Route guard redirect blocked — "${redirectPath}" is not a relative path.`);
+              _clearOutlets();
             } else {
               _warn(`Route guard failed for "${path}" but no redirect is defined. The route will not render.`);
               _clearOutlets();
@@ -327,7 +338,7 @@ export function _createRouter() {
         script.setAttribute("data-nojs", "");
         document.head.appendChild(script);
       }
-      script.textContent = _interpolateRaw(jsonldAttr, ctx);
+      script.textContent = _interpolateRaw(jsonldAttr, ctx).replace(/<\//g, '<\\/');
     }
   }
 

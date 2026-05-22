@@ -89,6 +89,7 @@ function _sanitizeSvgDataUri(str) {
 const _BLOCKED_TAGS = new Set([
   'script', 'style', 'iframe', 'object', 'embed',
   'base', 'form', 'meta', 'link', 'noscript',
+  'svg', 'math', 'template', 'xmp', 'applet',
 ]);
 
 export function _sanitizeHtml(html) {
@@ -112,7 +113,7 @@ export function _sanitizeHtml(html) {
         const v = attr.value.toLowerCase().trimStart();
         const isUrlAttr = n === 'href' || n === 'src' || n === 'action' || n === 'xlink:href'
           || n === 'formaction' || n === 'poster' || n === 'data';
-        const isDangerousScheme = v.startsWith('javascript:') || v.startsWith('vbscript:');
+        const isDangerousScheme = v.startsWith('javascript:') || v.startsWith('vbscript:') || (isUrlAttr && v.startsWith('blob:'));
         const isDangerousData = isUrlAttr && v.startsWith('data:') && !/^data:image\//.test(v);
         if (n.startsWith('on') || isDangerousScheme || isDangerousData) {
           child.removeAttribute(attr.name);

@@ -280,9 +280,11 @@ registerDirective("switch", {
               processTree(child);
             }
           } else {
+            _disposeChildren(child);
             child.style.display = "none";
           }
         } else if (isDefault) {
+          if (matched) _disposeChildren(child);
           child.style.display = matched ? "none" : "";
           if (!matched && thenTpl) {
             const clone = _cloneTemplate(thenTpl);

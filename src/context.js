@@ -2,9 +2,11 @@
 //  REACTIVE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _currentEl, _globals } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS } from "./globals.js";
 import { _i18n } from "./i18n.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
+
+const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 let _batchDepth = 0;
 const _batchQueue = new Set();
@@ -73,6 +75,7 @@ export function createContext(data = {}, parent = null) {
       if (key === "$set")
         return (k, v) => {
           const parts = k.split(".");
+          if (parts.some(p => _FORBIDDEN_CTX_KEYS.has(p))) return;
           if (parts.length === 1) {
             proxy[k] = v;
           } else {
@@ -104,16 +107,18 @@ export function createContext(data = {}, parent = null) {
       return undefined;
     },
     set(target, key, value) {
+      if (typeof key === "string" && _FORBIDDEN_CTX_KEYS.has(key)) return true;
       const old = target[key];
       target[key] = value;
       if (old !== value) {
         _ctxGeneration++;
         notify();
+        const isSensitive = typeof key === "string" && [..._SENSITIVE_KEYS].some(s => key.toLowerCase().includes(s));
         _devtoolsEmit("ctx:updated", {
           id: target.__devtoolsId,
           key,
-          oldValue: old,
-          newValue: value,
+          oldValue: isSensitive ? "[REDACTED]" : old,
+          newValue: isSensitive ? "[REDACTED]" : value,
         });
       }
       return true;

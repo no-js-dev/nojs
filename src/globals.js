@@ -21,6 +21,7 @@ export const _config = {
   sanitizeHtml: null,
   exprCacheSize: 500,
   maxEventListeners: 100,
+  appId: "",
 };
 
 export const _interceptors = { request: [], response: [] };
@@ -46,6 +47,10 @@ export function _setCurrentPluginName(v) { _currentPluginName = v; }
 export const _SENSITIVE_HEADERS = new Set([
   'authorization', 'x-api-key', 'x-auth-token', 'cookie',
   'proxy-authorization', 'set-cookie', 'x-csrf-token',
+]);
+
+export const _SENSITIVE_KEYS = new Set([
+  'token', 'password', 'secret', 'key', 'auth', 'credential', 'session',
 ]);
 
 export const _SENSITIVE_RESPONSE_HEADERS = new Set([

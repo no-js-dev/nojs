@@ -863,17 +863,33 @@ if (_safeNavigator) _WINDOW_PROXY_OVERRIDES.navigator = _safeNavigator;
 const _BROWSER_GLOBALS = new Set([
   'window', 'document', 'console', 'location', 'history',
   'navigator', 'screen', 'performance', 'crypto',
-  // setTimeout/setInterval allow deferred execution from template expressions;
-  // necessary for legitimate use cases (e.g. debounce patterns in event handlers).
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
   'requestAnimationFrame', 'cancelAnimationFrame',
-  // alert/confirm/prompt are included for completeness and backward compatibility
-  // (e.g. confirm dialogs before delete). They are discouraged in production UIs —
-  // prefer custom modal components for a better user experience.
   'alert', 'confirm', 'prompt',
   'CustomEvent', 'Event', 'URL', 'URLSearchParams',
   'FormData', 'FileReader', 'Blob', 'Promise',
 ]);
+
+// Wrapped timer functions that only accept string-coerced delays, not function
+// callbacks created by the expression evaluator. This prevents deferred code
+// execution with scope access from template expressions.
+const _TIMER_WRAPPERS = new Set(['setTimeout', 'setInterval', 'requestAnimationFrame']);
+function _wrapTimer(name) {
+  const original = typeof globalThis !== 'undefined' ? globalThis[name] : undefined;
+  if (!original) return undefined;
+  if (name === 'requestAnimationFrame') {
+    return function safeRAF(cb) {
+      if (typeof cb !== 'function') return undefined;
+      return original.call(globalThis, cb);
+    };
+  }
+  return function safeTimer(cb, delay, ...args) {
+    if (typeof cb !== 'function') return undefined;
+    return original.call(globalThis, cb, delay, ...args);
+  };
+}
+const _safeTimers = {};
+for (const t of _TIMER_WRAPPERS) _safeTimers[t] = _wrapTimer(t);
 
 function _evalNode(node, scope) {
   try {
@@ -893,6 +909,7 @@ function _evalNode(node, scope) {
           if (node.name === 'location') return _safeLocation;
           if (node.name === 'history') return _safeHistory;
           if (node.name === 'navigator') return _safeNavigator;
+          if (_TIMER_WRAPPERS.has(node.name)) return _safeTimers[node.name];
           return globalThis[node.name];
         }
         return undefined;
@@ -1397,10 +1414,11 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     }
 
     // Write back new variables created during execution.
-    // Skip extraVars keys (e.g. __val, $el, $event) — they are execution-local
-    // and must not be persisted to the reactive context.
+    // Only write back to the context if the variable was explicitly assigned
+    // via the statement AST (not just read). Skip extraVars and $ keys.
     for (const k in scope) {
-      if (k.startsWith("$") || chainKeys.has(k) || k in extraVars) continue;
+      if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
+      if (_FORBIDDEN_PROPS[k]) continue;
       ctx.$set(k, scope[k]);
     }
 
@@ -1420,7 +1438,10 @@ export function _execStatement(expr, ctx, extraVars = {}) {
 }
 
 export function resolve(path, ctx) {
-  return path.split(".").reduce((o, k) => o?.[k], ctx);
+  return path.split(".").reduce((o, k) => {
+    if (_FORBIDDEN_PROPS[k]) return undefined;
+    return o?.[k];
+  }, ctx);
 }
 
 // Interpolate strings like "/users/{user.id}?q={search}"

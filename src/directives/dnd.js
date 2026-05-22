@@ -198,7 +198,7 @@ function _buildStackGhost(sourceEl, count) {
 
     if (i === 0) {
       // Top card: clone content
-      layer.innerHTML = measured.innerHTML;
+      for (const child of measured.childNodes) layer.appendChild(child.cloneNode(true));
       layer.style.background = cs.backgroundColor || "#fff";
       layer.style.border = cs.border;
       layer.style.padding = cs.padding;

@@ -21,9 +21,11 @@ export function _notifyI18n() {
 }
 
 // ─── Deep merge (recursive, returns new object) ─────────────────────
+const _FORBIDDEN_MERGE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 function _deepMerge(target, source) {
   const out = { ...target };
   for (const key of Object.keys(source)) {
+    if (_FORBIDDEN_MERGE_KEYS.has(key)) continue;
     if (
       source[key] && typeof source[key] === "object" && !Array.isArray(source[key]) &&
       target[key] && typeof target[key] === "object" && !Array.isArray(target[key])

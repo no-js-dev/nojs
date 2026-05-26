@@ -11,6 +11,9 @@ import { resolveUrl } from "./fetch.js";
 // Controlled by _config.templates.cache (default: true).
 export const _templateHtmlCache = new Map();
 
+// ─── DOMParser singleton — stateless, safe to reuse across calls ────────────
+const _domParser = new DOMParser();
+
 export function findContext(el) {
   let node = el;
   while (node) {
@@ -37,7 +40,7 @@ export function _cloneTemplate(id) {
 // Strip JS vectors from raw SVG markup using DOMParser for robust sanitization.
 // Regex-based approaches are bypassable via entity encoding and nested contexts.
 function _sanitizeSvgContent(svg) {
-  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const doc = _domParser.parseFromString(svg, "image/svg+xml");
   const root = doc.documentElement;
   if (root.querySelector("parsererror") ||
       root.nodeName !== "svg" ||
@@ -99,7 +102,7 @@ export function _sanitizeHtml(html) {
   }
   if (typeof _config.sanitizeHtml === 'function') return _config.sanitizeHtml(html);
 
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const doc = _domParser.parseFromString(html, 'text/html');
 
   function _clean(node) {
     for (const child of [...node.childNodes]) {

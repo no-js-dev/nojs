@@ -26,15 +26,22 @@ export function _freezeDirectives() {
   _frozen = true;
 }
 
+// ─── Pattern-match prefixes for wildcard directives (hoisted, static) ────────
+const _MATCH_PATTERNS = Object.freeze([
+  { pattern: "class-*", prefix: "class-" },
+  { pattern: "on:*",    prefix: "on:" },
+  { pattern: "style-*", prefix: "style-" },
+  { pattern: "bind-*",  prefix: "bind-" },
+]);
+
 function _matchDirective(attrName) {
   if (_directives.has(attrName))
     return { directive: _directives.get(attrName), match: attrName };
   // Pattern matches
-  const patterns = ["class-*", "on:*", "style-*", "bind-*"];
-  for (const p of patterns) {
-    const prefix = p.replace("*", "");
-    if (attrName.startsWith(prefix) && _directives.has(p)) {
-      return { directive: _directives.get(p), match: p };
+  for (let i = 0; i < _MATCH_PATTERNS.length; i++) {
+    const { pattern, prefix } = _MATCH_PATTERNS[i];
+    if (attrName.startsWith(prefix) && _directives.has(pattern)) {
+      return { directive: _directives.get(pattern), match: pattern };
     }
   }
   return null;
@@ -45,7 +52,9 @@ export function processElement(el) {
   el.__declared = true;
 
   const matched = [];
-  for (const attr of [...el.attributes]) {
+  const attrs = el.attributes;
+  for (let i = 0, len = attrs.length; i < len; i++) {
+    const attr = attrs[i];
     const m = _matchDirective(attr.name);
     if (m) {
       matched.push({

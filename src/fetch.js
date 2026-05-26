@@ -126,12 +126,15 @@ export async function _doFetch(
   }
 
   // ── Request interceptors ──
-  // Strip sensitive headers before passing to interceptors
+  // Strip sensitive headers before passing to interceptors (only when interceptors exist)
+  const hasRequestInterceptors = _interceptors.request.length > 0;
   const sensitiveHeaders = {};
-  for (const key of Object.keys(opts.headers)) {
-    if (_isSensitiveHeader(key)) {
-      sensitiveHeaders[key] = opts.headers[key];
-      delete opts.headers[key];
+  if (hasRequestInterceptors) {
+    for (const key of Object.keys(opts.headers)) {
+      if (_isSensitiveHeader(key)) {
+        sensitiveHeaders[key] = opts.headers[key];
+        delete opts.headers[key];
+      }
     }
   }
 
@@ -182,7 +185,9 @@ export async function _doFetch(
   }
 
   // Re-apply sensitive headers after interceptor chain
-  Object.assign(opts.headers, sensitiveHeaders);
+  if (hasRequestInterceptors) {
+    Object.assign(opts.headers, sensitiveHeaders);
+  }
 
   // Retry logic
   const maxRetries = retries !== undefined ? retries : (_config.retries || 0);

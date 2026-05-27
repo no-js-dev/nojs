@@ -1326,13 +1326,14 @@ export function evaluate(expr, ctx) {
   try {
     const pipes = _parsePipes(expr);
     const mainExpr = pipes[0];
-    const { keys, vals } = _collectKeys(ctx);
+    const { vals } = _collectKeys(ctx);
 
-    // Build scope from cache without mutating it
-    const scope = {};
-    for (let i = 0; i < keys.length; i++) scope[keys[i]] = vals[keys[i]];
-    // Add special variables to scope only (never to the shared cache),
-    // preserving any same-named local context vars already in scope
+    // Build scope using prototype chain: vals (cached) becomes the prototype,
+    // special variables are own properties. This eliminates the O(n) per-key
+    // copy — prototype chain lookup is native-optimized.
+    const scope = Object.create(vals);
+    // Add special variables as own properties only when not already in the
+    // prototype (i.e. not shadowed by a same-named local context var).
     if (!("$store"  in scope)) scope.$store  = _stores;
     if (!("$route"  in scope)) scope.$route  = _routerInstance?.current;
     if (!("$router" in scope)) scope.$router = _routerInstance;
@@ -1370,11 +1371,10 @@ export function evaluate(expr, ctx) {
 // Execute a statement (for on:* handlers)
 export function _execStatement(expr, ctx, extraVars = {}) {
   try {
-    const { keys, vals } = _collectKeys(ctx);
+    const { vals } = _collectKeys(ctx);
 
-    // Build scope from cache without mutating it, then add special vars and extraVars
-    const scope = {};
-    for (let i = 0; i < keys.length; i++) scope[keys[i]] = vals[keys[i]];
+    // Build scope using prototype chain (same pattern as evaluate())
+    const scope = Object.create(vals);
     if (!("$store"  in scope)) scope.$store  = _stores;
     if (!("$route"  in scope)) scope.$route  = _routerInstance?.current;
     if (!("$router" in scope)) scope.$router = _routerInstance;
@@ -1425,9 +1425,11 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     }
 
     // Write back new variables created during execution.
-    // Only write back to the context if the variable was explicitly assigned
-    // via the statement AST (not just read). Skip extraVars and $ keys.
+    // Only own properties on scope represent mutations or new assignments —
+    // prototype (vals) keys are inherited from the context chain and already
+    // handled by the chainKeys write-back above.
     for (const k in scope) {
+      if (!Object.prototype.hasOwnProperty.call(scope, k)) continue;
       if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
       if (_FORBIDDEN_PROPS[k]) continue;
       ctx.$set(k, scope[k]);

@@ -1,6 +1,6 @@
 {
   "name": "@erickxavier/no-js",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "The HTML-first reactive framework — build dynamic web apps with just HTML attributes, no JavaScript required",
   "main": "dist/cjs/no.js",
   "module": "dist/esm/no.js",

@@ -45,7 +45,7 @@
       },
       "forms": {
         "title": "Form Handling",
-        "desc": "Two-way binding with model, built-in validation, error messages, and form submission handling."
+        "desc": "Two-way binding with model, built-in validation, error messages, and form submission handling. (Validation now in NoJS Elements)"
       },
       "fetch": {
         "title": "Fetch & API",

@@ -52,7 +52,7 @@
         "tableRow1b": "Récupérer des données, error boundaries, namespace i18n",
         "tableRow2b": "Valeurs dérivées et watchers d'effets secondaires",
         "tableRow5b": "Références aux éléments",
-        "tableRow15": "Configuration du drag and drop"
+        "tableRow15": "Configuration du drag and drop (Maintenant dans NoJS Elements)"
       }
     },
     "cheatsheet": {
@@ -171,7 +171,7 @@
         "col1": "Directive",
         "col2": "Exemple",
         "col3": "Description",
-        "validate": "Activer la validation du formulaire/champ",
+        "validate": "Activer la validation du formulaire/champ (Maintenant dans NoJS Elements)",
         "error": "Template d'erreur pour le champ",
         "success": "Template de succès",
         "loading": "Template de chargement",
@@ -218,7 +218,7 @@
         "transitionVT": "Preset View Transition API sur route-view (slide, fade, scale, none)"
       },
       "dnd": {
-        "title": "Drag and Drop",
+        "title": "Drag and Drop (Maintenant dans NoJS Elements)",
         "col1": "Directive",
         "col2": "Exemple",
         "col3": "Description",

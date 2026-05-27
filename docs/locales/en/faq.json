@@ -23,7 +23,7 @@
       "title": "Getting Started",
       "q1": {
         "question": "What is No.JS?",
-        "answer": "An HTML-first reactive framework. State, data fetching, routing, validation, i18n, animations: all declared through HTML attributes. Zero dependencies, no build step."
+        "answer": "An HTML-first reactive framework. State, data fetching, routing, i18n, animations: all declared through HTML attributes. Validation and drag-and-drop are now available via NoJS Elements. Zero dependencies, no build step."
       },
       "q2": {
         "question": "How do I get started?",
@@ -50,7 +50,7 @@
       },
       "q7": {
         "question": "What features are included?",
-        "answer": "Everything ships in one file:<br><br>• Reactive state and computed properties<br>• SPA routing with lazy loading<br>• Declarative HTTP (GET, POST, PUT, PATCH, DELETE)<br>• i18n with external locale files<br>• Form validation<br>• Animations and transitions<br>• Drag and drop<br>• 32 built-in filters"
+        "answer": "Everything ships in one file:<br><br>• Reactive state and computed properties<br>• SPA routing with lazy loading<br>• Declarative HTTP (GET, POST, PUT, PATCH, DELETE)<br>• i18n with external locale files<br>• Form validation (Now in NoJS Elements)<br>• Animations and transitions<br>• Drag and drop (Now in NoJS Elements)<br>• 32 built-in filters"
       },
       "q8": {
         "question": "What's the right use case?",
@@ -61,7 +61,7 @@
       "title": "Comparisons",
       "q9": {
         "question": "No.JS vs Alpine.js?",
-        "answer": "Alpine is reactive and lightweight, but lacks declarative HTTP, SPA routing, i18n, form validation, and built-in filters.<br><br>No.JS covers the full lifecycle: fetch, bind, loop, route, validate, animate, all through HTML attributes."
+        "answer": "Alpine is reactive and lightweight, but lacks declarative HTTP, SPA routing, i18n, and built-in filters.<br><br>No.JS covers the full lifecycle: fetch, bind, loop, route, animate, all through HTML attributes. Form validation and drag-and-drop are available via NoJS Elements."
       },
       "q10": {
         "question": "No.JS vs HTMX?",
@@ -84,7 +84,7 @@
       },
       "q14": {
         "question": "How big is the bundle?",
-        "answer": "It includes reactivity, routing, data fetching, i18n, animations, drag and drop, form validation, and 32 filters. Zero dependencies."
+        "answer": "It includes reactivity, routing, data fetching, i18n, animations, and 32 filters. Drag-and-drop and form validation are now in NoJS Elements. Zero dependencies."
       },
       "q15": {
         "question": "Do I need a build step?",

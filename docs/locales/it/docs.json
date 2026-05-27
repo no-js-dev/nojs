@@ -52,7 +52,7 @@
         "tableRow1b": "Recuperare dati, error boundaries, namespace i18n",
         "tableRow2b": "Valori derivati e watcher di effetti collaterali",
         "tableRow5b": "Riferimenti agli elementi",
-        "tableRow15": "Configurazione drag and drop"
+        "tableRow15": "Configurazione drag and drop (Ora in NoJS Elements)"
       }
     },
     "cheatsheet": {
@@ -171,7 +171,7 @@
         "col1": "Direttiva",
         "col2": "Esempio",
         "col3": "Descrizione",
-        "validate": "Abilita la validazione del form/campo",
+        "validate": "Abilita la validazione del form/campo (Ora in NoJS Elements)",
         "error": "Template di errore per il campo",
         "success": "Template di successo",
         "loading": "Template di caricamento",
@@ -218,7 +218,7 @@
         "transitionVT": "Preset View Transition API su route-view (slide, fade, scale, none)"
       },
       "dnd": {
-        "title": "Drag and Drop",
+        "title": "Drag and Drop (Ora in NoJS Elements)",
         "col1": "Direttiva",
         "col2": "Esempio",
         "col3": "Descrizione",

@@ -23,7 +23,7 @@
       "title": "Premiers Pas",
       "q1": {
         "question": "Qu'est-ce que No.JS ?",
-        "answer": "Un framework réactif HTML-first. État, fetch de données, routage, validation, i18n, animations : tout déclaré via des attributs HTML. Zéro dépendance, pas de build."
+        "answer": "Un framework réactif HTML-first. État, fetch de données, routage, i18n, animations : tout déclaré via des attributs HTML. Validation et drag-and-drop maintenant disponibles via NoJS Elements. Zéro dépendance, pas de build."
       },
       "q2": {
         "question": "Comment commencer ?",
@@ -50,7 +50,7 @@
       },
       "q7": {
         "question": "Quelles fonctionnalités sont incluses ?",
-        "answer": "Tout est livré dans un seul fichier :<br><br>• État réactif et propriétés calculées<br>• Routage SPA avec lazy loading<br>• HTTP déclaratif (GET, POST, PUT, PATCH, DELETE)<br>• i18n avec fichiers de locale externes<br>• Validation de formulaires<br>• Animations et transitions<br>• Drag and drop<br>• 32 filtres intégrés"
+        "answer": "Tout est livré dans un seul fichier :<br><br>• État réactif et propriétés calculées<br>• Routage SPA avec lazy loading<br>• HTTP déclaratif (GET, POST, PUT, PATCH, DELETE)<br>• i18n avec fichiers de locale externes<br>• Validation de formulaires (Maintenant dans NoJS Elements)<br>• Animations et transitions<br>• Drag and drop (Maintenant dans NoJS Elements)<br>• 32 filtres intégrés"
       },
       "q8": {
         "question": "Quel est le cas d'usage idéal ?",
@@ -61,7 +61,7 @@
       "title": "Comparaisons",
       "q9": {
         "question": "No.JS vs Alpine.js ?",
-        "answer": "Alpine est réactif et léger, mais manque de HTTP déclaratif, routage SPA, i18n, validation de formulaires et filtres intégrés.<br><br>No.JS couvre le cycle complet : fetch, bind, loop, route, validate, animate, tout via des attributs HTML."
+        "answer": "Alpine est réactif et léger, mais manque de HTTP déclaratif, routage SPA, i18n et filtres intégrés.<br><br>No.JS couvre le cycle complet : fetch, bind, loop, route, animate, tout via des attributs HTML. Form validation et drag-and-drop disponibles via NoJS Elements."
       },
       "q10": {
         "question": "No.JS vs HTMX ?",
@@ -84,7 +84,7 @@
       },
       "q14": {
         "question": "Quelle est la taille du bundle ?",
-        "answer": "Un seul fichier, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations, drag and drop, validation de formulaires et 32 filtres."
+        "answer": "Un seul fichier, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations et 32 filtres. Drag-and-drop et form validation maintenant dans NoJS Elements."
       },
       "q15": {
         "question": "Ai-je besoin d'un build ?",

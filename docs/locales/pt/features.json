@@ -45,7 +45,7 @@
       },
       "forms": {
         "title": "Gerenciamento de Formulários",
-        "desc": "Two-way binding com model, validação integrada, mensagens de erro e manipulação de envio de formulários."
+        "desc": "Two-way binding com model, validação integrada, mensagens de erro e manipulação de envio de formulários. (Validation agora no NoJS Elements)"
       },
       "fetch": {
         "title": "Fetch & API",

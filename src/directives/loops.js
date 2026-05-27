@@ -78,6 +78,10 @@ const _loopHandler = {
     const stagger = parseInt(el.getAttribute("animate-stagger")) || 0;
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
     let prevList = null;
+    // Tracks the last rendered (post-filter/sort/slice) list for delta optimization.
+    let prevRendered = null;
+    // Delta optimization is disabled when filter/sort/offset modify rendered order.
+    const hasPipeline = !!(filterExpr || sortProp || offset);
 
     // Capture inline children as template fragment (before any render).
     // When no external template is specified, the element's children become
@@ -145,12 +149,69 @@ const _loopHandler = {
           el.appendChild(clone);
           processTree(el);
         }
+        prevRendered = null;
         return;
       }
 
       if (keyExpr) {
         reconcileForeachItems(list, list.length);
+        prevRendered = null;
         return;
+      }
+
+      // ── Length-delta append optimization (keyless) ─────────────────────
+      // When the list grew and the existing prefix items are unchanged,
+      // append only the new items instead of tearing down and rebuilding
+      // everything. Falls back to full rebuild when filter/sort/offset are
+      // active (rendered order may differ from source order), when the list
+      // shrunk, or when any existing item reference changed.
+      function tryDeltaAppend() {
+        if (hasPipeline) return false;
+        if (!prevRendered) return false;
+        const oldLen = prevRendered.length;
+        const newLen = list.length;
+        if (newLen <= oldLen) return false;
+        if (el.children.length !== oldLen) return false;
+        // Shallow compare: every existing item reference must be identical.
+        for (let j = 0; j < oldLen; j++) {
+          if (list[j] !== prevRendered[j]) return false;
+        }
+        // Prefix matches — update $count and $last on existing children,
+        // then append only the delta items.
+        const count = newLen;
+        for (let j = 0; j < oldLen; j++) {
+          const childCtx = el.children[j].__ctx;
+          if (childCtx) {
+            const raw = childCtx.__raw;
+            raw.$count = count;
+            raw.$last = false;
+            // Invalidate _collectKeys cache since we bypassed the proxy setter
+            delete raw.__collectKeysCache;
+            childCtx.$notify();
+          }
+        }
+        for (let i = oldLen; i < newLen; i++) {
+          const childData = {
+            [itemName]: list[i],
+            [indexName]: i,
+            $index: i,
+            $count: count,
+            $first: false,
+            $last: i === count - 1,
+            $even: i % 2 === 0,
+            $odd: i % 2 !== 0,
+          };
+          const clone = tplId
+            ? document.getElementById(tplId)?.content.cloneNode(true)
+            : inlineTemplate?.cloneNode(true);
+          if (!clone) return false;
+          const { node, applyAnim } = _makeLoopItem(clone, createContext(childData, ctx), animEnter, stagger, i);
+          el.appendChild(node);
+          processTree(node);
+          applyAnim();
+        }
+        prevRendered = list.slice();
+        return true;
       }
 
       function renderForeachItems() {
@@ -177,6 +238,7 @@ const _loopHandler = {
           processTree(node);
           applyAnim();
         });
+        prevRendered = list.slice();
       }
 
       // Animate out old items if animate-leave is set
@@ -195,7 +257,7 @@ const _loopHandler = {
           // || 0: unblocks the next render on the next tick when no CSS animation fires.
           setTimeout(done, animDuration || 0);
         });
-      } else {
+      } else if (!tryDeltaAppend()) {
         renderForeachItems();
       }
     }

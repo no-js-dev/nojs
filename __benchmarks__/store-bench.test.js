@@ -3,7 +3,7 @@
 //
 // Measures store notification throughput at different watcher counts.
 // The store notification path is separate from context reactivity —
-// _notifyStoreWatchers iterates _storeWatchers (a global Set).
+// _notifyStoreWatchers iterates _storeWatchers (a partitioned Map).
 //
 // Scenarios:
 //   1. Single store change with 10/50/200/500 watchers
@@ -13,7 +13,7 @@
 // Reports: mean, median, p95, min, max per watcher count.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { _stores, _storeWatchers, _notifyStoreWatchers } from '../src/globals.js';
+import { _stores, _storeWatchers, _notifyStoreWatchers, _addStoreWatcher, _deleteStoreWatcher } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -76,12 +76,12 @@ describe('Benchmark: store notification — watcher scaling', () => {
         // Register watchers (simulating what _watchExpr does internally)
         for (let w = 0; w < count; w++) {
           const fn = () => { fired++; };
-          _storeWatchers.add(fn);
+          _addStoreWatcher(fn, 'counter');
         }
 
         fired = 0;
         const t0 = performance.now();
-        _notifyStoreWatchers();
+        _notifyStoreWatchers('counter');
         const t1 = performance.now();
 
         times.push(t1 - t0);
@@ -134,20 +134,22 @@ describe('Benchmark: multiple store changes — notification cost', () => {
 
         let fired = 0;
         for (let w = 0; w < WATCHERS_PER_RUN; w++) {
-          _storeWatchers.add(() => { fired++; });
+          // Distribute watchers across stores via wildcard for cross-store notification
+          _addStoreWatcher(() => { fired++; }, '*');
         }
 
-        // Simulate changing all stores and notifying once
+        // Simulate changing all stores and notifying each
         fired = 0;
         const t0 = performance.now();
         for (let s = 0; s < storeCount; s++) {
           _stores[`store_${s}`].value++;
+          _notifyStoreWatchers(`store_${s}`);
         }
-        _notifyStoreWatchers();
         const t1 = performance.now();
 
         times.push(t1 - t0);
-        expect(fired).toBe(WATCHERS_PER_RUN);
+        // Wildcard watchers fire once per store notification
+        expect(fired).toBe(WATCHERS_PER_RUN * storeCount);
       }
 
       const s = stats(times);
@@ -195,7 +197,7 @@ describe('Benchmark: watcher registration/deregistration', () => {
         for (let w = 0; w < count; w++) {
           const fn = () => {};
           fns.push(fn);
-          _storeWatchers.add(fn);
+          _addStoreWatcher(fn, 'bench');
         }
         const t1 = performance.now();
         regTimes.push(t1 - t0);
@@ -203,7 +205,7 @@ describe('Benchmark: watcher registration/deregistration', () => {
         // Deregister
         const t2 = performance.now();
         for (const fn of fns) {
-          _storeWatchers.delete(fn);
+          _deleteStoreWatcher(fn);
         }
         const t3 = performance.now();
         deregTimes.push(t3 - t2);
@@ -262,7 +264,7 @@ describe('Benchmark: context watchers + store watchers combined', () => {
           ctx.$watch(() => { ctxFired++; });
         }
         for (let w = 0; w < cfg.storeWatchers; w++) {
-          _storeWatchers.add(() => { storeFired++; });
+          _addStoreWatcher(() => { storeFired++; }, 'data');
         }
 
         ctxFired = 0;
@@ -272,7 +274,7 @@ describe('Benchmark: context watchers + store watchers combined', () => {
         const t0 = performance.now();
         ctx.value = r + 1;
         _stores.data.count++;
-        _notifyStoreWatchers();
+        _notifyStoreWatchers('data');
         const t1 = performance.now();
 
         times.push(t1 - t0);

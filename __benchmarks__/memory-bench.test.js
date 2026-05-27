@@ -15,7 +15,7 @@
 
 import { createContext } from '../src/context.js';
 import { evaluate, _exprCache } from '../src/evaluate.js';
-import { _stores, _storeWatchers, _config } from '../src/globals.js';
+import { _stores, _storeWatchers, _config, _addStoreWatcher, _deleteStoreWatcher } from '../src/globals.js';
 import { processTree } from '../src/registry.js';
 
 import '../src/filters.js';
@@ -336,11 +336,11 @@ describe('Benchmark: memory — store create/delete cycles', () => {
           };
         }
 
-        // Add watchers
+        // Add watchers (partitioned by store name)
         const fns = [];
         for (let w = 0; w < storeCount; w++) {
           const fn = () => {};
-          _storeWatchers.add(fn);
+          _addStoreWatcher(fn, `bench_${w}`);
           fns.push(fn);
         }
 
@@ -349,7 +349,7 @@ describe('Benchmark: memory — store create/delete cycles', () => {
           delete _stores[`bench_${s}`];
         }
         for (const fn of fns) {
-          _storeWatchers.delete(fn);
+          _deleteStoreWatcher(fn);
         }
 
         if (c % 10 === 9) {

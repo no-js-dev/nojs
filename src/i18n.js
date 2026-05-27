@@ -14,6 +14,7 @@ export function _watchI18n(fn) {
 
 // ─── Notify all i18n listeners (shared by setter + directive) ────────
 export function _notifyI18n() {
+  _i18nTranslationCache.clear();
   for (const fn of _i18nListeners) {
     if (fn._el && !fn._el.isConnected) { _i18nListeners.delete(fn); continue; }
     fn();
@@ -38,6 +39,11 @@ function _deepMerge(target, source) {
   return out;
 }
 
+// ─── Translation lookup cache: Map<string, string>  key = "en:namespace.key.path"
+// Stores the raw resolved message (before interpolation/pluralization).
+// Cleared on locale change and namespace reload to avoid stale entries.
+export const _i18nTranslationCache = new Map();
+
 // ─── Locale file cache: Map<string, object>  key = "en" or "en:dashboard"
 const _i18nCache = new Map();
 const _loadedNs = new Set();
@@ -57,6 +63,7 @@ async function _loadLocale(locale, ns) {
     if (!res.ok) { _warn(`i18n: failed to load ${url} (${res.status})`); return; }
     const data = await res.json();
     _i18n.locales[locale] = _deepMerge(_i18n.locales[locale] || {}, data);
+    _i18nTranslationCache.clear();
     if (_config.i18n.cache) _i18nCache.set(cacheKey, data);
   } catch (e) {
     _warn(`i18n: error loading ${url}`, e);
@@ -84,13 +91,21 @@ export async function _loadI18nNamespace(ns) {
 
 export const _i18n = {
   _locale: "en",
-  locales: {},
+  _locales: {},
+  get locales() {
+    return this._locales;
+  },
+  set locales(v) {
+    this._locales = v;
+    _i18nTranslationCache.clear();
+  },
   get locale() {
     return this._locale;
   },
   set locale(v) {
     if (this._locale !== v) {
       this._locale = v;
+      _i18nTranslationCache.clear();
       if (_config.i18n.persist && typeof localStorage !== "undefined") {
         try { localStorage.setItem("nojs-locale", v); } catch (_) {}
       }
@@ -104,11 +119,18 @@ export const _i18n = {
     }
   },
   t(key, params = {}) {
-    const messages =
-      _i18n.locales[_i18n.locale] ||
-      _i18n.locales[_config.i18n.fallbackLocale] ||
-      {};
-    let msg = key.split(".").reduce((o, k) => o?.[k], messages);
+    // ─── Flat translation cache: avoid repeated split+reduce on same key ──
+    const cacheKey = `${_i18n.locale}:${key}`;
+    let msg = _i18nTranslationCache.get(cacheKey);
+    if (msg === undefined) {
+      const messages =
+        _i18n.locales[_i18n.locale] ||
+        _i18n.locales[_config.i18n.fallbackLocale] ||
+        {};
+      msg = key.split(".").reduce((o, k) => o?.[k], messages);
+      // Cache resolved value (including null for missing keys)
+      _i18nTranslationCache.set(cacheKey, msg ?? null);
+    }
     if (msg == null) return key;
 
     // Pluralization: "one item | {count} items"

@@ -891,6 +891,23 @@ function _wrapTimer(name) {
 const _safeTimers = {};
 for (const t of _TIMER_WRAPPERS) _safeTimers[t] = _wrapTimer(t);
 
+// Evaluate call arguments at module level to avoid per-call closure allocation.
+// Handles SpreadElement by iterating the spread result.
+function _evalArgs(args, scope) {
+  const result = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].type === 'SpreadElement') {
+      const spread = _evalNode(args[i].argument, scope);
+      if (spread && typeof spread[Symbol.iterator] === 'function') {
+        result.push(...spread);
+      }
+    } else {
+      result.push(_evalNode(args[i], scope));
+    }
+  }
+  return result;
+}
+
 function _evalNode(node, scope) {
   try {
     if (!node) return undefined;
@@ -1007,22 +1024,6 @@ function _evalNode(node, scope) {
 
       case 'CallExpr':
       case 'OptionalCallExpr': {
-        // Evaluate args (handle spread)
-        const evalArgs = (args) => {
-          const result = [];
-          for (let i = 0; i < args.length; i++) {
-            if (args[i].type === 'SpreadElement') {
-              const spread = _evalNode(args[i].argument, scope);
-              if (spread && typeof spread[Symbol.iterator] === 'function') {
-                result.push(...spread);
-              }
-            } else {
-              result.push(_evalNode(args[i], scope));
-            }
-          }
-          return result;
-        };
-
         if (node.callee.type === 'MemberExpr' || node.callee.type === 'OptionalMemberExpr') {
           const thisObj = _evalNode(node.callee.object, scope);
           if (thisObj == null) {
@@ -1035,7 +1036,7 @@ function _evalNode(node, scope) {
           if (_FORBIDDEN_PROPS[prop]) return undefined;
           const fn = thisObj[prop];
           if (typeof fn !== 'function') return undefined;
-          const callResult = fn.apply(thisObj, evalArgs(node.args));
+          const callResult = fn.apply(thisObj, _evalArgs(node.args, scope));
           if (callResult instanceof Document || callResult === globalThis.document) return _safeDocument;
           if (callResult === globalThis.window || callResult === globalThis) return _safeWindow;
           return callResult;
@@ -1044,7 +1045,7 @@ function _evalNode(node, scope) {
         const fn = _evalNode(node.callee, scope);
         if (fn == null && node.type === 'OptionalCallExpr') return undefined;
         if (typeof fn !== 'function') return undefined;
-        const standaloneResult = fn.apply(undefined, evalArgs(node.args));
+        const standaloneResult = fn.apply(undefined, _evalArgs(node.args, scope));
         if (standaloneResult instanceof Document || standaloneResult === globalThis.document) return _safeDocument;
         if (standaloneResult === globalThis.window || standaloneResult === globalThis) return _safeWindow;
         return standaloneResult;

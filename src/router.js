@@ -73,7 +73,15 @@ export function _createRouter() {
   function _getOrCreateEntry(path) {
     let entry = routes.find((r) => r.path === path);
     if (!entry) {
-      entry = { path, outlets: {} };
+      // Pre-compile regex and extract param names at registration time
+      // so matchRoute() doesn't rebuild them on every navigation.
+      const paramNames = [];
+      const pattern = path.replace(/:(\w+)/g, (_, name) => {
+        paramNames.push(name);
+        return "([^/]+)";
+      });
+      const regex = new RegExp("^" + pattern + "$");
+      entry = { path, outlets: {}, regex, paramNames };
       routes.push(entry);
     }
     return entry;
@@ -89,18 +97,13 @@ export function _createRouter() {
 
   function matchRoute(path) {
     for (const route of routes) {
-      const paramNames = [];
-      const pattern = route.path.replace(/:(\w+)/g, (_, name) => {
-        paramNames.push(name);
-        return "([^/]+)";
-      });
-      const regex = new RegExp("^" + pattern + "$");
-      const match = path.match(regex);
+      const match = path.match(route.regex);
       if (match) {
         const params = {};
-        paramNames.forEach((name, i) => {
-          params[name] = match[i + 1];
-        });
+        const paramNames = route.paramNames;
+        for (let i = 0; i < paramNames.length; i++) {
+          params[paramNames[i]] = match[i + 1];
+        }
         return { route, params };
       }
     }

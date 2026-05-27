@@ -60,48 +60,76 @@ export function createContext(data = {}, parent = null) {
     }
   }
 
+  // Pre-build $set closure outside the handler for reuse across all get() calls
+  const $setFn = (k, v) => {
+    const parts = k.split(".");
+    if (parts.some(p => _FORBIDDEN_CTX_KEYS.has(p))) return;
+    if (parts.length === 1) {
+      proxy[k] = v;
+    } else {
+      let obj = proxy;
+      for (let i = 0; i < parts.length - 1; i++) {
+        obj = obj[parts[i]];
+        if (obj == null) return;
+      }
+      const lastKey = parts[parts.length - 1];
+      const old = obj[lastKey];
+      obj[lastKey] = v;
+      if (old !== v) notify();
+    }
+  };
+
+  const $watchFn = (fn) => {
+    if (_currentEl) fn._el = _currentEl;
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  };
+
   const handler = {
     get(target, key) {
-      if (key === "__isProxy") return true;
-      if (key === "__raw") return target;
-      if (key === "__listeners") return listeners;
-      if (key === "$watch")
-        return (fn) => {
-          if (_currentEl) fn._el = _currentEl;
-          listeners.add(fn);
-          return () => listeners.delete(fn);
-        };
-      if (key === "$notify") return notify;
-      if (key === "$set")
-        return (k, v) => {
-          const parts = k.split(".");
-          if (parts.some(p => _FORBIDDEN_CTX_KEYS.has(p))) return;
-          if (parts.length === 1) {
-            proxy[k] = v;
-          } else {
-            let obj = proxy;
-            for (let i = 0; i < parts.length - 1; i++) {
-              obj = obj[parts[i]];
-              if (obj == null) return;
-            }
-            const lastKey = parts[parts.length - 1];
-            const old = obj[lastKey];
-            obj[lastKey] = v;
-            if (old !== v) notify();
-          }
-        };
-      if (key === "$parent") return parent;
-      if (key === "$refs") return _refs;
-      if (key === "$store") return _stores;
-      if (key === "$route")
-        return _routerInstance ? _routerInstance.current : {};
-      if (key === "$router") return _routerInstance;
-      if (key === "$i18n") return _i18n;
-      if (key === "$form") return target.$form || null;
-      // Plugin globals fallback (after all core $ checks)
-      if (key.startsWith("$") && key.slice(1) in _globals) {
-        return _globals[key.slice(1)];
+      // Fast path: non-string keys (Symbols) go straight to target
+      if (typeof key !== "string") return target[key];
+
+      const c0 = key.charCodeAt(0);
+
+      // Fast path: keys not starting with '$' (36) or '_' (95) are user properties.
+      // Skip all special-key checks entirely.
+      if (c0 !== 36 /* $ */ && c0 !== 95 /* _ */) {
+        if (key in target) return target[key];
+        if (parent && parent.__isProxy) return parent[key];
+        return undefined;
       }
+
+      // Dunder keys (__isProxy, __raw, __listeners)
+      if (c0 === 95) {
+        if (key === "__isProxy") return true;
+        if (key === "__raw") return target;
+        if (key === "__listeners") return listeners;
+        // Fall through to target/parent lookup for other _ keys
+        if (key in target) return target[key];
+        if (parent && parent.__isProxy) return parent[key];
+        return undefined;
+      }
+
+      // $ prefix: dispatch core context keys via switch for O(1) branching
+      switch (key) {
+        case "$watch":  return $watchFn;
+        case "$notify": return notify;
+        case "$set":    return $setFn;
+        case "$parent": return parent;
+        case "$refs":   return _refs;
+        case "$store":  return _stores;
+        case "$route":  return _routerInstance ? _routerInstance.current : {};
+        case "$router": return _routerInstance;
+        case "$i18n":   return _i18n;
+        case "$form":   return target.$form || null;
+      }
+
+      // Plugin globals fallback (after all core $ checks)
+      const globalKey = key.slice(1);
+      if (globalKey in _globals) return _globals[globalKey];
+
+      // Target / parent chain lookup
       if (key in target) return target[key];
       if (parent && parent.__isProxy) return parent[key];
       return undefined;

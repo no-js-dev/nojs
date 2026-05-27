@@ -51,6 +51,7 @@ import "./directives/styling.js";
 import "./directives/events.js";
 import "./directives/refs.js";
 import "./directives/validation.js";
+import "./directives/error-boundary.js";
 import "./directives/i18n.js";
 import "./directives/dnd.js";
 import "./directives/head.js";

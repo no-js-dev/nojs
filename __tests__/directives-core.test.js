@@ -14,6 +14,7 @@ import '../src/directives/conditionals.js';
 import '../src/directives/events.js';
 import '../src/directives/loops.js';
 import '../src/directives/validation.js';
+import '../src/directives/error-boundary.js';
 
 describe('State Directive', () => {
   afterEach(() => {

@@ -17,6 +17,7 @@ import '../src/directives/http.js';
 import '../src/directives/refs.js';
 import '../src/directives/events.js';
 import '../src/directives/validation.js';
+import '../src/directives/error-boundary.js';
 import '../src/directives/i18n.js';
 
 

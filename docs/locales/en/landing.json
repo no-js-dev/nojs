@@ -11,9 +11,9 @@
       "title": "The same app.<br>The real difference.",
       "subtitle": "A reactive search box - the most common real-world pattern.",
       "reactLabel": "React",
-      "reactMeta": "25 lines  ·  react, react-dom, useState, useEffect",
+      "reactMeta": "28 lines  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
-      "nojsMeta": "4 lines  ·  0 imports",
+      "nojsMeta": "6 lines  ·  0 imports",
       "nojsNote": "✓ Reactive  ·  ✓ Auto-fetches  ·  ✓ No build step"
     },
     "featuresGrid": {

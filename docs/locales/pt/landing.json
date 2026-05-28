@@ -11,9 +11,9 @@
       "title": "O mesmo app.<br>A diferença real.",
       "subtitle": "Uma caixa de busca reativa — o padrão mais comum do mundo real.",
       "reactLabel": "React",
-      "reactMeta": "25 linhas  ·  react, react-dom, useState, useEffect",
+      "reactMeta": "28 linhas  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
-      "nojsMeta": "4 linhas  ·  0 imports",
+      "nojsMeta": "6 linhas  ·  0 imports",
       "nojsNote": "✓ Reativo  ·  ✓ Auto-fetch  ·  ✓ Sem build"
     },
     "featuresGrid": {

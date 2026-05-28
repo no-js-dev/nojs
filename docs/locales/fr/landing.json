@@ -11,9 +11,9 @@
       "title": "La même app.<br>La vraie différence.",
       "subtitle": "Un champ de recherche réactif — le pattern le plus courant en conditions réelles.",
       "reactLabel": "React",
-      "reactMeta": "25 lignes  ·  react, react-dom, useState, useEffect",
+      "reactMeta": "28 lignes  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
-      "nojsMeta": "4 lignes  ·  0 imports",
+      "nojsMeta": "6 lignes  ·  0 imports",
       "nojsNote": "✓ Réactif  ·  ✓ Auto-fetch  ·  ✓ Aucune étape de build"
     },
     "featuresGrid": {

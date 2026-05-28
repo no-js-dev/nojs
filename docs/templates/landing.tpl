@@ -629,13 +629,16 @@
 <span class="landing-ln">16</span>      <span class="hl-tag">&lt;input</span>
 <span class="landing-ln">17</span>        <span class="hl-attr">value</span>=<span class="hl-str">{query}</span>
 <span class="landing-ln">18</span>        <span class="hl-attr">onChange</span>=<span class="hl-str">{e =&gt; setQuery(e.target.value)}</span>
-<span class="landing-ln">19</span>      <span class="hl-tag">/&gt;</span>
-<span class="landing-ln">20</span>      {results.map(r =&gt; (
-<span class="landing-ln">21</span>        <span class="hl-tag">&lt;li</span> <span class="hl-attr">key</span>=<span class="hl-str">{r.id}</span><span class="hl-tag">&gt;</span>{r.name}<span class="hl-tag">&lt;/li&gt;</span>
-<span class="landing-ln">22</span>      ))}
-<span class="landing-ln">23</span>    <span class="hl-tag">&lt;/div&gt;</span>
-<span class="landing-ln">24</span>  );
-<span class="landing-ln">25</span>};</pre>
+<span class="landing-ln">19</span>        <span class="hl-attr">list</span>=<span class="hl-str">"suggestions"</span>
+<span class="landing-ln">20</span>      <span class="hl-tag">/&gt;</span>
+<span class="landing-ln">21</span>      <span class="hl-tag">&lt;datalist</span> <span class="hl-attr">id</span>=<span class="hl-str">"suggestions"</span><span class="hl-tag">&gt;</span>
+<span class="landing-ln">22</span>        {results.map(r =&gt; (
+<span class="landing-ln">23</span>          <span class="hl-tag">&lt;option</span> <span class="hl-attr">key</span>=<span class="hl-str">{r.id}</span> <span class="hl-attr">value</span>=<span class="hl-str">{r.name}</span> <span class="hl-tag">/&gt;</span>
+<span class="landing-ln">24</span>        ))}
+<span class="landing-ln">25</span>      <span class="hl-tag">&lt;/datalist&gt;</span>
+<span class="landing-ln">26</span>    <span class="hl-tag">&lt;/div&gt;</span>
+<span class="landing-ln">27</span>  );
+<span class="landing-ln">28</span>};</pre>
     </div>
     <div class="landing-panel">
       <div class="landing-panel-topbar">
@@ -643,9 +646,11 @@
         <span class="landing-panel-meta" t="landing.codeCompare.nojsMeta"></span>
       </div>
       <pre class="landing-panel-code landing-panel-code--nojs"><span class="landing-ln">1</span><span class="hl-tag">&lt;div</span> <span class="hl-attr">state</span>=<span class="hl-str">"{ query: '' }"</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/search?q={{ query }}"</span> <span class="hl-attr">as</span>=<span class="hl-str">"results"</span><span class="hl-tag">&gt;</span>
-<span class="landing-ln">2</span>  <span class="hl-tag">&lt;input</span> <span class="hl-attr">model</span>=<span class="hl-str">"query"</span> <span class="hl-tag">/&gt;</span>
-<span class="landing-ln">3</span>  <span class="hl-tag">&lt;li</span> <span class="hl-attr">each</span>=<span class="hl-str">"r in results"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"r.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
-<span class="landing-ln">4</span><span class="hl-tag">&lt;/div&gt;</span></pre>
+<span class="landing-ln">2</span>  <span class="hl-tag">&lt;input</span> <span class="hl-attr">model</span>=<span class="hl-str">"query"</span> <span class="hl-attr">list</span>=<span class="hl-str">"suggestions"</span> <span class="hl-tag">/&gt;</span>
+<span class="landing-ln">3</span>  <span class="hl-tag">&lt;datalist</span> <span class="hl-attr">id</span>=<span class="hl-str">"suggestions"</span><span class="hl-tag">&gt;</span>
+<span class="landing-ln">4</span>    <span class="hl-tag">&lt;option</span> <span class="hl-attr">each</span>=<span class="hl-str">"r in results"</span> <span class="hl-attr">bind-value</span>=<span class="hl-str">"r.name"</span> <span class="hl-tag">/&gt;</span>
+<span class="landing-ln">5</span>  <span class="hl-tag">&lt;/datalist&gt;</span>
+<span class="landing-ln">6</span><span class="hl-tag">&lt;/div&gt;</span></pre>
       <span class="landing-panel-note" t="landing.codeCompare.nojsNote"></span>
     </div>
   </div>

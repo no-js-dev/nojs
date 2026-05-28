@@ -11,9 +11,9 @@
       "title": "La misma app.<br>La diferencia real.",
       "subtitle": "Un campo de búsqueda reactivo — el patrón más común en el mundo real.",
       "reactLabel": "React",
-      "reactMeta": "25 líneas  ·  react, react-dom, useState, useEffect",
+      "reactMeta": "28 líneas  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
-      "nojsMeta": "4 líneas  ·  0 imports",
+      "nojsMeta": "6 líneas  ·  0 imports",
       "nojsNote": "✓ Reactivo  ·  ✓ Auto-fetch  ·  ✓ Sin paso de compilación"
     },
     "featuresGrid": {

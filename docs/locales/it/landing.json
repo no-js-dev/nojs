@@ -11,9 +11,9 @@
       "title": "La stessa app.<br>La vera differenza.",
       "subtitle": "Una casella di ricerca reattiva — il pattern più comune nel mondo reale.",
       "reactLabel": "React",
-      "reactMeta": "25 righe  ·  react, react-dom, useState, useEffect",
+      "reactMeta": "28 righe  ·  react, react-dom, useState, useEffect",
       "nojsLabel": "No.JS",
-      "nojsMeta": "4 righe  ·  0 import",
+      "nojsMeta": "6 righe  ·  0 import",
       "nojsNote": "✓ Reattivo  ·  ✓ Auto-fetch  ·  ✓ Nessun build step"
     },
     "featuresGrid": {

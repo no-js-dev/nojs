@@ -25,12 +25,24 @@ registerDirective("on:*", {
       return;
     }
     if (event === "updated") {
+      let running = false;
       const updatedObserver = new MutationObserver(() => {
         if (!el.isConnected) {
           updatedObserver.disconnect();
           return;
         }
-        _execStatement(expr, ctx, { $el: el });
+        // Re-entrancy guard: the handler expression frequently mutates the
+        // observed subtree, which would re-trigger the observer and loop
+        // forever. Ignore mutations caused by our own execution.
+        if (running) return;
+        running = true;
+        try {
+          _execStatement(expr, ctx, { $el: el });
+        } finally {
+          // Release on the next microtask so synchronous self-mutations queued
+          // by this run are coalesced into the guarded window.
+          Promise.resolve().then(() => { running = false; });
+        }
       });
       updatedObserver.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
       _onDispose(() => updatedObserver.disconnect());
@@ -64,17 +76,57 @@ registerDirective("on:*", {
       return;
     }
 
-    // Debounce / throttle
+    // Debounce / throttle. Walk the modifiers in declared order so a numeric
+    // token binds to the keyword that immediately precedes it. This supports
+    // both `.debounce.300` and the combined `.debounce.300.throttle.100`
+    // (where a single shared number would otherwise only reach debounce).
     let debounceMs = 0;
     let throttleMs = 0;
-    for (const mod of modifiers) {
-      if (/^\d+$/.test(mod)) {
-        if (modifiers.has("debounce")) debounceMs = parseInt(mod);
-        else if (modifiers.has("throttle")) throttleMs = parseInt(mod);
-      }
+    const orderedMods = parts.slice(1);
+    for (let i = 0; i < orderedMods.length; i++) {
+      const mod = orderedMods[i];
+      if (!/^\d+$/.test(mod)) continue;
+      const prev = orderedMods[i - 1];
+      const n = parseInt(mod, 10);
+      if (prev === "debounce") debounceMs = n;
+      else if (prev === "throttle") throttleMs = n;
+      else if (modifiers.has("debounce") && !modifiers.has("throttle")) debounceMs = n;
+      else if (modifiers.has("throttle") && !modifiers.has("debounce")) throttleMs = n;
     }
 
-    let handler = (e) => {
+    // Runs the bound expression. Only this part is rate-limited by
+    // debounce/throttle so that prevent/stop/self/key gating below always
+    // executes synchronously on the event (a throttled/debounced handler must
+    // not drop preventDefault/stopPropagation).
+    let run = (e) => {
+      _execStatement(expr, ctx, { $event: e, $el: el });
+    };
+
+    // Wrap execution with debounce
+    if (debounceMs > 0) {
+      const original = run;
+      let timer;
+      run = (e) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => original(e), debounceMs);
+      };
+      _onDispose(() => clearTimeout(timer));
+    }
+
+    // Wrap execution with throttle
+    if (throttleMs > 0) {
+      const original = run;
+      let last = 0;
+      run = (e) => {
+        const now = Date.now();
+        if (now - last >= throttleMs) {
+          last = now;
+          original(e);
+        }
+      };
+    }
+
+    const handler = (e) => {
       // Key modifiers
       if (event === "keydown" || event === "keyup" || event === "keypress") {
         const keyMods = [
@@ -112,36 +164,14 @@ registerDirective("on:*", {
         }
       }
 
+      // prevent/stop/self always fire synchronously, independent of any
+      // debounce/throttle applied to the expression execution.
       if (modifiers.has("prevent")) e.preventDefault();
       if (modifiers.has("stop")) e.stopPropagation();
       if (modifiers.has("self") && e.target !== el) return;
 
-      _execStatement(expr, ctx, { $event: e, $el: el });
+      run(e);
     };
-
-    // Wrap with debounce
-    if (debounceMs > 0) {
-      const original = handler;
-      let timer;
-      handler = (e) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => original(e), debounceMs);
-      };
-      _onDispose(() => clearTimeout(timer));
-    }
-
-    // Wrap with throttle
-    if (throttleMs > 0) {
-      const original = handler;
-      let last = 0;
-      handler = (e) => {
-        const now = Date.now();
-        if (now - last >= throttleMs) {
-          last = now;
-          original(e);
-        }
-      };
-    }
 
     const opts = {};
     if (modifiers.has("once")) opts.once = true;

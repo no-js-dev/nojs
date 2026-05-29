@@ -1556,6 +1556,116 @@ describe('on:keydown key modifiers — all keys', () => {
   });
 });
 
+// NOJS-66: throttle must not swallow prevent/stop modifiers (review #20)
+describe('on:* throttle preserves prevent/stop (NOJS-66)', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  test('preventDefault still fires on a throttled, rate-limited event', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ count: 0 }');
+    const btn = document.createElement('button');
+    btn.setAttribute('on:click.throttle.500.prevent', 'count++');
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(parent);
+
+    jest.spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(1100);
+
+    // First click: within throttle window, runs expr + prevents default.
+    const e1 = new MouseEvent('click', { cancelable: true, bubbles: true });
+    btn.dispatchEvent(e1);
+    expect(ctx.count).toBe(1);
+    expect(e1.defaultPrevented).toBe(true);
+
+    // Second click: throttled (expr does NOT run) but preventDefault MUST still fire.
+    const e2 = new MouseEvent('click', { cancelable: true, bubbles: true });
+    btn.dispatchEvent(e2);
+    expect(ctx.count).toBe(1);
+    expect(e2.defaultPrevented).toBe(true);
+
+    Date.now.mockRestore();
+  });
+
+  test('stopPropagation still fires on a throttled event', () => {
+    const outer = document.createElement('div');
+    outer.setAttribute('state', '{ inner: 0, outer: 0 }');
+    const btn = document.createElement('button');
+    btn.setAttribute('on:click.throttle.500.stop', 'inner++');
+    outer.setAttribute('on:click', 'outer++');
+    outer.appendChild(btn);
+    document.body.appendChild(outer);
+    processTree(outer);
+    const ctx = findContext(outer);
+
+    jest.spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(1100);
+
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Both clicks were stopped from bubbling to outer, despite throttling.
+    expect(ctx.outer).toBe(0);
+    expect(ctx.inner).toBe(1);
+
+    Date.now.mockRestore();
+  });
+});
+
+// NOJS-66: combined debounce + throttle both apply (review #58)
+describe('on:* combined debounce.N.throttle.M (NOJS-66)', () => {
+  beforeEach(() => { document.body.innerHTML = ''; jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  test('debounce delay is honored when throttle is also present', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ count: 0 }');
+    const btn = document.createElement('button');
+    btn.setAttribute('on:click.debounce.300.throttle.100', 'count++');
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(parent);
+
+    jest.spyOn(Date, 'now').mockReturnValue(1000);
+
+    btn.click();
+    // Debounce in effect: nothing yet before the 300ms timer elapses.
+    expect(ctx.count).toBe(0);
+    jest.advanceTimersByTime(300);
+    expect(ctx.count).toBe(1);
+
+    Date.now.mockRestore();
+  });
+});
+
+// NOJS-66: style-map clears properties removed from the bound object (review #63)
+describe('style-map clears stale properties (NOJS-66)', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  test('removes a property no longer present in the bound object', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ styles: { color: "red", fontWeight: "bold" } }');
+    const div = document.createElement('div');
+    div.setAttribute('style-map', 'styles');
+    parent.appendChild(div);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(div.style.color).toBe('red');
+    expect(div.style.fontWeight).toBe('bold');
+
+    const ctx = findContext(parent);
+    ctx.styles = { color: 'red' }; // fontWeight removed
+
+    expect(div.style.color).toBe('red');
+    expect(div.style.fontWeight).toBe('');
+  });
+});
+
 
 
 

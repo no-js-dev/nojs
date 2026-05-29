@@ -3688,3 +3688,115 @@ describe('_makeLoopItem: single-root vs multi-root template promotion', () => {
     expect(children[0].querySelector('b').textContent).toBe('0');
   });
 });
+
+// NOJS-66: bind-value must not write null for intermediate numeric text (review #11/#17)
+describe('bind-value number input — intermediate input safety (NOJS-66)', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  test('keeps prior model value for invalid intermediate numeric text', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ qty: 5 }');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.setAttribute('bind-value', 'qty');
+    parent.appendChild(input);
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(input);
+
+    // jsdom rejects non-numeric text for number inputs, so simulate the
+    // intermediate state directly: an empty/invalid value must NOT write null.
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    expect(ctx.qty).toBe(5);
+
+    input.value = '12';
+    input.dispatchEvent(new Event('input'));
+    expect(ctx.qty).toBe(12);
+  });
+});
+
+// NOJS-66: model on number input must not clobber in-progress edits (review #10)
+describe('model number input — in-progress edit safety (NOJS-66)', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  test('does not rewrite el.value while focused if numeric value is equivalent', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ price: 0 }');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.setAttribute('model', 'price');
+    parent.appendChild(input);
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(input);
+
+    input.focus();
+    // User types "1.50" — jsdom keeps the literal text "1.50" while
+    // valueAsNumber normalizes to 1.5.
+    input.value = '1.50';
+    input.dispatchEvent(new Event('input'));
+    expect(ctx.price).toBe(1.5);
+
+    // The Model→DOM sync triggered by price=1.5 must NOT normalize the field
+    // text back to "1.5" while the user is mid-edit.
+    expect(input.value).toBe('1.50');
+  });
+
+  test('still updates el.value when not focused', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ price: 0 }');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.setAttribute('model', 'price');
+    parent.appendChild(input);
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(input);
+
+    ctx.price = 42;
+    expect(input.value).toBe('42');
+  });
+});
+
+// NOJS-66: persist must not leak/inject internal dunder keys (review #9/#25)
+describe('state persist — dunder key isolation (NOJS-66)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    localStorage.clear();
+  });
+
+  test('does not restore __-prefixed keys from crafted localStorage', () => {
+    localStorage.setItem(
+      'nojs_state_nojs66a',
+      JSON.stringify({ name: 'ok', __collectKeysCache: { evil: true }, __devtoolsId: 9 }),
+    );
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ name: "default" }');
+    parent.setAttribute('persist', 'localStorage');
+    parent.setAttribute('persist-key', 'nojs66a');
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(parent);
+
+    expect(ctx.name).toBe('ok');
+    expect(ctx.__collectKeysCache).toBeUndefined();
+    expect(ctx.__devtoolsId).toBeUndefined();
+  });
+
+  test('does not persist __-prefixed internal keys to storage', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ count: 0 }');
+    parent.setAttribute('persist', 'localStorage');
+    parent.setAttribute('persist-key', 'nojs66b');
+    document.body.appendChild(parent);
+    processTree(parent);
+    const ctx = findContext(parent);
+
+    ctx.count = 7;
+    const stored = JSON.parse(localStorage.getItem('nojs_state_nojs66b'));
+    expect(stored.count).toBe(7);
+    // No internal dunder keys leaked into storage.
+    expect(Object.keys(stored).some((k) => k.startsWith('__'))).toBe(false);
+  });
+});

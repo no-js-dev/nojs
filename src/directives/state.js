@@ -45,6 +45,10 @@ registerDirective("state", {
             const _forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
             for (const [k, v] of Object.entries(parsed)) {
               if (_forbiddenKeys.has(k)) continue;
+              // Block ALL dunder keys, not just the three prototype-pollution
+              // vectors. Crafted localStorage could otherwise inject internal
+              // keys (e.g. __collectKeysCache, __devtoolsId) into the context.
+              if (k.startsWith("__")) continue;
               if (!persistFields || persistFields.has(k)) {
                 if (schemaCheck) {
                   if (!(k in initialState)) { _warn('persist-schema: ignoring unknown key "' + k + '"'); continue; }
@@ -72,9 +76,15 @@ registerDirective("state", {
         const unwatch = ctx.$watch(() => {
           try {
             const raw = ctx.__raw;
-            const data = persistFields
-              ? Object.fromEntries(Object.entries(raw).filter(([k]) => persistFields.has(k)))
-              : raw;
+            // Always strip internal dunder keys (__collectKeysCache,
+            // __devtoolsId, …). Persisting __raw verbatim leaks them into
+            // storage — and __collectKeysCache can be cyclic, making
+            // JSON.stringify throw so nothing gets persisted at all.
+            const data = Object.fromEntries(
+              Object.entries(raw).filter(
+                ([k]) => !k.startsWith("__") && (!persistFields || persistFields.has(k))
+              )
+            );
             store.setItem(storeKey, JSON.stringify(data));
           } catch {
             /* ignore */

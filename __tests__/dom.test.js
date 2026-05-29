@@ -1344,3 +1344,168 @@ describe('Template integrity — insecure HTTP warning', () => {
     _templateHtmlCache.clear();
   });
 });
+
+describe('dom.js — template HTML cache LRU eviction (NOJS-64 #26)', () => {
+  const realMax = _config.templates.maxSize;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  afterEach(() => {
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+    if (realMax === undefined) delete _config.templates.maxSize;
+    else _config.templates.maxSize = realMax;
+  });
+
+  test('evicts the least-recently-used entry once capacity is exceeded', async () => {
+    _config.templates.maxSize = 2;
+    let counter = 0;
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve('<p>' + (++counter) + '</p>') })
+    );
+
+    const load = async (url) => {
+      const tpl = document.createElement('template');
+      tpl.setAttribute('src', url);
+      document.body.appendChild(tpl);
+      await _loadTemplateElement(tpl);
+    };
+
+    await load('/a.tpl');
+    await load('/b.tpl');
+    expect(_templateHtmlCache.has('/a.tpl')).toBe(true);
+    expect(_templateHtmlCache.has('/b.tpl')).toBe(true);
+
+    // Loading a third URL must evict the oldest (/a.tpl)
+    await load('/c.tpl');
+    expect(_templateHtmlCache.has('/a.tpl')).toBe(false);
+    expect(_templateHtmlCache.has('/b.tpl')).toBe(true);
+    expect(_templateHtmlCache.has('/c.tpl')).toBe(true);
+    expect(_templateHtmlCache.size).toBe(2);
+  });
+
+  test('cache never grows beyond the default cap', async () => {
+    _config.templates.maxSize = 3;
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve('<p>x</p>') })
+    );
+    for (let i = 0; i < 10; i++) {
+      const tpl = document.createElement('template');
+      tpl.setAttribute('src', '/t' + i + '.tpl');
+      document.body.appendChild(tpl);
+      await _loadTemplateElement(tpl);
+    }
+    expect(_templateHtmlCache.size).toBe(3);
+  });
+});
+
+describe('dom.js — SVG data URI sanitization with non-Latin1 content (NOJS-64 #27)', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  test('base64 SVG with UTF-8 multibyte chars is sanitized, not replaced with "#"', () => {
+    // SVG containing a non-Latin1 character (é / emoji) that would make btoa throw.
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>café 😀</text></svg>';
+    const b64 = Buffer.from(svg, 'utf-8').toString('base64');
+    const html = '<img src="data:image/svg+xml;base64,' + b64 + '">';
+
+    const out = _sanitizeHtml(html);
+    expect(out).toContain('data:image/svg+xml;base64,');
+    // Must NOT have been collapsed to the "#" failure sentinel
+    expect(out).not.toContain('src="#"');
+
+    // The re-encoded base64 must round-trip back to UTF-8 containing the text
+    const m = out.match(/data:image\/svg\+xml;base64,([^"]+)/);
+    expect(m).not.toBeNull();
+    const decoded = Buffer.from(m[1], 'base64').toString('utf-8');
+    expect(decoded).toContain('café');
+    expect(decoded).toContain('😀');
+  });
+
+  test('strips on* handlers from a non-Latin1 base64 SVG', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><text>náo</text></svg>';
+    const b64 = Buffer.from(svg, 'utf-8').toString('base64');
+    const out = _sanitizeHtml('<img src="data:image/svg+xml;base64,' + b64 + '">');
+    const m = out.match(/data:image\/svg\+xml;base64,([^"]+)/);
+    expect(m).not.toBeNull();
+    const decoded = Buffer.from(m[1], 'base64').toString('utf-8');
+    expect(decoded).not.toContain('onload');
+    expect(decoded).toContain('náo');
+  });
+});
+
+describe('dom.js — concurrent template load dedup (NOJS-64 #64)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+  afterEach(() => {
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  test('two simultaneous loads of the same URL issue a single fetch', async () => {
+    let resolveFetch;
+    global.fetch = jest.fn(() => new Promise((res) => {
+      resolveFetch = () => res({ ok: true, text: () => Promise.resolve('<p>shared</p>') });
+    }));
+
+    const make = () => {
+      const tpl = document.createElement('template');
+      tpl.setAttribute('src', '/shared.tpl');
+      document.body.appendChild(tpl);
+      return tpl;
+    };
+    const t1 = make();
+    const t2 = make();
+
+    const p1 = _loadTemplateElement(t1);
+    const p2 = _loadTemplateElement(t2);
+    // Resolve the single in-flight fetch
+    await new Promise((r) => setTimeout(r, 0));
+    resolveFetch();
+    await Promise.all([p1, p2]);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(_templateHtmlCache.get('/shared.tpl')).toBe('<p>shared</p>');
+  });
+});
+
+describe('dom.js — "./" template path resolves to absolute for insecure-URL check (NOJS-64 #78)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+  afterEach(() => {
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  test('"./" path with an http:// base ancestor triggers the mixed-content warning', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const prevDebug = _config.debug;
+    _config.debug = false;
+
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true, text: () => Promise.resolve('<p>x</p>') }));
+
+    // Container carries an http:// base so resolveUrl makes "./foo.tpl" absolute http://
+    const container = document.createElement('div');
+    container.setAttribute('base', 'http://example.com/templates');
+    const tpl = document.createElement('template');
+    tpl.setAttribute('src', './foo.tpl');
+    container.appendChild(tpl);
+    document.body.appendChild(container);
+
+    // Simulate an HTTPS page so the cross-protocol warning condition holds.
+    _warnIfInsecureTemplateUrl('http://example.com/templates/foo.tpl', './foo.tpl', 'https:');
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+    _config.debug = prevDebug;
+  });
+});

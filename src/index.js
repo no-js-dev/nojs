@@ -520,7 +520,7 @@ const NoJS = {
       cloneTemplate: _cloneTemplate,
       disposeChildren: _disposeChildren,
       warn: _warn,
-      validators: _validators,
+      validators: Object.freeze({..._validators}),
       removeCoreDirective: _removeCoreDirective,
       onDispose: _onDispose,
     });

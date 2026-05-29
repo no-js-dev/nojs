@@ -3147,3 +3147,144 @@ describe('Router — focusBehavior (M2)', () => {
     expect(document.activeElement).toBe(outlet);
   });
 });
+
+// ── NOJS-63: router.js hardening (deep-review findings #30, #31, #35, #36, #71) ──
+describe('Router — hardening (NOJS-63)', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top' };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+    document.body.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  // Finding #36 — active-link prefix match must respect path-segment boundaries
+  test('active class does not light up sibling paths sharing a prefix', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+
+    const linkFoo = document.createElement('a');
+    linkFoo.setAttribute('route', '/foo');
+    document.body.appendChild(linkFoo);
+
+    const tplFoobar = document.createElement('template');
+    tplFoobar.innerHTML = '<p>Foobar</p>';
+
+    const router = _createRouter();
+    router.register('/foobar', tplFoobar);
+
+    await router.push('/foobar');
+    // "/foo" must NOT be active while on "/foobar" (was a startsWith false positive)
+    expect(linkFoo.classList.contains('active')).toBe(false);
+  });
+
+  // Finding #36 — a true nested child path still activates the parent link
+  test('active class lights up parent link for nested child path', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+
+    const linkFoo = document.createElement('a');
+    linkFoo.setAttribute('route', '/foo');
+    document.body.appendChild(linkFoo);
+
+    const tplChild = document.createElement('template');
+    tplChild.innerHTML = '<p>Child</p>';
+
+    const router = _createRouter();
+    router.register('/foo/bar', tplChild);
+
+    await router.push('/foo/bar');
+    expect(linkFoo.classList.contains('active')).toBe(true);
+  });
+
+  // Finding #71 — default extension resolves to ".tpl" (dead ".html" fallback removed)
+  test('file-based routing uses ".tpl" default extension', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    outlet.setAttribute('src', '/views/');
+    document.body.appendChild(outlet);
+
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve('<p class="loaded">ok</p>') })
+    );
+
+    const router = _createRouter();
+    await router.push('/about');
+
+    expect(global.fetch).toHaveBeenCalledWith('/views/about.tpl');
+    expect(outlet.querySelector('.loaded')).not.toBeNull();
+    delete global.fetch;
+  });
+
+  // Finding #71 — explicit ext attribute still overrides the default
+  test('file-based routing honours an explicit ext attribute', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    outlet.setAttribute('src', '/views/');
+    outlet.setAttribute('ext', '.html');
+    document.body.appendChild(outlet);
+
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve('<p class="html-loaded">ok</p>') })
+    );
+
+    const router = _createRouter();
+    await router.push('/contact');
+
+    expect(global.fetch).toHaveBeenCalledWith('/views/contact.html');
+    delete global.fetch;
+  });
+
+  // Finding #30 — guard failure must clear outlets without breaking re-navigation
+  test('outlet renders correctly after a guard-failed navigation cleared it', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+
+    const guarded = document.createElement('template');
+    guarded.setAttribute('guard', 'false');
+    guarded.innerHTML = '<p class="secret">secret</p>';
+
+    const open = document.createElement('template');
+    open.innerHTML = '<p class="open">open</p>';
+
+    const router = _createRouter();
+    router.register('/guarded', guarded);
+    router.register('/open', open);
+
+    await router.push('/guarded'); // guard fails → _clearOutlets()
+    expect(outlet.querySelector('.secret')).toBeNull();
+
+    // Re-navigation must still render against the (un-torn-down) outlet
+    await router.push('/open');
+    expect(outlet.querySelector('.open')).not.toBeNull();
+    expect(outlet.querySelector('.open').textContent).toBe('open');
+  });
+
+  // Finding #31 — $route in the rendered template reflects the navigated route
+  test('rendered template wires the correct $route for the navigation', async () => {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = '<span bind="$route.params.id"></span>';
+
+    const router = _createRouter();
+    router.register('/items/:id', tpl);
+
+    await router.push('/items/42');
+    expect(outlet.querySelector('span').textContent).toBe('42');
+
+    await router.push('/items/7');
+    expect(outlet.querySelector('span').textContent).toBe('7');
+  });
+});

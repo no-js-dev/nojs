@@ -19,7 +19,7 @@ export function registerDirective(name, handler) {
     priority: handler.priority ?? 50,
     init: handler.init,
   });
-  if (!_frozen) _coreDirectives.add(name);
+  _coreDirectives.add(name);
 }
 
 export function _freezeDirectives() {

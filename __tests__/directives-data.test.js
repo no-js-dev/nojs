@@ -1515,7 +1515,6 @@ describe('error-boundary directive', () => {
       message: 'Test error',
       error: new Error('Test error'),
     });
-    Object.defineProperty(errorEvent, 'target', { value: el });
     window.dispatchEvent(errorEvent);
 
     expect(el.querySelector('.fallback')).not.toBeNull();
@@ -1981,7 +1980,6 @@ describe('error-boundary — error event handler', () => {
       message: 'Child error',
       error: new Error('Child error'),
     });
-    Object.defineProperty(errorEvent, 'target', { value: child });
     window.dispatchEvent(errorEvent);
 
     expect(boundary.querySelector('.boundary-error')).not.toBeNull();
@@ -2009,10 +2007,37 @@ describe('error-boundary — error event handler', () => {
       message: 'Outside error',
       error: new Error('Outside error'),
     });
-    Object.defineProperty(errorEvent, 'target', { value: outsider });
-    window.dispatchEvent(errorEvent);
+    outsider.dispatchEvent(errorEvent);
 
     expect(boundary.querySelector('.outside-err')).toBeNull();
+  });
+
+  test('does not render fallback for window errors when boundary is disconnected', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'boundary-disconnected';
+    tpl.innerHTML = '<p class="disconnected-err">Error</p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const boundary = document.createElement('div');
+    boundary.setAttribute('error-boundary', 'boundary-disconnected');
+    boundary.innerHTML = '<p>Content</p>';
+    parent.appendChild(boundary);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    // Disconnect the boundary from the DOM
+    parent.remove();
+
+    const errorEvent = new ErrorEvent('error', {
+      message: 'Disconnected error',
+      error: new Error('Disconnected error'),
+    });
+    window.dispatchEvent(errorEvent);
+
+    expect(boundary.querySelector('.disconnected-err')).toBeNull();
   });
 });
 

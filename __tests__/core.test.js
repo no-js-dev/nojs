@@ -1047,6 +1047,21 @@ describe('evaluate — pipe parsing edge cases (L104)', () => {
     const result = evaluate('[a | b]', ctx);
     expect(result).toEqual([3]);
   });
+
+  // NOJS-60 #65: an escaped backslash before a closing quote must not be
+  // treated as escaping the quote, otherwise a pipe inside the string can be
+  // mis-split as a filter boundary.
+  test('escaped backslash before closing quote does not split a pipe inside the string', () => {
+    const ctx = createContext({});
+    // String literal: "a\|b" — the backslash escapes the quote? No: it is a
+    // lone backslash followed by a pipe; the closing quote is unescaped.
+    expect(evaluate("'a|b'", ctx)).toBe('a|b');
+    // Trailing escaped backslash then closing quote: "x\\" → "x\"
+    expect(evaluate("'x\\\\'", ctx)).toBe('x\\');
+    // Escaped backslash before quote, then a pipe outside the string must still
+    // be the closing quote (even count of backslashes = quote is real).
+    expect(evaluate("'x\\\\' + 'y|z'", ctx)).toBe('x\\y|z');
+  });
 });
 
 describe('Config — devtools', () => {
@@ -1457,6 +1472,66 @@ describe('Expression Parser', () => {
       expect(result.ok).toBe(1);
       expect(Object.prototype.hasOwnProperty.call(result, 'prototype')).toBe(false);
     });
+
+    // NOJS-60: prototype-chain identifiers must not bypass the allow-list.
+    // The scope object inherits from Object.prototype, so a naive `in scope`
+    // check would resolve these inherited members to native functions.
+    // (constructor/__proto__/prototype are handled even earlier — tokenized as
+    //  Forbidden — so they are exercised separately by the Security tests above.)
+    describe('prototype-chain identifier hardening (NOJS-60)', () => {
+      const protoNames = ['valueOf', 'toString', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString'];
+
+      protoNames.forEach((name) => {
+        test(`bare identifier "${name}" resolves to undefined`, () => {
+          expect(evaluate(name, ctx)).toBeUndefined();
+        });
+      });
+
+      protoNames.forEach((name) => {
+        test(`statement call "${name}()" surfaces a ReferenceError via nojs:error`, () => {
+          // _execStatement catches the throw (Safety Rule 8) and re-dispatches
+          // it as a nojs:error DOM event; assert the ReferenceError surfaces and
+          // the native prototype function is NOT silently executed.
+          const el = document.createElement('div');
+          let captured = null;
+          el.addEventListener('nojs:error', (e) => { captured = e.detail; });
+          _execStatement(`${name}()`, ctx, { $el: el });
+          expect(captured).not.toBeNull();
+          expect(captured.error).toBeInstanceOf(ReferenceError);
+          expect(captured.message).toBe(`${name} is not defined`);
+        });
+      });
+
+      test('typeof on a prototype-chain name returns "undefined"', () => {
+        expect(evaluate('typeof toString', ctx)).toBe('undefined');
+        expect(evaluate('typeof hasOwnProperty', ctx)).toBe('undefined');
+        expect(evaluate('typeof valueOf', ctx)).toBe('undefined');
+      });
+
+      test('legitimate scope variable named "toString" still shadows correctly', () => {
+        const sCtx = createContext({ toString: 'shadowed', valueOf: 42 });
+        expect(evaluate('toString', sCtx)).toBe('shadowed');
+        expect(evaluate('valueOf', sCtx)).toBe(42);
+        expect(evaluate('typeof toString', sCtx)).toBe('string');
+      });
+
+      test('legitimate scope function named "hasOwnProperty" is callable as a statement', () => {
+        let called = false;
+        const sCtx = createContext({ hasOwnProperty: () => { called = true; } });
+        const el = document.createElement('div');
+        let captured = null;
+        el.addEventListener('nojs:error', (e) => { captured = e.detail; });
+        _execStatement('hasOwnProperty()', sCtx, { $el: el });
+        expect(captured).toBeNull();
+        expect(called).toBe(true);
+      });
+
+      test('inherited parent-context variable named "toString" still resolves', () => {
+        const parent = createContext({ toString: 'fromParent' });
+        const child = createContext({ other: 1 }, parent);
+        expect(evaluate('toString', child)).toBe('fromParent');
+      });
+    });
   });
 });
 
@@ -1760,6 +1835,23 @@ describe('evaluate — browser globals allow-list', () => {
     expect(evaluate('document.querySelector', ctx)).toBeDefined();
   });
 
+  // ── NOJS-60 #28: window set-trap must not pollute the real window ────────
+
+  test('assigning an arbitrary window property does not write to the real window', () => {
+    const probe = '__nojs60_probe_' + Date.now();
+    expect(typeof window[probe]).toBe('undefined');
+    // Statement form (event-handler-style) goes through _execStatement.
+    expect(() => _execStatement('window.' + probe + ' = 1', ctx)).not.toThrow();
+    expect(window[probe]).toBeUndefined();
+    expect(typeof globalThis[probe]).toBe('undefined');
+  });
+
+  test('overwriting an existing real global via window is a no-op', () => {
+    const original = window.location;
+    expect(() => _execStatement("window.location = 'https://evil.com'", ctx)).not.toThrow();
+    expect(window.location).toBe(original);
+  });
+
   // ── Read-only location proxy ────────────────────────────────────────────
 
   test('location.href is readable', () => {
@@ -1873,10 +1965,12 @@ describe('evaluate — browser globals allow-list', () => {
     expect(window.fetch).toBe(original);
   });
 
-  test('window user-defined property writes are allowed', () => {
+  test('window user-defined property writes are NOT persisted to the real window (NOJS-60 #28)', () => {
+    // Writing arbitrary props through the safe-window proxy must not pollute the
+    // real window (no global creation/override from a template expression).
+    expect(window.__testProp).toBeUndefined();
     _execStatement("window.__testProp = 42", createContext({}));
-    expect(window.__testProp).toBe(42);
-    delete window.__testProp;
+    expect(window.__testProp).toBeUndefined();
   });
 });
 

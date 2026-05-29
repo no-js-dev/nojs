@@ -555,22 +555,38 @@ registerDirective("error-boundary", {
   priority: 1,
   init(el, name, fallbackTpl) {
     const ctx = findContext(el);
+    // Re-entrancy guard: rendering the fallback can itself throw (a broken
+    // directive) or fire another error event (a 404 <img>), which would
+    // re-trigger showFallback → infinite render loop / freeze.
+    //   _rendering: blocks synchronous re-entry during processTree.
+    //   _shown:     blocks async re-triggers (e.g. an <img> 404 inside the
+    //               fallback firing window 'error' on a later tick) from
+    //               re-rendering the already-displayed fallback.
+    let _rendering = false;
+    let _shown = false;
 
     function showFallback(message) {
-      const clone = _cloneTemplate(fallbackTpl);
-      if (clone) {
-        const childCtx = createContext(
-          { err: { message } },
-          ctx,
-        );
-        _disposeChildren(el);
-        el.innerHTML = "";
-        const wrapper = document.createElement("div");
-        wrapper.style.display = "contents";
-        wrapper.__ctx = childCtx;
-        wrapper.appendChild(clone);
-        el.appendChild(wrapper);
-        processTree(wrapper);
+      if (_rendering || _shown) return;
+      _rendering = true;
+      _shown = true;
+      try {
+        const clone = _cloneTemplate(fallbackTpl);
+        if (clone) {
+          const childCtx = createContext(
+            { err: { message } },
+            ctx,
+          );
+          _disposeChildren(el);
+          el.innerHTML = "";
+          const wrapper = document.createElement("div");
+          wrapper.style.display = "contents";
+          wrapper.__ctx = childCtx;
+          wrapper.appendChild(clone);
+          el.appendChild(wrapper);
+          processTree(wrapper);
+        }
+      } finally {
+        _rendering = false;
       }
     }
 

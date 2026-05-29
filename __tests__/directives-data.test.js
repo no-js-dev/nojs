@@ -5,7 +5,7 @@
 import { _stores, _refs, _config, _validators, _eventBus, _interceptors, setRouterInstance, _cache } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { findContext } from '../src/dom.js';
-import { processTree } from '../src/registry.js';
+import { processTree, _disposeTree } from '../src/registry.js';
 import { _cacheSet } from '../src/fetch.js';
 import { _i18n } from '../src/i18n.js';
 
@@ -1702,6 +1702,78 @@ describe('call directive', () => {
     expect(_stores.myStore).toBeDefined();
     expect(_stores.myStore.data).toEqual({ items: [1, 2] });
   });
+
+  // NOJS-65 (#13): repeated clicks must dispose the previous success/error
+  // wrapper before appending a new one — otherwise wrappers (and their
+  // contexts/listeners/watchers) leak.
+  test('repeated clicks do not accumulate success wrappers', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: () => Promise.resolve(JSON.stringify({ name: 'Widget' })),
+    });
+
+    const tpl = document.createElement('template');
+    tpl.id = 'success-leak';
+    tpl.setAttribute('var', 'result');
+    tpl.innerHTML = '<p class="success-leak" bind="result.name"></p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const btn = document.createElement('button');
+    btn.setAttribute('call', '/api/item');
+    btn.setAttribute('as', 'data');
+    btn.setAttribute('success', 'success-leak');
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    for (let i = 0; i < 3; i++) {
+      btn.click();
+      await new Promise((r) => setTimeout(r, 60));
+    }
+
+    // Only the latest wrapper should remain — previous ones disposed/removed.
+    expect(parent.querySelectorAll('.success-leak').length).toBe(1);
+    expect(parent.querySelector('.success-leak').textContent).toBe('Widget');
+  });
+
+  // NOJS-65 (#13): disposing the call element removes its lingering result
+  // wrapper from the DOM.
+  test('disposing the call element removes the result wrapper', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: () => Promise.resolve(JSON.stringify({ name: 'Widget' })),
+    });
+
+    const tpl = document.createElement('template');
+    tpl.id = 'success-dispose';
+    tpl.setAttribute('var', 'result');
+    tpl.innerHTML = '<p class="success-dispose" bind="result.name"></p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const btn = document.createElement('button');
+    btn.setAttribute('call', '/api/item');
+    btn.setAttribute('as', 'data');
+    btn.setAttribute('success', 'success-dispose');
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    btn.click();
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(parent.querySelector('.success-dispose')).not.toBeNull();
+
+    _disposeTree(btn);
+
+    expect(parent.querySelector('.success-dispose')).toBeNull();
+  });
 });
 
 
@@ -1958,6 +2030,52 @@ describe('error-boundary directive', () => {
     window.dispatchEvent(errorEvent);
 
     expect(el.querySelector('.fallback')).not.toBeNull();
+  });
+
+  // NOJS-65 (#15): a fallback that itself errors must NOT re-trigger
+  // showFallback → infinite render loop. The re-entrancy guard renders the
+  // fallback exactly once even when its own error re-fires the boundary.
+  test('throwing fallback does not loop (re-entrancy guard)', () => {
+    let fallbackRenders = 0;
+
+    const tpl = document.createElement('template');
+    tpl.id = 'looping-fallback';
+    tpl.innerHTML = '<p class="loop-fallback">Failed</p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('error-boundary', 'looping-fallback');
+    el.innerHTML = '<p>Content</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    // Count each time the fallback content is (re)inserted, and have that
+    // insertion synchronously re-dispatch a nojs:error on the boundary,
+    // simulating a fallback whose render fires another error.
+    const observer = new MutationObserver(() => {
+      if (el.querySelector('.loop-fallback')) {
+        fallbackRenders++;
+        el.dispatchEvent(
+          new CustomEvent('nojs:error', { detail: { message: 're-entrant' } }),
+        );
+      }
+    });
+    observer.observe(el, { childList: true, subtree: true });
+
+    // Kick off the first error.
+    el.dispatchEvent(
+      new CustomEvent('nojs:error', { detail: { message: 'boom' } }),
+    );
+    observer.disconnect();
+
+    // Without the guard this would recurse/grow unbounded. With it, the
+    // fallback settles to a single rendered instance.
+    expect(el.querySelectorAll('.loop-fallback').length).toBe(1);
+    expect(fallbackRenders).toBeLessThanOrEqual(2);
   });
 });
 

@@ -781,6 +781,48 @@ describe('Switch Directive', () => {
     expect(caseA.style.display).toBe('none');
     expect(caseB.style.display).toBe('');
   });
+
+  // NOJS-65 (#12): an inline case (no `then` template) holding reactive
+  // content must re-render its bound value after being toggled away and back.
+  test('re-renders inline case reactive content after toggle away and back', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', "{ tab: 'a', label: 'first' }");
+    const switchEl = document.createElement('div');
+    switchEl.setAttribute('switch', 'tab');
+
+    const caseA = document.createElement('div');
+    caseA.setAttribute('case', "'a'");
+    const labelSpan = document.createElement('span');
+    labelSpan.setAttribute('bind', 'label');
+    caseA.appendChild(labelSpan);
+
+    const caseB = document.createElement('div');
+    caseB.setAttribute('case', "'b'");
+    caseB.textContent = 'Tab B';
+
+    switchEl.appendChild(caseA);
+    switchEl.appendChild(caseB);
+    parent.appendChild(switchEl);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial render binds the reactive value.
+    expect(caseA.style.display).toBe('');
+    expect(caseA.querySelector('span').textContent).toBe('first');
+
+    // Toggle away — case A is disposed (display:none).
+    parent.__ctx.tab = 'b';
+    expect(caseA.style.display).toBe('none');
+
+    // Mutate the bound value while case A is hidden/disposed.
+    parent.__ctx.label = 'second';
+
+    // Toggle back — the inline case must re-declare and reflect the new value,
+    // not show stale/dead content.
+    parent.__ctx.tab = 'a';
+    expect(caseA.style.display).toBe('');
+    expect(caseA.querySelector('span').textContent).toBe('second');
+  });
 });
 
 

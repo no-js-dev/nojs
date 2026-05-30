@@ -1732,6 +1732,104 @@ describe('Form validation — dirty and touched tracking', () => {
     expect(ctx.$form.submitting).toBe(true);
   });
 
+  test('submitting stays false when form is invalid', async () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.innerHTML =
+      '<input name="email" validate="required|email" /><button type="submit">Submit</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const ctx = findContext(form);
+    const btn = form.querySelector('button');
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(ctx.$form.submitting).toBe(false);
+    expect(btn.disabled).toBe(true);
+  });
+
+  test('native POST form sets submitting before navigation', async () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.setAttribute('method', 'POST');
+    form.setAttribute('action', '/login');
+    form.innerHTML =
+      '<input name="email" value="user@test.com" /><button type="submit">Submit</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const ctx = findContext(form);
+    const btn = form.querySelector('button');
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(ctx.$form.submitting).toBe(true);
+    expect(btn.disabled).toBe(true);
+  });
+
+  test('post= form resets submitting after fetch completes', async () => {
+    httpSetup();
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.setAttribute('post', '/api/save');
+    form.innerHTML =
+      '<input name="title" value="Hello" /><button type="submit">Save</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const ctx = findContext(form);
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(ctx.$form.submitting).toBe(true);
+
+    await flush();
+
+    expect(ctx.$form.submitting).toBe(false);
+    httpTeardown();
+  });
+
+  test('invalid post= form does not trigger fetch', async () => {
+    httpSetup();
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.setAttribute('post', '/api/save');
+    form.innerHTML =
+      '<input name="title" validate="required" /><button type="submit">Save</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    httpTeardown();
+  });
+
   test('form validation detects errors', async () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', '{}');

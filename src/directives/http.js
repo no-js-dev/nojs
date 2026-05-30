@@ -74,13 +74,29 @@ for (const method of HTTP_METHODS) {
         if (skeleton) skeleton.style.display = "none";
       }
 
+      function _clearFormSubmitting() {
+        if (el.tagName !== "FORM") return;
+        if (el.__nojsResetSubmitting) {
+          el.__nojsResetSubmitting();
+          return;
+        }
+        const ctx = findContext(el);
+        const formCtx = ctx?.$form;
+        if (!formCtx) return;
+        formCtx.submitting = false;
+        ctx.$set("$form", { ...formCtx });
+      }
+
       async function doRequest() {
         // SwitchMap: abort previous in-flight request
         if (_activeAbort) _activeAbort.abort();
         _activeAbort = new AbortController();
 
         // Confirmation
-        if (confirmMsg && !window.confirm(confirmMsg)) return;
+        if (confirmMsg && !window.confirm(confirmMsg)) {
+          _clearFormSubmitting();
+          return;
+        }
 
         _showSkeleton();
 
@@ -264,6 +280,10 @@ for (const method of HTTP_METHODS) {
               el.appendChild(wrapper);
               processTree(wrapper);
             }
+          }
+        } finally {
+          if (el.tagName === "FORM" && method !== "get") {
+            _clearFormSubmitting();
           }
         }
       }

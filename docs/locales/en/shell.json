@@ -13,7 +13,9 @@
       "toolsLsp": "NoJS LSP",
       "toolsLspDesc": "VS Code extension",
       "toolsSkill": "NoJS Skill",
-      "toolsSkillDesc": "AI agent reference"
+      "toolsSkillDesc": "AI agent reference",
+      "toolsElements": "NoJS Elements",
+      "toolsElementsDesc": "Drag, drop & validation"
     },
     "footer": {
       "desc": "The HTML-first reactive framework",

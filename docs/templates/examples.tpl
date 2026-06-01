@@ -220,7 +220,7 @@
     <span class="badge" t="examples.login.badge"></span>
   </div>
   <p style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #78350F; margin-bottom: 12px;">
-    <strong>Note:</strong> This example uses <code>validate</code>, which has moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Add <code>NoJS.use(NoJSElements)</code> to enable validation. <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">Details &rarr;</a>
+    <strong>Note:</strong> This example uses <code>validate</code>, which has moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Add <code>NoJS.use(NoJSElements)</code> to enable validation. <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Details &rarr;</a>
   </p>
   <p class="example-desc" t="examples.login.desc">
     A complete login flow: form validation, POST to auth endpoint, save the JWT

@@ -71,6 +71,10 @@
           <svg class="tools-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </button>
         <div id="tools-menu" class="tools-dropdown-menu" popover>
+          <a href="https://elements.no-js.dev/" target="_blank" rel="noopener noreferrer" class="tools-option" popovertarget="tools-menu" popovertargetaction="hide">
+            <span class="tools-option-name" t="shell.header.toolsElements"></span>
+            <span class="tools-option-desc" t="shell.header.toolsElementsDesc"></span>
+          </a>
           <a href="https://lsp.no-js.dev/" target="_blank" rel="noopener noreferrer" class="tools-option" popovertarget="tools-menu" popovertargetaction="hide">
             <span class="tools-option-name" t="shell.header.toolsLsp"></span>
             <span class="tools-option-desc" t="shell.header.toolsLspDesc"></span>
@@ -113,6 +117,7 @@
     <a route="/docs" t="shell.header.docs" on:click="document.getElementById('mobile-nav').hidePopover()" lazy="priority"></a>
     <div class="mobile-nav-divider"></div>
     <span class="mobile-nav-group-label" t="shell.header.tools"></span>
+    <a href="https://elements.no-js.dev/" target="_blank" rel="noopener noreferrer" on:click="document.getElementById('mobile-nav').hidePopover()">NoJS Elements</a>
     <a href="https://lsp.no-js.dev/" target="_blank" rel="noopener noreferrer" on:click="document.getElementById('mobile-nav').hidePopover()">NoJS LSP</a>
     <a href="https://github.com/ErickXavier/nojs-skill" target="_blank" rel="noopener noreferrer" on:click="document.getElementById('mobile-nav').hidePopover()">NoJS Skill</a>
     <div class="mobile-nav-divider"></div>
@@ -172,6 +177,7 @@
             <a route="/docs" t="shell.header.docs"></a>
             <a href="https://github.com/ErickXavier/no-js" target="_blank">GitHub</a>
             <a href="https://discord.gg/CaSbGYg3xY" target="_blank">Discord</a>
+            <a href="https://elements.no-js.dev/" target="_blank" rel="noopener noreferrer">NoJS Elements</a>
             <a href="https://lsp.no-js.dev/" target="_blank" rel="noopener noreferrer">NoJS LSP</a>
             <a href="https://github.com/ErickXavier/nojs-skill" target="_blank" rel="noopener noreferrer">NoJS Skill</a>
           </div>

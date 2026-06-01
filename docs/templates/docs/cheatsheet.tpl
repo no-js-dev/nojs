@@ -141,7 +141,7 @@
   <div class="doc-section">
     <h2 class="doc-title" id="cheatsheet-forms" t="docs.cheatsheet.forms.title"></h2>
     <p style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #78350F; margin-bottom: 16px;">
-      <strong>&#x26A0;&#xFE0F; <code>validate</code> moved to <code>@erickxavier/nojs-elements</code></strong> as of v1.13.0. Core stubs emit deprecation warnings. <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">Migration Guide &rarr;</a>
+      <strong>&#x26A0;&#xFE0F; <code>validate</code> moved to <code>@erickxavier/nojs-elements</code></strong> as of v1.13.0. Core stubs emit deprecation warnings. <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Migration Guide &rarr;</a>
     </p>
     <table class="doc-table">
       <thead><tr><th t="docs.cheatsheet.forms.col1"></th><th t="docs.cheatsheet.forms.col2"></th><th t="docs.cheatsheet.forms.col3"></th></tr></thead>
@@ -207,7 +207,7 @@
   <div class="doc-section">
     <h2 class="doc-title" id="cheatsheet-dnd" t="docs.cheatsheet.dnd.title"></h2>
     <p style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #78350F; margin-bottom: 16px;">
-      <strong>&#x26A0;&#xFE0F; Moved to <code>@erickxavier/nojs-elements</code></strong> as of v1.13.0. Core stubs emit deprecation warnings. <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">Migration Guide &rarr;</a>
+      <strong>&#x26A0;&#xFE0F; Moved to <code>@erickxavier/nojs-elements</code></strong> as of v1.13.0. Core stubs emit deprecation warnings. <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Migration Guide &rarr;</a>
     </p>
     <table class="doc-table">
       <thead><tr><th t="docs.cheatsheet.dnd.col1"></th><th t="docs.cheatsheet.dnd.col2"></th><th t="docs.cheatsheet.dnd.col3"></th></tr></thead>

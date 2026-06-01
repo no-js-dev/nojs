@@ -105,7 +105,7 @@ NoJS.init();</pre></div>
         <tr><td>30</td><td><code>validate</code> <sup style="color:#B45309;">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow7"></td></tr>
       </tbody>
     </table>
-    <p style="font-size: 13px; color: #78350F; margin-top: 8px;"><sup style="color:#B45309;">*</sup> Moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">Plugins</a>.</p>
+    <p style="font-size: 13px; color: #78350F; margin-top: 8px;"><sup style="color:#B45309;">*</sup> Moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Plugins</a>.</p>
 
     <h3 class="doc-subtitle" id="getting-started-expressions" t="docs.gettingStarted.coreConcepts.expressionSubtitle"></h3>
     <p class="doc-text" t="docs.gettingStarted.coreConcepts.expressionText"></p>

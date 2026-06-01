@@ -5,8 +5,8 @@
 
 import { _validators, _onDispose } from "../globals.js";
 import { createContext } from "../context.js";
-import { findContext, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { findContext, _cloneTemplate, _clearDeclared } from "../dom.js";
+import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { evaluate } from "../evaluate.js";
 
 // ── ValidityState → rule name mapping ────────────────────────────────
@@ -130,10 +130,26 @@ function _pickError(errors, field) {
   };
 }
 
+function _findErrorTemplateWrapper(anchorEl) {
+  const scope = anchorEl.closest("form") || document;
+  for (const el of scope.querySelectorAll('div[style="display: contents;"]')) {
+    if (el.__errorTemplateFor === anchorEl) return el;
+  }
+  return null;
+}
+
 // ── Render template reference for error ──────────────────────────────
 function _renderErrorTemplate(selector, errorMsg, ruleName, anchorEl, ctx) {
-  // Clean up previous render
-  _clearErrorTemplate(anchorEl);
+  const existing = _findErrorTemplateWrapper(anchorEl);
+  if (existing) {
+    // Compare via the error wrapper's own context (not a child ctx that may shadow $error).
+    const sameError =
+      existing.__ctx?.$error === errorMsg &&
+      existing.__ctx?.$rule === ruleName;
+    if (sameError) return;
+    _disposeTree(existing);
+    existing.remove();
+  }
 
   const tpl = document.querySelector(selector);
   if (!tpl) return;
@@ -148,18 +164,15 @@ function _renderErrorTemplate(selector, errorMsg, ruleName, anchorEl, ctx) {
 
   // Insert after the template element (in-place rendering)
   tpl.parentNode.insertBefore(wrapper, tpl.nextSibling);
+  _clearDeclared(wrapper);
   processTree(wrapper);
 }
 
 function _clearErrorTemplate(anchorEl) {
-  // Find and remove any previously rendered error template for this field
-  const existing = document.querySelector(`div[style="display: contents;"]`);
-  // Use a more targeted approach
-  const all = document.querySelectorAll('div[style="display: contents;"]');
-  for (const el of all) {
-    if (el.__errorTemplateFor === anchorEl) {
-      el.remove();
-    }
+  const existing = _findErrorTemplateWrapper(anchorEl);
+  if (existing) {
+    _disposeTree(existing);
+    existing.remove();
   }
 }
 

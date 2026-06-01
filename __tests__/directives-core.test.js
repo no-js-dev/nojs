@@ -1514,6 +1514,22 @@ describe('if directive — uncovered branches', () => {
     expect(el.querySelector('p').textContent).toBe('Animated content');
   });
 
+  test('if with animate does not double-animate host and first child', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ show: true }');
+    const el = document.createElement('div');
+    el.setAttribute('if', 'show');
+    el.setAttribute('animate', 'fadeIn');
+    el.innerHTML = '<p>Content</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    const child = el.querySelector('p');
+    expect(child.classList.contains('fadeIn')).toBe(true);
+    expect(el.classList.contains('fadeIn')).toBe(false);
+  });
+
   test('if with animate-leave triggers animation before render', () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ show: true }');

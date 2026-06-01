@@ -24,6 +24,22 @@ export function _injectBuiltInStyles() {
 @keyframes bounceIn { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes bounceOut { 0% { opacity: 1; transform: scale(1); } 20% { transform: scale(0.9); } 50%,55% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(0.3); } }
 
+/* Utility classes — animation-name only; duration set inline by _animateIn */
+.fadeIn { animation-name: fadeIn; animation-timing-function: ease; animation-fill-mode: forwards; }
+.fadeOut { animation-name: fadeOut; animation-timing-function: ease; animation-fill-mode: forwards; }
+.fadeInUp { animation-name: fadeInUp; animation-timing-function: ease; animation-fill-mode: forwards; }
+.fadeInDown { animation-name: fadeInDown; animation-timing-function: ease; animation-fill-mode: forwards; }
+.fadeOutUp { animation-name: fadeOutUp; animation-timing-function: ease; animation-fill-mode: forwards; }
+.fadeOutDown { animation-name: fadeOutDown; animation-timing-function: ease; animation-fill-mode: forwards; }
+.slideInLeft { animation-name: slideInLeft; animation-timing-function: ease; animation-fill-mode: forwards; }
+.slideInRight { animation-name: slideInRight; animation-timing-function: ease; animation-fill-mode: forwards; }
+.slideOutLeft { animation-name: slideOutLeft; animation-timing-function: ease; animation-fill-mode: forwards; }
+.slideOutRight { animation-name: slideOutRight; animation-timing-function: ease; animation-fill-mode: forwards; }
+.zoomIn { animation-name: zoomIn; animation-timing-function: ease; animation-fill-mode: forwards; }
+.zoomOut { animation-name: zoomOut; animation-timing-function: ease; animation-fill-mode: forwards; }
+.bounceIn { animation-name: bounceIn; animation-timing-function: ease; animation-fill-mode: forwards; }
+.bounceOut { animation-name: bounceOut; animation-timing-function: ease; animation-fill-mode: forwards; }
+
 /* ── View Transition API presets ── */
 ::view-transition-group(route-content) {
   overflow: hidden;
@@ -89,23 +105,32 @@ export function _injectBuiltInStyles() {
   document.head.appendChild(style);
 }
 
-export function _animateIn(el, animName, transitionName, durationMs) {
+export function _animateIn(el, animName, transitionName, durationMs, targetSelf = false) {
   _injectBuiltInStyles();
   // || 0: fires on the next event-loop tick when no CSS transition is present,
   // instead of blocking for an arbitrary duration.
   const fallback = durationMs || 0;
   if (animName) {
-    const target = el.firstElementChild || el;
+    const target = targetSelf ? el : (el.firstElementChild || el);
     target.classList.add(animName);
+    target.style.animationName = animName;
+    target.style.animationFillMode = "forwards";
+    target.style.animationTimingFunction = "ease";
     if (durationMs) target.style.animationDuration = durationMs + "ms";
-    const done = () => target.classList.remove(animName);
+    const done = () => {
+      target.classList.remove(animName);
+      target.style.animationName = "";
+      target.style.animationDuration = "";
+      target.style.animationFillMode = "";
+      target.style.animationTimingFunction = "";
+    };
     target.addEventListener("animationend", done, { once: true });
     // Fallback: remove the class on the next tick if animationend never fires
     // (e.g. CSS absent, element detached). Mirrors the transitionName branch.
     setTimeout(done, fallback);
   }
   if (transitionName) {
-    const target = el.firstElementChild || el;
+    const target = targetSelf ? el : (el.firstElementChild || el);
     target.classList.add(
       transitionName + "-enter",
       transitionName + "-enter-active",

@@ -234,15 +234,25 @@ function _validateField(value, rules, allValues) {
   return null;
 }
 
+// ── Bind form context so descendants (show/hide, bind, etc.) share $form ──
+function _bindFormContext(formEl) {
+  if (formEl.__ctx) return formEl.__ctx;
+  const parentCtx = formEl.parentElement
+    ? findContext(formEl.parentElement)
+    : null;
+  const ctx = createContext({}, parentCtx);
+  formEl.__ctx = ctx;
+  return ctx;
+}
+
 registerDirective("validate", {
   priority: 30,
   init(el, name, rules) {
-    const ctx = findContext(el);
-
     // ═════════════════════════════════════════════════════
     //  FORM-LEVEL VALIDATION
     // ═════════════════════════════════════════════════════
     if (el.tagName === "FORM") {
+      const ctx = _bindFormContext(el);
       // Prevent native browser validation popups
       el.setAttribute("novalidate", "");
 
@@ -266,9 +276,14 @@ registerDirective("validate", {
           formCtx.dirty = false;
           formCtx.touched = false;
           formCtx.pending = false;
+          formCtx.submitting = false;
           touchedFields.clear();
           dirtyFields.clear();
           el.reset();
+          checkValidity();
+        },
+        endSubmit: () => {
+          formCtx.submitting = false;
           checkValidity();
         },
       };
@@ -391,11 +406,12 @@ registerDirective("validate", {
         ctx.$set("$form", { ...formCtx });
 
         // Auto-disable submit buttons
-        _updateSubmitButtons(el, valid && !hasPending);
+        _updateSubmitButtons(el);
       }
 
       // ── Auto-disable submit buttons ────────────────────
-      function _updateSubmitButtons(form, isValid) {
+      function _updateSubmitButtons(form) {
+        const isEnabled = formCtx.valid && !formCtx.pending && !formCtx.submitting;
         const buttons = form.querySelectorAll(
           'button:not([type="button"]), input[type="submit"]'
         );
@@ -406,7 +422,7 @@ registerDirective("validate", {
             // Only skip if it's a custom expression (not empty or "disabled")
             if (val !== "disabled" && val !== "true" && val !== "false") continue;
           }
-          btn.disabled = !isValid;
+          btn.disabled = !isEnabled;
           btn.__autoDisabled = true;
         }
       }
@@ -495,22 +511,35 @@ registerDirective("validate", {
       }
 
       const submitHandler = (e) => {
-        // If validate-on="submit", run validation now
-        formCtx.submitting = true;
         // Mark all fields as touched on submit
         for (const field of getFields()) {
           if (field.name) touchedFields.add(field.name);
         }
         formCtx.touched = true;
         checkValidity();
+
+        if (!formCtx.valid || formCtx.pending) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+
+        // Set submitting before fetch vs native submit branch
+        formCtx.submitting = true;
+        _updateSubmitButtons(el);
         ctx.$set("$form", { ...formCtx });
-        requestAnimationFrame(() => {
-          formCtx.submitting = false;
-          ctx.$set("$form", { ...formCtx });
-        });
       };
-      el.addEventListener("submit", submitHandler);
-      _onDispose(() => el.removeEventListener("submit", submitHandler));
+      // Capture phase: run before post=/put=/etc. handlers so validation
+      // can block invalid submits and set $form.submitting first.
+      el.addEventListener("submit", submitHandler, true);
+      _onDispose(() => el.removeEventListener("submit", submitHandler, true));
+      el.__nojsResetSubmitting = () => {
+        formCtx.submitting = false;
+        checkValidity();
+      };
+      _onDispose(() => {
+        delete el.__nojsResetSubmitting;
+      });
 
       // Initial check
       requestAnimationFrame(checkValidity);
@@ -520,6 +549,7 @@ registerDirective("validate", {
     // ═════════════════════════════════════════════════════
     //  FIELD-LEVEL VALIDATION (standalone, outside form)
     // ═════════════════════════════════════════════════════
+    const ctx = findContext(el);
     if (
       rules &&
       (el.tagName === "INPUT" ||

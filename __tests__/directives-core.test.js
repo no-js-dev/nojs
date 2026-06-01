@@ -13,7 +13,8 @@ import '../src/directives/binding.js';
 import '../src/directives/conditionals.js';
 import '../src/directives/events.js';
 import '../src/directives/loops.js';
-import '../src/directives/validation.js';
+import '../src/directives/validate-stub.js';
+import '../src/directives/error-boundary.js';
 
 describe('State Directive', () => {
   afterEach(() => {
@@ -3117,130 +3118,6 @@ describe('bind-html — D1 dynamic expression warning', () => {
       expect.anything()
     );
     document.body.removeChild(parent);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-//  AUDIT FIX — H2: Validation listeners are properly removed on disposal
-// ═══════════════════════════════════════════════════════════════════════
-
-describe('Validation listener disposal (H2)', () => {
-  afterEach(() => {
-    document.body.innerHTML = '';
-    Object.keys(_stores).forEach((k) => delete _stores[k]);
-  });
-
-  test('should remove form-level event listeners (input, change, focusout) on dispose', () => {
-    const parent = document.createElement('div');
-    parent.setAttribute('state', '{ }');
-    const form = document.createElement('form');
-    form.setAttribute('validate', '');
-    const input = document.createElement('input');
-    input.setAttribute('name', 'username');
-    input.setAttribute('validate', 'required');
-    form.appendChild(input);
-    parent.appendChild(form);
-    document.body.appendChild(parent);
-
-    processTree(parent);
-
-    // The form element should have disposers registered
-    expect(form.__disposers).toBeDefined();
-    expect(form.__disposers.length).toBeGreaterThan(0);
-
-    const removeSpy = jest.spyOn(form, 'removeEventListener');
-    _disposeTree(form);
-
-    // Verify removeEventListener was called for form-level events
-    const removedEvents = removeSpy.mock.calls.map((c) => c[0]);
-    expect(removedEvents).toContain('input');
-    expect(removedEvents).toContain('change');
-    expect(removedEvents).toContain('focusout');
-    expect(removedEvents).toContain('submit');
-    removeSpy.mockRestore();
-  });
-
-  test('should not accumulate duplicate listeners when re-processing a validated form', () => {
-    const parent = document.createElement('div');
-    parent.setAttribute('state', '{ }');
-    const form = document.createElement('form');
-    form.setAttribute('validate', '');
-    const input = document.createElement('input');
-    input.setAttribute('name', 'email');
-    input.setAttribute('validate', 'required');
-    form.appendChild(input);
-    parent.appendChild(form);
-    document.body.appendChild(parent);
-
-    processTree(parent);
-
-    const disposerCountFirst = form.__disposers ? form.__disposers.length : 0;
-
-    // Dispose and re-process to simulate re-render
-    _disposeTree(form);
-    processTree(form);
-
-    const disposerCountSecond = form.__disposers ? form.__disposers.length : 0;
-
-    // After re-processing, disposer count should be the same as the first time
-    // (no accumulation of duplicate listeners)
-    expect(disposerCountSecond).toBe(disposerCountFirst);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-//  AUDIT FIX — H3: Validation error element clearing calls _disposeChildren
-// ═══════════════════════════════════════════════════════════════════════
-
-describe('Validation error element disposal (H3)', () => {
-  afterEach(() => {
-    document.body.innerHTML = '';
-    Object.keys(_stores).forEach((k) => delete _stores[k]);
-  });
-
-  test('should dispose children of error element when field becomes valid', () => {
-    const parent = document.createElement('div');
-    parent.setAttribute('state', '{ }');
-
-    // Create a template for error display
-    const errorTpl = document.createElement('template');
-    errorTpl.id = 'field-error';
-    errorTpl.innerHTML = '<span class="error-msg">Error</span>';
-    document.body.appendChild(errorTpl);
-
-    // Standalone field-level validation with error template
-    const input = document.createElement('input');
-    input.setAttribute('name', 'field');
-    input.setAttribute('validate', 'required');
-    input.setAttribute('error', '#field-error');
-    parent.appendChild(input);
-    document.body.appendChild(parent);
-
-    processTree(parent);
-
-    // Trigger an error: empty value fires required error
-    input.value = '';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // Locate the error element inserted after input
-    const errorEl = input.nextElementSibling;
-    expect(errorEl).toBeTruthy();
-    expect(errorEl.__validationError).toBe(true);
-    expect(errorEl.innerHTML).not.toBe('');
-
-    // Plant a mock disposer on a child to verify _disposeChildren was called
-    const errorChild = errorEl.querySelector('.error-msg');
-    expect(errorChild).toBeTruthy();
-    const disposed = [];
-    errorChild.__disposers = [() => disposed.push('child-disposed')];
-
-    // Now make the field valid
-    input.value = 'valid text';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // The child disposer should have been called when clearing the error
-    expect(disposed).toEqual(['child-disposed']);
-    expect(errorEl.innerHTML).toBe('');
   });
 });
 

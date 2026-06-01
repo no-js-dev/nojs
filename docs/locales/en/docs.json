@@ -50,7 +50,7 @@
         "tableRow1b": "Fetch data, error boundaries, i18n namespace",
         "tableRow2b": "Derived values and side-effect watchers",
         "tableRow5b": "Element references",
-        "tableRow15": "Drag and drop setup",
+        "tableRow15": "Drag and drop setup (Now in NoJS Elements)",
         "expressionSubtitle": "Expression Syntax",
         "expressionText": "Most directive values accept JavaScript expressions evaluated against the current context:"
       }
@@ -171,7 +171,7 @@
         "col1": "Directive",
         "col2": "Example",
         "col3": "Description",
-        "validate": "Enable form/field validation",
+        "validate": "Enable form/field validation (Now in NoJS Elements)",
         "error": "Error template for field",
         "success": "Success template",
         "loading": "Loading template",
@@ -218,7 +218,7 @@
         "transitionVT": "View Transition API preset on route-view (slide, fade, scale, none)"
       },
       "dnd": {
-        "title": "Drag and Drop",
+        "title": "Drag and Drop (Now in NoJS Elements)",
         "col1": "Directive",
         "col2": "Example",
         "col3": "Description",

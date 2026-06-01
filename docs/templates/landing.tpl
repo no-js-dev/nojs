@@ -681,6 +681,7 @@
     <div class="landing-feature-card">
       <h3 class="landing-feature-title" t="landing.featuresGrid.f5Title"></h3>
       <p class="landing-feature-desc" t="landing.featuresGrid.f5Desc"></p>
+      <span style="font-size: 12px; color: #92400E; background: #FEF3C7; padding: 3px 8px; border-radius: 4px; align-self: flex-start;">Now in <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">NoJS Elements</a></span>
     </div>
     <div class="landing-feature-card">
       <h3 class="landing-feature-title" t="landing.featuresGrid.f6Title"></h3>

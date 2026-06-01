@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-05-27
+
+### Changed
+
+- **BREAKING:** DnD directives (`drag`, `drop`, `drag-list`, `drag-multiple`) replaced with deprecation stubs — moved to `@erickxavier/nojs-elements`
+- **BREAKING:** `validate` directive replaced with deprecation stub — moved to `@erickxavier/nojs-elements`
+- Extracted `error-boundary` to standalone file `src/directives/error-boundary.js` (stays in core)
+
+### Added
+
+- `NoJS.internals` frozen getter exposing semi-private APIs for plugin access: `execStatement`, `cloneTemplate`, `disposeChildren`, `warn`, `validators`, `removeCoreDirective`, `onDispose`
+- `_removeCoreDirective(name)` in registry — allows plugins to replace core stub directives
+- Deprecation stubs emit clear migration warnings pointing to `@erickxavier/nojs-elements`
+- Stub and internals unit tests
+
+### Removed
+
+- `src/directives/dnd.js` (1,162 lines) — replaced by `dnd-stub.js`
+- `src/directives/validation.js` (552 lines) — replaced by `validate-stub.js`
+- DnD and validation unit tests (migrated to Elements)
+- DnD and validation E2E tests (migrated to Elements)
+
 ## [1.12.0](https://github.com/ErickXavier/no-js/compare/v1.11.1...v1.12.0) — 2026-05-21
 
 ### Added

@@ -45,7 +45,7 @@
       },
       "forms": {
         "title": "Gestion des formulaires",
-        "desc": "Liaison bidirectionnelle avec model, validation intégrée, messages d'erreur et gestion de la soumission."
+        "desc": "Liaison bidirectionnelle avec model, validation intégrée, messages d'erreur et gestion de la soumission. (Validation maintenant dans NoJS Elements)"
       },
       "fetch": {
         "title": "Fetch & API",

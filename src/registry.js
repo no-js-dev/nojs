@@ -19,11 +19,24 @@ export function registerDirective(name, handler) {
     priority: handler.priority ?? 50,
     init: handler.init,
   });
-  if (!_frozen) _coreDirectives.add(name);
+  _coreDirectives.add(name);
 }
 
 export function _freezeDirectives() {
   _frozen = true;
+}
+
+export function _removeCoreDirective(name) {
+  if (!_frozen) {
+    _warn(`_removeCoreDirective("${name}") can only be called after init.`);
+    return;
+  }
+  if (!_coreDirectives.has(name)) {
+    _warn(`_removeCoreDirective: "${name}" is not a registered core directive.`);
+    return;
+  }
+  _coreDirectives.delete(name);
+  _directives.delete(name);
 }
 
 // ─── Pattern-match prefixes for wildcard directives (hoisted, static) ────────

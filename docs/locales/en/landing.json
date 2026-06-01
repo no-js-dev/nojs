@@ -28,8 +28,8 @@
       "f3Desc": "Locale switching, namespace loading, pluralization, and browser detection. All powered by a single t attribute.",
       "f4Title": "Declarative Fetch",
       "f4Desc": "GET, POST, PUT, DELETE — just add the attribute. Auto-binding to state, loading indicators, and error handling included.",
-      "f5Title": "Form Validation",
-      "f5Desc": "15+ built-in validators with custom error messages, conditional validation, and real-time feedback. Pure HTML.",
+      "f5Title": "Form Validation (Now in NoJS Elements)",
+      "f5Desc": "15+ built-in validators with custom error messages, conditional validation, and real-time feedback. Pure HTML. (Now in NoJS Elements)",
       "f6Title": "Animations",
       "f6Desc": "CSS-class transitions with stagger support. Enter and leave animations driven entirely by attributes."
     },

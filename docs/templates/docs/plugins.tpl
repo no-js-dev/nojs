@@ -404,6 +404,53 @@ app.<span class="hl-fn">global</span>(<span class="hl-str">'exec'</span>, Functi
 }</pre></div>
   </div>
 
+  <!-- Official Plugins -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="plugins-official">Official Plugins</h2>
+
+    <h3 class="doc-title" id="plugins-elements">NoJS Elements</h3>
+    <p class="doc-text">The <code>@erickxavier/nojs-elements</code> package provides UI-centric directives that were extracted from core in v1.13.0 for a leaner default bundle.</p>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>Directives</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Drag &amp; Drop</strong></td>
+          <td><code>drag</code>, <code>drop</code>, <code>drag-list</code>, <code>drag-multiple</code></td>
+          <td>Full drag-and-drop system with sortable lists, multi-select, keyboard accessibility, and type-safe drop zones.</td>
+        </tr>
+        <tr>
+          <td><strong>Validation</strong></td>
+          <td><code>validate</code>, <code>validate-on</code>, <code>validate-if</code>, <code>error-*</code></td>
+          <td>Declarative form validation with per-field state, custom validators, and the <code>$form</code> reactive context.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 style="margin-top: 16px; font-family: var(--font-heading); font-size: 15px; font-weight: 600;">Installation</h4>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- CDN --&gt;</span>
+<span class="hl-tag">&lt;script</span> <span class="hl-attr">src</span>=<span class="hl-str">"https://cdn.no-js.dev/"</span><span class="hl-tag">&gt;&lt;/script&gt;</span>
+<span class="hl-tag">&lt;script</span> <span class="hl-attr">src</span>=<span class="hl-str">"https://cdn.no-js.dev/elements"</span><span class="hl-tag">&gt;&lt;/script&gt;</span>
+
+<span class="hl-cmt">&lt;!-- npm --&gt;</span>
+<span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-kw">import</span> NoJS <span class="hl-kw">from</span> <span class="hl-str">'@erickxavier/nojs'</span>;
+  <span class="hl-kw">import</span> NoJSElements <span class="hl-kw">from</span> <span class="hl-str">'@erickxavier/nojs-elements'</span>;
+
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(NoJSElements);
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <div class="callout" style="margin-top: 12px;">
+      <p>Core retains deprecation stubs for all moved directives. They work but emit console warnings guiding you to install the Elements plugin. The stubs will be removed in a future major version.</p>
+    </div>
+  </div>
+
   <!-- Complete Example -->
   <div class="doc-section">
     <h2 class="doc-title" id="plugins-example" t="docs.plugins.example.title"></h2>

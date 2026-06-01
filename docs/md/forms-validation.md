@@ -1,5 +1,13 @@
 # Forms & Validation
 
+> **Moved to NoJS Elements** — As of v1.13.0, the `validate` directive and form validation rules are part of the `@erickxavier/nojs-elements` plugin.
+>
+> See the [NoJS Elements documentation](https://github.com/ErickXavier/nojs-elements) for the full reference.
+>
+> **Migration:** Install `@erickxavier/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
+>
+> **Note:** Declarative form submission (`post`, `put`, etc.) remains in core — only the `validate` directive moved.
+
 ## Declarative Form Submission
 
 ```html

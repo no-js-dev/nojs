@@ -28,12 +28,13 @@ import {
   _CANCEL,
   _RESPOND,
   _REPLACE,
+  _onDispose,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale } from "./i18n.js";
 import { createContext } from "./context.js";
-import { evaluate, resolve } from "./evaluate.js";
-import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes } from "./dom.js";
-import { registerDirective, processTree } from "./registry.js";
+import { evaluate, resolve, _execStatement } from "./evaluate.js";
+import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
+import { registerDirective, processTree, _removeCoreDirective, _disposeChildren, _disposeTree } from "./registry.js";
 import { _createRouter } from "./router.js";
 import { initDevtools, destroyDevtools, _devtoolsEmit } from "./devtools.js";
 
@@ -49,9 +50,10 @@ import "./directives/loops.js";
 import "./directives/styling.js";
 import "./directives/events.js";
 import "./directives/refs.js";
-import "./directives/validation.js";
+import "./directives/validate-stub.js";
+import "./directives/error-boundary.js";
 import "./directives/i18n.js";
-import "./directives/dnd.js";
+import "./directives/dnd-stub.js";
 import "./directives/head.js";
 
 // Lock core directives — plugins can only register NEW names
@@ -511,8 +513,22 @@ const NoJS = {
   processTree,
   resolve,
 
+  // Internal API for trusted plugins (e.g. NoJS-Elements)
+  get internals() {
+    return Object.freeze({
+      execStatement: _execStatement,
+      cloneTemplate: _cloneTemplate,
+      disposeChildren: _disposeChildren,
+      disposeTree: _disposeTree,
+      warn: _warn,
+      validators: Object.freeze({..._validators}),
+      removeCoreDirective: _removeCoreDirective,
+      onDispose: _onDispose,
+    });
+  },
+
   // Version
-  version: "1.12.0",
+  version: "1.13.0",
 };
 
 // Expose sentinel symbols as read-only properties

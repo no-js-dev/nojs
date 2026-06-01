@@ -8,6 +8,13 @@
 
 <div class="doc-content">
 
+  <!-- Deprecation Banner -->
+  <div class="nojs-deprecation-banner" style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+    <strong style="color: #92400E; font-size: 15px;">&#x26A0;&#xFE0F; Moved to NoJS Elements</strong>
+    <p style="color: #78350F; margin: 8px 0 0; font-size: 14px; line-height: 1.6;">The <code>drag</code>, <code>drop</code>, <code>drag-list</code>, and <code>drag-multiple</code> directives have moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. They are still available in core as deprecation stubs that emit warnings. Install the Elements plugin for full functionality.</p>
+    <p style="margin: 8px 0 0;"><a href="/docs/plugins" style="color: #92400E; font-weight: 600; text-decoration: underline;">Migration Guide &rarr;</a></p>
+  </div>
+
   <!-- drag -->
   <div class="doc-section">
     <h2 class="doc-title" id="dnd-drag" t="docs.dnd.drag.title"></h2>

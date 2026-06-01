@@ -45,7 +45,7 @@
       },
       "forms": {
         "title": "Gestione dei Form",
-        "desc": "Binding bidirezionale con model, validazione integrata, messaggi di errore e gestione dell'invio dei form."
+        "desc": "Binding bidirezionale con model, validazione integrata, messaggi di errore e gestione dell'invio dei form. (Validation ora in NoJS Elements)"
       },
       "fetch": {
         "title": "Fetch & API",

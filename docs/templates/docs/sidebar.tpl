@@ -28,9 +28,9 @@
       <a route="/docs/data-fetching" class="sidebar-link" route-active="active" t="shell.sidebar.fetchApi"></a>
       <a route="/docs/routing" class="sidebar-link" route-active="active" t="shell.sidebar.routing"></a>
       <a route="/docs/head-management" class="sidebar-link" route-active="active" t="shell.sidebar.headManagement"></a>
-      <a route="/docs/forms-validation" class="sidebar-link" route-active="active" t="shell.sidebar.forms"></a>
+      <a route="/docs/forms-validation" class="sidebar-link" route-active="active"><span t="shell.sidebar.forms"></span> <sup style="color:#B45309;font-size:9px;" title="Moved to NoJS Elements">&#x26A0;</sup></a>
       <a route="/docs/styling" class="sidebar-link" route-active="active" t="shell.sidebar.styling"></a>
-      <a route="/docs/drag-and-drop" class="sidebar-link" route-active="active" t="shell.sidebar.dragAndDrop"></a>
+      <a route="/docs/drag-and-drop" class="sidebar-link" route-active="active"><span t="shell.sidebar.dragAndDrop"></span> <sup style="color:#B45309;font-size:9px;" title="Moved to NoJS Elements">&#x26A0;</sup></a>
       <a route="/docs/animations" class="sidebar-link" route-active="active" t="shell.sidebar.animations"></a>
       <a route="/docs/filters" class="sidebar-link" route-active="active" t="shell.sidebar.filters"></a>
       <a route="/docs/i18n" class="sidebar-link" route-active="active" t="shell.sidebar.i18n"></a>

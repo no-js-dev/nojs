@@ -99,12 +99,13 @@ NoJS.init();</pre></div>
         <tr><td>1</td><td><code>get</code>, <code>post</code>, <code>put</code>, <code>patch</code>, <code>delete</code>, <code>error-boundary</code>, <code>i18n-ns</code></td><td t="docs.gettingStarted.coreConcepts.tableRow1b"></td></tr>
         <tr><td>2</td><td><code>computed</code>, <code>watch</code></td><td t="docs.gettingStarted.coreConcepts.tableRow2b"></td></tr>
         <tr><td>5</td><td><code>ref</code></td><td t="docs.gettingStarted.coreConcepts.tableRow5b"></td></tr>
-        <tr><td>10</td><td><code>if</code>, <code>switch</code>, <code>foreach</code>, <code>each</code>, <code>for</code>, <code>use</code>, <code>drag-list</code></td><td t="docs.gettingStarted.coreConcepts.tableRow4"></td></tr>
-        <tr><td>15</td><td><code>drag</code>, <code>drop</code></td><td t="docs.gettingStarted.coreConcepts.tableRow15"></td></tr>
+        <tr><td>10</td><td><code>if</code>, <code>switch</code>, <code>foreach</code>, <code>each</code>, <code>for</code>, <code>use</code>, <code>drag-list</code> <sup style="color:#B45309;">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow4"></td></tr>
+        <tr><td>15</td><td><code>drag</code> <sup style="color:#B45309;">*</sup>, <code>drop</code> <sup style="color:#B45309;">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow15"></td></tr>
         <tr><td>20</td><td><code>bind</code>, <code>bind-*</code>, <code>model</code>, <code>class-*</code>, <code>style-*</code>, <code>on:*</code>, <code>show</code>, <code>hide</code>, <code>t</code>, <code>call</code>, <code>trigger</code></td><td t="docs.gettingStarted.coreConcepts.tableRow5"></td></tr>
-        <tr><td>30</td><td><code>validate</code></td><td t="docs.gettingStarted.coreConcepts.tableRow7"></td></tr>
+        <tr><td>30</td><td><code>validate</code> <sup style="color:#B45309;">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow7"></td></tr>
       </tbody>
     </table>
+    <p style="font-size: 13px; color: #78350F; margin-top: 8px;"><sup style="color:#B45309;">*</sup> Moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a href="/docs/plugins" style="color: #92400E; font-weight: 600;">Plugins</a>.</p>
 
     <h3 class="doc-subtitle" id="getting-started-expressions" t="docs.gettingStarted.coreConcepts.expressionSubtitle"></h3>
     <p class="doc-text" t="docs.gettingStarted.coreConcepts.expressionText"></p>

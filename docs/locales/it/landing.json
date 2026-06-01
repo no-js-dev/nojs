@@ -28,8 +28,8 @@
       "f3Desc": "Cambio lingua, caricamento di namespace, pluralizzazione e rilevamento del browser. Il tutto guidato da un singolo attributo t.",
       "f4Title": "Fetch Dichiarativo",
       "f4Desc": "GET, POST, PUT, DELETE — basta aggiungere l'attributo. Auto-binding allo stato, indicatori di caricamento e gestione degli errori inclusi.",
-      "f5Title": "Validazione dei Form",
-      "f5Desc": "15+ validatori integrati con messaggi di errore personalizzati, validazione condizionale e feedback in tempo reale. Puro HTML.",
+      "f5Title": "Validazione dei Form (Ora in NoJS Elements)",
+      "f5Desc": "15+ validatori integrati con messaggi di errore personalizzati, validazione condizionale e feedback in tempo reale. Puro HTML. (Ora in NoJS Elements)",
       "f6Title": "Animazioni",
       "f6Desc": "Transizioni tramite classi CSS con supporto allo sfalsamento. Animazioni di ingresso e uscita guidate interamente da attributi."
     },

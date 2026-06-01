@@ -45,7 +45,7 @@
       },
       "forms": {
         "title": "Manejo de Formularios",
-        "desc": "Enlace bidireccional con model, validación integrada, mensajes de error y manejo de envío de formularios."
+        "desc": "Enlace bidireccional con model, validación integrada, mensajes de error y manejo de envío de formularios. (Validation ahora en NoJS Elements)"
       },
       "fetch": {
         "title": "Fetch y API",

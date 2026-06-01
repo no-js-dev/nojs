@@ -91,6 +91,7 @@ for (const method of HTTP_METHODS) {
         // SwitchMap: abort previous in-flight request
         if (_activeAbort) _activeAbort.abort();
         _activeAbort = new AbortController();
+        const myAbort = _activeAbort;
 
         // Confirmation
         if (confirmMsg && !window.confirm(confirmMsg)) {
@@ -283,7 +284,9 @@ for (const method of HTTP_METHODS) {
           }
         } finally {
           if (el.tagName === "FORM" && method !== "get") {
-            _clearFormSubmitting();
+            if (!myAbort.signal.aborted && _activeAbort === myAbort) {
+              _clearFormSubmitting();
+            }
           }
         }
       }

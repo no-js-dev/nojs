@@ -5,7 +5,7 @@
 import { _stores, _refs, _config, _validators, _eventBus, _interceptors, setRouterInstance, _cache } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { findContext } from '../src/dom.js';
-import { processTree } from '../src/registry.js';
+import { processTree, _disposeTree } from '../src/registry.js';
 import { _cacheSet } from '../src/fetch.js';
 import { _i18n } from '../src/i18n.js';
 
@@ -318,7 +318,7 @@ describe('Validation Directive', () => {
 
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
-        const ctx = parent.__ctx;
+        const ctx = findContext(form);
         expect(ctx.$form).toBeDefined();
         expect(ctx.$form.errors).toBeDefined();
         expect(ctx.$form.values).toBeDefined();
@@ -345,7 +345,7 @@ describe('Validation Directive', () => {
         input.value = 'invalid-email';
         input.dispatchEvent(new Event('input', { bubbles: true }));
 
-        const ctx = parent.__ctx;
+        const ctx = findContext(form);
         expect(ctx.$form.errors.email).toBe('Invalid email');
         expect(ctx.$form.valid).toBe(false);
 
@@ -376,11 +376,11 @@ describe('Validation Directive', () => {
       requestAnimationFrame(() => {
         input.value = '15';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.age).toBe('Minimum value is 18');
+        expect(findContext(form).$form.errors.age).toBe('Minimum value is 18');
 
         input.value = '20';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.age).toBeUndefined();
+        expect(findContext(form).$form.errors.age).toBeUndefined();
 
         resolve();
       });
@@ -405,11 +405,11 @@ describe('Validation Directive', () => {
       requestAnimationFrame(() => {
         input.value = '150';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.qty).toBe('Maximum value is 100');
+        expect(findContext(form).$form.errors.qty).toBe('Maximum value is 100');
 
         input.value = '50';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.qty).toBeUndefined();
+        expect(findContext(form).$form.errors.qty).toBeUndefined();
 
         resolve();
       });
@@ -438,11 +438,11 @@ describe('Validation Directive', () => {
       requestAnimationFrame(() => {
         input.value = '3';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.num).toBe('Must be even');
+        expect(findContext(form).$form.errors.num).toBe('Must be even');
 
         input.value = '4';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.errors.num).toBeUndefined();
+        expect(findContext(form).$form.errors.num).toBeUndefined();
 
         resolve();
       });
@@ -463,10 +463,10 @@ describe('Validation Directive', () => {
 
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
-        expect(parent.__ctx.$form.dirty).toBe(false);
+        expect(findContext(form).$form.dirty).toBe(false);
         input.value = 'something';
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        expect(parent.__ctx.$form.dirty).toBe(true);
+        expect(findContext(form).$form.dirty).toBe(true);
         resolve();
       });
     });
@@ -486,9 +486,9 @@ describe('Validation Directive', () => {
 
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
-        expect(parent.__ctx.$form.touched).toBe(false);
+        expect(findContext(form).$form.touched).toBe(false);
         input.dispatchEvent(new Event('focusout', { bubbles: true }));
-        expect(parent.__ctx.$form.touched).toBe(true);
+        expect(findContext(form).$form.touched).toBe(true);
         resolve();
       });
     });
@@ -1858,6 +1858,133 @@ describe('Form validation — dirty and touched tracking', () => {
     await flush();
 
     expect(global.fetch).not.toHaveBeenCalled();
+    httpTeardown();
+  });
+
+  test('disposing form under state does not break parent reactivity', async () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ n: 0 }');
+    parent.innerHTML = `
+      <span id="counter" bind="n"></span>
+      <form validate><input name="x" value="ok" /></form>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const form = parent.querySelector('form');
+    const counter = parent.querySelector('#counter');
+    expect(counter.textContent).toBe('0');
+
+    _disposeTree(form);
+
+    findContext(parent).n = 1;
+    expect(counter.textContent).toBe('1');
+  });
+
+  test('two forms under one state keep separate $form contexts', async () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    parent.innerHTML = `
+      <form validate id="f1"><input name="a" value="1" /><button type="submit">A</button></form>
+      <form validate id="f2"><input name="b" value="2" /><button type="submit">B</button></form>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const form1 = document.getElementById('f1');
+    const form2 = document.getElementById('f2');
+    const ctx1 = findContext(form1);
+    const ctx2 = findContext(form2);
+
+    expect(ctx1).not.toBe(ctx2);
+    expect(ctx1.$form).not.toBe(ctx2.$form);
+
+    form1.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(ctx1.$form.submitting).toBe(true);
+    expect(ctx2.$form.submitting).toBe(false);
+  });
+
+  test('$form.endSubmit clears submitting', async () => {
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.innerHTML = '<input name="x" value="ok" /><button type="submit">Go</button>';
+    document.body.appendChild(form);
+    processTree(form);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const ctx = findContext(form);
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(ctx.$form.submitting).toBe(true);
+
+    ctx.$form.endSubmit();
+    expect(ctx.$form.submitting).toBe(false);
+  });
+
+  test('$form.reset clears submitting', async () => {
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.innerHTML = '<input name="x" value="ok" /><button type="submit">Go</button>';
+    document.body.appendChild(form);
+    processTree(form);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const ctx = findContext(form);
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(ctx.$form.submitting).toBe(true);
+
+    ctx.$form.reset();
+    expect(ctx.$form.submitting).toBe(false);
+  });
+
+  test('aborted post= request keeps submitting until successor finishes', async () => {
+    httpSetup();
+
+    let rejectFirst;
+    const firstFetch = new Promise((_, reject) => {
+      rejectFirst = reject;
+    });
+
+    global.fetch
+      .mockImplementationOnce((url, opts) => {
+        if (opts?.signal) {
+          opts.signal.addEventListener('abort', () => {
+            rejectFirst(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        }
+        return firstFetch;
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(mockJsonResponse({ ok: true })), 200);
+          }),
+      );
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ id: 1 }');
+    const form = document.createElement('form');
+    form.setAttribute('validate', '');
+    form.setAttribute('post', '/api/save/{id}');
+    form.innerHTML =
+      '<input name="title" value="Hello" /><button type="submit">Save</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+    processTree(parent);
+    await flush(50);
+
+    const ctx = findContext(form);
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush(10);
+    expect(ctx.$form.submitting).toBe(true);
+
+    findContext(parent).id = 2;
+    await flush(50);
+    expect(ctx.$form.submitting).toBe(true);
+
+    await flush(250);
+    expect(ctx.$form.submitting).toBe(false);
     httpTeardown();
   });
 

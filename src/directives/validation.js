@@ -224,9 +224,10 @@ function _validateField(value, rules, allValues) {
 // ── Bind form context so descendants (show/hide, bind, etc.) share $form ──
 function _bindFormContext(formEl) {
   if (formEl.__ctx) return formEl.__ctx;
-  const ctx = formEl.parentElement
+  const parentCtx = formEl.parentElement
     ? findContext(formEl.parentElement)
-    : createContext();
+    : null;
+  const ctx = createContext({}, parentCtx);
   formEl.__ctx = ctx;
   return ctx;
 }
@@ -262,9 +263,14 @@ registerDirective("validate", {
           formCtx.dirty = false;
           formCtx.touched = false;
           formCtx.pending = false;
+          formCtx.submitting = false;
           touchedFields.clear();
           dirtyFields.clear();
           el.reset();
+          checkValidity();
+        },
+        endSubmit: () => {
+          formCtx.submitting = false;
           checkValidity();
         },
       };
@@ -514,13 +520,11 @@ registerDirective("validate", {
       // can block invalid submits and set $form.submitting first.
       el.addEventListener("submit", submitHandler, true);
       _onDispose(() => el.removeEventListener("submit", submitHandler, true));
-      el.__nojsCheckValidity = checkValidity;
       el.__nojsResetSubmitting = () => {
         formCtx.submitting = false;
         checkValidity();
       };
       _onDispose(() => {
-        delete el.__nojsCheckValidity;
         delete el.__nojsResetSubmitting;
       });
 

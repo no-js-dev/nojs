@@ -546,15 +546,19 @@ describe('HTTP GET with then expression', () => {
     const el = document.createElement('div');
     el.setAttribute('get', '/api/check');
     el.setAttribute('as', 'resp');
-    el.setAttribute('then', 'window.__thenRan = true');
+    // NOJS-60 #28: writing to the real window from an expression is now a no-op,
+    // so the `then` probe writes to a context state variable instead.
+    el.setAttribute('then', 'fetched = true');
+    const probe = document.createElement('span');
+    probe.setAttribute('bind', 'fetched');
     parent.appendChild(el);
+    parent.appendChild(probe);
     document.body.appendChild(parent);
 
     processTree(parent);
     await flush();
 
-    expect(window.__thenRan).toBe(true);
-    delete window.__thenRan;
+    expect(probe.textContent).toBe('true');
   });
 });
 

@@ -123,11 +123,18 @@ export const _i18n = {
     const cacheKey = `${_i18n.locale}:${key}`;
     let msg = _i18nTranslationCache.get(cacheKey);
     if (msg === undefined) {
-      const messages =
-        _i18n.locales[_i18n.locale] ||
-        _i18n.locales[_config.i18n.fallbackLocale] ||
-        {};
-      msg = key.split(".").reduce((o, k) => o?.[k], messages);
+      const resolve = (locale) =>
+        key.split(".").reduce((o, k) => o?.[k], _i18n.locales[locale] || {});
+      msg = resolve(_i18n.locale);
+      // Per-key fallback: a present bundle missing this key still falls back
+      // to the fallbackLocale bundle (not just when the whole bundle is absent).
+      if (
+        msg == null &&
+        _config.i18n.fallbackLocale &&
+        _config.i18n.fallbackLocale !== _i18n.locale
+      ) {
+        msg = resolve(_config.i18n.fallbackLocale);
+      }
       // Cache resolved value (including null for missing keys)
       _i18nTranslationCache.set(cacheKey, msg ?? null);
     }

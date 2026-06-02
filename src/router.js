@@ -50,7 +50,10 @@ function _useViewTransition() {
 
 function _clearOutlets() {
   for (const outletEl of document.querySelectorAll("[route-view]")) {
-    _disposeTree(outletEl);
+    // Safety Rule 1: dispose the outlet's CHILDREN, never the outlet element
+    // itself — disposing the parent tears down its context and breaks the next
+    // re-render against it.
+    for (const child of [...outletEl.children]) _disposeTree(child);
     outletEl.innerHTML = "";
   }
 }
@@ -110,13 +113,14 @@ export function _createRouter() {
     return null;
   }
 
-  async function navigate(path, replace = false) {
+  async function navigate(path, replace = false, isPopNavigation = false) {
     // Track navigation direction for View Transition types.
-    // Programmatic navigate (push) = forward. The popstate/hashchange
-    // handlers pre-set _navDirection to "backward" before calling.
-    if (!replace) {
-      _navDirection = "forward";
-    }
+    // Programmatic navigate (push/replace, incl. guard redirects) = forward;
+    // only history pop events (popstate/hashchange) are backward. Setting it
+    // here from an explicit flag — rather than relying on callers to pre-set
+    // the module variable — keeps replace-mode redirects from inheriting a
+    // stale "backward" direction left over from a prior pop navigation.
+    _navDirection = isPopNavigation ? "backward" : "forward";
 
     const hashIdx = path.indexOf("#");
     const hash = hashIdx >= 0 ? path.slice(hashIdx + 1) : "";
@@ -218,6 +222,12 @@ export function _createRouter() {
       else window.history.pushState({}, "", fullPath);
     }
 
+    // Snapshot the route state for THIS navigation. _renderRoute (and the
+    // View Transition update callback in particular) runs asynchronously; a
+    // concurrent navigate() would otherwise overwrite the closure-scoped
+    // `current` mid-render and wire templates to the wrong $route/metadata.
+    const routeSnapshot = current;
+
     // Render — wrap in View Transition API when available and enabled
     const outletEls = document.querySelectorAll("[route-view]");
     const hasTransition = [...outletEls].some(el => el.getAttribute("transition"));
@@ -239,7 +249,7 @@ export function _createRouter() {
       const types = _getTransitionTypes(outletEls);
       const vt = document.startViewTransition({
         update: async () => {
-          await _renderRoute(matched);
+          await _renderRoute(matched, routeSnapshot);
         },
         types,
       });
@@ -253,7 +263,7 @@ export function _createRouter() {
       // Wait for the DOM update to complete before firing listeners
       await vt.updateCallbackDone;
     } else {
-      await _renderRoute(matched);
+      await _renderRoute(matched, routeSnapshot);
     }
 
     await _loadNestedIndexRoutes();
@@ -372,7 +382,7 @@ export function _createRouter() {
 
     const rawSrc = outletEl.getAttribute("src") || configTemplates;
     const baseSrc = rawSrc.replace(/\/?$/, "/");
-    const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl" || ".html";
+    const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl";
     const indexName = outletEl.getAttribute("route-index") || "index";
 
     // For root path or single-segment paths, use flat resolution (original behavior)
@@ -645,7 +655,10 @@ export function _createRouter() {
     }
   }
 
-  async function _renderRoute(matched) {
+  async function _renderRoute(matched, routeSnapshot = current) {
+    // routeSnapshot pins the $route state for this navigation so a concurrent
+    // navigate() overwriting the closure-scoped `current` cannot corrupt this
+    // render's context/metadata mid-flight.
     // Snapshot existing outlets BEFORE rendering
     const outletEls = document.querySelectorAll("[route-view]");
     for (const outletEl of outletEls) {
@@ -693,8 +706,10 @@ export function _createRouter() {
         }
       }
 
-      // Always clear first — dispose watchers/listeners before wiping DOM
-      _disposeTree(outletEl);
+      // Always clear first — dispose watchers/listeners before wiping DOM.
+      // Safety Rule 1: dispose the outlet's CHILDREN, never the outlet element
+      // itself (disposing the parent tears down the context re-rendering needs).
+      for (const child of [...outletEl.children]) _disposeTree(child);
       outletEl.innerHTML = "";
 
       if (tpl && !tpl.__loadFailed) {
@@ -731,7 +746,7 @@ export function _createRouter() {
         const clone = tpl.content.cloneNode(true);
 
         const routeCtx = createContext(
-          { $route: current },
+          { $route: routeSnapshot },
           findContext(outletEl),
         );
         const wrapper = document.createElement("div");
@@ -755,7 +770,7 @@ export function _createRouter() {
         const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
         _log("[ROUTER] nested templates found in wrapper:", nestedTpls.length, nestedTpls.map(t => t.getAttribute("src") + (t.__srcLoaded ? "[LOADED]" : "[NEW]")));
         await Promise.all(nestedTpls.map(_loadTemplateElement));
-        _log("[ROUTER] all nested loads done for route:", current.path);
+        _log("[ROUTER] all nested loads done for route:", routeSnapshot.path);
 
         const transition = outletEl.getAttribute("transition");
         if (transition && !_useViewTransition()) {
@@ -786,14 +801,14 @@ export function _createRouter() {
           const pageTitleExpr = tpl.getAttribute("page-title");
           if (pageTitleExpr) {
             const titleCtx = createContext({}, null);
-            titleCtx.__raw.$route = current;
+            titleCtx.__raw.$route = routeSnapshot;
             titleCtx.__raw.$store = _stores;
             const title = evaluate(pageTitleExpr, titleCtx);
             if (title != null) document.title = String(title);
           }
         }
         // Update <head> metadata from route template attributes.
-        if (outletName === "default") _applyRouteHeadAttrs(tpl, current);
+        if (outletName === "default") _applyRouteHeadAttrs(tpl, routeSnapshot);
 
         // Focus management: move focus to the new content when focusBehavior is "auto".
         // Only applied to the default outlet to avoid fighting with secondary outlets.
@@ -826,11 +841,14 @@ export function _createRouter() {
       const exactClass = link.getAttribute("route-active-exact");
 
       if (exactClass) {
-        link.classList.toggle(exactClass, current.path === routePath);
+        link.classList.toggle(exactClass, routeSnapshot.path === routePath);
       } else if (activeClass && !link.hasAttribute("route-active-exact")) {
+        // Prefix match on a path-segment boundary only, so "/foo" does not
+        // light up "/foobar" (sibling paths sharing a textual prefix).
+        const cur = routeSnapshot.path;
         const isActive = routePath === "/"
-          ? current.path === "/"
-          : current.path.startsWith(routePath);
+          ? cur === "/"
+          : cur === routePath || cur.startsWith(routePath.replace(/\/$/, "") + "/");
         link.classList.toggle(activeClass, isActive);
       }
     });
@@ -865,7 +883,7 @@ export function _createRouter() {
       const rawSrc = outletEl.getAttribute("src") || _config.router.templates || "";
       if (!rawSrc) continue;
       const baseSrc = rawSrc.replace(/\/?$/, "/");
-      const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl" || ".html";
+      const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl";
       const indexName = outletEl.getAttribute("route-index") || "index";
       const outletName = (outletEl.getAttribute("route-view") || "").trim() || "default";
 
@@ -1022,7 +1040,6 @@ export function _createRouter() {
       // Listen for URL changes
       if (_config.router.useHash) {
         const _hashchangeHandler = () => {
-          _navDirection = "backward"; // conservative default for hashchange/back
           const raw = window.location.hash.slice(1) || "/";
           if (!raw.startsWith("/")) {
             const el = document.getElementById(raw);
@@ -1035,7 +1052,7 @@ export function _createRouter() {
           // Skip if path unchanged (prevents double-processing from programmatic hash set)
           const [p] = raw.split("?");
           if (p === current.path) return;
-          navigate(raw, true);
+          navigate(raw, true, true); // history pop → backward direction
         };
         window.addEventListener("hashchange", _hashchangeHandler);
         _globalHandlers.push(() => window.removeEventListener("hashchange", _hashchangeHandler));
@@ -1047,7 +1064,7 @@ export function _createRouter() {
           // Detect direction: popstate fires for back AND forward.
           // Use Navigation API when available; otherwise fall back to
           // comparing history.length (imperfect but sufficient).
-          _navDirection = "backward"; // conservative default for popstate
+          // Conservatively treated as backward (isPopNavigation = true).
           const path = _stripBase(window.location.pathname);
           // Guard: don't re-navigate if only the hash changed
           if (path === current.path) {
@@ -1058,7 +1075,7 @@ export function _createRouter() {
             }
             return;
           }
-          navigate(path, true);
+          navigate(path, true, true); // history pop → backward direction
         };
         window.addEventListener("popstate", _popstateHandler);
         _globalHandlers.push(() => window.removeEventListener("popstate", _popstateHandler));

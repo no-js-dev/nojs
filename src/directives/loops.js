@@ -131,6 +131,16 @@ const _loopHandler = {
         list = [...list].sort((a, b) => {
           const va = resolve(key, a) ?? a?.[key];
           const vb = resolve(key, b) ?? b?.[key];
+          // Total ordering: nullish/NaN keys sort after comparable values so
+          // the comparator never returns 0 for genuinely unequal/incomparable
+          // operands (which would break sort stability and ordering).
+          const aBad = va == null || (typeof va === "number" && Number.isNaN(va));
+          const bBad = vb == null || (typeof vb === "number" && Number.isNaN(vb));
+          // Bad keys always sink to the end regardless of sort direction.
+          if (aBad || bBad) {
+            if (aBad && bBad) return 0;
+            return aBad ? 1 : -1;
+          }
           const r = va < vb ? -1 : va > vb ? 1 : 0;
           return desc ? -r : r;
         });

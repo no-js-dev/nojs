@@ -68,12 +68,21 @@ registerDirective("style-*", {
 
     // style-map="{ color: x, fontSize: y }"
     if (suffix === "map") {
+      let prevProps = [];
       function update() {
         const obj = evaluate(expr, ctx);
         if (obj && typeof obj === "object") {
+          const nextProps = Object.keys(obj);
+          // Clear properties that were set previously but are absent now, so a
+          // property removed from the bound object no longer lingers on the
+          // element (stale style leak).
+          for (const prop of prevProps) {
+            if (!(prop in obj)) el.style[prop] = "";
+          }
           for (const [prop, val] of Object.entries(obj)) {
             el.style[prop] = val ?? "";
           }
+          prevProps = nextProps;
         }
       }
       _watchExpr(expr, ctx, update);

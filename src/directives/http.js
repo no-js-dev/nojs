@@ -33,7 +33,12 @@ for (const method of HTTP_METHODS) {
       const thenExpr = el.getAttribute("then");
       const redirectPath = el.getAttribute("redirect");
       const confirmMsg = el.getAttribute("confirm");
-      const refreshInterval = parseInt(el.getAttribute("refresh")) || 0;
+      const _MIN_REFRESH_MS = 250;
+      const _rawRefresh = parseInt(el.getAttribute("refresh")) || 0;
+      // Clamp tiny positive intervals to a sane floor so a small/typo value
+      // (e.g. refresh="1") cannot spin up a tight polling loop.
+      const refreshInterval =
+        _rawRefresh > 0 ? Math.max(_rawRefresh, _MIN_REFRESH_MS) : 0;
       const cachedRaw = el.getAttribute("cached");
       const cacheStrategy = el.hasAttribute("cached")
         ? cachedRaw || "memory"
@@ -60,6 +65,13 @@ for (const method of HTTP_METHODS) {
       );
 
       let _activeAbort = null;
+
+      // Abort any in-flight request on disposal so a late response cannot
+      // mutate a disposed context or re-process a detached node (Rule 2).
+      _onDispose(() => {
+        if (_activeAbort) _activeAbort.abort();
+        _activeAbort = null;
+      });
 
       // skeleton= helpers: show/hide a referenced DOM element by ID while
       // the request is in flight, preventing CLS from content appearing late.
@@ -103,13 +115,31 @@ for (const method of HTTP_METHODS) {
 
         let resolvedUrl = _interpolate(url, ctx);
 
-        // Append query params
+        // Append query params. Build entries manually so array values expand
+        // to repeated keys (?tag=a&tag=b) and objects are JSON-encoded rather
+        // than coerced to "[object Object]"/comma-joined strings.
         if (paramsAttr) {
           const paramsObj = evaluate(paramsAttr, ctx);
           if (paramsObj && typeof paramsObj === "object") {
-            const sep = resolvedUrl.includes("?") ? "&" : "?";
-            const qs = new URLSearchParams(paramsObj).toString();
-            if (qs) resolvedUrl += sep + qs;
+            const sp = new URLSearchParams();
+            for (const [key, value] of Object.entries(paramsObj)) {
+              if (value == null) continue;
+              if (Array.isArray(value)) {
+                for (const v of value) {
+                  if (v == null) continue;
+                  sp.append(key, typeof v === "object" ? JSON.stringify(v) : String(v));
+                }
+              } else if (typeof value === "object") {
+                sp.append(key, JSON.stringify(value));
+              } else {
+                sp.append(key, String(value));
+              }
+            }
+            const qs = sp.toString();
+            if (qs) {
+              const sep = resolvedUrl.includes("?") ? "&" : "?";
+              resolvedUrl += sep + qs;
+            }
           }
         }
 

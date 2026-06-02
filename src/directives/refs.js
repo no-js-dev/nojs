@@ -94,6 +94,20 @@ registerDirective("call", {
 
     const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
     let _activeAbort = null;
+    // Tracks the last appended success/error result wrapper so it can be
+    // disposed and removed before a new one is appended (Rule 1) — otherwise
+    // every click leaks a wrapper with its own context/listeners/watchers.
+    let _resultWrapper = null;
+
+    function _clearResultWrapper() {
+      if (_resultWrapper) {
+        _disposeChildren(_resultWrapper);
+        _resultWrapper.remove();
+        _resultWrapper = null;
+      }
+    }
+    // Clean up any lingering wrapper when the call element itself is disposed.
+    _onDispose(_clearResultWrapper);
 
     const clickHandler = async (e) => {
       e.preventDefault();
@@ -164,18 +178,21 @@ registerDirective("call", {
         if (thenExpr) _execStatement(thenExpr, ctx, { result: data });
         if (successTpl) {
           const clone = _cloneTemplate(successTpl);
-          if (clone) {
+          const target = el.closest("[route-view]") || el.parentElement;
+          if (clone && target) {
             const tplEl = document.getElementById(
               successTpl.replace("#", ""),
             );
             const vn = tplEl?.getAttribute("var") || "result";
             const childCtx = createContext({ [vn]: data }, ctx);
-            const target = el.closest("[route-view]") || el.parentElement;
+            // Dispose/remove the previous result wrapper before appending.
+            _clearResultWrapper();
             const wrapper = document.createElement("div");
             wrapper.style.display = "contents";
             wrapper.__ctx = childCtx;
             wrapper.appendChild(clone);
             target.appendChild(wrapper);
+            _resultWrapper = wrapper;
             processTree(wrapper);
           }
         }
@@ -206,19 +223,22 @@ registerDirective("call", {
 
         if (errorTpl) {
           const clone = _cloneTemplate(errorTpl);
-          if (clone) {
+          const target = el.closest("[route-view]") || el.parentElement;
+          if (clone && target) {
             const tplEl = document.getElementById(errorTpl.replace("#", ""));
             const vn = tplEl?.getAttribute("var") || "err";
             const childCtx = createContext(
               { [vn]: { message: err.message, status: err.status, body: err.body } },
               ctx,
             );
-            const target = el.parentElement;
+            // Dispose/remove the previous result wrapper before appending.
+            _clearResultWrapper();
             const wrapper = document.createElement("div");
             wrapper.style.display = "contents";
             wrapper.__ctx = childCtx;
             wrapper.appendChild(clone);
             target.appendChild(wrapper);
+            _resultWrapper = wrapper;
             processTree(wrapper);
           }
         }

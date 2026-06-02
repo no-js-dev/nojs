@@ -2,7 +2,7 @@
   <img src="docs/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
 </h1>
 
-![version](https://img.shields.io/badge/version-1.13.1-blue)
+![version](https://img.shields.io/badge/version-1.13.2-blue)
 
 **The HTML-First Reactive Framework**
 

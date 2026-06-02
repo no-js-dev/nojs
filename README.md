@@ -3,6 +3,7 @@
 </h1>
 
 ![version](https://img.shields.io/badge/version-1.13.1-blue)
+[![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/erickxavier/no-js/badge)](https://www.jsdelivr.com/package/gh/erickxavier/no-js)
 
 **The HTML-First Reactive Framework**
 

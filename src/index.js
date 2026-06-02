@@ -310,6 +310,16 @@ const NoJS = {
       }
       // Wrap in reactive context for deep reactivity
       value = createContext(value);
+    } else if (value && typeof value === "object" && value.__isProxy) {
+      // Already a reactive proxy — sanitization branch above is skipped, so run the
+      // recursive unsafe-reference / prototype-pollution check on the raw target
+      // to avoid storing nested eval/Function refs or polluted prototypes verbatim.
+      try {
+        _deepCheckUnsafe(value.__raw ?? value);
+      } catch (safetyErr) {
+        if (safetyErr.message === "unsafe_global") return;
+        // Other errors pass through
+      }
     }
 
     _globals[name] = value;
@@ -326,6 +336,13 @@ const NoJS = {
   async dispose() {
     _setDisposing(true);
     try {
+      // Wait for any in-flight init() to settle before tearing down — otherwise the
+      // init IIFE keeps running against state we are about to clear and re-locks config
+      // after teardown. _setDisposing(true) above prevents new plugin installs meanwhile.
+      if (_initPromise) {
+        try { await _initPromise; } catch { /* init failure is irrelevant during dispose */ }
+      }
+
       // Dispose plugins in reverse installation order
       const entries = [..._plugins.entries()].reverse();
       for (const [name, { plugin }] of entries) {
@@ -373,6 +390,9 @@ const NoJS = {
   async init(root) {
     if (typeof document === "undefined") return;
     if (_initPromise) return _initPromise;
+    // Lock security-critical config synchronously, BEFORE the async init body awaits
+    // anything — otherwise sanitize flags remain mutable during the async init window.
+    _configLocked = true;
     _initPromise = (async () => {
       root = root || document.body;
       _log("Initializing...");
@@ -415,8 +435,6 @@ const NoJS = {
         if (plugin.init) await plugin.init(NoJS);
       }
       _emitEvent("plugins:ready");
-
-      _configLocked = true;
     })();
     return _initPromise;
   },
@@ -484,11 +502,17 @@ const NoJS = {
 
   // Request/response interceptors (with plugin tracking)
   interceptor(type, fn) {
-    if (_interceptors[type]) {
-      _interceptors[type].push(
-        _currentPluginName ? { fn, pluginName: _currentPluginName } : fn
-      );
+    if (_disposing) {
+      _warn("Cannot register interceptors during dispose.");
+      return;
     }
+    if (!_interceptors[type]) {
+      _warn(`NoJS.interceptor(): unknown type "${type}" (expected "request" or "response").`);
+      return;
+    }
+    _interceptors[type].push(
+      _currentPluginName ? { fn, pluginName: _currentPluginName } : fn
+    );
   },
 
   // Access global stores

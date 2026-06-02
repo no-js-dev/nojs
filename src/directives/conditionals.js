@@ -90,6 +90,10 @@ registerDirective("else-if", {
     const ctx = findContext(el);
     const thenId = el.getAttribute("then");
     const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+    // Tracks the last rendered outcome ("shown" | "hidden") so an unrelated
+    // parent change does not needlessly tear down and rebuild children,
+    // destroying local input state (parity with if/show/hide dedup).
+    let currentState;
 
     function update() {
       // Check if any preceding if/else-if was true
@@ -99,6 +103,8 @@ registerDirective("else-if", {
           prev.getAttribute("if") || prev.getAttribute("else-if");
         if (prevExpr) {
           if (evaluate(prevExpr, ctx)) {
+            if (currentState === "hidden") return;
+            currentState = "hidden";
             _disposeChildren(el);
             el.innerHTML = "";
             el.style.display = "none";
@@ -109,6 +115,9 @@ registerDirective("else-if", {
       }
 
       const result = !!evaluate(expr, ctx);
+      const nextState = result ? "shown" : "hidden";
+      if (nextState === currentState) return;
+      currentState = nextState;
       el.style.display = "";
       if (result) {
         if (thenId) {
@@ -144,6 +153,10 @@ registerDirective("else", {
     const ctx = findContext(el);
     const thenId = el.getAttribute("then");
     const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+    // Tracks the last rendered outcome ("shown" | "hidden") so an unrelated
+    // parent change does not needlessly rebuild children, destroying local
+    // input state (parity with if/show/hide dedup).
+    let currentState;
 
     function update() {
       // Check if any preceding if/else-if was true
@@ -153,6 +166,8 @@ registerDirective("else", {
           prev.getAttribute("if") || prev.getAttribute("else-if");
         if (prevExpr) {
           if (evaluate(prevExpr, ctx)) {
+            if (currentState === "hidden") return;
+            currentState = "hidden";
             _disposeChildren(el);
             el.innerHTML = "";
             el.style.display = "none";
@@ -163,6 +178,8 @@ registerDirective("else", {
       }
 
       // No preceding condition was true — show else content
+      if (currentState === "shown") return;
+      currentState = "shown";
       el.style.display = "";
       if (thenId) {
         const clone = _cloneTemplate(thenId);
@@ -264,6 +281,33 @@ registerDirective("animate", {
   },
 });
 
+// Splits a comma-separated expression list on top-level commas only,
+// ignoring commas inside single/double-quoted string literals or nested
+// brackets/parens so `'a,b','c'` yields ["'a,b'", "'c'"].
+function _splitTopLevel(str) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (quote) {
+      if (ch === quote && str[i - 1] !== "\\") quote = null;
+    } else if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+    } else if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+    } else if (ch === ")" || ch === "]" || ch === "}") {
+      depth--;
+    } else if (ch === "," && depth === 0) {
+      parts.push(str.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(str.slice(start));
+  return parts;
+}
+
 registerDirective("switch", {
   priority: 10,
   init(el, name, expr) {
@@ -279,10 +323,12 @@ registerDirective("switch", {
         const thenTpl = child.getAttribute("then");
 
         if (caseVal) {
-          // Support multi-value: case="'a','b'"
-          const values = caseVal
-            .split(",")
-            .map((v) => evaluate(v.trim(), ctx));
+          // Support multi-value: case="'a','b'". Split on top-level commas only
+          // so a comma inside a string literal (e.g. case="'a,b','c'") is not
+          // broken into two non-matching sub-expressions.
+          const values = _splitTopLevel(caseVal).map((v) =>
+            evaluate(v.trim(), ctx),
+          );
           if (!matched && values.includes(val)) {
             matched = true;
             child.style.display = "";
@@ -295,13 +341,28 @@ registerDirective("switch", {
               }
               child.__declared = false;
               processTree(child);
+            } else if (child.__switchDisposed) {
+              // Inline case (no `then` template): its descendants were
+              // disposed on a previous non-match (display:none branch below),
+              // leaving dead, non-reactive DOM in place. Re-run processTree so
+              // the inline directives (bind, etc.) re-declare and re-render
+              // their reactive content on re-match. Guarded by __switchDisposed
+              // so the first render (already declared by the outer walk) does
+              // not double-init its directives.
+              child.__switchDisposed = false;
+              child.__declared = false;
+              processTree(child);
             }
           } else {
             _disposeChildren(child);
+            child.__switchDisposed = true;
             child.style.display = "none";
           }
         } else if (isDefault) {
-          if (matched) _disposeChildren(child);
+          if (matched) {
+            _disposeChildren(child);
+            child.__switchDisposed = true;
+          }
           child.style.display = matched ? "none" : "";
           if (!matched && thenTpl) {
             const clone = _cloneTemplate(thenTpl);
@@ -310,6 +371,11 @@ registerDirective("switch", {
               child.innerHTML = "";
               child.appendChild(clone);
             }
+            child.__declared = false;
+            processTree(child);
+          } else if (!matched && child.__switchDisposed) {
+            // Inline default re-shown after a previous match disposed it.
+            child.__switchDisposed = false;
             child.__declared = false;
             processTree(child);
           }

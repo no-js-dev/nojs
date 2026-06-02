@@ -117,7 +117,13 @@ export function _animateIn(el, animName, transitionName, durationMs, targetSelf 
     target.style.animationFillMode = "forwards";
     target.style.animationTimingFunction = "ease";
     if (durationMs) target.style.animationDuration = durationMs + "ms";
+    let called = false;
+    let timerId;
     const done = () => {
+      if (called) return;
+      called = true;
+      clearTimeout(timerId);
+      target.removeEventListener("animationend", done);
       target.classList.remove(animName);
       target.style.animationName = "";
       target.style.animationDuration = "";
@@ -127,7 +133,10 @@ export function _animateIn(el, animName, transitionName, durationMs, targetSelf 
     target.addEventListener("animationend", done, { once: true });
     // Fallback: remove the class on the next tick if animationend never fires
     // (e.g. CSS absent, element detached). Mirrors the transitionName branch.
-    setTimeout(done, fallback);
+    timerId = setTimeout(done, fallback);
+    // Canceller: callers register this via _onDispose so a detached element does
+    // not keep a live timer + closure pinned (Rules 2 & 4).
+    return () => done();
   }
   if (transitionName) {
     const target = targetSelf ? el : (el.firstElementChild || el);
@@ -135,10 +144,16 @@ export function _animateIn(el, animName, transitionName, durationMs, targetSelf 
       transitionName + "-enter",
       transitionName + "-enter-active",
     );
-    requestAnimationFrame(() => {
+    let called = false;
+    let timerId;
+    const rafId = requestAnimationFrame(() => {
       target.classList.remove(transitionName + "-enter");
       target.classList.add(transitionName + "-enter-to");
       const done = () => {
+        if (called) return;
+        called = true;
+        clearTimeout(timerId);
+        target.removeEventListener("transitionend", done);
         target.classList.remove(
           transitionName + "-enter-active",
           transitionName + "-enter-to",
@@ -146,9 +161,20 @@ export function _animateIn(el, animName, transitionName, durationMs, targetSelf 
       };
       target.addEventListener("transitionend", done, { once: true });
       // Fallback
-      setTimeout(done, fallback);
+      timerId = setTimeout(done, fallback);
     });
+    return () => {
+      called = true;
+      cancelAnimationFrame(rafId);
+      clearTimeout(timerId);
+      target.classList.remove(
+        transitionName + "-enter",
+        transitionName + "-enter-active",
+        transitionName + "-enter-to",
+      );
+    };
   }
+  return () => {};
 }
 
 export function _animateOut(el, animName, transitionName, callback, durationMs) {

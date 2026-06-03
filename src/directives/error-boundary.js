@@ -2,7 +2,7 @@
 //  DIRECTIVE: error-boundary
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _onDispose } from "../globals.js";
+import { _onDispose, _warn } from "../globals.js";
 import { createContext } from "../context.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
@@ -11,22 +11,32 @@ registerDirective("error-boundary", {
   priority: 1,
   init(el, name, fallbackTpl) {
     const ctx = findContext(el);
+    let _handling = false;
 
     function showFallback(message) {
-      const clone = _cloneTemplate(fallbackTpl);
-      if (clone) {
-        const childCtx = createContext(
-          { err: { message } },
-          ctx,
-        );
-        _disposeChildren(el);
-        el.innerHTML = "";
-        const wrapper = document.createElement("div");
-        wrapper.style.display = "contents";
-        wrapper.__ctx = childCtx;
-        wrapper.appendChild(clone);
-        el.appendChild(wrapper);
-        processTree(wrapper);
+      if (_handling) {
+        _warn("error-boundary: secondary error inside fallback (suppressed to prevent infinite recursion):", message);
+        return;
+      }
+      _handling = true;
+      try {
+        const clone = _cloneTemplate(fallbackTpl);
+        if (clone) {
+          const childCtx = createContext(
+            { err: { message } },
+            ctx,
+          );
+          _disposeChildren(el);
+          el.innerHTML = "";
+          const wrapper = document.createElement("div");
+          wrapper.style.display = "contents";
+          wrapper.__ctx = childCtx;
+          wrapper.appendChild(clone);
+          el.appendChild(wrapper);
+          processTree(wrapper);
+        }
+      } finally {
+        _handling = false;
       }
     }
 

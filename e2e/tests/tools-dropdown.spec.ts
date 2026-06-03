@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 const TOOL_URLS = {
+  elements: 'https://elements.no-js.dev/',
   lsp: 'https://lsp.no-js.dev/',
   skill: 'https://github.com/ErickXavier/nojs-skill',
 };
+
+const TOOL_COUNT = 3;
 
 test.describe('Ecosystem Tools Dropdown', () => {
   test.beforeEach(async ({ page }) => {
@@ -55,10 +58,11 @@ test.describe('Ecosystem Tools Dropdown', () => {
       await expect(toolsMenu).toBeVisible();
 
       const links = toolsMenu.locator('a.tools-option');
-      await expect(links).toHaveCount(2);
+      await expect(links).toHaveCount(TOOL_COUNT);
 
-      await expect(links.nth(0)).toHaveAttribute('href', TOOL_URLS.lsp);
-      await expect(links.nth(1)).toHaveAttribute('href', TOOL_URLS.skill);
+      await expect(links.nth(0)).toHaveAttribute('href', TOOL_URLS.elements);
+      await expect(links.nth(1)).toHaveAttribute('href', TOOL_URLS.lsp);
+      await expect(links.nth(2)).toHaveAttribute('href', TOOL_URLS.skill);
     });
 
     test('4 — All links open in a new tab (target="_blank")', async ({ page }) => {
@@ -66,9 +70,9 @@ test.describe('Ecosystem Tools Dropdown', () => {
       await toolsBtn.click();
 
       const links = page.locator('#tools-menu a.tools-option');
-      await expect(links).toHaveCount(2);
+      await expect(links).toHaveCount(TOOL_COUNT);
 
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < TOOL_COUNT; i++) {
         await expect(links.nth(i)).toHaveAttribute('target', '_blank');
       }
     });
@@ -77,10 +81,10 @@ test.describe('Ecosystem Tools Dropdown', () => {
       await page.locator('.tools-dropdown-btn').click();
 
       const options = page.locator('#tools-menu a.tools-option');
-      await expect(options).toHaveCount(2);
+      await expect(options).toHaveCount(TOOL_COUNT);
 
       // Each option should have a non-empty name and description
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < TOOL_COUNT; i++) {
         const name = options.nth(i).locator('.tools-option-name');
         const desc = options.nth(i).locator('.tools-option-desc');
         await expect(name).not.toBeEmpty();
@@ -125,12 +129,15 @@ test.describe('Ecosystem Tools Dropdown', () => {
       await expect(groupLabel).toBeVisible();
 
       // Verify tool links (external links with target="_blank" inside mobile nav)
+      const elementsLink = mobileNav.locator(`a[href="${TOOL_URLS.elements}"]`);
       const lspLink = mobileNav.locator(`a[href="${TOOL_URLS.lsp}"]`);
       const skillLink = mobileNav.locator(`a[href="${TOOL_URLS.skill}"]`);
 
+      await expect(elementsLink).toBeVisible();
       await expect(lspLink).toBeVisible();
       await expect(skillLink).toBeVisible();
 
+      await expect(elementsLink).toHaveAttribute('target', '_blank');
       await expect(lspLink).toHaveAttribute('target', '_blank');
       await expect(skillLink).toHaveAttribute('target', '_blank');
     });
@@ -163,12 +170,15 @@ test.describe('Ecosystem Tools Dropdown', () => {
     test('9 — Footer contains all tool links', async ({ page }) => {
       const footer = page.locator('footer.footer');
 
+      const elementsLink = footer.locator(`a[href="${TOOL_URLS.elements}"]`);
       const lspLink = footer.locator(`a[href="${TOOL_URLS.lsp}"]`);
       const skillLink = footer.locator(`a[href="${TOOL_URLS.skill}"]`);
 
+      await expect(elementsLink).toBeVisible();
       await expect(lspLink).toBeVisible();
       await expect(skillLink).toBeVisible();
 
+      await expect(elementsLink).toHaveAttribute('target', '_blank');
       await expect(lspLink).toHaveAttribute('target', '_blank');
       await expect(skillLink).toHaveAttribute('target', '_blank');
     });
@@ -208,8 +218,9 @@ test.describe('Ecosystem Tools Dropdown', () => {
 
       // Verify descriptions are in Spanish
       const options = page.locator('#tools-menu a.tools-option');
-      await expect(options.nth(0).locator('.tools-option-desc')).toHaveText('Extensión VS Code');
-      await expect(options.nth(1).locator('.tools-option-desc')).toHaveText('Referencia AI agent');
+      await expect(options.nth(0).locator('.tools-option-desc')).toHaveText('Drag, drop y validación');
+      await expect(options.nth(1).locator('.tools-option-desc')).toHaveText('Extensión VS Code');
+      await expect(options.nth(2).locator('.tools-option-desc')).toHaveText('Referencia AI agent');
     });
   });
 });

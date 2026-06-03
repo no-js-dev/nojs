@@ -3581,3 +3581,78 @@ describe('_makeLoopItem: single-root vs multi-root template promotion', () => {
     expect(children[0].querySelector('b').textContent).toBe('0');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NOJS-76: error-boundary re-entrancy guard
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Error-boundary re-entrancy guard (NOJS-76)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('does not recurse when fallback template triggers a secondary error', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Create a fallback template
+    const fallbackTpl = document.createElement('template');
+    fallbackTpl.id = 'reentrant-fallback';
+    fallbackTpl.innerHTML = '<div class="fallback-content">Fallback rendered</div>';
+    document.body.appendChild(fallbackTpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const boundary = document.createElement('div');
+    boundary.setAttribute('error-boundary', '#reentrant-fallback');
+    boundary.innerHTML = '<p>Normal content</p>';
+    parent.appendChild(boundary);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    // Simulate re-entrancy: intercept appendChild on the boundary so that
+    // when showFallback appends the fallback wrapper, we synchronously
+    // fire a window-level error event targeting the boundary. The
+    // directive's capture-phase window error handler calls showFallback
+    // again — the _handling guard must suppress the recursive call.
+    let secondaryFired = false;
+    const origAppendChild = Element.prototype.appendChild;
+    const patchedAppendChild = function (node) {
+      const result = origAppendChild.call(this, node);
+      if (this === boundary && !secondaryFired) {
+        secondaryFired = true;
+        // Dispatch a nojs:error while showFallback is mid-execution
+        boundary.dispatchEvent(new CustomEvent('nojs:error', {
+          detail: { message: 'Secondary error inside fallback' },
+        }));
+      }
+      return result;
+    };
+    Element.prototype.appendChild = patchedAppendChild;
+
+    // Dispatch the primary error — triggers showFallback
+    boundary.dispatchEvent(new CustomEvent('nojs:error', {
+      detail: { message: 'Primary error' },
+    }));
+
+    // Restore appendChild
+    Element.prototype.appendChild = origAppendChild;
+
+    // The fallback content should be present (primary error was handled)
+    expect(boundary.querySelector('.fallback-content')).not.toBeNull();
+
+    // The secondary error must have been dispatched
+    expect(secondaryFired).toBe(true);
+
+    // _warn should have been called for the suppressed secondary error
+    // _warn() prepends "[No.JS]" as the first arg, so the message is at index 1
+    const warnCalls = warnSpy.mock.calls.filter(
+      (call) => call[1] && call[1].includes('secondary error inside fallback')
+    );
+    expect(warnCalls.length).toBe(1);
+    expect(warnCalls[0][2]).toBe('Secondary error inside fallback');
+
+    warnSpy.mockRestore();
+  });
+});

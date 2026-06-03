@@ -122,8 +122,18 @@ registerDirective("bind-*", {
         el.tagName === "SELECT")
     ) {
       const inputHandler = () => {
-        const val = el.type === "number" ? Number(el.value) : el.value;
-        _execStatement(`${expr} = ${JSON.stringify(val)}`, ctx);
+        let val;
+        if (el.type === "number") {
+          // Keep the prior model value while the input is intermediate/invalid
+          // (e.g. "1e", "-", "") so we never silently write NaN/null.
+          if (el.value === "" || isNaN(el.valueAsNumber)) return;
+          val = el.valueAsNumber;
+        } else {
+          val = el.value;
+        }
+        // Pass the value as a bound variable rather than string-interpolating
+        // JSON, keeping the write-back consistent with the `model` directive.
+        _execStatement(`${expr} = __val`, ctx, { __val: val });
       };
       el.addEventListener("input", inputHandler);
       _onDispose(() => el.removeEventListener("input", inputHandler));
@@ -172,7 +182,22 @@ registerDirective("model", {
       } else if (tag === "SELECT") {
         el.value = val != null ? String(val) : "";
       } else {
-        el.value = val != null ? String(val) : "";
+        const next = val != null ? String(val) : "";
+        // Avoid clobbering in-progress edits (e.g. "1." on a number input
+        // becomes model=1, which would otherwise rewrite el.value="1" and erase
+        // the trailing "."). Skip the write when the element is focused and the
+        // current text already represents the same value.
+        if (document.activeElement === el) {
+          if ((type === "number" || type === "range")) {
+            // valueAsNumber compares the rendered numeric value, ignoring
+            // trailing dots / leading zeros the user may be mid-typing.
+            const current = el.valueAsNumber;
+            if (val != null && !isNaN(current) && current === Number(val)) return;
+          } else if (el.value === next) {
+            return;
+          }
+        }
+        el.value = next;
       }
     }
 

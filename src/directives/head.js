@@ -23,7 +23,7 @@
 //  whenever the reactive context changes.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _watchExpr } from "../globals.js";
+import { _watchExpr, _onDispose } from "../globals.js";
 import { evaluate, resolve } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
@@ -65,6 +65,11 @@ registerDirective("page-description", {
   priority: 1,
   init(el, name, expr) {
     const ctx = findContext(el);
+    // Track whether THIS directive created the meta element so disposal can
+    // remove it (and avoid stale meta leaking across SPA route changes). A
+    // hand-written meta the developer placed in <head> is left untouched.
+    let created = false;
+    let managed = null;
     function update() {
       const val = evaluate(expr, ctx);
       if (val == null) return;
@@ -73,11 +78,16 @@ registerDirective("page-description", {
         meta = document.createElement("meta");
         meta.name = "description";
         document.head.appendChild(meta);
+        created = true;
       }
+      managed = meta;
       meta.content = String(val);
     }
     _watchExpr(expr, ctx, update);
     update();
+    _onDispose(() => {
+      if (created && managed && managed.isConnected) managed.remove();
+    });
   },
 });
 
@@ -88,6 +98,8 @@ registerDirective("page-canonical", {
   priority: 1,
   init(el, name, expr) {
     const ctx = findContext(el);
+    let created = false;
+    let managed = null;
     function update() {
       const val = evaluate(expr, ctx);
       if (val == null) return;
@@ -96,13 +108,20 @@ registerDirective("page-canonical", {
         link = document.createElement("link");
         link.rel = "canonical";
         document.head.appendChild(link);
+        created = true;
       }
       const href = String(val);
       if (/^\s*(javascript|vbscript|data):/i.test(href)) return;
+      managed = link;
       link.href = href;
     }
     _watchExpr(expr, ctx, update);
     update();
+    // Remove the canonical link this directive created on disposal so it
+    // doesn't persist as a stale canonical across SPA route changes.
+    _onDispose(() => {
+      if (created && managed && managed.isConnected) managed.remove();
+    });
   },
 });
 
@@ -123,6 +142,8 @@ registerDirective("page-jsonld", {
     // empty — the developer writes the JSON template as the element body.
     const template = (el.textContent || el.innerHTML).trim();
     if (!template) return;
+    let created = false;
+    let managed = null;
     function update() {
       // Resolve {interpolation} placeholders in the JSON template.
       const json = _interpolateRaw(template, ctx);
@@ -135,10 +156,17 @@ registerDirective("page-jsonld", {
         script.type = "application/ld+json";
         script.setAttribute("data-nojs", "");
         document.head.appendChild(script);
+        created = true;
       }
+      managed = script;
       script.textContent = json.replace(/<\//g, '<\\/');
     }
     _watchExpr(template, ctx, update);
     update();
+    // The managed JSON-LD script is owned by No.JS (data-nojs marker); remove
+    // it on disposal to prevent stale structured data across SPA routes.
+    _onDispose(() => {
+      if (created && managed && managed.isConnected) managed.remove();
+    });
   },
 });

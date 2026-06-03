@@ -2,7 +2,7 @@
 //  REACTIVE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
 import { _i18n } from "./i18n.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 
@@ -26,9 +26,15 @@ export function _endBatch() {
     _devtoolsEmit("batch:end", { depth: 0, queueSize: _batchQueue.size });
     const fns = _batchQueue;
     _batchQueue = new Set();
+    // Drain defensively: a throwing listener must not drop the rest of the
+    // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
     fns.forEach((fn) => {
       if (fn._el && !fn._el.isConnected) return;
-      fn();
+      try {
+        fn();
+      } catch (err) {
+        _warn("batched listener threw; continuing with remaining listeners:", err);
+      }
     });
   }
 }
@@ -52,7 +58,13 @@ export function createContext(data = {}, parent = null) {
       } else {
         for (const fn of listeners) {
           if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
-          fn();
+          // Isolate each listener: a single throwing listener must not abort
+          // the loop and skip every sibling (Safety Rule 8).
+          try {
+            fn();
+          } catch (err) {
+            _warn("reactive listener threw; continuing with remaining listeners:", err);
+          }
         }
       }
     } finally {
@@ -75,7 +87,12 @@ export function createContext(data = {}, parent = null) {
       const lastKey = parts[parts.length - 1];
       const old = obj[lastKey];
       obj[lastKey] = v;
-      if (old !== v) notify();
+      if (old !== v) {
+        // Bump the generation so _collectKeys' cache invalidates, mirroring the
+        // set trap. Otherwise a nested $set leaves stale vals cached.
+        _ctxGeneration++;
+        notify();
+      }
     }
   };
 

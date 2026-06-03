@@ -1873,10 +1873,12 @@ describe('evaluate — browser globals allow-list', () => {
     expect(window.fetch).toBe(original);
   });
 
-  test('window user-defined property writes are allowed', () => {
+  test('window user-defined property writes are NOT persisted to the real window (NOJS-60 #28)', () => {
+    // Writing arbitrary props through the safe-window proxy must not pollute the
+    // real window (no global creation/override from a template expression).
+    expect(window.__testProp).toBeUndefined();
     _execStatement("window.__testProp = 42", createContext({}));
-    expect(window.__testProp).toBe(42);
-    delete window.__testProp;
+    expect(window.__testProp).toBeUndefined();
   });
 });
 

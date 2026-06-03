@@ -9,7 +9,41 @@ import { resolveUrl } from "./fetch.js";
 // ─── Template HTML cache: url → html string ────────────────────────────────
 // Avoids re-fetching the same .tpl file on repeat navigation.
 // Controlled by _config.templates.cache (default: true).
+// LRU-bounded (mirrors the expression cache in evaluate.js) so long-lived
+// SPAs that visit many distinct template URLs don't grow the Map without limit.
+// Size is governed by _config.templates.maxSize (default 200).
+const _TEMPLATE_CACHE_DEFAULT_MAX = 200;
 export const _templateHtmlCache = new Map();
+
+function _templateCacheMax() {
+  const m = _config.templates && _config.templates.maxSize;
+  return typeof m === "number" && m > 0 ? m : _TEMPLATE_CACHE_DEFAULT_MAX;
+}
+
+// Read-with-LRU-bump: move a hit entry to the most-recently-used position.
+export function _templateCacheGet(url) {
+  if (!_templateHtmlCache.has(url)) return undefined;
+  const v = _templateHtmlCache.get(url);
+  _templateHtmlCache.delete(url);
+  _templateHtmlCache.set(url, v);
+  return v;
+}
+
+// Set-with-LRU-eviction: evict the oldest entry when at capacity.
+export function _templateCacheSet(url, html) {
+  const max = _templateCacheMax();
+  if (_templateHtmlCache.has(url)) {
+    _templateHtmlCache.delete(url); // refresh position before re-inserting
+  } else if (_templateHtmlCache.size >= max) {
+    _templateHtmlCache.delete(_templateHtmlCache.keys().next().value); // evict LRU
+  }
+  _templateHtmlCache.set(url, html);
+}
+
+// ─── In-flight template fetch dedup: url → Promise<string> ──────────────────
+// Concurrent loaders of the same URL share a single fetch instead of each
+// issuing its own request before the cache is written.
+const _templateInflight = new Map();
 
 // ─── DOMParser singleton — stateless, safe to reuse across calls ────────────
 const _domParser = new DOMParser();
@@ -63,13 +97,44 @@ function _sanitizeSvgContent(svg) {
   return new XMLSerializer().serializeToString(root);
 }
 
+// base64-decode a string into a UTF-8 JS string (atob yields a Latin1 byte
+// string; multibyte SVG content must be re-decoded as UTF-8).
+function _b64DecodeUtf8(b64) {
+  const bytes = atob(b64);
+  if (typeof TextDecoder === "function") {
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new TextDecoder().decode(arr);
+  }
+  // Fallback: percent-decode the raw byte string into UTF-8.
+  return decodeURIComponent(
+    bytes.split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")
+  );
+}
+
+// base64-encode a UTF-8 JS string. btoa() throws on code points > 0xFF, so
+// the string is first encoded to UTF-8 bytes (TextEncoder, with a percent-
+// escape fallback) before being passed to btoa as a Latin1 byte string.
+function _b64EncodeUtf8(str) {
+  let byteStr;
+  if (typeof TextEncoder === "function") {
+    const arr = new TextEncoder().encode(str);
+    let s = "";
+    for (let i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
+    byteStr = s;
+  } else {
+    byteStr = unescape(encodeURIComponent(str));
+  }
+  return btoa(byteStr);
+}
+
 // Sanitize a data:image/svg+xml URI — handles both base64 and URL-encoded forms.
 function _sanitizeSvgDataUri(str) {
   try {
     const b64 = str.match(/^data:image\/svg\+xml;base64,(.+)$/i);
     if (b64) {
-      const clean = _sanitizeSvgContent(atob(b64[1]));
-      return "data:image/svg+xml;base64," + btoa(clean);
+      const clean = _sanitizeSvgContent(_b64DecodeUtf8(b64[1]));
+      return "data:image/svg+xml;base64," + _b64EncodeUtf8(clean);
     }
     const comma = str.indexOf(",");
     if (comma === -1) return "#";
@@ -147,8 +212,10 @@ function _resolveTemplateSrc(src, tpl) {
       }
       node = node.parentNode;
     }
-    // No ancestor base found — strip "./" and let fetch resolve from page
-    return src.slice(2);
+    // No ancestor base found — strip "./" and resolve against the page URL via
+    // resolveUrl so the result is an absolute URL. Returning a bare relative
+    // string here would defeat _warnIfInsecureTemplateUrl's http:// check.
+    return resolveUrl(src.slice(2), tpl);
   }
   // Absolute or plain relative — use the existing resolveUrl logic
   return resolveUrl(src, tpl);
@@ -163,6 +230,34 @@ export function _warnIfInsecureTemplateUrl(resolvedUrl, src, pageProtocol) {
     : (typeof window !== 'undefined' && window.location ? window.location.protocol : '');
   if (resolvedUrl.startsWith('http://') && proto === 'https:') {
     _warn('Template "' + src + '" is loaded over insecure HTTP from an HTTPS page. Use HTTPS to prevent tampering.');
+  }
+}
+
+// Fetch a template's HTML, sharing in-flight requests and honoring the LRU
+// cache. Returns the HTML string, or null on a non-OK / failed response.
+// Concurrent callers for the same URL await the same fetch (dedup, #64).
+async function _fetchTemplateHtml(resolvedUrl, useCache) {
+  if (useCache) {
+    const cached = _templateCacheGet(resolvedUrl);
+    if (cached !== undefined) return { html: cached, hit: true };
+  }
+  let inflight = _templateInflight.get(resolvedUrl);
+  if (!inflight) {
+    inflight = (async () => {
+      const res = await fetch(resolvedUrl);
+      if (!res.ok) return { ok: false, status: res.status };
+      const html = await res.text();
+      if (useCache) _templateCacheSet(resolvedUrl, html);
+      return { ok: true, html };
+    })();
+    _templateInflight.set(resolvedUrl, inflight);
+  }
+  try {
+    const result = await inflight;
+    if (!result.ok) return { html: null, status: result.status };
+    return { html: result.html, hit: false };
+  } finally {
+    _templateInflight.delete(resolvedUrl);
   }
 }
 
@@ -181,20 +276,13 @@ export async function _loadRemoteTemplates(root) {
     const baseFolder = resolvedUrl.substring(0, resolvedUrl.lastIndexOf("/") + 1);
     try {
       const useCache = _config.templates.cache !== false;
-      let html;
-      if (useCache && _templateHtmlCache.has(resolvedUrl)) {
-        html = _templateHtmlCache.get(resolvedUrl);
-        _log("[LRT] CACHE HIT:", resolvedUrl);
-      } else {
-        const res = await fetch(resolvedUrl);
-        if (!res.ok) {
-          _warn("Failed to load template:", src, "HTTP", res.status);
-          tpl.__loadFailed = true;
-          return;
-        }
-        html = await res.text();
-        if (useCache) _templateHtmlCache.set(resolvedUrl, html);
+      const { html, hit, status } = await _fetchTemplateHtml(resolvedUrl, useCache);
+      if (html === null) {
+        _warn("Failed to load template:", src, "HTTP", status);
+        tpl.__loadFailed = true;
+        return;
       }
+      if (hit) _log("[LRT] CACHE HIT:", resolvedUrl);
       tpl.innerHTML = html;
       // Stamp the base folder onto the content so nested templates inherit it
       if (tpl.content) {
@@ -251,21 +339,14 @@ export async function _loadTemplateElement(tpl) {
 
   try {
     const useCache = _config.templates.cache !== false;
-    let html;
-    if (useCache && _templateHtmlCache.has(resolvedUrl)) {
-      html = _templateHtmlCache.get(resolvedUrl);
-      _log("[LTE] CACHE HIT:", resolvedUrl);
-    } else {
-      const res = await fetch(resolvedUrl);
-      if (!res.ok) {
-        _warn("Failed to load template:", src, "HTTP", res.status);
-        tpl.__loadFailed = true;
-        if (loadingMarker) loadingMarker.remove();
-        return;
-      }
-      html = await res.text();
-      if (useCache) _templateHtmlCache.set(resolvedUrl, html);
+    const { html, hit, status } = await _fetchTemplateHtml(resolvedUrl, useCache);
+    if (html === null) {
+      _warn("Failed to load template:", src, "HTTP", status);
+      tpl.__loadFailed = true;
+      if (loadingMarker) loadingMarker.remove();
+      return;
     }
+    if (hit) _log("[LTE] CACHE HIT:", resolvedUrl);
     tpl.innerHTML = html;
     if (tpl.content) {
       tpl.content.__srcBase = baseFolder;
@@ -284,15 +365,14 @@ export async function _loadTemplateElement(tpl) {
       const warmups = [...nested].map((sub) => {
         const subSrc = sub.getAttribute("src");
         const subUrl = _resolveTemplateSrc(subSrc, sub);
-        if (_templateHtmlCache.has(subUrl)) return;
-        return fetch(subUrl).then((r) => {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.text();
-        }).then((h) => {
-          _templateHtmlCache.set(subUrl, h);
-        }).catch(() => {});
+        // Reuse the shared cache + in-flight dedup so a warm-up and a real
+        // navigation load of the same URL never double-fetch (#64).
+        return _fetchTemplateHtml(subUrl, true).catch(() => {});
       });
-      Promise.all(warmups);
+      // Background pre-warm: intentionally non-blocking, but track the promise
+      // on the element so completion/failure is observable rather than a
+      // silent fire-and-forget (#79). Tests/tooling can await tpl.__warmup.
+      tpl.__warmup = Promise.all(warmups);
     }
     // Remove loading placeholder once real content is ready
     if (loadingMarker) loadingMarker.remove();

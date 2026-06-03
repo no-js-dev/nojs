@@ -89,12 +89,19 @@ export function _extractStoreName(expr) {
 }
 
 function _notifyPartition(set) {
-  for (const fn of set) {
+  // Snapshot before iterating: a watcher may synchronously add/delete watchers
+  // in this same partition, which would otherwise skip or re-run listeners.
+  // Isolate each listener so one throwing watcher doesn't abort the rest.
+  for (const fn of [...set]) {
     if (fn._el && !fn._el.isConnected) {
       set.delete(fn);
       continue;
     }
-    fn();
+    try {
+      fn();
+    } catch (err) {
+      _warn("store watcher threw; continuing with remaining watchers:", err);
+    }
   }
 }
 

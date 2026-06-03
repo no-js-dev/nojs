@@ -39,15 +39,20 @@ export function _devtoolsEmit(type, data) {
 
 // ─── Serialization helpers ──────────────────────────────────────────────────
 
-function _safeSnapshot(proxy) {
+function _safeSnapshot(proxy, seen) {
   if (!proxy || !proxy.__isProxy) return null;
   const raw = proxy.__raw;
+  // Cycle detection: a self-referential reactive object would otherwise recurse
+  // forever (RangeError: Maximum call stack size exceeded).
+  if (!seen) seen = new WeakSet();
+  if (raw && seen.has(raw)) return "[Circular]";
+  if (raw) seen.add(raw);
   const snapshot = {};
   for (const key of Object.keys(raw)) {
     if (key.startsWith("__")) continue;
     const val = raw[key];
     if (val && typeof val === "object" && val.__isProxy) {
-      snapshot[key] = _safeSnapshot(val);
+      snapshot[key] = _safeSnapshot(val, seen);
     } else {
       try {
         // Verify serializable — drop functions and circular refs
@@ -61,12 +66,20 @@ function _safeSnapshot(proxy) {
   return snapshot;
 }
 
+function _cssEscape(s) {
+  return (typeof CSS !== "undefined" && typeof CSS.escape === "function")
+    ? CSS.escape(s)
+    : s;
+}
+
 function _elementTag(el) {
   if (!el || !el.tagName) return null;
   const tag = el.tagName.toLowerCase();
-  const id = el.id ? `#${el.id}` : "";
+  const id = el.id ? `#${_cssEscape(el.id)}` : "";
+  // SVG elements expose className as an SVGAnimatedString (not a string), so the
+  // typeof guard skips them. Escape each class so special chars stay valid selectors.
   const cls = el.className && typeof el.className === "string"
-    ? "." + el.className.trim().split(/\s+/).join(".")
+    ? el.className.trim().split(/\s+/).filter(Boolean).map((c) => "." + _cssEscape(c)).join("")
     : "";
   return tag + id + cls;
 }
@@ -154,20 +167,29 @@ function _getStats() {
 // ─── Highlight overlay ──────────────────────────────────────────────────────
 
 let _highlightOverlay = null;
+let _highlightTarget = null;
+let _highlightReposition = null;
+
+function _positionHighlight() {
+  if (!_highlightOverlay || !_highlightTarget) return;
+  const rect = _highlightTarget.getBoundingClientRect();
+  Object.assign(_highlightOverlay.style, {
+    top: rect.top + "px",
+    left: rect.left + "px",
+    width: rect.width + "px",
+    height: rect.height + "px",
+  });
+}
 
 function _highlightElement(selector) {
   _unhighlight();
   const el = document.querySelector(selector);
   if (!el) return;
-  const rect = el.getBoundingClientRect();
+  _highlightTarget = el;
   _highlightOverlay = document.createElement("div");
   _highlightOverlay.id = "__nojs_devtools_highlight__";
   Object.assign(_highlightOverlay.style, {
     position: "fixed",
-    top: rect.top + "px",
-    left: rect.left + "px",
-    width: rect.width + "px",
-    height: rect.height + "px",
     background: "rgba(66, 133, 244, 0.25)",
     border: "2px solid rgba(66, 133, 244, 0.8)",
     pointerEvents: "none",
@@ -175,13 +197,24 @@ function _highlightElement(selector) {
     borderRadius: "3px",
   });
   document.body.appendChild(_highlightOverlay);
+  _positionHighlight();
+  // Keep the overlay anchored to its target on scroll/resize while shown.
+  _highlightReposition = () => _positionHighlight();
+  window.addEventListener("scroll", _highlightReposition, true);
+  window.addEventListener("resize", _highlightReposition);
 }
 
 function _unhighlight() {
+  if (_highlightReposition) {
+    window.removeEventListener("scroll", _highlightReposition, true);
+    window.removeEventListener("resize", _highlightReposition);
+    _highlightReposition = null;
+  }
   if (_highlightOverlay) {
     _highlightOverlay.remove();
     _highlightOverlay = null;
   }
+  _highlightTarget = null;
 }
 
 // ─── Command handler ────────────────────────────────────────────────────────
@@ -243,6 +276,8 @@ let _devtoolsCleanup = null;
 
 // Called from NoJS.dispose() to remove the command listener and clean up.
 export function destroyDevtools() {
+  // Remove any lingering highlight overlay + its scroll/resize listeners.
+  _unhighlight();
   if (_devtoolsCleanup) _devtoolsCleanup();
 }
 

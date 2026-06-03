@@ -28,13 +28,25 @@ _filters.nl2br = (v) =>
     .replace(/\n/g, "<br>");
 _filters.encodeUri = (v) => encodeURIComponent(String(v ?? ""));
 
+// Clamp a decimals argument to the range accepted by toLocaleString/toFixed
+// (0–100). Coerces non-numeric / out-of-range values instead of letting
+// RangeError abort the whole render.
+const _clampDecimals = (decimals, fallback = 0) => {
+  const d = Math.floor(Number(decimals));
+  if (isNaN(d)) return fallback;
+  if (d < 0) return 0;
+  if (d > 100) return 100;
+  return d;
+};
+
 // Numbers
 _filters.number = (v, decimals = 0) => {
   const n = Number(v);
   if (isNaN(n)) return v;
+  const d = _clampDecimals(decimals);
   return n.toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: d,
+    maximumFractionDigits: d,
   });
 };
 _filters.currency = (v, code = "USD") => {
@@ -49,19 +61,20 @@ _filters.currency = (v, code = "USD") => {
 _filters.percent = (v, decimals = 0) => {
   const n = Number(v);
   if (isNaN(n)) return v;
-  return (n * 100).toFixed(decimals) + "%";
+  return (n * 100).toFixed(_clampDecimals(decimals)) + "%";
 };
 _filters.filesize = (v) => {
   const n = Number(v);
   if (isNaN(n)) return v;
   const units = ["B", "KB", "MB", "GB", "TB"];
+  const sign = n < 0 ? "-" : "";
   let i = 0;
-  let size = n;
+  let size = Math.abs(n);
   while (size >= 1024 && i < units.length - 1) {
     size /= 1024;
     i++;
   }
-  return size.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+  return sign + size.toFixed(i > 0 ? 1 : 0) + " " + units[i];
 };
 _filters.ordinal = (v) => {
   const n = Number(v);
@@ -83,9 +96,18 @@ _filters.sortBy = (v, key) => {
   if (!Array.isArray(v)) return v;
   const desc = key?.startsWith("-");
   const k = desc ? key.slice(1) : key;
+  // null/undefined/NaN keys are non-comparable: always sink them to the end
+  // (independent of sort direction) so they don't poison the ordering.
+  const isNil = (x) =>
+    x == null || (typeof x === "number" && isNaN(x));
   return [...v].sort((a, b) => {
     const va = a?.[k],
       vb = b?.[k];
+    const na = isNil(va),
+      nb = isNil(vb);
+    if (na && nb) return 0;
+    if (na) return 1;
+    if (nb) return -1;
     const r = va < vb ? -1 : va > vb ? 1 : 0;
     return desc ? -r : r;
   });
@@ -94,8 +116,17 @@ _filters.where = (v, key, val) =>
   Array.isArray(v) ? v.filter((i) => i?.[key] === val) : v;
 
 // Date
+// Date-only ISO strings ("2026-05-29") are parsed by the JS engine as UTC
+// midnight, which renders as the previous day in any negative-UTC-offset zone.
+// Append a local-time component so the date is interpreted in the local zone.
+const _DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const _parseDate = (v) =>
+  typeof v === "string" && _DATE_ONLY_RE.test(v)
+    ? new Date(v + "T00:00:00")
+    : new Date(v);
+
 _filters.date = (v, fmt = "short") => {
-  const d = new Date(v);
+  const d = _parseDate(v);
   if (isNaN(d)) return v;
   const opts =
     fmt === "long"
@@ -106,14 +137,16 @@ _filters.date = (v, fmt = "short") => {
   return d.toLocaleDateString(undefined, opts);
 };
 _filters.datetime = (v) => {
-  const d = new Date(v);
+  const d = _parseDate(v);
   if (isNaN(d)) return v;
   return d.toLocaleString();
 };
 _filters.relative = (v) => {
-  const d = new Date(v);
+  const d = _parseDate(v);
   if (isNaN(d)) return v;
   const diff = (Date.now() - d.getTime()) / 1000;
+  // Future timestamps (negative diff) are not "just now"; delegate to fromNow.
+  if (diff < 0) return _filters.fromNow(v);
   if (diff < 60) return "just now";
   if (diff < 3600) return Math.floor(diff / 60) + "m ago";
   if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
@@ -121,7 +154,7 @@ _filters.relative = (v) => {
   return d.toLocaleDateString();
 };
 _filters.fromNow = (v) => {
-  const d = new Date(v);
+  const d = _parseDate(v);
   if (isNaN(d)) return v;
   const diff = (d.getTime() - Date.now()) / 1000;
   if (diff < 0) return _filters.relative(v);

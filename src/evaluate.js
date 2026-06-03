@@ -731,6 +731,31 @@ const _SAFE_GLOBALS = {
   Error, Symbol, console,
 };
 
+const _hasOwn = Object.prototype.hasOwnProperty;
+
+// Safety Rule 7: identifier resolution must be allow-list only. The plain `in`
+// operator walks the prototype chain up to Object.prototype, so inherited
+// members (toString, valueOf, hasOwnProperty, constructor, __proto__, …) would
+// resolve to native functions and bypass the allow-list. Legitimate scope
+// variables are always OWN properties of some object in the scope's prototype
+// chain (vals from _collectKeys, injected $-globals, arrow-function params) —
+// never inherited from Object.prototype. So we walk the chain checking
+// hasOwnProperty at each level and stop before Object.prototype.
+function _inScope(scope, name) {
+  let o = scope;
+  while (o && o !== Object.prototype) {
+    if (_hasOwn.call(o, name)) return true;
+    o = Object.getPrototypeOf(o);
+  }
+  return false;
+}
+
+// _SAFE_GLOBALS is a plain object literal, so it also inherits Object.prototype.
+// Only own keys are real allow-list entries.
+function _inSafeGlobals(name) {
+  return _hasOwn.call(_SAFE_GLOBALS, name);
+}
+
 // Explicit allow-list for browser globals accessible in template expressions.
 // Using an allow-list (opt-in) rather than a deny-list (opt-out) ensures that
 // network and storage APIs — fetch, XMLHttpRequest, localStorage, sessionStorage,
@@ -763,12 +788,12 @@ const _safeWindow = typeof globalThis !== 'undefined' && typeof globalThis.windo
         if (typeof prop === 'string' && prop in _WINDOW_PROXY_OVERRIDES) return _WINDOW_PROXY_OVERRIDES[prop];
         return Reflect.get(target, prop, receiver);
       },
-      set(target, prop, value) {
-        // Block writes to dangerous window properties from expressions;
-        // allow writing user-defined properties (e.g. window.__myHelper)
-        if (typeof prop === 'string' && _BLOCKED_WINDOW_PROPS.has(prop)) return true;
-        if (prop === 'name' || prop === 'status') return true; // anti-exfiltration
-        target[prop] = value;
+      set() {
+        // Never write to the real window from a template expression — doing so
+        // lets an expression create or overwrite arbitrary globals (e.g.
+        // `window.foo = 1` or clobbering an existing global). All writes are
+        // silently swallowed (no-op) so expressions don't throw, while the real
+        // window object stays untouched.
         return true;
       },
     })
@@ -918,8 +943,8 @@ function _evalNode(node, scope) {
         return node.value;
 
       case 'Identifier':
-        if (node.name in scope) return scope[node.name];
-        if (node.name in _SAFE_GLOBALS) return _SAFE_GLOBALS[node.name];
+        if (_inScope(scope, node.name)) return scope[node.name];
+        if (_inSafeGlobals(node.name)) return _SAFE_GLOBALS[node.name];
         if (_BROWSER_GLOBALS.has(node.name) && typeof globalThis !== 'undefined') {
           if (node.name === 'window') return _safeWindow;
           if (node.name === 'document') return _safeDocument;
@@ -979,8 +1004,13 @@ function _evalNode(node, scope) {
 
       case 'UnaryExpr': {
         if (node.op === 'typeof') {
-          // Special: if identifier not in scope, return "undefined" string
-          if (node.argument && node.argument.type === 'Identifier' && !(node.argument.name in scope)) {
+          // Special: if identifier not in scope, return "undefined" string.
+          // Use own-property scope check (Safety Rule 7) so prototype-chain
+          // names like `toString` are treated as undefined, not native fns.
+          if (node.argument && node.argument.type === 'Identifier'
+              && !_inScope(scope, node.argument.name)
+              && !_inSafeGlobals(node.argument.name)
+              && !_BROWSER_GLOBALS.has(node.argument.name)) {
             return 'undefined';
           }
           return typeof _evalNode(node.argument, scope);
@@ -1210,7 +1240,7 @@ function _execStmtNode(node, scope) {
       // so error-boundary directives can catch the error
       if (node.type === "CallExpr" && node.callee.type === "Identifier") {
         const name = node.callee.name;
-        if (!(name in scope) && !(name in _SAFE_GLOBALS) && !_BROWSER_GLOBALS.has(name)) {
+        if (!_inScope(scope, name) && !_inSafeGlobals(name) && !_BROWSER_GLOBALS.has(name)) {
           throw new ReferenceError(name + " is not defined");
         }
       }
@@ -1233,7 +1263,15 @@ function _parsePipes(exprStr) {
     const ch = exprStr[i];
     if (inStr) {
       current += ch;
-      if (ch === strChar && exprStr[i - 1] !== "\\") inStr = false;
+      // A quote closes the string only when it is NOT escaped. Count the run of
+      // backslashes immediately before it: an even count (incl. zero) means the
+      // quote is unescaped (e.g. `\\` is an escaped backslash, the quote after
+      // it is real); an odd count means the quote itself is escaped.
+      if (ch === strChar) {
+        let bs = 0;
+        for (let j = i - 1; j >= 0 && exprStr[j] === "\\"; j--) bs++;
+        if (bs % 2 === 0) inStr = false;
+      }
       continue;
     }
     if (ch === "'" || ch === '"' || ch === "`") {

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2] - 2026-06-02
+
+### Fixed
+
+- Security and robustness hardening across the framework — 17 of 18 critical and high-severity findings from the 2026-05-29 deep code review remediated. Affected subsystems:
+  - **Expression evaluator** (`evaluate.js`) — tightened identifier resolution and statement write-back against the allow-list contract.
+  - **Fetch / HTTP** (`fetch.js`, `directives/http.js`) — hardened request/response handling, interceptor credential redaction, and caching.
+  - **Context** (`context.js`) — reactive proxy and scope-chain edge cases.
+  - **Router** (`router.js`) — navigation, nested-outlet, and view-transition guards.
+  - **DOM and loops** (`dom.js`, `directives/loops.js`) — disposal-before-clear ordering and keyed-loop invariants.
+  - **Conditionals** (`directives/conditionals.js`) — `switch` disposal guard and `else-if` deduplication.
+  - **Index / public API** (`index.js`) — proxy-global sanitization, awaited `dispose()`, and config lock.
+  - **Animations** (`animations.js`) — idempotent, cancellable timers.
+  - Related modules: `globals.js`, `filters.js`, `i18n.js`, `devtools.js`, and the `binding`, `styling`, `state`, `events`, `refs`, and `head` directives.
+- The prior DnD/validation extraction to `@erickxavier/nojs-elements` remains intact — no behavior reverted.
+
 ## [1.13.1] - 2026-06-01
 
 ### Changed

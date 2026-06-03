@@ -92,13 +92,14 @@ export async function _doFetch(
   if (_config.credentials !== "omit" && fullUrl.startsWith("http://")) {
     _warn("Credentials sent over insecure HTTP:", fullUrl);
   }
+  const upperMethod = method.toUpperCase();
   let opts = {
-    method: method.toUpperCase(),
+    method: upperMethod,
     headers: { ...(_config.headers || {}), ...extraHeaders },
     credentials: _config.credentials,
   };
 
-  if (body && method !== "GET") {
+  if (body && upperMethod !== "GET") {
     if (typeof body === "string") {
       try {
         JSON.parse(body);
@@ -116,7 +117,7 @@ export async function _doFetch(
   }
 
   // CSRF — only inject for same-origin requests to prevent token leakage
-  if (_config.csrf && method !== "GET") {
+  if (_config.csrf && upperMethod !== "GET") {
     const isSameOrigin = !fullUrl.startsWith("http") ||
       (typeof window !== "undefined" && new URL(fullUrl, window.location.href).origin === window.location.origin);
     if (isSameOrigin) {
@@ -171,7 +172,12 @@ export async function _doFetch(
           if (result.headers && typeof result.headers === "object") {
             const safeHeaders = { ...opts.headers };
             for (const [key, value] of Object.entries(result.headers)) {
-              if (!_isSensitiveHeader(key)) {
+              if (_isSensitiveHeader(key)) {
+                // Only trusted interceptors may update sensitive headers
+                // (e.g. an auth-token refresh). Their value overrides the
+                // originally-stripped one when re-applied below.
+                if (isTrusted) sensitiveHeaders[key] = value;
+              } else {
                 safeHeaders[key] = value;
               }
             }
@@ -193,28 +199,33 @@ export async function _doFetch(
   const maxRetries = retries !== undefined ? retries : (_config.retries || 0);
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    let timeout = null;
+    let onExternalAbort = null;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(
+      timeout = setTimeout(
         () => controller.abort(),
         _config.timeout || 10000,
       );
-      // Wire external abort signal (switchMap) to internal controller
+      // Wire external abort signal (switchMap) to internal controller.
+      // The listener is captured and removed in `finally` so a long-lived
+      // external signal does not accumulate one dead listener per attempt
+      // (Safety Rule 2).
       if (externalSignal) {
         if (externalSignal.aborted) {
-          clearTimeout(timeout);
           throw new DOMException("Aborted", "AbortError");
         }
-        externalSignal.addEventListener("abort", () => controller.abort(), {
-          once: true,
-        });
+        onExternalAbort = () => controller.abort();
+        externalSignal.addEventListener("abort", onExternalAbort);
       }
       opts.signal = controller.signal;
 
       let response = await fetch(fullUrl, opts);
-      clearTimeout(timeout);
 
-      // Response interceptors
+      // Response interceptors. Track the real Response behind any redacted
+      // shell so the body can still be read if an interceptor returns a
+      // custom object that drops the original reference.
+      let realResponse = response;
       for (let i = 0; i < _interceptors.response.length; i++) {
         const entry = _interceptors.response[i];
         const fn = entry.fn ?? entry;
@@ -236,12 +247,25 @@ export async function _doFetch(
           _log("Response replaced by interceptor", i);
           return result[_REPLACE];
         }
-        if (result) response = result;
+        if (result) {
+          response = result;
+          // Keep realResponse pointing at the underlying Response: either the
+          // unwrapped redacted shell or the result itself when it's a real one.
+          if (_responseOriginals.has(result)) {
+            realResponse = _responseOriginals.get(result);
+          } else if (typeof result.text === "function") {
+            realResponse = result;
+          }
+        }
       }
 
-      // Unwrap redacted shell back to real Response for data extraction
+      // Unwrap redacted shell back to real Response for data extraction.
+      // Fall back to the tracked real response when the interceptor swapped
+      // in a custom object that lost the original body/headers.
       if (_responseOriginals.has(response)) {
         response = _responseOriginals.get(response);
+      } else if (typeof response.text !== "function") {
+        response = realResponse;
       }
 
       if (!response.ok) {
@@ -263,6 +287,13 @@ export async function _doFetch(
       lastError = e;
       if (attempt < maxRetries) {
         await new Promise((r) => setTimeout(r, retryDelay !== undefined ? retryDelay : (_config.retryDelay || 1000)));
+      }
+    } finally {
+      // Always clear the per-attempt timeout (Safety Rule 4) and detach the
+      // external-signal listener so neither leaks on the error/retry path.
+      if (timeout !== null) clearTimeout(timeout);
+      if (externalSignal && onExternalAbort) {
+        externalSignal.removeEventListener("abort", onExternalAbort);
       }
     }
   }

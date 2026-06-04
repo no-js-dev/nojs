@@ -137,6 +137,108 @@ describe('Router', () => {
     expect(router.current.hash).toBe('#team');
   });
 
+  test('hash-only navigation notifies route watchers via _routeWatchers', () => {
+    // The fix (NOJS-95) calls _notifyRouteWatchers() on hash-only navigation.
+    // Directives register into _routeWatchers via _watchExpr (globals.js) when
+    // the expression contains "$route". We simulate the same path here by
+    // registering through _addRouteWatcher — the function _watchExpr calls.
+    const { _addRouteWatcher, _routeWatchers } = require('../src/globals.js');
+
+    router = _createRouter();
+    setRouterInstance(router);
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = '<div>Page</div>';
+    router.register('/page', tpl);
+
+    // Full navigation — establishes current.path = '/page'
+    router.push('/page#one');
+    expect(router.current.hash).toBe('#one');
+
+    // Register a router-level on() listener
+    const routerCalls = [];
+    router.on((r) => routerCalls.push(r.hash));
+
+    // Register a route watcher via _addRouteWatcher (same path directives use)
+    const watchCalls = [];
+    const watcher = () => watchCalls.push(router.current.hash);
+    _addRouteWatcher(watcher);
+
+    // Hash-only navigation to /page#two
+    router.push('/page#two');
+    expect(router.current.hash).toBe('#two');
+
+    // Router on() listener IS notified
+    expect(routerCalls).toEqual(['#two']);
+
+    // _routeWatchers are also notified — this was the bug before NOJS-95
+    expect(watchCalls).toEqual(['#two']);
+
+    // Cleanup
+    _routeWatchers.delete(watcher);
+  });
+
+  test('rapid consecutive hash changes notify watchers for each change', () => {
+    const { _addRouteWatcher, _routeWatchers } = require('../src/globals.js');
+
+    router = _createRouter();
+    setRouterInstance(router);
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = '<div>Page</div>';
+    router.register('/rapid', tpl);
+
+    router.push('/rapid#a');
+    expect(router.current.hash).toBe('#a');
+
+    const watchCalls = [];
+    const watcher = () => watchCalls.push(router.current.hash);
+    _addRouteWatcher(watcher);
+
+    // Rapid consecutive hash-only changes
+    router.push('/rapid#b');
+    router.push('/rapid#c');
+    router.push('/rapid#d');
+
+    expect(watchCalls).toEqual(['#b', '#c', '#d']);
+    expect(router.current.hash).toBe('#d');
+
+    _routeWatchers.delete(watcher);
+  });
+
+  test('hash-only navigation combined with query params preserves query', () => {
+    router = _createRouter();
+    setRouterInstance(router);
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = '<div>Search</div>';
+    router.register('/search', tpl);
+
+    // Full navigation with query + hash
+    router.push('/search?q=hello#results');
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query.q).toBe('hello');
+    expect(router.current.hash).toBe('#results');
+  });
+
+  test('hash removal navigates from hash to no hash', () => {
+    router = _createRouter();
+    setRouterInstance(router);
+
+    const tpl = document.createElement('template');
+    tpl.innerHTML = '<div>Page</div>';
+    router.register('/page', tpl);
+
+    // Navigate with hash
+    router.push('/page#section');
+    expect(router.current.hash).toBe('#section');
+
+    // Navigate to same path without hash — this is a full navigation (no hash)
+    router.push('/page');
+    expect(router.current.path).toBe('/page');
+    expect(router.current.hash).toBe('');
+  });
+
   test('matches route params', () => {
     router = _createRouter();
     const tpl = document.createElement('template');

@@ -1013,6 +1013,64 @@ describe('switch with default', () => {
     expect(document.getElementById('c').style.display).toBe('none');
   });
 
+  test('_splitTopLevel: triple backslash before closing quote (odd escape count)', () => {
+    // Triple backslash (\\\\\\) in DOM attr = 3 literal backslashes.
+    // _splitTopLevel: odd count → closing quote IS escaped → no split.
+    // But the expression evaluator's tokenizer also consumes escape pairs,
+    // so the trailing ','y' becomes a comma operator yielding 'y'.
+    // Net effect: even though _splitTopLevel sees one chunk, evaluate()
+    // returns 'y' via the comma operator, so the case still matches.
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ val: "y" }');
+    parent.innerHTML = `
+      <div switch="val">
+        <div case="'x\\\\\\\\\\\\','y'" id="xy">X or Y</div>
+        <div default id="def">Default</div>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // _splitTopLevel does NOT split (odd backslash count), but the expression
+    // evaluator treats the comma as the comma operator and returns 'y'.
+    expect(document.getElementById('xy').style.display).toBe('');
+    expect(document.getElementById('def').style.display).toBe('none');
+  });
+
+  test('_splitTopLevel: mixed single and double quotes in case values', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ val: "hello" }');
+    parent.innerHTML = `
+      <div switch="val">
+        <div case="'hello',&quot;world&quot;" id="hw">Match</div>
+        <div default id="def">Default</div>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(document.getElementById('hw').style.display).toBe('');
+    expect(document.getElementById('def').style.display).toBe('none');
+  });
+
+  test('_splitTopLevel: empty values between commas treated as undefined', () => {
+    // case="'a',,'c'" — the middle empty segment evaluates to undefined
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ val: "c" }');
+    parent.innerHTML = `
+      <div switch="val">
+        <div case="'a',,'c'" id="ac">Match</div>
+        <div default id="def">Default</div>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // val='c' should still match the third value despite the empty second
+    expect(document.getElementById('ac').style.display).toBe('');
+    expect(document.getElementById('def').style.display).toBe('none');
+  });
+
   test('switch with then template in case', () => {
     const tpl = document.createElement('template');
     tpl.id = 'case-tpl';

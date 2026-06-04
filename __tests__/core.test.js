@@ -1787,6 +1787,57 @@ describe('evaluate — browser globals allow-list', () => {
     expect(window.location.href).toBe(original);
   });
 
+  test('BUG: document.location returns safe proxy, not real Location', () => {
+    // _safeDocument get trap does NOT intercept 'location' to return _safeLocation.
+    // Unlike window.location (which returns _safeLocation via _WINDOW_PROXY_OVERRIDES),
+    // document.location returns the REAL Location object, enabling:
+    //   document.location.assign('evil.com')  — bypasses the no-op wrapper
+    //   document.location = 'evil.com'        — bypasses blocked props check
+    const docLoc = evaluate('document.location', ctx);
+    const winLoc = evaluate('window.location', ctx);
+    // Both should return the SAME safe location proxy
+    // Bug: document.location returns the real Location, not the safe proxy
+    expect(docLoc).toBe(winLoc);
+  });
+
+  test('BUG: document.location.assign should be a no-op', () => {
+    // Since document.location returns the real Location (not _safeLocation),
+    // calling document.location.assign() would actually navigate the page.
+    const docLoc = evaluate('document.location', ctx);
+    if (docLoc && typeof docLoc.assign === 'function') {
+      // On the safe proxy, assign is a no-op (_locationNoop)
+      // On the real Location, assign would navigate (throws in jsdom)
+      expect(docLoc.assign).toBe(evaluate('window.location.assign', ctx));
+    }
+  });
+
+  test('document.location.href returns a string, not settable for redirect', () => {
+    const href = evaluate('document.location.href', ctx);
+    // href should be a string (the current URL), not undefined
+    expect(typeof href).toBe('string');
+    // Attempting to set document.location.href should be a no-op
+    const original = evaluate('document.location.href', ctx);
+    _execStatement("document.location.href = 'https://evil.com'", createContext({}));
+    expect(evaluate('document.location.href', ctx)).toBe(original);
+  });
+
+  test('document.location.replace is a no-op', () => {
+    const docLoc = evaluate('document.location', ctx);
+    // replace should exist but be a no-op (same as assign)
+    expect(typeof docLoc.replace).toBe('function');
+    expect(() => docLoc.replace('https://evil.com')).not.toThrow();
+    // URL should not have changed
+    const href = evaluate('document.location.href', ctx);
+    expect(href).not.toBe('https://evil.com');
+  });
+
+  test('document.location assignment is blocked', () => {
+    const original = window.location.href;
+    _execStatement("document.location = 'https://evil.com'", createContext({}));
+    // window.location should remain unchanged
+    expect(window.location.href).toBe(original);
+  });
+
   test('document.defaultView returns safe window proxy (not raw)', () => {
     const dv = evaluate('document.defaultView', ctx);
     if (dv) {

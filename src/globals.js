@@ -28,6 +28,7 @@ export const _interceptors = { request: [], response: [] };
 export const _eventBus = {};
 export const _stores = {};
 export const _storeWatchers = new Map(); // storeName → Set<fn>, '*' = wildcard
+export const _routeWatchers = new Set(); // fns watching $route expressions
 export const _filters = {};
 export const _validators = {};
 export const _cache = new Map();
@@ -147,15 +148,42 @@ export function _deleteStoreWatcher(fn) {
   }
 }
 
+export function _notifyRouteWatchers() {
+  for (const fn of [..._routeWatchers]) {
+    if (fn._el && !fn._el.isConnected) {
+      _routeWatchers.delete(fn);
+      continue;
+    }
+    try {
+      fn();
+    } catch (err) {
+      _warn("route watcher threw; continuing with remaining watchers:", err);
+    }
+  }
+}
+
+export function _addRouteWatcher(fn) {
+  _routeWatchers.add(fn);
+}
+
+export function _deleteRouteWatcher(fn) {
+  _routeWatchers.delete(fn);
+}
+
 export function _watchExpr(expr, ctx, fn) {
   const unwatch = ctx.$watch(fn);
   _onDispose(() => {
     unwatch();
     _deleteStoreWatcher(fn);
+    _deleteRouteWatcher(fn);
   });
   if (typeof expr === "string" && expr.includes("$store")) {
     const partition = _extractStoreName(expr) || "*";
     _addStoreWatcher(fn, partition);
+    fn._el = _currentEl;
+  }
+  if (typeof expr === "string" && expr.includes("$route")) {
+    _addRouteWatcher(fn);
     fn._el = _currentEl;
   }
 }

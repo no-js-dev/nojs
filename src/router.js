@@ -2,7 +2,7 @@
 //  CLIENT-SIDE ROUTER
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _log, _warn } from "./globals.js";
+import { _config, _stores, _log, _warn, _notifyRouteWatchers } from "./globals.js";
 import { createContext } from "./context.js";
 import { evaluate } from "./evaluate.js";
 
@@ -143,6 +143,7 @@ export function _createRouter() {
         const el = document.getElementById(hash);
         if (el) el.scrollIntoView({ behavior: "smooth" });
       });
+      _notifyRouteWatchers();
       listeners.forEach((fn) => fn(current));
       return;
     }
@@ -268,6 +269,7 @@ export function _createRouter() {
 
     await _loadNestedIndexRoutes();
 
+    _notifyRouteWatchers();
     listeners.forEach((fn) => fn(current));
 
     _devtoolsEmit("route:navigate", {

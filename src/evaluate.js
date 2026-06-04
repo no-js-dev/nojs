@@ -804,10 +804,12 @@ const _safeDocument = typeof globalThis !== 'undefined' && typeof globalThis.doc
       get(target, prop, receiver) {
         if (typeof prop === 'string' && _BLOCKED_DOCUMENT_PROPS.has(prop)) return undefined;
         if (prop === 'defaultView') return _safeWindow;
+        if (prop === 'location') return _safeLocation;
         return Reflect.get(target, prop, receiver);
       },
       set(target, prop, value) {
         if (typeof prop === 'string' && _BLOCKED_DOCUMENT_PROPS.has(prop)) return true;
+        if (prop === 'location') return true;
         target[prop] = value;
         return true;
       },

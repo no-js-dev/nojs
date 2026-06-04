@@ -997,6 +997,22 @@ describe('switch with default', () => {
     expect(document.getElementById('c').style.display).toBe('none');
   });
 
+  test('BUG: multi-value case with escaped backslash', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ val: "b" }');
+    parent.innerHTML = `
+      <div switch="val">
+        <div case="'a\\\\\\\\','b'" id="ab">A or B</div>
+        <div case="'c'" id="c">C</div>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(document.getElementById('ab').style.display).toBe('');
+    expect(document.getElementById('c').style.display).toBe('none');
+  });
+
   test('switch with then template in case', () => {
     const tpl = document.createElement('template');
     tpl.id = 'case-tpl';

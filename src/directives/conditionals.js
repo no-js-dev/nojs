@@ -292,7 +292,11 @@ function _splitTopLevel(str) {
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
     if (quote) {
-      if (ch === quote && str[i - 1] !== "\\") quote = null;
+      if (ch === quote) {
+        let bs = 0;
+        for (let j = i - 1; j >= 0 && str[j] === "\\"; j--) bs++;
+        if (bs % 2 === 0) quote = null;
+      }
     } else if (ch === "'" || ch === '"' || ch === "`") {
       quote = ch;
     } else if (ch === "(" || ch === "[" || ch === "{") {

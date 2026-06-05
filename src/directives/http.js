@@ -78,6 +78,8 @@ for (const method of HTTP_METHODS) {
         parseInt(el.getAttribute("retry-delay")) || _config.retryDelay || 1000;
       const paramsAttr = el.getAttribute("params");
       const skeletonId = el.getAttribute("skeleton");
+      const trigger = el.getAttribute("get-trigger");
+      const threshold = el.getAttribute("get-threshold") || "0px";
 
       // ── get-insert: append | prepend | (absent = replace) ──
       // Only applies to GET method; ignored on POST/PUT/PATCH/DELETE.
@@ -531,7 +533,50 @@ for (const method of HTTP_METHODS) {
         el.addEventListener("submit", submitHandler);
         _onDispose(() => el.removeEventListener("submit", submitHandler));
       } else if (method === "get") {
-        if (el.isConnected) doRequest();
+        // ── get-trigger dispatch ──────────────────────────────────────
+        if (trigger === "none") {
+          // Manual only — no auto-fire, no observer, no listener.
+          // el.refresh() (exposed below) is the only way to trigger.
+        } else if (trigger === "visible") {
+          // Lazy load: fire once when the element enters the viewport.
+          if (typeof IntersectionObserver !== "undefined") {
+            const observer = new IntersectionObserver(
+              (entries) => {
+                for (const entry of entries) {
+                  if (entry.isIntersecting && el.isConnected) {
+                    observer.disconnect();
+                    doRequest();
+                    break;
+                  }
+                }
+              },
+              { rootMargin: threshold },
+            );
+            observer.observe(el);
+            _onDispose(() => observer.disconnect());
+          } else {
+            // Fallback: fire immediately when IntersectionObserver unavailable
+            _warn('IntersectionObserver not available, get-trigger="visible" falling back to immediate fetch');
+            if (el.isConnected) doRequest();
+          }
+        } else if (trigger === "hover") {
+          // Prefetch on hover: fire on first mouseenter.
+          const useOnce = refreshInterval <= 0;
+          const hoverHandler = () => {
+            doRequest();
+          };
+          if (useOnce) {
+            el.addEventListener("mouseenter", hoverHandler, { once: true });
+          } else {
+            el.addEventListener("mouseenter", hoverHandler);
+          }
+          // Always register cleanup — element may be disposed before hover fires,
+          // and even { once: true } does not remove if never triggered (Rule 2).
+          _onDispose(() => el.removeEventListener("mouseenter", hoverHandler));
+        } else {
+          // Default: immediate fire (current behavior, no trigger attribute)
+          if (el.isConnected) doRequest();
+        }
       } else {
         // Non-GET on non-FORM: attach click listener
         const clickHandler = (e) => {
@@ -542,9 +587,11 @@ for (const method of HTTP_METHODS) {
         _onDispose(() => el.removeEventListener("click", clickHandler));
       }
 
-      // Reactive URL watching: re-fetch when {expressions} in URL change
+      // Reactive URL watching: re-fetch when {expressions} in URL change.
+      // Suppressed for get-trigger="none" — manual-only trigger means no
+      // automatic fetching, including reactive URL changes.
       const hasInterpolation = /\{[^}]+\}/.test(url);
-      if (hasInterpolation) {
+      if (hasInterpolation && trigger !== "none") {
         const debounceMs = parseInt(el.getAttribute("debounce")) || 0;
         let _lastResolvedUrl = _interpolate(url, ctx);
         let _debounceTimer = null;

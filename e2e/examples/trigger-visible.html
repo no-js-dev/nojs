@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trigger Visible — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- Spacer to push content below the fold -->
+  <div data-test="spacer" style="height: 2000px;">Spacer content</div>
+
+  <!-- Lazy load on visible -->
+  <section>
+    <p class="test-label">Test: Lazy load on visible</p>
+    <div data-test="lazy-container"
+         get="/api/content"
+         as="content"
+         get-trigger="visible"
+         loading="lazy-loading-tpl">
+      <p data-test="lazy-content" bind="content.message"></p>
+    </div>
+  </section>
+
+  <template id="lazy-loading-tpl"><p data-test="loading">Loading...</p></template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>NoJS.init();</script>
+</body>
+</html>

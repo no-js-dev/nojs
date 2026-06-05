@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trigger Hover — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- Hover prefetch -->
+  <section>
+    <p class="test-label">Test: Hover prefetch</p>
+    <div data-test="hover-container"
+         get="/api/preview"
+         as="preview"
+         get-trigger="hover"
+         loading="hover-loading-tpl">
+      <p data-test="hover-label">Hover me</p>
+      <p data-test="hover-content" bind="preview.title"></p>
+    </div>
+  </section>
+
+  <template id="hover-loading-tpl"><p data-test="loading">Loading...</p></template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>NoJS.init();</script>
+</body>
+</html>

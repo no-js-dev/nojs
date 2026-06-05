@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagination Cursor — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- Cursor-based pagination (HTML response mode) -->
+  <section>
+    <p class="test-label">Test: Cursor-based pagination</p>
+    <div data-test="cursor-container"
+         get="/api/items?cursor={cursor}"
+         get-trigger="button"
+         get-insert="append"
+         get-cursor
+         empty="cursor-empty-tpl">
+    </div>
+  </section>
+
+  <template id="cursor-empty-tpl"><p data-test="empty">No more items</p></template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>NoJS.init();</script>
+</body>
+</html>

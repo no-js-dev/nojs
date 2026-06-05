@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trigger None — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    button { padding: 0.25rem 0.75rem; margin-right: 0.25rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <!-- Programmatic only (get-trigger="none") -->
+  <section>
+    <p class="test-label">Test: Programmatic only</p>
+    <div data-test="manual-container"
+         get="/api/data"
+         as="data"
+         get-trigger="none"
+         ref="manual"
+         loading="manual-loading-tpl">
+      <p data-test="manual-content" bind="data.message"></p>
+    </div>
+    <button data-test="fetch-btn" on:click="$refs.manual.refresh()">Fetch</button>
+  </section>
+
+  <template id="manual-loading-tpl"><p data-test="loading">Loading...</p></template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>NoJS.init();</script>
+</body>
+</html>

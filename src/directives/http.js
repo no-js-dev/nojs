@@ -82,11 +82,22 @@ for (const method of HTTP_METHODS) {
       const trigger = el.getAttribute("get-trigger");
       const triggerLabel = el.getAttribute("get-trigger-label") || "Load More";
 
+      // ── get-cursor: cursor-based pagination ──
+      const hasGetCursor = method === "get" && el.hasAttribute("get-cursor");
+      const cursorFieldAttr = hasGetCursor
+        ? el.getAttribute("get-cursor-field") || null
+        : null;
+
       // ── get-page: initial page number for offset-based pagination ──
       const hasGetPage = method === "get" && el.hasAttribute("get-page");
       const initialPage = hasGetPage
         ? (parseInt(el.getAttribute("get-page"), 10) || 1)
         : null;
+
+      // ── Mutual exclusivity: get-cursor vs get-page ──
+      if (hasGetCursor && hasGetPage) {
+        _warn("get-cursor and get-page are mutually exclusive; using cursor-based pagination");
+      }
 
       // ── get-threshold: rootMargin for IntersectionObserver ──
       // Default differs by trigger type: 200px for scroll, 0px for visible.
@@ -108,8 +119,13 @@ for (const method of HTTP_METHODS) {
       const ctx = el.__ctx || createContext({}, parentCtx);
       el.__ctx = ctx;
 
-      // ── Initialize page context variable ──
-      if (hasGetPage) ctx.$set("page", initialPage);
+      // ── Initialize pagination context variables ──
+      if (hasGetCursor) {
+        // Cursor starts as empty string so {cursor} resolves to "" on first request
+        ctx.$set("cursor", "");
+      } else if (hasGetPage) {
+        ctx.$set("page", initialPage);
+      }
 
       // ── Pagination state ──
       const isPaginationTrigger = trigger === "scroll" || trigger === "button";
@@ -206,6 +222,63 @@ for (const method of HTTP_METHODS) {
         _isFirstFetch = true;
         // Recreate sentinel at correct position
         _insertSentinel();
+      }
+
+      // ── Cursor extraction helpers ──────────────────────────────────────
+
+      // Resolve a dot-notation path (e.g. "pagination.nextToken") on an object.
+      function _resolveField(obj, path) {
+        const parts = path.split(".");
+        let current = obj;
+        for (const part of parts) {
+          if (current == null || typeof current !== "object") return undefined;
+          current = current[part];
+        }
+        return current;
+      }
+
+      // Default cursor field names to probe when get-cursor-field is absent.
+      const _DEFAULT_CURSOR_FIELDS = ["cursor", "next_cursor", "nextCursor", "next"];
+
+      // Extract cursor from response header or body per ADR Decision 7.
+      // Returns the next cursor value (string/null) or undefined if not found.
+      function _extractCursor(data, meta) {
+        // Priority 1: X-NoJS-Cursor response header
+        if (meta && meta.headers) {
+          const headerCursor = meta.headers.get("X-NoJS-Cursor");
+          if (headerCursor != null) return headerCursor || null;
+        }
+        // Priority 2: JSON body field lookup (only when response is object)
+        if (data != null && typeof data === "object" && !Array.isArray(data)) {
+          if (cursorFieldAttr) {
+            // Custom field via get-cursor-field (supports dot notation)
+            const val = _resolveField(data, cursorFieldAttr);
+            return val !== undefined ? (val || null) : null;
+          }
+          // Default field probe
+          for (const field of _DEFAULT_CURSOR_FIELDS) {
+            const val = data[field];
+            if (val != null && val !== "") return val;
+          }
+        }
+        return null;
+      }
+
+      // Extract the renderable data array from a cursor-paginated response.
+      // When cursor comes from the JSON body, the response is typically an
+      // object like { data: [...], cursor: "abc" }. This finds the first
+      // array-valued field in the response root.
+      function _extractCursorData(data) {
+        // If root is already an array, use it directly
+        if (Array.isArray(data)) return data;
+        // If root is an object, find the first array-valued field
+        if (data != null && typeof data === "object") {
+          for (const key of Object.keys(data)) {
+            if (Array.isArray(data[key])) return data[key];
+          }
+        }
+        // Fallback: use data as-is
+        return data;
       }
 
       async function doRequest() {
@@ -332,20 +405,37 @@ for (const method of HTTP_METHODS) {
             _responseMeta,
           );
 
-          // Cache response
-          if (method === "get") _cacheSet(cacheKey, data, cacheStrategy);
+          // ── Cursor extraction (before caching to cache renderable data) ──
+          let _nextCursor = null;
+          let renderData = data;
+          if (hasGetCursor) {
+            _nextCursor = _extractCursor(data, _responseMeta);
+            // When cursor came from body, extract the renderable data array
+            const headerCursor = _responseMeta.headers
+              && _responseMeta.headers.get("X-NoJS-Cursor");
+            if (headerCursor == null) {
+              renderData = _extractCursorData(data);
+            }
+          }
+
+          // Cache response (use renderData for cursor mode)
+          if (method === "get") _cacheSet(cacheKey, hasGetCursor ? renderData : data, cacheStrategy);
 
           // ── End-of-data detection for pagination ──
-          const _isEmptyData = data == null
-            || (Array.isArray(data) && data.length === 0)
-            || data === "";
+          const _effectiveData = hasGetCursor ? renderData : data;
+          const _isEmptyData = _effectiveData == null
+            || (Array.isArray(_effectiveData) && _effectiveData.length === 0)
+            || _effectiveData === "";
           const _isLastPageHeader = _responseMeta.headers
             && _responseMeta.headers.get("X-NoJS-Last-Page") === "true";
-          const _isEndOfData = _isEmptyData || _isLastPageHeader;
+          const _isCursorExhausted = hasGetCursor && _nextCursor == null;
+          const _isEndOfData = _isEmptyData || _isLastPageHeader || _isCursorExhausted;
 
           // Check empty (or end-of-data for paginated fetches)
           if (_isEmptyData) {
             _hideSkeleton();
+            // Update cursor even on empty — next request should not retry
+            if (hasGetCursor) ctx.$set("cursor", "");
             if (isPaginationTrigger && isInsertMode) _handleEndOfData();
             if (emptyTpl) {
               const clone = _cloneTemplate(emptyTpl);
@@ -368,27 +458,32 @@ for (const method of HTTP_METHODS) {
 
           _hideSkeleton();
 
+          // ── Update cursor context variable ──
+          if (hasGetCursor) {
+            ctx.$set("cursor", _nextCursor || "");
+          }
+
           // ── Context accumulation for insert modes ──
           if (isInsertMode && !_isFirstFetch) {
             const prev = ctx[asKey];
-            if (Array.isArray(prev) && Array.isArray(data)) {
+            if (Array.isArray(prev) && Array.isArray(_effectiveData)) {
               // Concatenate arrays: append adds new at end, prepend adds new at start
               const accumulated = insertMode === "append"
-                ? [...prev, ...data]
-                : [...data, ...prev];
+                ? [...prev, ..._effectiveData]
+                : [..._effectiveData, ...prev];
               ctx.$set(asKey, accumulated);
             } else {
               // Non-array values are replaced
-              ctx.$set(asKey, data);
+              ctx.$set(asKey, _effectiveData);
             }
           } else {
-            ctx.$set(asKey, data);
+            ctx.$set(asKey, _effectiveData);
           }
 
           // Write to global store if into attribute is present
           if (intoStore) {
             if (!_stores[intoStore]) _stores[intoStore] = createContext({});
-            _stores[intoStore].$set(asKey, ctx[asKey]);
+            _stores[intoStore].$set(asKey, _effectiveData);
             _notifyStoreWatchers(intoStore);
           }
 
@@ -399,7 +494,7 @@ for (const method of HTTP_METHODS) {
             // Clone original children to render this page's content
             const wrapper = document.createElement("div");
             wrapper.style.display = "contents";
-            const childCtx = createContext({ [asKey]: data }, ctx);
+            const childCtx = createContext({ [asKey]: _effectiveData }, ctx);
             wrapper.__ctx = childCtx;
             for (const child of originalChildren)
               wrapper.appendChild(child.cloneNode(true));
@@ -445,7 +540,7 @@ for (const method of HTTP_METHODS) {
                   successTpl.replace("#", ""),
                 );
                 const vn = tplEl?.getAttribute("var") || varName || "result";
-                const childCtx = createContext({ [vn]: data }, ctx);
+                const childCtx = createContext({ [vn]: _effectiveData }, ctx);
                 const wrapper = document.createElement("div");
                 wrapper.style.display = "contents";
                 wrapper.__ctx = childCtx;
@@ -479,13 +574,13 @@ for (const method of HTTP_METHODS) {
             }
           }
 
-          // ── Page auto-increment for pagination ──
-          if (hasGetPage && isPaginationTrigger && isInsertMode) {
+          // ── Page auto-increment for pagination (skip when cursor mode) ──
+          if (hasGetPage && !hasGetCursor && isPaginationTrigger && isInsertMode) {
             ctx.$set("page", ctx.page + 1);
           }
 
-          // ── End-of-data: X-NoJS-Last-Page header (non-empty response) ──
-          if (_isLastPageHeader && isPaginationTrigger && isInsertMode) {
+          // ── End-of-data: header or cursor exhaustion (non-empty response) ──
+          if ((_isLastPageHeader || _isCursorExhausted) && isPaginationTrigger && isInsertMode) {
             _handleEndOfData();
           } else if (isPaginationTrigger && isInsertMode && !_endOfData) {
             // Re-render load-more button or reconnect scroll observer
@@ -493,13 +588,13 @@ for (const method of HTTP_METHODS) {
           }
 
           // Then expression
-          if (thenExpr) _execStatement(thenExpr, ctx, { result: data });
+          if (thenExpr) _execStatement(thenExpr, ctx, { result: _effectiveData });
 
           // Redirect
           if (redirectPath && _routerInstance)
             _routerInstance.push(redirectPath);
 
-          _emitEvent("fetch:success", { url: resolvedUrl, data });
+          _emitEvent("fetch:success", { url: resolvedUrl, data: _effectiveData });
           _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
         } catch (err) {
           // SwitchMap: silently ignore aborted requests
@@ -698,7 +793,11 @@ for (const method of HTTP_METHODS) {
       function _resetPagination() {
         _endOfData = false;
         _fetching = false;
-        if (hasGetPage) ctx.$set("page", initialPage);
+        if (hasGetCursor) {
+          ctx.$set("cursor", "");
+        } else if (hasGetPage) {
+          ctx.$set("page", initialPage);
+        }
         _removeLoadMoreButton();
         // Reset insert mode content
         _resetInsertMode();
@@ -811,14 +910,18 @@ for (const method of HTTP_METHODS) {
         let _lastResolvedUrl = _interpolate(url, ctx);
         let _debounceTimer = null;
 
-        // For pagination: strip the {page} token to detect non-page URL changes.
-        // If only the page changed (auto-increment), proceed normally.
-        // If other parts changed, reset pagination and fetch fresh page 1.
-        const _urlWithoutPage = hasGetPage
-          ? url.replace(/\{page\}/g, "__PAGE__")
-          : null;
-        let _lastNonPageUrl = _urlWithoutPage
-          ? _interpolate(_urlWithoutPage, ctx)
+        // For pagination: strip the {page} or {cursor} token to detect
+        // non-pagination URL changes. If only the pagination variable changed
+        // (auto-increment or cursor update), proceed normally. If other parts
+        // changed, reset pagination and fetch fresh.
+        const _hasPaginationToken = hasGetPage || hasGetCursor;
+        const _urlWithoutPagination = hasGetCursor
+          ? url.replace(/\{cursor\}/g, "__CURSOR__")
+          : hasGetPage
+            ? url.replace(/\{page\}/g, "__PAGE__")
+            : null;
+        let _lastNonPaginationUrl = _urlWithoutPagination
+          ? _interpolate(_urlWithoutPagination, ctx)
           : null;
 
         function onAncestorChange() {
@@ -826,11 +929,11 @@ for (const method of HTTP_METHODS) {
           if (newUrl !== _lastResolvedUrl) {
             _lastResolvedUrl = newUrl;
 
-            // Check if non-page URL parts changed (pagination reset trigger)
-            if (isPaginationTrigger && isInsertMode && _urlWithoutPage) {
-              const newNonPageUrl = _interpolate(_urlWithoutPage, ctx);
-              if (newNonPageUrl !== _lastNonPageUrl) {
-                _lastNonPageUrl = newNonPageUrl;
+            // Check if non-pagination URL parts changed (reset trigger)
+            if (isPaginationTrigger && isInsertMode && _urlWithoutPagination) {
+              const newNonPaginationUrl = _interpolate(_urlWithoutPagination, ctx);
+              if (newNonPaginationUrl !== _lastNonPaginationUrl) {
+                _lastNonPaginationUrl = newNonPaginationUrl;
                 if (_debounceTimer) clearTimeout(_debounceTimer);
                 if (debounceMs > 0) {
                   _debounceTimer = setTimeout(() => {

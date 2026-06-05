@@ -28,6 +28,7 @@ const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 function _createSentinel() {
   const sentinel = document.createElement("div");
   sentinel.setAttribute("data-nojs-sentinel", "");
+  sentinel.setAttribute("aria-hidden", "true");
   sentinel.style.height = "0";
   sentinel.style.overflow = "hidden";
   sentinel.style.pointerEvents = "none";
@@ -79,7 +80,19 @@ for (const method of HTTP_METHODS) {
       const paramsAttr = el.getAttribute("params");
       const skeletonId = el.getAttribute("skeleton");
       const trigger = el.getAttribute("get-trigger");
-      const threshold = el.getAttribute("get-threshold") || "0px";
+      const triggerLabel = el.getAttribute("get-trigger-label") || "Load More";
+
+      // ── get-page: initial page number for offset-based pagination ──
+      const hasGetPage = method === "get" && el.hasAttribute("get-page");
+      const initialPage = hasGetPage
+        ? (parseInt(el.getAttribute("get-page"), 10) || 1)
+        : null;
+
+      // ── get-threshold: rootMargin for IntersectionObserver ──
+      // Default differs by trigger type: 200px for scroll, 0px for visible.
+      const thresholdRaw = el.getAttribute("get-threshold");
+      const threshold = thresholdRaw
+        || (trigger === "scroll" ? "200px" : "0px");
 
       // ── get-insert: append | prepend | (absent = replace) ──
       // Only applies to GET method; ignored on POST/PUT/PATCH/DELETE.
@@ -94,6 +107,27 @@ for (const method of HTTP_METHODS) {
         : createContext();
       const ctx = el.__ctx || createContext({}, parentCtx);
       el.__ctx = ctx;
+
+      // ── Initialize page context variable ──
+      if (hasGetPage) ctx.$set("page", initialPage);
+
+      // ── Pagination state ──
+      const isPaginationTrigger = trigger === "scroll" || trigger === "button";
+      let _fetching = false;    // Concurrency guard for pagination
+      let _endOfData = false;   // End-of-data flag — stops further pagination
+      let _scrollObserver = null; // IntersectionObserver for scroll trigger
+      let _loadMoreBtn = null;  // Auto-generated button for button trigger
+
+      // Validate pagination triggers require get-insert
+      if (isPaginationTrigger && !isInsertMode) {
+        _warn(`get-trigger="${trigger}" requires get-insert to be set. Falling back to "${trigger === "scroll" ? "visible" : "immediate"}" behavior.`);
+      }
+
+      // Mutual exclusion: scroll/button + refresh
+      const _suppressRefresh = isPaginationTrigger && isInsertMode && refreshInterval > 0;
+      if (_suppressRefresh) {
+        _warn(`get-trigger="${trigger}" is mutually exclusive with refresh. The refresh interval is being ignored.`);
+      }
 
       const originalChildren = [...el.childNodes].map((n) =>
         n.cloneNode(true),
@@ -175,6 +209,9 @@ for (const method of HTTP_METHODS) {
       }
 
       async function doRequest() {
+        // Concurrency guard: skip if a paginated fetch is already in-flight
+        if (isPaginationTrigger && isInsertMode && _fetching) return;
+
         // SwitchMap: abort previous in-flight request
         if (_activeAbort) _activeAbort.abort();
         _activeAbort = new AbortController();
@@ -184,6 +221,13 @@ for (const method of HTTP_METHODS) {
         if (confirmMsg && !window.confirm(confirmMsg)) {
           _clearFormSubmitting();
           return;
+        }
+
+        if (isPaginationTrigger && isInsertMode) _fetching = true;
+
+        // Remove load-more button while fetch is in-flight
+        if (trigger === "button" && isInsertMode && !_isFirstFetch) {
+          _removeLoadMoreButton();
         }
 
         _showSkeleton();
@@ -274,6 +318,8 @@ for (const method of HTTP_METHODS) {
               }
             }
           }
+          // Pass meta object to capture response headers for pagination
+          const _responseMeta = {};
           const data = await _doFetch(
             resolvedUrl,
             method,
@@ -283,29 +329,38 @@ for (const method of HTTP_METHODS) {
             _activeAbort.signal,
             retryCount,
             retryDelay,
+            _responseMeta,
           );
 
           // Cache response
           if (method === "get") _cacheSet(cacheKey, data, cacheStrategy);
 
-          // Check empty
-          if (
-            emptyTpl &&
-            (data == null || (Array.isArray(data) && data.length === 0))
-          ) {
+          // ── End-of-data detection for pagination ──
+          const _isEmptyData = data == null
+            || (Array.isArray(data) && data.length === 0)
+            || data === "";
+          const _isLastPageHeader = _responseMeta.headers
+            && _responseMeta.headers.get("X-NoJS-Last-Page") === "true";
+          const _isEndOfData = _isEmptyData || _isLastPageHeader;
+
+          // Check empty (or end-of-data for paginated fetches)
+          if (_isEmptyData) {
             _hideSkeleton();
-            const clone = _cloneTemplate(emptyTpl);
-            if (clone) {
-              // In insert mode after first fetch, show empty inline
-              if (isInsertMode && !_isFirstFetch) {
-                _removeInlineLoading();
-                _insertContentAtEdge(clone);
-                processTree(clone);
-              } else {
-                _disposeChildren(el);
-                el.innerHTML = "";
-                el.appendChild(clone);
-                processTree(el);
+            if (isPaginationTrigger && isInsertMode) _handleEndOfData();
+            if (emptyTpl) {
+              const clone = _cloneTemplate(emptyTpl);
+              if (clone) {
+                // In insert mode after first fetch, show empty inline
+                if (isInsertMode && !_isFirstFetch) {
+                  _removeInlineLoading();
+                  _insertContentAtEdge(clone);
+                  processTree(clone);
+                } else {
+                  _disposeChildren(el);
+                  el.innerHTML = "";
+                  el.appendChild(clone);
+                  processTree(el);
+                }
               }
             }
             return;
@@ -424,6 +479,19 @@ for (const method of HTTP_METHODS) {
             }
           }
 
+          // ── Page auto-increment for pagination ──
+          if (hasGetPage && isPaginationTrigger && isInsertMode) {
+            ctx.$set("page", ctx.page + 1);
+          }
+
+          // ── End-of-data: X-NoJS-Last-Page header (non-empty response) ──
+          if (_isLastPageHeader && isPaginationTrigger && isInsertMode) {
+            _handleEndOfData();
+          } else if (isPaginationTrigger && isInsertMode && !_endOfData) {
+            // Re-render load-more button or reconnect scroll observer
+            _afterPaginatedFetch();
+          }
+
           // Then expression
           if (thenExpr) _execStatement(thenExpr, ctx, { result: data });
 
@@ -482,6 +550,7 @@ for (const method of HTTP_METHODS) {
             }
           }
         } finally {
+          if (isPaginationTrigger && isInsertMode) _fetching = false;
           if (el.tagName === "FORM" && method !== "get") {
             if (!myAbort.signal.aborted && _activeAbort === myAbort) {
               _clearFormSubmitting();
@@ -524,6 +593,121 @@ for (const method of HTTP_METHODS) {
         }
       }
 
+      // ── Pagination helpers ─────────────────────────────────────────────
+
+      // Stop all pagination activity: disconnect observer, remove button/sentinel,
+      // render empty template if available.
+      function _handleEndOfData() {
+        _endOfData = true;
+        // Disconnect scroll observer
+        if (_scrollObserver) {
+          _scrollObserver.disconnect();
+          _scrollObserver = null;
+        }
+        // Remove load-more button
+        _removeLoadMoreButton();
+        // Remove sentinel
+        if (_sentinel && _sentinel.parentNode) {
+          _sentinel.parentNode.removeChild(_sentinel);
+        }
+        _sentinel = null;
+        // Emit end event
+        _emitEvent("fetch:end", { url });
+      }
+
+      // After a successful paginated fetch, set up the next trigger.
+      function _afterPaginatedFetch() {
+        if (trigger === "button") {
+          _renderLoadMoreButton();
+        }
+        if (trigger === "scroll") {
+          // Create observer on first call (deferred from init to wait for
+          // sentinel repositioning after first fetch).
+          if (!_scrollObserver) {
+            _setupScrollObserver();
+          } else if (_sentinel) {
+            // Re-observe sentinel (may have been recreated during reset)
+            _scrollObserver.observe(_sentinel);
+          }
+        }
+      }
+
+      // Render a load-more button at the container edge.
+      function _renderLoadMoreButton() {
+        _removeLoadMoreButton();
+        const btn = document.createElement("button");
+        btn.setAttribute("data-nojs-load-more", "");
+        btn.setAttribute("type", "button");
+        btn.setAttribute("aria-label", triggerLabel);
+        btn.textContent = triggerLabel;
+        _loadMoreBtn = btn;
+        const clickHandler = () => {
+          if (_endOfData || _fetching) return;
+          doRequest();
+        };
+        btn.addEventListener("click", clickHandler);
+        // Cleanup via _onDispose (Rule 2)
+        _onDispose(() => {
+          btn.removeEventListener("click", clickHandler);
+        });
+        _insertContentAtEdge(btn);
+      }
+
+      // Remove the current load-more button from the DOM.
+      function _removeLoadMoreButton() {
+        if (_loadMoreBtn && _loadMoreBtn.parentNode) {
+          _loadMoreBtn.parentNode.removeChild(_loadMoreBtn);
+        }
+        _loadMoreBtn = null;
+        // Also remove any orphaned load-more buttons
+        const existing = el.querySelector("[data-nojs-load-more]");
+        if (existing && existing.parentNode) {
+          existing.parentNode.removeChild(existing);
+        }
+      }
+
+      // Create an IntersectionObserver on the sentinel for scroll trigger.
+      function _setupScrollObserver() {
+        if (typeof IntersectionObserver === "undefined") {
+          // Feature detection: fall back to button trigger and warn
+          _warn('IntersectionObserver not available, get-trigger="scroll" falling back to button trigger');
+          _renderLoadMoreButton();
+          return;
+        }
+        _scrollObserver = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting && el.isConnected && !_endOfData && !_fetching) {
+                doRequest();
+                break;
+              }
+            }
+          },
+          { rootMargin: threshold },
+        );
+        if (_sentinel) _scrollObserver.observe(_sentinel);
+        _onDispose(() => {
+          if (_scrollObserver) {
+            _scrollObserver.disconnect();
+            _scrollObserver = null;
+          }
+        });
+      }
+
+      // ── Reset pagination state (used by reactive URL change and el.refresh) ──
+      function _resetPagination() {
+        _endOfData = false;
+        _fetching = false;
+        if (hasGetPage) ctx.$set("page", initialPage);
+        _removeLoadMoreButton();
+        // Reset insert mode content
+        _resetInsertMode();
+        // Reconnect scroll observer to the new sentinel
+        if (trigger === "scroll" && _scrollObserver && _sentinel) {
+          _scrollObserver.observe(_sentinel);
+        }
+      }
+
       // For forms, intercept submit
       if (el.tagName === "FORM" && method !== "get") {
         const submitHandler = (e) => {
@@ -559,6 +743,37 @@ for (const method of HTTP_METHODS) {
             _warn('IntersectionObserver not available, get-trigger="visible" falling back to immediate fetch');
             if (el.isConnected) doRequest();
           }
+        } else if (trigger === "scroll" && isInsertMode) {
+          // Infinite scroll: fire initial request. The IntersectionObserver
+          // is created lazily in _afterPaginatedFetch() after the first fetch
+          // completes and the sentinel is repositioned.
+          if (el.isConnected) doRequest();
+        } else if (trigger === "scroll" && !isInsertMode) {
+          // scroll without get-insert — fall back to visible behavior (warned above)
+          if (typeof IntersectionObserver !== "undefined") {
+            const observer = new IntersectionObserver(
+              (entries) => {
+                for (const entry of entries) {
+                  if (entry.isIntersecting && el.isConnected) {
+                    observer.disconnect();
+                    doRequest();
+                    break;
+                  }
+                }
+              },
+              { rootMargin: threshold },
+            );
+            observer.observe(el);
+            _onDispose(() => observer.disconnect());
+          } else {
+            if (el.isConnected) doRequest();
+          }
+        } else if (trigger === "button" && isInsertMode) {
+          // Load-more button: fire initial request, then render button after.
+          if (el.isConnected) doRequest();
+        } else if (trigger === "button" && !isInsertMode) {
+          // button without get-insert — fall back to immediate (warned above)
+          if (el.isConnected) doRequest();
         } else if (trigger === "hover") {
           // Prefetch on hover: fire on first mouseenter.
           const useOnce = refreshInterval <= 0;
@@ -596,10 +811,40 @@ for (const method of HTTP_METHODS) {
         let _lastResolvedUrl = _interpolate(url, ctx);
         let _debounceTimer = null;
 
+        // For pagination: strip the {page} token to detect non-page URL changes.
+        // If only the page changed (auto-increment), proceed normally.
+        // If other parts changed, reset pagination and fetch fresh page 1.
+        const _urlWithoutPage = hasGetPage
+          ? url.replace(/\{page\}/g, "__PAGE__")
+          : null;
+        let _lastNonPageUrl = _urlWithoutPage
+          ? _interpolate(_urlWithoutPage, ctx)
+          : null;
+
         function onAncestorChange() {
           const newUrl = _interpolate(url, ctx);
           if (newUrl !== _lastResolvedUrl) {
             _lastResolvedUrl = newUrl;
+
+            // Check if non-page URL parts changed (pagination reset trigger)
+            if (isPaginationTrigger && isInsertMode && _urlWithoutPage) {
+              const newNonPageUrl = _interpolate(_urlWithoutPage, ctx);
+              if (newNonPageUrl !== _lastNonPageUrl) {
+                _lastNonPageUrl = newNonPageUrl;
+                if (_debounceTimer) clearTimeout(_debounceTimer);
+                if (debounceMs > 0) {
+                  _debounceTimer = setTimeout(() => {
+                    _resetPagination();
+                    doRequest();
+                  }, debounceMs);
+                } else {
+                  _resetPagination();
+                  doRequest();
+                }
+                return;
+              }
+            }
+
             if (_debounceTimer) clearTimeout(_debounceTimer);
             if (debounceMs > 0) {
               _debounceTimer = setTimeout(doRequest, debounceMs);
@@ -623,8 +868,13 @@ for (const method of HTTP_METHODS) {
       }
 
       // Expose doRequest for programmatic re-fetch via $refs
-      // For insert modes, wrap to reset before fetching (full reset on refresh)
-      if (isInsertMode) {
+      // For pagination insert modes, full reset before fetching
+      if (isPaginationTrigger && isInsertMode) {
+        el.refresh = function () {
+          _resetPagination();
+          doRequest();
+        };
+      } else if (isInsertMode) {
         el.refresh = function () {
           _resetInsertMode();
           doRequest();
@@ -634,8 +884,8 @@ for (const method of HTTP_METHODS) {
       }
       _onDispose(() => { delete el.refresh; });
 
-      // Polling
-      if (refreshInterval > 0) {
+      // Polling — suppressed for scroll/button pagination triggers
+      if (refreshInterval > 0 && !_suppressRefresh) {
         const id = setInterval(() => {
           if (!el.isConnected) { clearInterval(id); return; }
           doRequest();

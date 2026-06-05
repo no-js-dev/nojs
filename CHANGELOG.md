@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Pagination & Triggers** — extend the `get` directive with declarative pagination and fetch trigger control ([NOJS-98](https://github.com/ErickXavier/no-js/issues/98)):
+  - `get-insert` attribute: `append` or `prepend` insertion modes with sentinel-based positioning ([83580f4](https://github.com/ErickXavier/no-js/commit/83580f4))
+  - `get-trigger` attribute: `visible` (IntersectionObserver), `hover` (mouseenter), `none` (manual), `scroll` (infinite scroll), `button` (load more) ([a229263](https://github.com/ErickXavier/no-js/commit/a229263), [e44ee5c](https://github.com/ErickXavier/no-js/commit/e44ee5c))
+  - `get-page` attribute: offset-based pagination with auto-increment ([e44ee5c](https://github.com/ErickXavier/no-js/commit/e44ee5c))
+  - `get-cursor` and `get-cursor-field` attributes: cursor-based pagination with auto-detection from response headers or JSON body ([540e5af](https://github.com/ErickXavier/no-js/commit/540e5af))
+  - `get-threshold` attribute: configurable IntersectionObserver rootMargin ([a229263](https://github.com/ErickXavier/no-js/commit/a229263))
+  - `get-trigger-label` attribute: custom text for auto-generated load-more button ([e44ee5c](https://github.com/ErickXavier/no-js/commit/e44ee5c))
+  - End-of-data detection via empty response, `X-NoJS-Last-Page` header, or null cursor
+  - Scroll position preservation for prepend mode
+  - Mutual exclusivity guards: cursor vs page, scroll/button vs refresh
+- Pagination & Triggers documentation page with 7 live interactive demos
+- i18n translations (PT, ES, FR, IT) for pagination documentation
+- E2E tests: 17 Playwright tests covering pagination, triggers, and insert modes
+
+### Changed
+
+- `fetch.js`: expose response headers via `meta` parameter in `_doFetch` for cursor extraction
+
 ## [1.13.3] - 2026-06-05
 
 ### Fixed

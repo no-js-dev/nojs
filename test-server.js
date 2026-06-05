@@ -2,9 +2,11 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const LOCAL_BUILD = path.join(ROOT, 'dist/iife/no.js');
+const LOCAL_ELEMENTS = path.join(ROOT, '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
+const LOCAL_ELEMENTS_SCRIPT = '/__local__/nojs-elements.js';
 
 const CDN_PATTERN = /https:\/\/cdn\.no-js\.dev\//g;
 const LOCAL_SCRIPT = '/__local__/no.js';
@@ -48,6 +50,16 @@ const server = http.createServer((req, res) => {
   if (url === LOCAL_SCRIPT) {
     res.writeHead(200, { 'Content-Type': 'application/javascript' });
     fs.createReadStream(LOCAL_BUILD).pipe(res);
+    return;
+  }
+
+  // ── Serve NoJS-Elements at /__local__/nojs-elements.js ──
+  if (url === LOCAL_ELEMENTS_SCRIPT) {
+    fs.stat(LOCAL_ELEMENTS, (err) => {
+      if (err) { res.writeHead(404); res.end('NoJS-Elements build not found'); return; }
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      fs.createReadStream(LOCAL_ELEMENTS).pipe(res);
+    });
     return;
   }
 

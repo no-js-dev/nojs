@@ -26,6 +26,7 @@
       <a route="/docs/loops" class="sidebar-link" route-active="active" t="shell.sidebar.loops"></a>
       <a route="/docs/templates" class="sidebar-link" route-active="active" t="shell.sidebar.templates"></a>
       <a route="/docs/data-fetching" class="sidebar-link" route-active="active" t="shell.sidebar.fetchApi"></a>
+      <a route="/docs/pagination" class="sidebar-link" route-active="active" t="shell.sidebar.pagination"></a>
       <a route="/docs/routing" class="sidebar-link" route-active="active" t="shell.sidebar.routing"></a>
       <a route="/docs/head-management" class="sidebar-link" route-active="active" t="shell.sidebar.headManagement"></a>
       <a route="/docs/forms-validation" class="sidebar-link" route-active="active"><span t="shell.sidebar.forms"></span> <sup style="color:#B45309;font-size:9px;" title="Moved to NoJS Elements">&#x26A0;</sup></a>

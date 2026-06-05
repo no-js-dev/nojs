@@ -1607,6 +1607,119 @@
         "captureTitle": "JSON-LD Template Capture",
         "captureText": "The page-jsonld element's innerHTML is captured at processing time. If you need reactive JSON-LD, place the element inside a state scope and use {expression} interpolation."
       }
+    },
+    "pagination": {
+      "hero": {
+        "badge": "Guide",
+        "title": "Pagination & Triggers",
+        "subtitle": "Declarative infinite scroll, load-more buttons, lazy loading, and cursor-based pagination — all with HTML attributes."
+      },
+      "quickStart": {
+        "title": "Quick Start",
+        "text": "Add get-trigger and get-insert to any get directive to enable pagination. Here is a minimal infinite scroll example:",
+        "note": "The get directive fetches page 1 on load. When the user scrolls near the bottom, it automatically fetches the next page and appends the new items."
+      },
+      "attributes": {
+        "title": "Attributes Reference",
+        "col1": "Attribute",
+        "col2": "Values",
+        "col3": "Default",
+        "col4": "Description",
+        "getInsert": "Controls where new content is placed relative to existing content. Without this attribute, fetched content replaces the current content entirely.",
+        "getTrigger": "Controls when the fetch fires. Without this attribute, the fetch fires immediately on mount.",
+        "getPage": "Initial page number for offset-based pagination. The page context variable increments automatically after each successful fetch.",
+        "getCursor": "Enable cursor-based pagination. The cursor is extracted from the response header (X-Cursor) or JSON body field.",
+        "getCursorField": "Custom JSON field path for cursor extraction using dot notation (e.g. pagination.nextToken). Without this, No.JS probes cursor, next_cursor, nextCursor, next.",
+        "getThreshold": "IntersectionObserver rootMargin. Controls how early the fetch triggers before the element enters the viewport.",
+        "getTriggerLabel": "Custom label text for the auto-generated load-more button when using get-trigger=\"button\"."
+      },
+      "examples": {
+        "title": "Live Examples",
+        "infiniteScroll": {
+          "title": "Infinite Scroll",
+          "desc": "Automatically loads the next page when the user scrolls near the bottom of the list.",
+          "label": "Live Result"
+        },
+        "loadMore": {
+          "title": "Load More Button",
+          "desc": "Displays a button that the user clicks to load the next page of results.",
+          "label": "Live Result"
+        },
+        "lazyLoad": {
+          "title": "Lazy Load on Visible",
+          "desc": "Content is fetched only when the element scrolls into the viewport. Ideal for below-the-fold sections.",
+          "label": "Live Result"
+        },
+        "hoverPrefetch": {
+          "title": "Hover Prefetch",
+          "desc": "Content is fetched on the first mouseenter event. Useful for tooltips and preview cards.",
+          "label": "Live Result",
+          "hoverMe": "Hover over this card to load preview content"
+        },
+        "programmatic": {
+          "title": "Programmatic Fetch",
+          "desc": "The fetch does not fire automatically. Use $refs to trigger it manually via a button or other event.",
+          "label": "Live Result",
+          "clickToLoad": "Click the button to trigger the fetch manually."
+        },
+        "cursorPagination": {
+          "title": "Cursor Pagination",
+          "desc": "Uses cursor-based pagination instead of page numbers. The cursor is extracted from the JSON response body.",
+          "label": "Live Result"
+        },
+        "liveFeed": {
+          "title": "Live Feed (Prepend)",
+          "desc": "New content is inserted at the top of the list, simulating a live feed or news ticker.",
+          "label": "Live Result",
+          "loadNewer": "Load Newer"
+        }
+      },
+      "matrix": {
+        "title": "Composition Matrix",
+        "text": "The get-trigger and get-insert attributes combine to form a 5x3 matrix of behaviors. Here is how each combination works:",
+        "col1": "Trigger",
+        "col2": "No insert (replace)",
+        "col3": "append",
+        "col4": "prepend",
+        "immediateReplace": "Default behavior — fetch replaces content on mount.",
+        "immediateAppend": "Fetch on mount, append result below existing content.",
+        "immediatePrepend": "Fetch on mount, prepend result above existing content.",
+        "scrollReplace": "Falls back to visible behavior (scroll requires insert mode).",
+        "scrollAppend": "Infinite scroll — appends new pages as user scrolls down.",
+        "scrollPrepend": "Infinite scroll — prepends new pages as user scrolls up.",
+        "buttonReplace": "Falls back to immediate behavior (button requires insert mode).",
+        "buttonAppend": "Load-more button — appends next page on click.",
+        "buttonPrepend": "Load-more button — prepends next page on click.",
+        "visibleReplace": "Lazy load — fetches and replaces content when element enters viewport.",
+        "visibleAppend": "Lazy load — fetches and appends content when element enters viewport.",
+        "visiblePrepend": "Lazy load — fetches and prepends content when element enters viewport.",
+        "hoverReplace": "Prefetch — fetches and replaces content on first mouseenter.",
+        "hoverAppend": "Prefetch — fetches and appends content on first mouseenter.",
+        "hoverPrepend": "Prefetch — fetches and prepends content on first mouseenter.",
+        "noneReplace": "Manual — no auto-fetch, use $refs.refresh() to trigger.",
+        "noneAppend": "Manual — no auto-fetch, $refs.refresh() appends.",
+        "nonePrepend": "Manual — no auto-fetch, $refs.refresh() prepends."
+      },
+      "endOfData": {
+        "title": "End-of-Data Detection",
+        "text": "No.JS detects the end of paginated data in three ways, depending on the response format:",
+        "emptyBody": "Empty response body",
+        "emptyBodyText": "When the server returns an empty response body (Content-Length: 0 or empty string), No.JS stops pagination and hides the load-more button.",
+        "lastPageHeader": "X-NoJS-Last-Page header",
+        "lastPageHeaderText": "The server can send an X-NoJS-Last-Page: true response header to explicitly signal there are no more pages.",
+        "nullCursor": "Null cursor",
+        "nullCursorText": "For cursor-based pagination, when the cursor field in the JSON response is null or absent, No.JS stops pagination."
+      },
+      "templates": {
+        "title": "Templates with Pagination",
+        "text": "Loading, error, and empty templates work seamlessly with pagination. The loading template is shown during each page fetch, and the error template is shown if any page fails.",
+        "loadingNote": "During pagination (not the first fetch), a small inline loading indicator is shown at the insertion edge rather than replacing the entire content.",
+        "emptyNote": "The empty template is only shown when the first page returns no data. Subsequent empty pages simply stop pagination."
+      },
+      "scrollPosition": {
+        "title": "Scroll Position Preservation",
+        "text": "When using get-insert=\"prepend\", No.JS automatically preserves the user's scroll position. New content is inserted above the current viewport, and the scroll offset is adjusted so the user's view does not jump."
+      }
     }
   }
 }

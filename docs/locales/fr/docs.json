@@ -1607,6 +1607,119 @@
         "captureTitle": "Capture du Template JSON-LD",
         "captureText": "Le innerHTML de l'élément page-jsonld est capturé au moment du traitement. Si vous avez besoin de JSON-LD réactif, placez l'élément à l'intérieur d'un scope de state et utilisez l'interpolation {expression}."
       }
+    },
+    "pagination": {
+      "hero": {
+        "badge": "Guide",
+        "title": "Pagination et Déclencheurs",
+        "subtitle": "Infinite scroll déclaratif, boutons load more, lazy loading et pagination basée sur un cursor — le tout avec des attributs HTML."
+      },
+      "quickStart": {
+        "title": "Démarrage Rapide",
+        "text": "Ajoutez get-trigger et get-insert à n'importe quelle directive get pour activer la pagination. Voici un exemple minimal d'infinite scroll :",
+        "note": "La directive get récupère la page 1 au chargement. Lorsque l'utilisateur fait défiler près du bas, elle récupère automatiquement la page suivante et ajoute les nouveaux éléments."
+      },
+      "attributes": {
+        "title": "Référence des Attributs",
+        "col1": "Attribut",
+        "col2": "Valeurs",
+        "col3": "Par défaut",
+        "col4": "Description",
+        "getInsert": "Contrôle où le nouveau contenu est placé par rapport au contenu existant. Sans cet attribut, le contenu récupéré remplace entièrement le contenu actuel.",
+        "getTrigger": "Contrôle quand le fetch est déclenché. Sans cet attribut, le fetch se déclenche immédiatement au montage.",
+        "getPage": "Numéro de page initial pour la pagination basée sur l'offset. La variable de contexte page s'incrémente automatiquement après chaque fetch réussi.",
+        "getCursor": "Active la pagination basée sur un cursor. Le cursor est extrait de l'en-tête de réponse (X-Cursor) ou du champ du corps JSON.",
+        "getCursorField": "Chemin personnalisé du champ JSON pour l'extraction du cursor en notation par points (ex. pagination.nextToken). Sans cela, No.JS recherche cursor, next_cursor, nextCursor, next.",
+        "getThreshold": "rootMargin de l'IntersectionObserver. Contrôle à quel point le fetch se déclenche tôt avant que l'élément n'entre dans le viewport.",
+        "getTriggerLabel": "Texte personnalisé pour le bouton load more généré automatiquement lors de l'utilisation de get-trigger=\"button\"."
+      },
+      "examples": {
+        "title": "Exemples en Direct",
+        "infiniteScroll": {
+          "title": "Infinite Scroll",
+          "desc": "Charge automatiquement la page suivante lorsque l'utilisateur fait défiler près du bas de la liste.",
+          "label": "Résultat en Direct"
+        },
+        "loadMore": {
+          "title": "Bouton Load More",
+          "desc": "Affiche un bouton sur lequel l'utilisateur clique pour charger la page suivante de résultats.",
+          "label": "Résultat en Direct"
+        },
+        "lazyLoad": {
+          "title": "Lazy Load au Défilement",
+          "desc": "Le contenu est récupéré uniquement lorsque l'élément entre dans le viewport par défilement. Idéal pour les sections sous la ligne de flottaison.",
+          "label": "Résultat en Direct"
+        },
+        "hoverPrefetch": {
+          "title": "Hover Prefetch",
+          "desc": "Le contenu est récupéré au premier événement mouseenter. Utile pour les tooltips et les cartes de prévisualisation.",
+          "label": "Résultat en Direct",
+          "hoverMe": "Survolez cette carte pour charger le contenu de prévisualisation"
+        },
+        "programmatic": {
+          "title": "Fetch Programmatique",
+          "desc": "Le fetch ne se déclenche pas automatiquement. Utilisez $refs pour le déclencher manuellement via un bouton ou un autre événement.",
+          "label": "Résultat en Direct",
+          "clickToLoad": "Cliquez sur le bouton pour déclencher le fetch manuellement."
+        },
+        "cursorPagination": {
+          "title": "Cursor Pagination",
+          "desc": "Utilise la pagination basée sur un cursor au lieu des numéros de page. Le cursor est extrait du corps de la réponse JSON.",
+          "label": "Résultat en Direct"
+        },
+        "liveFeed": {
+          "title": "Live Feed (Prepend)",
+          "desc": "Le nouveau contenu est inséré en haut de la liste, simulant un flux en direct ou un défileur d'actualités.",
+          "label": "Résultat en Direct",
+          "loadNewer": "Charger les Plus Récents"
+        }
+      },
+      "matrix": {
+        "title": "Matrice de Composition",
+        "text": "Les attributs get-trigger et get-insert se combinent pour former une matrice 5x3 de comportements. Voici comment chaque combinaison fonctionne :",
+        "col1": "Trigger",
+        "col2": "Sans insert (replace)",
+        "col3": "append",
+        "col4": "prepend",
+        "immediateReplace": "Comportement par défaut — le fetch remplace le contenu au montage.",
+        "immediateAppend": "Fetch au montage, ajoute le résultat sous le contenu existant.",
+        "immediatePrepend": "Fetch au montage, insère le résultat au-dessus du contenu existant.",
+        "scrollReplace": "Revient au comportement visible (scroll nécessite le mode insert).",
+        "scrollAppend": "Infinite scroll — ajoute de nouvelles pages au fur et à mesure que l'utilisateur défile vers le bas.",
+        "scrollPrepend": "Infinite scroll — insère de nouvelles pages au fur et à mesure que l'utilisateur défile vers le haut.",
+        "buttonReplace": "Revient au comportement immediate (button nécessite le mode insert).",
+        "buttonAppend": "Bouton load more — ajoute la page suivante au clic.",
+        "buttonPrepend": "Bouton load more — insère la page suivante au clic.",
+        "visibleReplace": "Lazy load — récupère et remplace le contenu lorsque l'élément entre dans le viewport.",
+        "visibleAppend": "Lazy load — récupère et ajoute le contenu lorsque l'élément entre dans le viewport.",
+        "visiblePrepend": "Lazy load — récupère et insère le contenu lorsque l'élément entre dans le viewport.",
+        "hoverReplace": "Prefetch — récupère et remplace le contenu au premier mouseenter.",
+        "hoverAppend": "Prefetch — récupère et ajoute le contenu au premier mouseenter.",
+        "hoverPrepend": "Prefetch — récupère et insère le contenu au premier mouseenter.",
+        "noneReplace": "Manuel — pas d'auto-fetch, utilisez $refs.refresh() pour déclencher.",
+        "noneAppend": "Manuel — pas d'auto-fetch, $refs.refresh() ajoute.",
+        "nonePrepend": "Manuel — pas d'auto-fetch, $refs.refresh() insère."
+      },
+      "endOfData": {
+        "title": "Détection de Fin de Données",
+        "text": "No.JS détecte la fin des données paginées de trois manières, selon le format de la réponse :",
+        "emptyBody": "Corps de réponse vide",
+        "emptyBodyText": "Lorsque le serveur renvoie un corps de réponse vide (Content-Length: 0 ou chaîne vide), No.JS arrête la pagination et masque le bouton load more.",
+        "lastPageHeader": "En-tête X-NoJS-Last-Page",
+        "lastPageHeaderText": "Le serveur peut envoyer un en-tête de réponse X-NoJS-Last-Page: true pour signaler explicitement qu'il n'y a plus de pages.",
+        "nullCursor": "Cursor nul",
+        "nullCursorText": "Pour la pagination basée sur un cursor, lorsque le champ du cursor dans la réponse JSON est nul ou absent, No.JS arrête la pagination."
+      },
+      "templates": {
+        "title": "Templates avec Pagination",
+        "text": "Les templates de loading, error et empty fonctionnent parfaitement avec la pagination. Le template de loading est affiché pendant chaque fetch de page, et le template d'error est affiché si une page échoue.",
+        "loadingNote": "Pendant la pagination (pas lors du premier fetch), un petit indicateur de loading inline est affiché au bord d'insertion au lieu de remplacer tout le contenu.",
+        "emptyNote": "Le template empty n'est affiché que lorsque la première page ne renvoie aucune donnée. Les pages suivantes vides arrêtent simplement la pagination."
+      },
+      "scrollPosition": {
+        "title": "Préservation de la Position de Scroll",
+        "text": "Lors de l'utilisation de get-insert=\"prepend\", No.JS préserve automatiquement la position de scroll de l'utilisateur. Le nouveau contenu est inséré au-dessus du viewport actuel, et l'offset de scroll est ajusté pour que la vue de l'utilisateur ne saute pas."
+      }
     }
   }
 }

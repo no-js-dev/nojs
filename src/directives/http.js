@@ -16,10 +16,35 @@ import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate } from "../evaluate.js";
 import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
+
+// ─── Sentinel helpers ──────────────────────────────────────────────────────
+// Sentinel: a zero-height div used as a positional anchor for append/prepend
+// insertion modes. It carries no directives (Rule 9) — only a data attribute.
+
+function _createSentinel() {
+  const sentinel = document.createElement("div");
+  sentinel.setAttribute("data-nojs-sentinel", "");
+  sentinel.style.height = "0";
+  sentinel.style.overflow = "hidden";
+  sentinel.style.pointerEvents = "none";
+  return sentinel;
+}
+
+// Find the nearest scrollable ancestor by walking up the DOM and checking
+// computed overflow-y. Falls back to document.documentElement.
+function _findScrollContainer(el) {
+  let node = el.parentElement;
+  while (node && node !== document.documentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (overflowY === "scroll" || overflowY === "auto") return node;
+    node = node.parentElement;
+  }
+  return document.documentElement;
+}
 
 for (const method of HTTP_METHODS) {
   registerDirective(method, {
@@ -56,6 +81,14 @@ for (const method of HTTP_METHODS) {
       const trigger = el.getAttribute("get-trigger");
       const threshold = el.getAttribute("get-threshold") || "0px";
 
+      // ── get-insert: append | prepend | (absent = replace) ──
+      // Only applies to GET method; ignored on POST/PUT/PATCH/DELETE.
+      const insertRaw = method === "get" ? el.getAttribute("get-insert") : null;
+      const insertMode = method === "get" && el.hasAttribute("get-insert")
+        ? (insertRaw === "prepend" ? "prepend" : "append")
+        : "replace";
+      const isInsertMode = insertMode !== "replace";
+
       const parentCtx = el.parentElement
         ? findContext(el.parentElement)
         : createContext();
@@ -74,6 +107,29 @@ for (const method of HTTP_METHODS) {
         if (_activeAbort) _activeAbort.abort();
         _activeAbort = null;
       });
+
+      // ── Sentinel management for insert modes ──
+      let _sentinel = null;
+      let _isFirstFetch = true;
+
+      function _insertSentinel() {
+        _sentinel = _createSentinel();
+        if (insertMode === "append") {
+          el.appendChild(_sentinel);
+        } else {
+          el.insertBefore(_sentinel, el.firstChild);
+        }
+        // Register sentinel removal on dispose (Rule 2)
+        _onDispose(() => {
+          if (_sentinel && _sentinel.parentNode) {
+            _sentinel.parentNode.removeChild(_sentinel);
+          }
+          _sentinel = null;
+        });
+      }
+
+      // Insert sentinel at init time for insert modes
+      if (isInsertMode) _insertSentinel();
 
       // skeleton= helpers: show/hide a referenced DOM element by ID while
       // the request is in flight, preventing CLS from content appearing late.
@@ -99,6 +155,23 @@ for (const method of HTTP_METHODS) {
         if (!formCtx) return;
         formCtx.submitting = false;
         ctx.$set("$form", { ...formCtx });
+      }
+
+      // ── Reset for insert modes (used by el.refresh()) ──
+      function _resetInsertMode() {
+        // Dispose all accumulated children (Rule 1)
+        for (const child of [...el.children]) _disposeTree(child);
+        // Remove sentinel
+        if (_sentinel && _sentinel.parentNode) {
+          _sentinel.parentNode.removeChild(_sentinel);
+        }
+        _sentinel = null;
+        // Clear container
+        el.innerHTML = "";
+        // Reset first-fetch flag
+        _isFirstFetch = true;
+        // Recreate sentinel at correct position
+        _insertSentinel();
       }
 
       async function doRequest() {
@@ -163,10 +236,15 @@ for (const method of HTTP_METHODS) {
         if (loadingTpl) {
           const clone = _cloneTemplate(loadingTpl);
           if (clone) {
-            _disposeChildren(el);
-            el.innerHTML = "";
-            el.appendChild(clone);
-            processTree(el);
+            // In insert mode after first fetch, show loading inline (not replacing)
+            if (isInsertMode && !_isFirstFetch) {
+              _showLoadingInline(clone);
+            } else {
+              _disposeChildren(el);
+              el.innerHTML = "";
+              el.appendChild(clone);
+              processTree(el);
+            }
           }
         }
 
@@ -218,51 +296,132 @@ for (const method of HTTP_METHODS) {
             _hideSkeleton();
             const clone = _cloneTemplate(emptyTpl);
             if (clone) {
-              _disposeChildren(el);
-              el.innerHTML = "";
-              el.appendChild(clone);
-              processTree(el);
+              // In insert mode after first fetch, show empty inline
+              if (isInsertMode && !_isFirstFetch) {
+                _removeInlineLoading();
+                _insertContentAtEdge(clone);
+                processTree(clone);
+              } else {
+                _disposeChildren(el);
+                el.innerHTML = "";
+                el.appendChild(clone);
+                processTree(el);
+              }
             }
             return;
           }
 
           _hideSkeleton();
-          ctx.$set(asKey, data);
+
+          // ── Context accumulation for insert modes ──
+          if (isInsertMode && !_isFirstFetch) {
+            const prev = ctx[asKey];
+            if (Array.isArray(prev) && Array.isArray(data)) {
+              // Concatenate arrays: append adds new at end, prepend adds new at start
+              const accumulated = insertMode === "append"
+                ? [...prev, ...data]
+                : [...data, ...prev];
+              ctx.$set(asKey, accumulated);
+            } else {
+              // Non-array values are replaced
+              ctx.$set(asKey, data);
+            }
+          } else {
+            ctx.$set(asKey, data);
+          }
 
           // Write to global store if into attribute is present
           if (intoStore) {
             if (!_stores[intoStore]) _stores[intoStore] = createContext({});
-            _stores[intoStore].$set(asKey, data);
+            _stores[intoStore].$set(asKey, ctx[asKey]);
             _notifyStoreWatchers(intoStore);
           }
 
-          // Success template
-          if (successTpl) {
-            const clone = _cloneTemplate(successTpl);
-            if (clone) {
-              _disposeChildren(el);
-              el.innerHTML = "";
-              // Inject var
-              const tplEl = document.getElementById(
-                successTpl.replace("#", ""),
-              );
-              const vn = tplEl?.getAttribute("var") || varName || "result";
-              const childCtx = createContext({ [vn]: data }, ctx);
-              const wrapper = document.createElement("div");
-              wrapper.style.display = "contents";
-              wrapper.__ctx = childCtx;
-              wrapper.appendChild(clone);
-              el.appendChild(wrapper);
+          // ── Insert mode: append/prepend content ──
+          if (isInsertMode && !_isFirstFetch) {
+            _removeInlineLoading();
+
+            // Clone original children to render this page's content
+            const wrapper = document.createElement("div");
+            wrapper.style.display = "contents";
+            const childCtx = createContext({ [asKey]: data }, ctx);
+            wrapper.__ctx = childCtx;
+            for (const child of originalChildren)
+              wrapper.appendChild(child.cloneNode(true));
+
+            if (insertMode === "prepend") {
+              // Scroll position preservation for prepend
+              const scrollContainer = _findScrollContainer(el);
+              const oldScrollTop = scrollContainer.scrollTop;
+              const oldScrollHeight = scrollContainer.scrollHeight;
+
+              // Insert after sentinel (sentinel stays at top)
+              if (_sentinel && _sentinel.nextSibling) {
+                el.insertBefore(wrapper, _sentinel.nextSibling);
+              } else {
+                el.appendChild(wrapper);
+              }
+              processTree(wrapper);
+
+              // Adjust scroll position so user does not see a jump
+              const newScrollHeight = scrollContainer.scrollHeight;
+              scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+            } else {
+              // Append: insert before sentinel (sentinel stays at bottom)
+              if (_sentinel) {
+                el.insertBefore(wrapper, _sentinel);
+              } else {
+                el.appendChild(wrapper);
+              }
               processTree(wrapper);
             }
+
+            _isFirstFetch = false;
           } else {
-            // Restore original children and re-process
-            _disposeChildren(el);
-            el.innerHTML = "";
-            for (const child of originalChildren)
-              el.appendChild(child.cloneNode(true));
-            _clearDeclared(el);
-            processTree(el);
+            // ── Replace mode (default) or first fetch in insert mode ──
+            // Success template
+            if (successTpl) {
+              const clone = _cloneTemplate(successTpl);
+              if (clone) {
+                _disposeChildren(el);
+                el.innerHTML = "";
+                // Inject var
+                const tplEl = document.getElementById(
+                  successTpl.replace("#", ""),
+                );
+                const vn = tplEl?.getAttribute("var") || varName || "result";
+                const childCtx = createContext({ [vn]: data }, ctx);
+                const wrapper = document.createElement("div");
+                wrapper.style.display = "contents";
+                wrapper.__ctx = childCtx;
+                wrapper.appendChild(clone);
+                el.appendChild(wrapper);
+                processTree(wrapper);
+              }
+            } else {
+              // Restore original children and re-process
+              _disposeChildren(el);
+              el.innerHTML = "";
+              for (const child of originalChildren)
+                el.appendChild(child.cloneNode(true));
+              _clearDeclared(el);
+              processTree(el);
+            }
+
+            // For insert modes, reinsert sentinel after first fetch content
+            if (isInsertMode) {
+              _isFirstFetch = false;
+              // Remove old sentinel if present and reinsert at edge
+              if (_sentinel && _sentinel.parentNode) {
+                _sentinel.parentNode.removeChild(_sentinel);
+              }
+              _sentinel = _createSentinel();
+              if (insertMode === "append") {
+                el.appendChild(_sentinel);
+              } else {
+                el.insertBefore(_sentinel, el.firstChild);
+              }
+            }
           }
 
           // Then expression
@@ -290,8 +449,6 @@ for (const method of HTTP_METHODS) {
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);
             if (clone) {
-              _disposeChildren(el);
-              el.innerHTML = "";
               const tplEl = document.getElementById(
                 errorTpl.replace("#", ""),
               );
@@ -310,7 +467,17 @@ for (const method of HTTP_METHODS) {
               wrapper.style.display = "contents";
               wrapper.__ctx = childCtx;
               wrapper.appendChild(clone);
-              el.appendChild(wrapper);
+
+              if (isInsertMode && !_isFirstFetch) {
+                // In insert mode after first fetch, show error inline
+                // without removing existing content
+                _removeInlineLoading();
+                _insertContentAtEdge(wrapper);
+              } else {
+                _disposeChildren(el);
+                el.innerHTML = "";
+                el.appendChild(wrapper);
+              }
               processTree(wrapper);
             }
           }
@@ -320,6 +487,40 @@ for (const method of HTTP_METHODS) {
               _clearFormSubmitting();
             }
           }
+        }
+      }
+
+      // ── Inline loading/content helpers for insert modes ──
+      function _showLoadingInline(clone) {
+        const wrapper = document.createElement("div");
+        wrapper.style.display = "contents";
+        wrapper.setAttribute("data-nojs-inline-loading", "");
+        wrapper.appendChild(clone);
+        _insertContentAtEdge(wrapper);
+        processTree(wrapper);
+      }
+
+      function _removeInlineLoading() {
+        const loading = el.querySelector("[data-nojs-inline-loading]");
+        if (loading) {
+          _disposeTree(loading);
+          loading.parentNode.removeChild(loading);
+        }
+      }
+
+      // Insert a node at the container edge (before sentinel for append,
+      // after sentinel for prepend).
+      function _insertContentAtEdge(node) {
+        if (insertMode === "append" && _sentinel) {
+          el.insertBefore(node, _sentinel);
+        } else if (insertMode === "prepend" && _sentinel) {
+          if (_sentinel.nextSibling) {
+            el.insertBefore(node, _sentinel.nextSibling);
+          } else {
+            el.appendChild(node);
+          }
+        } else {
+          el.appendChild(node);
         }
       }
 
@@ -422,7 +623,15 @@ for (const method of HTTP_METHODS) {
       }
 
       // Expose doRequest for programmatic re-fetch via $refs
-      el.refresh = doRequest;
+      // For insert modes, wrap to reset before fetching (full reset on refresh)
+      if (isInsertMode) {
+        el.refresh = function () {
+          _resetInsertMode();
+          doRequest();
+        };
+      } else {
+        el.refresh = doRequest;
+      }
       _onDispose(() => { delete el.refresh; });
 
       // Polling

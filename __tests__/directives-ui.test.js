@@ -22,44 +22,36 @@ describe('Each Directive', () => {
   });
 
   test('renders list items', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'item-tpl';
-    tpl.innerHTML = '<span class="item"></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a", "b", "c"] }');
-    const list = document.createElement('div');
-    list.setAttribute('each', 'item in items');
-    list.setAttribute('template', 'item-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('each', 'item in items');
+    span.className = 'item';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    const items = list.querySelectorAll('.item');
+    const items = container.querySelectorAll('.item');
     expect(items.length).toBe(3);
   });
 
   test('provides loop variables ($index, $count, $first, $last, $even, $odd)', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'loop-vars-tpl';
-    tpl.innerHTML = '<span></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a", "b"] }');
-    const list = document.createElement('div');
-    list.setAttribute('each', 'item in items');
-    list.setAttribute('template', 'loop-vars-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('each', 'item in items');
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    const wrappers = [...list.children];
-    expect(wrappers.length).toBe(2);
+    const clones = [...container.children].filter(n => n.nodeType === 1);
+    expect(clones.length).toBe(2);
 
-
-    const ctx0 = wrappers[0].__ctx;
+    const ctx0 = clones[0].__ctx;
     expect(ctx0.$index).toBe(0);
     expect(ctx0.$count).toBe(2);
     expect(ctx0.$first).toBe(true);
@@ -67,8 +59,7 @@ describe('Each Directive', () => {
     expect(ctx0.$even).toBe(true);
     expect(ctx0.$odd).toBe(false);
 
-    
-    const ctx1 = wrappers[1].__ctx;
+    const ctx1 = clones[1].__ctx;
     expect(ctx1.$index).toBe(1);
     expect(ctx1.$first).toBe(false);
     expect(ctx1.$last).toBe(true);
@@ -77,24 +68,21 @@ describe('Each Directive', () => {
   });
 
   test('re-renders when list changes', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'reactivity-tpl';
-    tpl.innerHTML = '<span class="r-item"></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [1, 2] }');
-    const list = document.createElement('div');
-    list.setAttribute('each', 'item in items');
-    list.setAttribute('template', 'reactivity-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('each', 'item in items');
+    span.className = 'r-item';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    expect(list.querySelectorAll('.r-item').length).toBe(2);
+    expect(container.querySelectorAll('.r-item').length).toBe(2);
 
     parent.__ctx.items = [1, 2, 3, 4];
-    expect(list.querySelectorAll('.r-item').length).toBe(4);
+    expect(container.querySelectorAll('.r-item').length).toBe(4);
   });
 
   test('shows else template for empty list', () => {
@@ -103,22 +91,19 @@ describe('Each Directive', () => {
     elseTpl.innerHTML = '<p class="empty">No items</p>';
     document.body.appendChild(elseTpl);
 
-    const tpl = document.createElement('template');
-    tpl.id = 'each-item-tpl';
-    tpl.innerHTML = '<span></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [] }');
-    const list = document.createElement('div');
-    list.setAttribute('each', 'item in items');
-    list.setAttribute('template', 'each-item-tpl');
-    list.setAttribute('else', 'empty-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('each', 'item in items');
+    span.setAttribute('else', 'empty-tpl');
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    expect(list.querySelector('.empty')).not.toBeNull();
+    // The else template content is inserted between comment markers
+    expect(container.querySelector('.empty')).not.toBeNull();
   });
 });
 
@@ -128,17 +113,13 @@ describe('Foreach Directive', () => {
   });
 
   test('renders from a data source', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'fe-tpl';
-    tpl.innerHTML = '<li class="fe-item"></li>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ users: ["Alice", "Bob", "Carol"] }');
     const ul = document.createElement('ul');
-    ul.setAttribute('foreach', 'user');
-    ul.setAttribute('from', 'users');
-    ul.setAttribute('template', 'fe-tpl');
+    const li = document.createElement('li');
+    li.setAttribute('foreach', 'user in users');
+    li.className = 'fe-item';
+    ul.appendChild(li);
     parent.appendChild(ul);
     document.body.appendChild(parent);
     processTree(parent);
@@ -147,91 +128,74 @@ describe('Foreach Directive', () => {
   });
 
   test('supports filter attribute', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'fe-filter-tpl';
-    tpl.innerHTML = '<li class="filtered-item"></li>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ nums: [1, 2, 3, 4, 5, 6] }');
-    const list = document.createElement('div');
-    list.setAttribute('foreach', 'num');
-    list.setAttribute('from', 'nums');
-    list.setAttribute('filter', 'num > 3');
-    list.setAttribute('template', 'fe-filter-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('foreach', 'num in nums');
+    span.setAttribute('filter', 'num > 3');
+    span.className = 'filtered-item';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    expect(list.querySelectorAll('.filtered-item').length).toBe(3);
+    expect(container.querySelectorAll('.filtered-item').length).toBe(3);
   });
 
   test('supports limit and offset', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'fe-limit-tpl';
-    tpl.innerHTML = '<li class="limited-item"></li>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a","b","c","d","e"] }');
-    const list = document.createElement('div');
-    list.setAttribute('foreach', 'item');
-    list.setAttribute('from', 'items');
-    list.setAttribute('limit', '2');
-    list.setAttribute('offset', '1');
-    list.setAttribute('template', 'fe-limit-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('foreach', 'item in items');
+    span.setAttribute('limit', '2');
+    span.setAttribute('offset', '1');
+    span.className = 'limited-item';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    
-    expect(list.querySelectorAll('.limited-item').length).toBe(2);
+    expect(container.querySelectorAll('.limited-item').length).toBe(2);
   });
 
   test('supports sort attribute ascending', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'fe-sort-tpl';
-    tpl.innerHTML = '<span class="sorted"></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [{ name: "Charlie" }, { name: "Alice" }, { name: "Bob" }] }');
-    const list = document.createElement('div');
-    list.setAttribute('foreach', 'item');
-    list.setAttribute('from', 'items');
-    list.setAttribute('sort', 'name');
-    list.setAttribute('template', 'fe-sort-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('foreach', 'item in items');
+    span.setAttribute('sort', 'name');
+    span.className = 'sorted';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    const wrappers = [...list.children];
-    expect(wrappers[0].__ctx.item.name).toBe('Alice');
-    expect(wrappers[1].__ctx.item.name).toBe('Bob');
-    expect(wrappers[2].__ctx.item.name).toBe('Charlie');
+    const clones = [...container.children].filter(n => n.nodeType === 1);
+    expect(clones[0].__ctx.item.name).toBe('Alice');
+    expect(clones[1].__ctx.item.name).toBe('Bob');
+    expect(clones[2].__ctx.item.name).toBe('Charlie');
   });
 
   test('provides loop variables', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'fe-loop-tpl';
-    tpl.innerHTML = '<span class="fe-loop"></span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["x", "y"] }');
-    const list = document.createElement('div');
-    list.setAttribute('foreach', 'item');
-    list.setAttribute('from', 'items');
-    list.setAttribute('template', 'fe-loop-tpl');
-    parent.appendChild(list);
+    const container = document.createElement('div');
+    const span = document.createElement('span');
+    span.setAttribute('foreach', 'item in items');
+    span.className = 'fe-loop';
+    container.appendChild(span);
+    parent.appendChild(container);
     document.body.appendChild(parent);
     processTree(parent);
 
-    const wrappers = [...list.children];
-    expect(wrappers[0].__ctx.$first).toBe(true);
-    expect(wrappers[0].__ctx.$last).toBe(false);
-    expect(wrappers[1].__ctx.$first).toBe(false);
-    expect(wrappers[1].__ctx.$last).toBe(true);
+    const clones = [...container.children].filter(n => n.nodeType === 1);
+    expect(clones[0].__ctx.$first).toBe(true);
+    expect(clones[0].__ctx.$last).toBe(false);
+    expect(clones[1].__ctx.$first).toBe(false);
+    expect(clones[1].__ctx.$last).toBe(true);
   });
 });
 
@@ -959,31 +923,28 @@ describe('stagger and enter animation', () => {
   });
 
   test('applies animation-delay for stagger and enter class', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'anim-item';
-    tpl.innerHTML = '<div class="item"><span bind="item"></span></div>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a", "b", "c"] }');
+    const container = document.createElement('div');
     const el = document.createElement('div');
     el.setAttribute('each', 'item in items');
-    el.setAttribute('template', 'anim-item');
     el.setAttribute('animate-enter', 'fadeIn');
     el.setAttribute('animate-stagger', '100');
-    parent.appendChild(el);
+    el.innerHTML = '<span bind="item"></span>';
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    const wrappers = el.children;
-    expect(wrappers.length).toBe(3);
+    const clones = [...container.children].filter(n => n.nodeType === 1);
+    expect(clones.length).toBe(3);
 
-    expect(wrappers[0].style.animationDelay).toBe('0ms');
-    expect(wrappers[1].style.animationDelay).toBe('100ms');
-    expect(wrappers[2].style.animationDelay).toBe('200ms');
+    expect(clones[0].style.animationDelay).toBe('0ms');
+    expect(clones[1].style.animationDelay).toBe('100ms');
+    expect(clones[2].style.animationDelay).toBe('200ms');
 
-    expect(wrappers[0].classList.contains('fadeIn')).toBe(true);
+    expect(clones[0].classList.contains('fadeIn')).toBe(true);
   });
 });
 
@@ -1000,17 +961,18 @@ describe('foreach empty with else template', () => {
 
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [] }');
-    const el = document.createElement('div');
-    el.setAttribute('foreach', 'item');
-    el.setAttribute('from', 'items');
+    const container = document.createElement('div');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
     el.setAttribute('else', 'no-items');
-    el.innerHTML = '<span>Item</span>';
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    const emptyMsg = el.querySelector('.empty-msg');
+    // The companion else template content is inserted between comment markers
+    const emptyMsg = container.querySelector('.empty-msg');
     expect(emptyMsg).not.toBeNull();
     expect(emptyMsg.textContent).toBe('No items found');
   });
@@ -1024,22 +986,24 @@ describe('foreach with external template', () => {
   test('uses template element for rendering items', () => {
     const tpl = document.createElement('template');
     tpl.id = 'foreach-tpl';
-    tpl.innerHTML = '<li><span bind="item.name"></span></li>';
+    tpl.innerHTML = '<span bind="item.name"></span>';
     document.body.appendChild(tpl);
 
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [{name:"A"},{name:"B"}] }');
-    const el = document.createElement('ul');
-    el.setAttribute('foreach', 'item');
-    el.setAttribute('from', 'items');
-    el.setAttribute('template', 'foreach-tpl');
-    parent.appendChild(el);
+    const ul = document.createElement('ul');
+    const li = document.createElement('li');
+    li.setAttribute('foreach', 'item in items');
+    li.setAttribute('template', 'foreach-tpl');
+    ul.appendChild(li);
+    parent.appendChild(ul);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    const wrappers = [...el.children];
-    expect(wrappers.length).toBe(2);
+    // Self-repeating: li clones in ul, each wrapping template content
+    const clones = ul.querySelectorAll('li');
+    expect(clones.length).toBe(2);
   });
 });
 
@@ -1051,85 +1015,73 @@ describe('each directive — uncovered branches', () => {
   });
 
   test('each with invalid expression (no "in" keyword) does nothing', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'invalid-expr-tpl';
-    tpl.innerHTML = '<span>item</span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [1, 2, 3] }');
-    const el = document.createElement('div');
+    const container = document.createElement('div');
+    const el = document.createElement('span');
     el.setAttribute('each', 'items');
-    el.setAttribute('template', 'invalid-expr-tpl');
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    
-    expect(el.querySelectorAll('span').length).toBe(0);
+    // Invalid expression: the element stays in DOM (not processed as loop)
+    // No clones generated
+    expect(container.querySelectorAll('span').length).toBeLessThanOrEqual(1);
   });
 
   test('each with "animate" attribute fallback (not animate-enter)', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'anim-fallback-tpl';
-    tpl.innerHTML = '<div class="anim-item">content</div>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a", "b"] }');
+    const container = document.createElement('div');
     const el = document.createElement('div');
     el.setAttribute('each', 'item in items');
-    el.setAttribute('template', 'anim-fallback-tpl');
     el.setAttribute('animate', 'slideIn');
-    parent.appendChild(el);
+    el.className = 'anim-item';
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    const wrappers = el.children;
-    expect(wrappers.length).toBe(2);
-    
-    expect(wrappers[0].classList.contains('slideIn')).toBe(true);
-    expect(wrappers[1].classList.contains('slideIn')).toBe(true);
+    const clones = [...container.children].filter(n => n.nodeType === 1);
+    expect(clones.length).toBe(2);
+
+    expect(clones[0].classList.contains('slideIn')).toBe(true);
+    expect(clones[1].classList.contains('slideIn')).toBe(true);
   });
 
   test('each when list value is not an array does nothing', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'nonarray-tpl';
-    tpl.innerHTML = '<span>item</span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: "not-an-array" }');
-    const el = document.createElement('div');
+    const container = document.createElement('div');
+    const el = document.createElement('span');
     el.setAttribute('each', 'item in items');
-    el.setAttribute('template', 'nonarray-tpl');
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    expect(el.querySelectorAll('span').length).toBe(0);
+    // Element is removed (self-repeating), no clones created
+    expect(container.querySelectorAll('span').length).toBe(0);
   });
 
   test('each when list value is null does nothing', () => {
-    const tpl = document.createElement('template');
-    tpl.id = 'null-list-tpl';
-    tpl.innerHTML = '<span>item</span>';
-    document.body.appendChild(tpl);
-
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: null }');
-    const el = document.createElement('div');
+    const container = document.createElement('div');
+    const el = document.createElement('span');
     el.setAttribute('each', 'item in items');
-    el.setAttribute('template', 'null-list-tpl');
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    expect(el.querySelectorAll('span').length).toBe(0);
+    // Element is removed (self-repeating), no clones created
+    expect(container.querySelectorAll('span').length).toBe(0);
   });
 });
 
@@ -1146,17 +1098,19 @@ describe('foreach directive — uncovered branches', () => {
 
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["a", "b", "c", "d", "e"] }');
+    const container = document.createElement('div');
     const el = document.createElement('div');
     el.setAttribute('foreach', 'item');
     el.setAttribute('from', 'items');
     el.setAttribute('template', 'fe-defaults-tpl');
-    
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    expect(el.querySelectorAll('.default-item').length).toBe(5);
+    // Self-repeating: clones are siblings in container between markers
+    expect(container.querySelectorAll('.default-item').length).toBe(5);
   });
 
   test('foreach with descending sort (sort="-name")', () => {
@@ -1167,26 +1121,28 @@ describe('foreach directive — uncovered branches', () => {
 
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: [{ name: "Charlie" }, { name: "Alice" }, { name: "Bob" }] }');
+    const container = document.createElement('div');
     const el = document.createElement('div');
     el.setAttribute('foreach', 'item');
     el.setAttribute('from', 'items');
     el.setAttribute('sort', '-name');
     el.setAttribute('template', 'fe-sort-desc-tpl');
-    parent.appendChild(el);
+    container.appendChild(el);
+    parent.appendChild(container);
     document.body.appendChild(parent);
 
     processTree(parent);
 
-    const wrappers = [...el.children];
+    // Self-repeating: clones are div wrappers in container
+    const wrappers = [...container.children].filter(n => n.nodeType === 1);
     expect(wrappers[0].__ctx.item.name).toBe('Charlie');
     expect(wrappers[1].__ctx.item.name).toBe('Bob');
     expect(wrappers[2].__ctx.item.name).toBe('Alice');
   });
 
   test('foreach uses element itself as template when no template attribute (L141)', () => {
-    
-    
-    
+    // Self-repeating pattern: the element IS the template. It gets cloned
+    // N times as siblings between comment markers. No infinite recursion.
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: ["x", "y"] }');
     const el = document.createElement('div');
@@ -1196,16 +1152,21 @@ describe('foreach directive — uncovered branches', () => {
     parent.appendChild(el);
     document.body.appendChild(parent);
 
-    try {
-      processTree(parent);
-    } catch (e) {
-      
-      expect(e).toBeInstanceOf(RangeError);
-    }
+    processTree(parent);
+
+    // Clones are siblings in parent between comment markers
+    const clones = [...parent.querySelectorAll('div')];
+    expect(clones.length).toBe(2);
+    // Each clone should have the inner span
+    expect(clones[0].querySelector('.inline-item')).not.toBeNull();
+    expect(clones[1].querySelector('.inline-item')).not.toBeNull();
+    // Context should be set on each clone
+    expect(clones[0].__ctx.item).toBe('x');
+    expect(clones[1].__ctx.item).toBe('y');
   });
 
   test('foreach inline rendering path without external template (L161-163)', () => {
-    
+    // Self-repeating pattern: no infinite recursion, clones render normally
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ colors: ["red", "green"] }');
     const el = document.createElement('div');
@@ -1215,11 +1176,14 @@ describe('foreach directive — uncovered branches', () => {
     parent.appendChild(el);
     document.body.appendChild(parent);
 
-    try {
-      processTree(parent);
-    } catch (e) {
-      expect(e).toBeInstanceOf(RangeError);
-    }
+    processTree(parent);
+
+    const clones = [...parent.querySelectorAll('div')];
+    expect(clones.length).toBe(2);
+    expect(clones[0].querySelector('.color-item')).not.toBeNull();
+    expect(clones[1].querySelector('.color-item')).not.toBeNull();
+    expect(clones[0].__ctx.color).toBe('red');
+    expect(clones[1].__ctx.color).toBe('green');
   });
 });
 

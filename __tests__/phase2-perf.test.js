@@ -1080,57 +1080,62 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
     for (const k of Object.keys(_stores)) delete _stores[k];
   });
 
+  // Helper: get element clones between comment markers in host container
+  function getManagedClones(host) {
+    return [...host.childNodes].filter((n) => n.nodeType === 1);
+  }
+
   describe('foreach with filter expressions', () => {
     test('filter expression evaluates correctly for each item', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [1, 2, 3, 4, 5] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item > 2');
-      list.innerHTML = '<span bind="item"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ items: [1, 2, 3, 4, 5] }');
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item > 2');
+      el.setAttribute('bind', 'item');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(3);
       expect(items.map(i => i.textContent)).toEqual(['3', '4', '5']);
     });
 
     test('filter using $index', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', "{ items: ['a', 'b', 'c', 'd'] }");
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', '$index % 2 === 0');
-      list.innerHTML = '<span bind="item"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', "{ items: ['a', 'b', 'c', 'd'] }");
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', '$index % 2 === 0');
+      el.setAttribute('bind', 'item');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(2);
       expect(items.map(i => i.textContent)).toEqual(['a', 'c']);
     });
 
     test('filter with object items', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({
         users: [
           { name: 'Alice', active: true },
           { name: 'Bob', active: false },
           { name: 'Carol', active: true },
         ]
       }));
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'user in users');
-      list.setAttribute('filter', 'user.active');
-      list.innerHTML = '<span bind="user.name"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'user in users');
+      el.setAttribute('filter', 'user.active');
+      el.setAttribute('bind', 'user.name');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(2);
       expect(items.map(i => i.textContent)).toEqual(['Alice', 'Carol']);
     });
@@ -1138,23 +1143,23 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
     test('filter accessing $store', () => {
       _stores.settings = { minAge: 18 };
 
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({
         people: [
           { name: 'Kid', age: 10 },
           { name: 'Adult', age: 25 },
           { name: 'Teen', age: 16 },
         ]
       }));
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'person in people');
-      list.setAttribute('filter', 'person.age >= $store.settings.minAge');
-      list.innerHTML = '<span bind="person.name"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'person in people');
+      el.setAttribute('filter', 'person.age >= $store.settings.minAge');
+      el.setAttribute('bind', 'person.name');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(1);
       expect(items[0].textContent).toBe('Adult');
     });
@@ -1164,16 +1169,16 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
       outer.setAttribute('state', '{ threshold: 3 }');
       const inner = document.createElement('div');
       inner.setAttribute('state', '{ items: [1, 2, 3, 4, 5] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item > threshold');
-      list.innerHTML = '<span bind="item"></span>';
-      inner.appendChild(list);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item > threshold');
+      el.setAttribute('bind', 'item');
+      inner.appendChild(el);
       outer.appendChild(inner);
       document.body.appendChild(outer);
       processTree(outer);
 
-      const items = [...list.children];
+      const items = getManagedClones(inner);
       expect(items.length).toBe(2);
       expect(items.map(i => i.textContent)).toEqual(['4', '5']);
     });
@@ -1181,17 +1186,17 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
 
   describe('foreach with inline template', () => {
     test('inline template renders correctly with filter', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ nums: [10, 20, 30, 40, 50] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'n in nums');
-      list.setAttribute('filter', 'n >= 30');
-      list.innerHTML = '<span bind="n"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ nums: [10, 20, 30, 40, 50] }');
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'n in nums');
+      el.setAttribute('filter', 'n >= 30');
+      el.setAttribute('bind', 'n');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(3);
       expect(items.map(i => i.textContent)).toEqual(['30', '40', '50']);
     });
@@ -1199,46 +1204,46 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
 
   describe('key-based reconciliation with reusable context', () => {
     test('key expression evaluates correctly with reusable context', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({
         items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }, { id: 3, name: 'C' }]
       }));
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('key', 'item.id');
-      list.innerHTML = '<span bind="item.name"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('key', 'item.id');
+      el.setAttribute('bind', 'item.name');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(3);
       expect(items.map(i => i.textContent)).toEqual(['A', 'B', 'C']);
     });
 
     test('key reconciliation reorders without recreation', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({
         items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }, { id: 3, name: 'C' }]
       }));
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('key', 'item.id');
-      list.innerHTML = '<span bind="item.name"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('key', 'item.id');
+      el.setAttribute('bind', 'item.name');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
       // Capture references to original nodes
-      const origNodes = [...list.children];
+      const origNodes = getManagedClones(host);
       expect(origNodes.length).toBe(3);
 
       // Reverse the list
-      const ctx = findContext(parent);
+      const ctx = findContext(host);
       ctx.__raw.items = [{ id: 3, name: 'C' }, { id: 2, name: 'B' }, { id: 1, name: 'A' }];
       ctx.$notify();
 
-      const newNodes = [...list.children];
+      const newNodes = getManagedClones(host);
       expect(newNodes.length).toBe(3);
       // Nodes should be reused (same references), just reordered
       expect(newNodes[0]).toBe(origNodes[2]);
@@ -1249,54 +1254,54 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
 
   describe('sort, offset, limit with filter', () => {
     test('filter + sort works together', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({
         items: [{ v: 5 }, { v: 1 }, { v: 4 }, { v: 2 }, { v: 3 }]
       }));
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item.v > 2');
-      list.setAttribute('sort', 'v');
-      list.innerHTML = '<span bind="item.v"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item.v > 2');
+      el.setAttribute('sort', 'v');
+      el.setAttribute('bind', 'item.v');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(3);
       expect(items.map(i => i.textContent)).toEqual(['3', '4', '5']);
     });
 
     test('filter + limit works together', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [1, 2, 3, 4, 5, 6, 7, 8] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item > 3');
-      list.setAttribute('limit', '2');
-      list.innerHTML = '<span bind="item"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ items: [1, 2, 3, 4, 5, 6, 7, 8] }');
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item > 3');
+      el.setAttribute('limit', '2');
+      el.setAttribute('bind', 'item');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       expect(items.length).toBe(2);
       expect(items.map(i => i.textContent)).toEqual(['4', '5']);
     });
 
     test('filter + offset skips items', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [1, 2, 3, 4, 5] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item > 1');
-      list.setAttribute('offset', '1');
-      list.innerHTML = '<span bind="item"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ items: [1, 2, 3, 4, 5] }');
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item > 1');
+      el.setAttribute('offset', '1');
+      el.setAttribute('bind', 'item');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const items = [...list.children];
+      const items = getManagedClones(host);
       // Filtered: [2,3,4,5], offset 1 → [3,4,5]
       expect(items.length).toBe(3);
       expect(items.map(i => i.textContent)).toEqual(['3', '4', '5']);
@@ -1310,18 +1315,19 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
       tpl.innerHTML = '<p>No items match</p>';
       document.body.appendChild(tpl);
 
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [1, 2, 3] }');
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.setAttribute('filter', 'item > 100');
-      list.setAttribute('else', 'else-filter-tpl');
-      list.innerHTML = '<span bind="item"></span>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ items: [1, 2, 3] }');
+      const el = document.createElement('span');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('filter', 'item > 100');
+      el.setAttribute('else', 'else-filter-tpl');
+      el.setAttribute('bind', 'item');
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const p = list.querySelector('p');
+      // Else template content is inserted between comment markers in host
+      const p = host.querySelector('p');
       expect(p).not.toBeNull();
       expect(p.textContent).toBe('No items match');
     });
@@ -1329,19 +1335,19 @@ describe('PR #64 — Reusable filter context in foreach/each/for', () => {
 
   describe('loop iteration variables', () => {
     test('$index, $count, $first, $last are set correctly', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', "{ items: ['a', 'b', 'c'] }");
-      const list = document.createElement('div');
-      list.setAttribute('foreach', 'item in items');
-      list.innerHTML = '<div><span class="idx" bind="$index"></span><span class="cnt" bind="$count"></span><span class="first" bind="$first"></span><span class="last" bind="$last"></span></div>';
-      parent.appendChild(list);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', "{ items: ['a', 'b', 'c'] }");
+      const el = document.createElement('div');
+      el.setAttribute('foreach', 'item in items');
+      el.innerHTML = '<span class="idx" bind="$index"></span><span class="cnt" bind="$count"></span><span class="first" bind="$first"></span><span class="last" bind="$last"></span>';
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      const idxSpans = list.querySelectorAll('.idx');
-      const cntSpans = list.querySelectorAll('.cnt');
-      const firstSpans = list.querySelectorAll('.first');
-      const lastSpans = list.querySelectorAll('.last');
+      const idxSpans = host.querySelectorAll('.idx');
+      const cntSpans = host.querySelectorAll('.cnt');
+      const firstSpans = host.querySelectorAll('.first');
+      const lastSpans = host.querySelectorAll('.last');
 
       expect(idxSpans.length).toBe(3);
       expect(idxSpans[0].textContent).toBe('0');

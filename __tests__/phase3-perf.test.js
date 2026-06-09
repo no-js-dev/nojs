@@ -38,244 +38,271 @@ describe('PR #66 — Keyless loop delta append optimization', () => {
     _storeWatchers.clear();
   });
 
-  // Helper: create a foreach container with inline template and initial items.
-  // Note: state attribute is parsed by evaluate(), which creates new objects from
-  // the JSON string. To test delta optimization (which relies on shallow ref equality),
-  // we must use the actual item references from the context after processTree.
+  // Helper: get managed element clones between comment markers in host.
+  function getManagedClones(host) {
+    return [...host.childNodes].filter((n) => n.nodeType === 1);
+  }
+
+  // Helper: create a foreach loop with self-repeating pattern and initial items.
+  // In the self-repeating pattern, the element with foreach IS the template.
+  // It gets removed from DOM and clones are inserted between comment markers
+  // as siblings in the parent (host). We return { host, ctx, actualItems }.
   function makeForeachContainer(items, attrs = {}) {
-    const parent = document.createElement('div');
-    parent.setAttribute('state', JSON.stringify({ items }));
-    const loop = document.createElement('div');
-    loop.setAttribute('foreach', 'item in items');
+    const host = document.createElement('div');
+    host.setAttribute('state', JSON.stringify({ items }));
+    const el = document.createElement('div');
+    el.setAttribute('foreach', 'item in items');
     // Apply additional attributes (filter, sort, offset, limit, key)
     for (const [k, v] of Object.entries(attrs)) {
-      loop.setAttribute(k, v);
+      el.setAttribute(k, v);
     }
-    loop.innerHTML = '<span class="item"></span>';
-    parent.appendChild(loop);
-    document.body.appendChild(parent);
-    processTree(parent);
-    const ctx = findContext(parent);
+    el.innerHTML = '<span class="item"></span>';
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+    const ctx = findContext(host);
     // Return the actual item refs from the context (not the test-local objects)
     const actualItems = ctx.__raw.items;
-    return { parent, loop, ctx, actualItems };
+    return { host, ctx, actualItems };
   }
 
   describe('append-only (add items to end of list)', () => {
     test('appends new items without rebuilding existing DOM nodes', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1, name: 'A' }, { id: 2, name: 'B' }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1, name: 'A' }, { id: 2, name: 'B' }]);
       // Use the actual refs from the context to satisfy shallow ref equality
       const [a, b] = actualItems;
 
-      expect(loop.children.length).toBe(2);
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
       // Capture references to original DOM nodes
-      const firstChild = loop.children[0];
-      const secondChild = loop.children[1];
+      const firstChild = clones[0];
+      const secondChild = clones[1];
 
       // Append a new item (keeping the same reference objects for prefix)
       const c = { id: 3, name: 'C' };
       ctx.$set('items', [a, b, c]);
 
-      expect(loop.children.length).toBe(3);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
       // Original nodes must be preserved (delta append, not full rebuild)
-      expect(loop.children[0]).toBe(firstChild);
-      expect(loop.children[1]).toBe(secondChild);
+      expect(clones[0]).toBe(firstChild);
+      expect(clones[1]).toBe(secondChild);
     });
 
     test('appends multiple items at once via delta', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
-      expect(loop.children.length).toBe(2);
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
+      const firstChild = clones[0];
 
       const c = { id: 3 };
       const d = { id: 4 };
       const e = { id: 5 };
       ctx.$set('items', [a, b, c, d, e]);
 
-      expect(loop.children.length).toBe(5);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(5);
       // First child preserved — delta append, not full rebuild
-      expect(loop.children[0]).toBe(firstChild);
+      expect(clones[0]).toBe(firstChild);
     });
 
     test('$index, $item, $first, $last, $count correct after append', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
+      let clones = getManagedClones(host);
       // Before append: verify initial state
-      expect(loop.children[0].__ctx.$count).toBe(2);
-      expect(loop.children[0].__ctx.$first).toBe(true);
-      expect(loop.children[0].__ctx.$last).toBe(false);
-      expect(loop.children[1].__ctx.$last).toBe(true);
-      expect(loop.children[1].__ctx.$index).toBe(1);
+      expect(clones[0].__ctx.$count).toBe(2);
+      expect(clones[0].__ctx.$first).toBe(true);
+      expect(clones[0].__ctx.$last).toBe(false);
+      expect(clones[1].__ctx.$last).toBe(true);
+      expect(clones[1].__ctx.$index).toBe(1);
 
       // Append a third item
       const c = { id: 3 };
       ctx.$set('items', [a, b, c]);
 
+      clones = getManagedClones(host);
       // After append: $count updated on ALL children
-      expect(loop.children[0].__ctx.$count).toBe(3);
-      expect(loop.children[1].__ctx.$count).toBe(3);
-      expect(loop.children[2].__ctx.$count).toBe(3);
+      expect(clones[0].__ctx.$count).toBe(3);
+      expect(clones[1].__ctx.$count).toBe(3);
+      expect(clones[2].__ctx.$count).toBe(3);
 
       // $first is still the first
-      expect(loop.children[0].__ctx.$first).toBe(true);
+      expect(clones[0].__ctx.$first).toBe(true);
       // $last moved from index 1 to index 2
-      expect(loop.children[1].__ctx.$last).toBe(false);
-      expect(loop.children[2].__ctx.$last).toBe(true);
+      expect(clones[1].__ctx.$last).toBe(false);
+      expect(clones[2].__ctx.$last).toBe(true);
 
       // $index on new item
-      expect(loop.children[2].__ctx.$index).toBe(2);
+      expect(clones[2].__ctx.$index).toBe(2);
       // $item on new item
-      expect(loop.children[2].__ctx.item).toBe(c);
+      expect(clones[2].__ctx.item).toBe(c);
     });
 
     test('$even and $odd correct on appended items', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
       const c = { id: 3 };
       const d = { id: 4 };
       ctx.$set('items', [a, b, c, d]);
 
-      expect(loop.children[2].__ctx.$even).toBe(true);   // index 2
-      expect(loop.children[2].__ctx.$odd).toBe(false);
-      expect(loop.children[3].__ctx.$even).toBe(false);   // index 3
-      expect(loop.children[3].__ctx.$odd).toBe(true);
+      const clones = getManagedClones(host);
+      expect(clones[2].__ctx.$even).toBe(true);   // index 2
+      expect(clones[2].__ctx.$odd).toBe(false);
+      expect(clones[3].__ctx.$even).toBe(false);   // index 3
+      expect(clones[3].__ctx.$odd).toBe(true);
     });
   });
 
   describe('prepend (add items to beginning) — triggers full rebuild', () => {
     test('prepending items triggers full rebuild (prefix mismatch)', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       // Prepend a new item — prefix no longer matches
       const c = { id: 0 };
       ctx.$set('items', [c, a, b]);
 
-      expect(loop.children.length).toBe(3);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
       // First child should be different (full rebuild)
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
       // Verify correct data
-      expect(loop.children[0].__ctx.item).toBe(c);
-      expect(loop.children[1].__ctx.item).toBe(a);
-      expect(loop.children[2].__ctx.item).toBe(b);
+      expect(clones[0].__ctx.item).toBe(c);
+      expect(clones[1].__ctx.item).toBe(a);
+      expect(clones[2].__ctx.item).toBe(b);
     });
   });
 
   describe('splice/replace in middle — triggers full rebuild', () => {
     test('replacing an item in the middle triggers full rebuild', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }, { id: 3 }]);
       const [a, , c] = actualItems;
 
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       // Replace middle item (different object reference)
       const bNew = { id: 2, name: 'B-new' };
       ctx.$set('items', [a, bNew, c]);
 
-      expect(loop.children.length).toBe(3);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
       // Same length but item changed — full rebuild
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
     });
 
     test('removing an item triggers full rebuild (list shrunk)', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }, { id: 3 }]);
       const [a, , c] = actualItems;
 
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       ctx.$set('items', [a, c]);
 
-      expect(loop.children.length).toBe(2);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
       // Shrink always triggers full rebuild
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
     });
   });
 
   describe('filter/sort/limit/offset combos — full rebuild fallback', () => {
     test('filter active: always full rebuild even on append', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer(
+      const { host, ctx, actualItems } = makeForeachContainer(
         [{ id: 1, active: true }, { id: 2, active: true }],
         { filter: 'item.active' }
       );
       const [a, b] = actualItems;
 
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       const c = { id: 3, active: true };
       ctx.$set('items', [a, b, c]);
 
-      expect(loop.children.length).toBe(3);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
       // With filter, delta is disabled — full rebuild
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
     });
 
     test('sort active: always full rebuild even on append', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer(
+      const { host, ctx, actualItems } = makeForeachContainer(
         [{ id: 1, name: 'Alpha' }, { id: 2, name: 'Beta' }],
         { sort: 'name' }
       );
       const [a, b] = actualItems;
 
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       const c = { id: 3, name: 'Gamma' };
       ctx.$set('items', [a, b, c]);
 
+      clones = getManagedClones(host);
       // Sort present — full rebuild
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
     });
 
     test('offset active: always full rebuild even on append', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer(
+      const { host, ctx, actualItems } = makeForeachContainer(
         [{ id: 1 }, { id: 2 }, { id: 3 }],
         { offset: '1' }
       );
       const [a, b, c] = actualItems;
 
-      expect(loop.children.length).toBe(2); // offset=1 skips first item
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2); // offset=1 skips first item
 
-      const firstChild = loop.children[0];
+      const firstChild = clones[0];
 
       const d = { id: 4 };
       ctx.$set('items', [a, b, c, d]);
 
+      clones = getManagedClones(host);
       // Offset active — full rebuild
-      expect(loop.children[0]).not.toBe(firstChild);
+      expect(clones[0]).not.toBe(firstChild);
     });
 
     test('limit active without filter/sort/offset: delta still works', () => {
       // limit alone does NOT set hasPipeline (only filter, sort, offset do)
-      const { loop, ctx, actualItems } = makeForeachContainer(
+      const { host, ctx, actualItems } = makeForeachContainer(
         [{ id: 1 }, { id: 2 }],
         { limit: '10' }
       );
       const [a, b] = actualItems;
 
-      expect(loop.children.length).toBe(2);
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
+      const firstChild = clones[0];
 
       const c = { id: 3 };
       ctx.$set('items', [a, b, c]);
 
+      clones = getManagedClones(host);
       // limit without filter/sort/offset — delta append should work
-      expect(loop.children.length).toBe(3);
-      expect(loop.children[0]).toBe(firstChild);
+      expect(clones.length).toBe(3);
+      expect(clones[0]).toBe(firstChild);
     });
   });
 
   describe('disposal safety in fallback path (Safety Rule #1)', () => {
-    test('_disposeChildren called before innerHTML clearing in full rebuild', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+    test('_disposeChildren called before clearing in full rebuild', () => {
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
 
-      // Attach disposers to children to verify they are called
+      // Attach disposers to managed clones to verify they are called
       const disposeCalls = [];
-      for (const child of loop.children) {
+      const clones = getManagedClones(host);
+      for (const child of clones) {
         child.__disposers = child.__disposers || [];
         child.__disposers.push(() => disposeCalls.push(child));
       }
@@ -289,106 +316,118 @@ describe('PR #66 — Keyless loop delta append optimization', () => {
     });
 
     test('empty list clears DOM after disposal', () => {
-      const { loop, ctx } = makeForeachContainer([{ id: 1 }]);
+      const { host, ctx } = makeForeachContainer([{ id: 1 }]);
 
-      expect(loop.children.length).toBe(1);
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(1);
 
       // Set to empty — no else template, should clear
       ctx.$set('items', []);
 
-      // No children remain
-      expect(loop.children.length).toBe(0);
+      clones = getManagedClones(host);
+      // No element children remain (only comment markers)
+      expect(clones.length).toBe(0);
     });
   });
 
   describe('each/for aliases share delta optimization', () => {
     function makeLoopAlias(directive, items) {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', JSON.stringify({ items }));
-      const loop = document.createElement('div');
-      loop.setAttribute(directive, 'item in items');
-      loop.innerHTML = '<span></span>';
-      parent.appendChild(loop);
-      document.body.appendChild(parent);
-      processTree(parent);
-      const ctx = findContext(parent);
-      return { parent, loop, ctx, actualItems: ctx.__raw.items };
+      const host = document.createElement('div');
+      host.setAttribute('state', JSON.stringify({ items }));
+      const el = document.createElement('div');
+      el.setAttribute(directive, 'item in items');
+      el.innerHTML = '<span></span>';
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
+      const ctx = findContext(host);
+      return { host, ctx, actualItems: ctx.__raw.items };
     }
 
     test('each directive uses delta append for keyless lists', () => {
-      const { loop, ctx, actualItems } = makeLoopAlias('each', [{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeLoopAlias('each', [{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
-      expect(loop.children.length).toBe(2);
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
+      const firstChild = clones[0];
 
       const c = { id: 3 };
       ctx.$set('items', [a, b, c]);
 
-      expect(loop.children.length).toBe(3);
-      expect(loop.children[0]).toBe(firstChild);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
+      expect(clones[0]).toBe(firstChild);
     });
 
     test('for directive uses delta append for keyless lists', () => {
-      const { loop, ctx, actualItems } = makeLoopAlias('for', [{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeLoopAlias('for', [{ id: 1 }, { id: 2 }]);
       const [a, b] = actualItems;
 
-      expect(loop.children.length).toBe(2);
-      const firstChild = loop.children[0];
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
+      const firstChild = clones[0];
 
       const c = { id: 3 };
       ctx.$set('items', [a, b, c]);
 
-      expect(loop.children.length).toBe(3);
-      expect(loop.children[0]).toBe(firstChild);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
+      expect(clones[0]).toBe(firstChild);
     });
   });
 
   describe('key-based reconciliation bypasses delta (prevRendered = null)', () => {
     test('keyed foreach does not use delta append', () => {
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [{ id: 1, name: "A" }, { id: 2, name: "B" }] }');
-      const loop = document.createElement('div');
-      loop.setAttribute('foreach', 'item in items');
-      loop.setAttribute('key', 'item.id');
-      loop.innerHTML = '<span></span>';
-      parent.appendChild(loop);
-      document.body.appendChild(parent);
-      processTree(parent);
+      const host = document.createElement('div');
+      host.setAttribute('state', '{ items: [{ id: 1, name: "A" }, { id: 2, name: "B" }] }');
+      const el = document.createElement('div');
+      el.setAttribute('foreach', 'item in items');
+      el.setAttribute('key', 'item.id');
+      el.innerHTML = '<span></span>';
+      host.appendChild(el);
+      document.body.appendChild(host);
+      processTree(host);
 
-      expect(loop.children.length).toBe(2);
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(2);
       // Keyed reconciliation should work, but use its own path (not delta)
-      const ctx = findContext(parent);
+      const ctx = findContext(host);
       ctx.$set('items', [{ id: 1, name: 'A' }, { id: 2, name: 'B' }, { id: 3, name: 'C' }]);
 
-      expect(loop.children.length).toBe(3);
+      clones = getManagedClones(host);
+      expect(clones.length).toBe(3);
     });
   });
 
   describe('edge cases', () => {
     test('first render (no prevRendered) uses full render', () => {
-      const { loop, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const clones = getManagedClones(host);
       // First render should produce correct output
-      expect(loop.children.length).toBe(2);
-      expect(loop.children[0].__ctx.item).toEqual(actualItems[0]);
-      expect(loop.children[1].__ctx.item).toEqual(actualItems[1]);
+      expect(clones.length).toBe(2);
+      expect(clones[0].__ctx.item).toEqual(actualItems[0]);
+      expect(clones[1].__ctx.item).toEqual(actualItems[1]);
     });
 
     test('append after empty list works correctly', () => {
-      const { loop, ctx } = makeForeachContainer([]);
-      expect(loop.children.length).toBe(0);
+      const { host, ctx } = makeForeachContainer([]);
+      let clones = getManagedClones(host);
+      expect(clones.length).toBe(0);
 
       const a = { id: 1 };
       ctx.$set('items', [a]);
+      clones = getManagedClones(host);
       // Empty -> non-empty is a full render (no prevRendered)
-      expect(loop.children.length).toBe(1);
-      expect(loop.children[0].__ctx.item).toBe(a);
+      expect(clones.length).toBe(1);
+      expect(clones[0].__ctx.item).toBe(a);
     });
 
     test('same array reference with same length triggers notify-only path', () => {
-      const { loop, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
+      const { host, ctx, actualItems } = makeForeachContainer([{ id: 1 }, { id: 2 }]);
 
-      const firstChild = loop.children[0];
+      const clones = getManagedClones(host);
+      const firstChild = clones[0];
 
       // Re-set the same array reference: same ref triggers the same-reference
       // optimization path (notify children, no rebuild). We use the __raw reference
@@ -396,7 +435,7 @@ describe('PR #66 — Keyless loop delta append optimization', () => {
       const sameRef = ctx.__raw.items;
       ctx.$set('items', sameRef);
 
-      expect(loop.children[0]).toBe(firstChild);
+      expect(getManagedClones(host)[0]).toBe(firstChild);
     });
   });
 });
@@ -1060,16 +1099,17 @@ describe('Phase 3 cross-feature interactions', () => {
 
   test('store-driven loop with partitioned watchers renders correctly', () => {
     _stores.todos = { list: [{ text: 'Buy milk' }, { text: 'Walk dog' }] };
-    const parent = document.createElement('div');
-    parent.setAttribute('store', 'todos');
-    const loop = document.createElement('div');
-    loop.setAttribute('foreach', 'item in $store.todos.list');
-    loop.innerHTML = '<span></span>';
-    parent.appendChild(loop);
-    document.body.appendChild(parent);
-    processTree(parent);
+    const host = document.createElement('div');
+    host.setAttribute('store', 'todos');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in $store.todos.list');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
 
-    expect(loop.children.length).toBe(2);
+    // Self-repeating: clones are siblings in host between comment markers
+    const clones = [...host.childNodes].filter((n) => n.nodeType === 1);
+    expect(clones.length).toBe(2);
   });
 
   test('i18n cache works correctly across multiple sequential translations', () => {

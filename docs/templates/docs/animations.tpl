@@ -73,10 +73,10 @@
     <h2 class="doc-title" id="animations-loop" t="docs.animations.loopAnimations.title"></h2>
     <p class="doc-text" t="docs.animations.loopAnimations.text"></p>
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span>
-     <span class="hl-attr">template</span>=<span class="hl-str">"itemTpl"</span>
      <span class="hl-attr">animate-enter</span>=<span class="hl-str">"fadeInUp"</span>
      <span class="hl-attr">animate-leave</span>=<span class="hl-str">"fadeOutDown"</span>
      <span class="hl-attr">animate-stagger</span>=<span class="hl-str">"50"</span><span class="hl-tag">&gt;</span>  <span class="hl-cmt">&lt;!-- 50ms delay between each item --&gt;</span>
+  <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
   </div>
 

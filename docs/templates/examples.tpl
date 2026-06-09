@@ -339,9 +339,9 @@
        <span class="hl-attr">loading</span>=<span class="hl-str">"#dash-skeleton"</span><span class="hl-tag">&gt;</span>
     <span class="hl-tag">&lt;h2</span> <span class="hl-attr">bind</span>=<span class="hl-str">"'Welcome, ' + data.user.name"</span><span class="hl-tag">&gt;&lt;/h2&gt;</span>
     <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"m in data.metrics"</span><span class="hl-tag">&gt;</span>
-      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"m.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
-      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"m.value | number"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"m.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span> <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"m.value | number"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
     <span class="hl-tag">&lt;/div&gt;</span>
+    <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No metrics available<span class="hl-tag">&lt;/p&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
   <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$store.auth.user = null;
     $store.auth.token = null"</span><span class="hl-tag">&gt;</span>
@@ -411,9 +411,9 @@
     <span class="hl-tag">&lt;/p&gt;</span>
 
     <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in results"</span><span class="hl-tag">&gt;</span>
-      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
-      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.price | currency"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+      <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/span&gt;</span> <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.price | currency"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
     <span class="hl-tag">&lt;/div&gt;</span>
+    <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No results<span class="hl-tag">&lt;/p&gt;</span>
 
   <span class="hl-tag">&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre>
@@ -484,6 +484,7 @@
       Add to cart
     <span class="hl-tag">&lt;/button&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No products available<span class="hl-tag">&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span>
 
 <span class="hl-cmt">&lt;!-- Cart summary: elsewhere in the page --&gt;</span>
@@ -574,9 +575,9 @@
   <span class="hl-tag">&lt;/span&gt;</span>
 
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"metric in s.metrics"</span><span class="hl-tag">&gt;</span>
-    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"metric.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
-    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"metric.value | number"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"metric.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span> <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"metric.value | number"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No metrics<span class="hl-tag">&lt;/p&gt;</span>
 
 <span class="hl-tag">&lt;/div&gt;</span></pre>
     </div>

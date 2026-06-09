@@ -136,7 +136,8 @@
         "filter": "Filter expression",
         "sort": "Sort property (name only, not prefixed with item variable)",
         "limit": "Max items",
-        "offset": "Skip items"
+        "offset": "Skip items",
+        "else": "Sibling element shown when array is empty"
       },
       "events": {
         "title": "Events",
@@ -485,7 +486,7 @@
       },
       "foreach": {
         "title": "foreach — Iterate Over Arrays",
-        "text": "The primary iteration directive. Use foreach=\"item in array\" to loop over arrays. each and for are aliases with identical behavior.",
+        "text": "The primary iteration directive. Place foreach=\"item in array\" on the repeating element itself (self-repeating pattern). The element and its children are cloned for each item. each and for are aliases with identical behavior.",
         "preview": "Preview",
         "col1": "Attribute",
         "col2": "Description",
@@ -493,7 +494,7 @@
         "from": "Source array (DEPRECATED — use item in array syntax)",
         "index": "Variable name for the index (default: $index)",
         "key": "Unique key expression for element identification and tracking",
-        "else": "Template ID to render when array is empty",
+        "else": "Sibling element with else attribute, shown when array is empty",
         "filter": "Expression to filter items",
         "sort": "Property path to sort by (prefix - for descending)",
         "limit": "Maximum number of items to render",
@@ -502,15 +503,15 @@
       },
       "fullExample": {
         "title": "Full Example with All Attributes",
-        "text": "A complete example showing foreach with filtering, sorting, pagination, and an empty-state fallback."
+        "text": "A complete example showing foreach with filtering, sorting, pagination, and a sibling else for the empty-state fallback."
       },
       "aliases": {
         "title": "Aliases: each and for",
         "text": "each and for are aliases of foreach — they share the same handler and support all the same attributes."
       },
       "inline": {
-        "title": "Inline Children Template",
-        "text": "When no template attribute is specified, the element's children become the repeating template."
+        "title": "Self-Repeating Pattern",
+        "text": "Place the loop directive on the repeating element itself. The element is cloned for each item in the array. Add a sibling element with else to handle empty arrays."
       },
       "deprecated": {
         "title": "Deprecated: from Attribute",

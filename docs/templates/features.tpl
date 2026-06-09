@@ -231,9 +231,11 @@
       </div>
     </div>
     <div class="code-block">
-      <pre><span class="hl-tag">&lt;ul</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-line-highlight"><span class="hl-tag">&lt;li</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span></span>
+      <pre><span class="hl-tag">&lt;ul&gt;</span>
+  <span class="hl-line-highlight"><span class="hl-tag">&lt;li</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span></span>
+<span class="hl-line-highlight">      <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span></span>
 <span class="hl-line-highlight">      <span class="hl-attr">if</span>=<span class="hl-str">"item.active"</span><span class="hl-tag">&gt;&lt;/li&gt;</span></span>
+  <span class="hl-tag">&lt;li</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No items<span class="hl-tag">&lt;/li&gt;</span>
 <span class="hl-tag">&lt;/ul&gt;</span></pre>
     </div>
   </div>

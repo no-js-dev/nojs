@@ -136,7 +136,8 @@
         "filter": "Expression de filtrage",
         "sort": "Propriété de tri (nom seul, sans préfixe de variable d'élément)",
         "limit": "Nombre maximum d'éléments",
-        "offset": "Éléments à ignorer"
+        "offset": "Éléments à ignorer",
+        "else": "Élément frère affiché quand le tableau est vide"
       },
       "events": {
         "title": "Événements",
@@ -485,14 +486,14 @@
       },
       "foreach": {
         "title": "foreach — Itérer sur des tableaux",
-        "text": "La directive d'itération principale. Utilisez foreach=\"item in array\" pour itérer sur des tableaux. each et for sont des alias avec un comportement identique.",
+        "text": "La directive d'itération principale. Placez foreach=\"item in array\" sur l'élément qui se répète (self-repeating pattern). L'élément et ses enfants sont clonés pour chaque item. each et for sont des alias avec un comportement identique.",
         "col1": "Attribut",
         "col2": "Description",
         "foreach": "Expression : item in array",
         "from": "Tableau source (DEPRECATED — utilisez la syntaxe item in array)",
         "index": "Nom de la variable d'index (par défaut : $index)",
         "key": "Expression de clé unique pour l'identification et le suivi des éléments",
-        "else": "ID du template à afficher quand le tableau est vide",
+        "else": "Élément frère avec attribut else, affiché quand le tableau est vide",
         "filter": "Expression pour filtrer les éléments",
         "sort": "Chemin de propriété pour le tri (préfixe - pour l'ordre décroissant)",
         "limit": "Nombre maximum d'éléments à afficher",
@@ -502,15 +503,15 @@
       },
       "fullExample": {
         "title": "Exemple complet avec tous les attributs",
-        "text": "Un exemple complet montrant foreach avec filtrage, tri, pagination et un template de secours pour l'état vide."
+        "text": "Un exemple complet montrant foreach avec filtrage, tri, pagination et un else frère pour le secours d'état vide."
       },
       "aliases": {
         "title": "Alias : each et for",
         "text": "each et for sont des alias de foreach — ils partagent le même handler et supportent tous les mêmes attributs."
       },
       "inline": {
-        "title": "Template enfants inline",
-        "text": "Quand aucun attribut template n'est spécifié, les enfants de l'élément deviennent le template répété."
+        "title": "Self-Repeating Pattern",
+        "text": "Placez la directive de boucle sur l'élément qui se répète lui-même. L'élément est cloné pour chaque item du tableau. Ajoutez un élément frère avec else pour gérer les tableaux vides."
       },
       "deprecated": {
         "title": "Déprécié : attribut from",

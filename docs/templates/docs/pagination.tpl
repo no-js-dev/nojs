@@ -163,6 +163,7 @@
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span><span class="hl-tag">&gt;</span>
     <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No items found<span class="hl-tag">&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
     <div class="demo-note" t="docs.pagination.quickStart.note"></div>
   </div>

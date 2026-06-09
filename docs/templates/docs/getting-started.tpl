@@ -87,7 +87,7 @@ NoJS.init();</pre></div>
     <div class="code-block"><pre><span class="hl-cmt">body          → context: { baseUrl }</span>
 <span class="hl-cmt">  div[get]    → context: { user: { name, email } }  ← inherits from body</span>
 <span class="hl-cmt">    span[bind="user.name"]                           ← reads from div's context</span>
-<span class="hl-cmt">    div[each] → context: { post: { title } }         ← inherits from div</span></pre></div>
+<span class="hl-cmt">    p[each]   → context: { post: { title } }         ← self-repeating, inherits from div</span></pre></div>
 
     <h3 class="doc-subtitle" id="getting-started-directive-priority" t="docs.gettingStarted.coreConcepts.directivePrioritySubtitle"></h3>
     <table class="doc-table">

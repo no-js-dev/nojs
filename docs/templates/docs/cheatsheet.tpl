@@ -97,6 +97,7 @@
         <tr><td><code>sort</code></td><td><code>sort="name"</code></td><td t="docs.cheatsheet.loops.sort"></td></tr>
         <tr><td><code>limit</code></td><td><code>limit="10"</code></td><td t="docs.cheatsheet.loops.limit"></td></tr>
         <tr><td><code>offset</code></td><td><code>offset="5"</code></td><td t="docs.cheatsheet.loops.offset"></td></tr>
+        <tr><td><code>else</code> <small>(sibling)</small></td><td><code>&lt;li else&gt;No items&lt;/li&gt;</code></td><td t="docs.cheatsheet.loops.else"></td></tr>
       </tbody>
     </table>
   </div>

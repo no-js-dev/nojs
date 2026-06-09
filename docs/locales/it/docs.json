@@ -136,7 +136,8 @@
         "filter": "Espressione di filtro",
         "sort": "Proprietà di ordinamento (solo nome, senza prefisso della variabile elemento)",
         "limit": "Numero massimo di elementi",
-        "offset": "Salta elementi"
+        "offset": "Salta elementi",
+        "else": "Elemento fratello mostrato quando l'array è vuoto"
       },
       "events": {
         "title": "Eventi",
@@ -485,14 +486,14 @@
       },
       "foreach": {
         "title": "foreach — Itera sugli array",
-        "text": "La direttiva di iterazione principale. Usa foreach=\"item in array\" per iterare sugli array. each e for sono alias con comportamento identico.",
+        "text": "La direttiva di iterazione principale. Posiziona foreach=\"item in array\" sull'elemento che si ripete (self-repeating pattern). L'elemento e i suoi figli vengono clonati per ogni item. each e for sono alias con comportamento identico.",
         "col1": "Attributo",
         "col2": "Descrizione",
         "foreach": "Espressione: item in array",
         "from": "Array sorgente (DEPRECATED — usa la sintassi item in array)",
         "index": "Nome della variabile per l'indice (default: $index)",
         "key": "Espressione chiave univoca per l'identificazione e il tracciamento degli elementi",
-        "else": "ID del template da renderizzare quando l'array è vuoto",
+        "else": "Elemento fratello con attributo else, mostrato quando l'array è vuoto",
         "filter": "Espressione per filtrare gli elementi",
         "sort": "Percorso della proprietà per l'ordinamento (prefisso - per ordine decrescente)",
         "limit": "Numero massimo di elementi da renderizzare",
@@ -502,15 +503,15 @@
       },
       "fullExample": {
         "title": "Esempio completo con tutti gli attributi",
-        "text": "Un esempio completo che mostra foreach con filtraggio, ordinamento, paginazione e un template di fallback per lo stato vuoto."
+        "text": "Un esempio completo che mostra foreach con filtraggio, ordinamento, paginazione e un else fratello per il fallback di stato vuoto."
       },
       "aliases": {
         "title": "Alias: each e for",
         "text": "each e for sono alias di foreach — condividono lo stesso handler e supportano tutti gli stessi attributi."
       },
       "inline": {
-        "title": "Template figli inline",
-        "text": "Quando nessun attributo template è specificato, i figli dell'elemento diventano il template ripetuto."
+        "title": "Self-Repeating Pattern",
+        "text": "Posiziona la direttiva di loop sull'elemento che si ripete. L'elemento viene clonato per ogni item dell'array. Aggiungi un elemento fratello con else per gestire array vuoti."
       },
       "deprecated": {
         "title": "Deprecato: attributo from",

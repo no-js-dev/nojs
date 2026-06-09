@@ -137,7 +137,7 @@
         "sort": "Propriété de tri (nom seul, sans préfixe de variable d'élément)",
         "limit": "Nombre maximum d'éléments",
         "offset": "Éléments à ignorer",
-        "else": "Élément frère affiché quand le tableau est vide"
+        "else": "Fallback pour l'état vide (élément frère ou référence de template)"
       },
       "events": {
         "title": "Événements",
@@ -493,13 +493,14 @@
         "from": "Tableau source (DEPRECATED — utilisez la syntaxe item in array)",
         "index": "Nom de la variable d'index (par défaut : $index)",
         "key": "Expression de clé unique pour l'identification et le suivi des éléments",
-        "else": "Élément frère avec attribut else, affiché quand le tableau est vide",
         "filter": "Expression pour filtrer les éléments",
         "sort": "Chemin de propriété pour le tri (préfixe - pour l'ordre décroissant)",
         "limit": "Nombre maximum d'éléments à afficher",
         "offset": "Nombre d'éléments à ignorer",
         "preview": "Aperçu",
-        "template": "ID de template externe (optionnel — les enfants deviennent le template si omis)"
+        "template": "ID de template externe (optionnel — les enfants deviennent le template si omis)",
+        "elseSibling": "Élément frère avec attribut else, affiché quand le tableau est vide",
+        "elseTpl": "ID de template sur l'élément de boucle — rendu quand le tableau est vide (alternative au else frère)"
       },
       "fullExample": {
         "title": "Exemple complet avec tous les attributs",
@@ -540,6 +541,11 @@
         "title": "Itération d'Objets",
         "text": "Pour itérer sur les entrées d'un objet, utilisez le filtre keys ou values pour le convertir en tableau d'abord.",
         "callout": "L'itération directe d'objets n'est pas supportée — convertissez toujours en tableau avec keys, values ou Object.entries() dans une expression computed."
+      },
+      "elseTpl": {
+        "title": "Else avec Référence de Template",
+        "text": "Au lieu d'un élément else frère, vous pouvez placer else=\"templateId\" directement sur l'élément de boucle. Quand le tableau est vide, le contenu du template référencé remplace la sortie de la boucle.",
+        "callout": "L'attribut else sur l'élément de boucle ne s'active que pour les tableaux vides ([]). Pour les sources null ou undefined, utilisez un élément else frère."
       }
     },
     "templates": {

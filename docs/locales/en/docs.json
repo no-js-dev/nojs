@@ -137,7 +137,7 @@
         "sort": "Sort property (name only, not prefixed with item variable)",
         "limit": "Max items",
         "offset": "Skip items",
-        "else": "Sibling element shown when array is empty"
+        "else": "Empty-state fallback (sibling element or template reference)"
       },
       "events": {
         "title": "Events",
@@ -494,12 +494,13 @@
         "from": "Source array (DEPRECATED — use item in array syntax)",
         "index": "Variable name for the index (default: $index)",
         "key": "Unique key expression for element identification and tracking",
-        "else": "Sibling element with else attribute, shown when array is empty",
         "filter": "Expression to filter items",
         "sort": "Property path to sort by (prefix - for descending)",
         "limit": "Maximum number of items to render",
         "offset": "Number of items to skip",
-        "template": "External template ID (optional — children become template if omitted)"
+        "template": "External template ID (optional — children become template if omitted)",
+        "elseSibling": "Sibling element with else attribute, shown when array is empty",
+        "elseTpl": "Template ID on the loop element itself — rendered when array is empty (alternative to sibling else)"
       },
       "fullExample": {
         "title": "Full Example with All Attributes",
@@ -540,6 +541,11 @@
         "title": "Object Iteration",
         "text": "To iterate over an object's entries, use the keys or values filter to convert it to an array first.",
         "callout": "Direct object iteration is not supported — always convert to an array with keys, values, or Object.entries() in a computed expression."
+      },
+      "elseTpl": {
+        "title": "Else with Template Reference",
+        "text": "Instead of a sibling else element, you can place else=\"templateId\" directly on the loop element. When the array is empty, the referenced template content replaces the loop output.",
+        "callout": "The else attribute on the loop element only activates for empty arrays ([]). For null or undefined sources, use a sibling else element instead."
       }
     },
     "templates": {

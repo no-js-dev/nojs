@@ -137,7 +137,7 @@
         "sort": "Proprietà di ordinamento (solo nome, senza prefisso della variabile elemento)",
         "limit": "Numero massimo di elementi",
         "offset": "Salta elementi",
-        "else": "Elemento fratello mostrato quando l'array è vuoto"
+        "else": "Fallback per stato vuoto (elemento fratello o riferimento al template)"
       },
       "events": {
         "title": "Eventi",
@@ -493,13 +493,14 @@
         "from": "Array sorgente (DEPRECATED — usa la sintassi item in array)",
         "index": "Nome della variabile per l'indice (default: $index)",
         "key": "Espressione chiave univoca per l'identificazione e il tracciamento degli elementi",
-        "else": "Elemento fratello con attributo else, mostrato quando l'array è vuoto",
         "filter": "Espressione per filtrare gli elementi",
         "sort": "Percorso della proprietà per l'ordinamento (prefisso - per ordine decrescente)",
         "limit": "Numero massimo di elementi da renderizzare",
         "offset": "Numero di elementi da saltare",
         "preview": "Anteprima",
-        "template": "ID di template esterno (opzionale — i figli diventano il template se omesso)"
+        "template": "ID di template esterno (opzionale — i figli diventano il template se omesso)",
+        "elseSibling": "Elemento fratello con attributo else, mostrato quando l'array è vuoto",
+        "elseTpl": "ID del template sull'elemento del loop — renderizzato quando l'array è vuoto (alternativa all'else fratello)"
       },
       "fullExample": {
         "title": "Esempio completo con tutti gli attributi",
@@ -540,6 +541,11 @@
         "title": "Iterazione di Oggetti",
         "text": "Per iterare sulle voci di un oggetto, usa il filtro keys o values per convertirlo in array prima.",
         "callout": "L'iterazione diretta di oggetti non è supportata — converti sempre in array con keys, values o Object.entries() in un'espressione computed."
+      },
+      "elseTpl": {
+        "title": "Else con Riferimento al Template",
+        "text": "Invece di un elemento else fratello, puoi inserire else=\"templateId\" direttamente sull'elemento del loop. Quando l'array è vuoto, il contenuto del template referenziato sostituisce l'output del loop.",
+        "callout": "L'attributo else sull'elemento del loop si attiva solo per array vuoti ([]). Per sorgenti null o undefined, usa un elemento else fratello."
       }
     },
     "templates": {

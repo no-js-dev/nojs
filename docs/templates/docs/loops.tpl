@@ -57,7 +57,8 @@
         <tr><td><code>template</code></td><td t="docs.loops.foreach.template"></td></tr>
         <tr><td><code>index</code></td><td t="docs.loops.foreach.index"></td></tr>
         <tr><td><code>key</code></td><td t="docs.loops.foreach.key"></td></tr>
-        <tr><td><code>else</code> <small>(sibling)</small></td><td t="docs.loops.foreach.else"></td></tr>
+        <tr><td><code>else</code> <small>(sibling)</small></td><td t="docs.loops.foreach.elseSibling"></td></tr>
+        <tr><td><code>else</code> <small>(attribute)</small></td><td t="docs.loops.foreach.elseTpl"></td></tr>
         <tr><td><code>filter</code></td><td t="docs.loops.foreach.filter"></td></tr>
         <tr><td><code>sort</code></td><td t="docs.loops.foreach.sort"></td></tr>
         <tr><td><code>limit</code></td><td t="docs.loops.foreach.limit"></td></tr>
@@ -76,6 +77,22 @@
       <span class="hl-attr">bind</span>=<span class="hl-str">"user.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
   <span class="hl-tag">&lt;li</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No users found<span class="hl-tag">&lt;/li&gt;</span>
 <span class="hl-tag">&lt;/ul&gt;</span></pre></div>
+  </div>
+
+  <!-- else template reference -->
+  <div class="doc-section">
+    <h2 class="doc-title" t="docs.loops.elseTpl.title"></h2>
+    <p class="doc-text" t="docs.loops.elseTpl.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;article</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">else</span>=<span class="hl-str">"no-items"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;h2</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.title"</span><span class="hl-tag">&gt;&lt;/h2&gt;</span>
+<span class="hl-tag">&lt;/article&gt;</span>
+
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"no-items"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;p&gt;</span>No items found.<span class="hl-tag">&lt;/p&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
+    <div class="callout">
+      <p t="docs.loops.elseTpl.callout"></p>
+    </div>
   </div>
 
   <!-- aliases -->

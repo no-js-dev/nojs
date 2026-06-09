@@ -21,6 +21,9 @@ import { _devtoolsEmit } from "../devtools.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 
+// Prototype-pollution guard — mirrors _FORBIDDEN_PROPS in evaluate.js
+const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1 };
+
 // ─── Sentinel helpers ──────────────────────────────────────────────────────
 // Sentinel: a zero-height div used as a positional anchor for append/prepend
 // insertion modes. It carries no directives (Rule 9) — only a data attribute.
@@ -160,17 +163,26 @@ for (const method of HTTP_METHODS) {
 
       // ── Sentinel management for insert modes ──
       let _sentinel = null;
+      let _sentinelGen = 0; // Generation counter to invalidate stale disposers
       let _isFirstFetch = true;
 
       function _insertSentinel() {
+        // Remove previous sentinel from DOM before creating a new one
+        if (_sentinel && _sentinel.parentNode) {
+          _sentinel.parentNode.removeChild(_sentinel);
+        }
+        // Increment generation so any previously registered disposer becomes a no-op
+        const gen = ++_sentinelGen;
         _sentinel = _createSentinel();
         if (insertMode === "append") {
           el.appendChild(_sentinel);
         } else {
           el.insertBefore(_sentinel, el.firstChild);
         }
-        // Register sentinel removal on dispose (Rule 2)
+        // Register sentinel removal on dispose (Rule 2).
+        // The generation check prevents stale disposers from accumulating work.
         _onDispose(() => {
+          if (gen !== _sentinelGen) return; // superseded by a newer sentinel
           if (_sentinel && _sentinel.parentNode) {
             _sentinel.parentNode.removeChild(_sentinel);
           }
@@ -232,6 +244,10 @@ for (const method of HTTP_METHODS) {
         let current = obj;
         for (const part of parts) {
           if (current == null || typeof current !== "object") return undefined;
+          if (_FORBIDDEN_PROPS[part]) {
+            _warn("Blocked access to forbidden property '" + part + "' in get-cursor-field");
+            return undefined;
+          }
           current = current[part];
         }
         return current;
@@ -565,12 +581,22 @@ for (const method of HTTP_METHODS) {
               if (_sentinel && _sentinel.parentNode) {
                 _sentinel.parentNode.removeChild(_sentinel);
               }
+              // Increment generation so any previously registered disposer becomes a no-op
+              const gen = ++_sentinelGen;
               _sentinel = _createSentinel();
               if (insertMode === "append") {
                 el.appendChild(_sentinel);
               } else {
                 el.insertBefore(_sentinel, el.firstChild);
               }
+              // Register dispose for the re-created sentinel (Rule 2)
+              _onDispose(() => {
+                if (gen !== _sentinelGen) return; // superseded by a newer sentinel
+                if (_sentinel && _sentinel.parentNode) {
+                  _sentinel.parentNode.removeChild(_sentinel);
+                }
+                _sentinel = null;
+              });
             }
           }
 
@@ -635,6 +661,8 @@ for (const method of HTTP_METHODS) {
                 // In insert mode after first fetch, show error inline
                 // without removing existing content
                 _removeInlineLoading();
+                _removeInlineError();
+                wrapper.setAttribute("data-nojs-inline-error", "");
                 _insertContentAtEdge(wrapper);
               } else {
                 _disposeChildren(el);
@@ -669,6 +697,14 @@ for (const method of HTTP_METHODS) {
         if (loading) {
           _disposeTree(loading);
           loading.parentNode.removeChild(loading);
+        }
+      }
+
+      function _removeInlineError() {
+        const error = el.querySelector("[data-nojs-inline-error]");
+        if (error) {
+          _disposeTree(error);
+          error.parentNode.removeChild(error);
         }
       }
 
@@ -801,9 +837,12 @@ for (const method of HTTP_METHODS) {
         _removeLoadMoreButton();
         // Reset insert mode content
         _resetInsertMode();
-        // Reconnect scroll observer to the new sentinel
-        if (trigger === "scroll" && _scrollObserver && _sentinel) {
-          _scrollObserver.observe(_sentinel);
+        // Reconnect scroll observer to the new sentinel — always recreate
+        // because _handleEndOfData() sets _scrollObserver to null.
+        if (trigger === "scroll" && _sentinel) {
+          if (_scrollObserver) _scrollObserver.disconnect();
+          _scrollObserver = null;
+          _setupScrollObserver();
         }
       }
 

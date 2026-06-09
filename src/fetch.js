@@ -246,6 +246,7 @@ export async function _doFetch(
 
         if (result && result[_REPLACE] !== undefined) {
           _log("Response replaced by interceptor", i);
+          if (meta) meta.headers = response.headers;
           return result[_REPLACE];
         }
         if (result) {

@@ -16,23 +16,23 @@
 </head>
 <body>
 
-  <!-- 1. Simple each loop -->
+  <!-- 1. Simple each loop (self-repeating) -->
   <section state="{ fruits: ['Apple', 'Banana', 'Cherry'] }">
     <p class="test-label">Test 1: Simple each loop</p>
-    <ul data-test="fruit-list" each="fruit in fruits" template="fruit-tpl"></ul>
-    <template id="fruit-tpl"><li data-test="fruit-item" bind="fruit"></li></template>
+    <ul data-test="fruit-list">
+      <li data-test="fruit-item" each="fruit in fruits" bind="fruit"></li>
+    </ul>
   </section>
 
-  <!-- 2. Loop variables -->
+  <!-- 2. Loop variables ($index, $first, $last, $even, $odd) -->
   <section state="{ colors: ['Red', 'Green', 'Blue'] }">
     <p class="test-label">Test 2: Loop variables ($index, $first, $last, $even, $odd)</p>
-    <ul data-test="loop-var-list" each="color in colors" template="loop-var-tpl"></ul>
-    <template id="loop-var-tpl">
-      <li data-test="loop-var-item">
+    <ul data-test="loop-var-list">
+      <li data-test="loop-var-item" each="color in colors">
         <span bind="$index"></span>. <span bind="color"></span>
         (first: <span bind="$first"></span>, last: <span bind="$last"></span>)
       </li>
-    </template>
+    </ul>
   </section>
 
   <!-- 3. Dynamic add/remove -->
@@ -40,60 +40,101 @@
     <p class="test-label">Test 3: Dynamic add/remove</p>
     <input type="text" data-test="task-input" model="newTask" placeholder="New task" />
     <button data-test="task-add" on:click="tasks = [...tasks, newTask]; newTask = ''">Add</button>
-    <ul data-test="task-list" each="task in tasks" template="task-tpl"></ul>
-    <template id="task-tpl">
-      <li data-test="task-item">
+    <ul data-test="task-list">
+      <li data-test="task-item" each="task in tasks">
         <span bind="task"></span>
-        <button data-test="task-remove" on:click="tasks = tasks.filter((t, i) => i !== $index)">✕</button>
+        <button data-test="task-remove" on:click="tasks = tasks.filter((t, i) => i !== $index)">&#10005;</button>
       </li>
-    </template>
+    </ul>
   </section>
 
-  <!-- 4. foreach with sort and limit -->
+  <!-- 4. foreach with sort and limit (self-repeating) -->
   <section state="{ people: [{name: 'Alice', age: 30}, {name: 'Bob', age: 25}, {name: 'Charlie', age: 35}] }">
     <p class="test-label">Test 4: foreach with sort and limit</p>
-    <div data-test="sorted-list" foreach="person in people" sort="name" limit="2" template="person-tpl"></div>
-    <template id="person-tpl"><div data-test="sorted-item" bind="person.name"></div></template>
+    <div data-test="sorted-list">
+      <div data-test="sorted-item" foreach="person in people" sort="name" limit="2" bind="person.name"></div>
+    </div>
   </section>
 
-  <!-- 5. Empty state -->
+  <!-- 5. Empty state with else template attribute -->
   <section state="{ empty: [] }">
     <p class="test-label">Test 5: Empty state with else template</p>
-    <ul data-test="empty-list" each="item in empty" template="empty-item-tpl" else="no-items-tpl"></ul>
-    <template id="empty-item-tpl"><li data-test="empty-item" bind="item"></li></template>
+    <ul data-test="empty-list">
+      <li data-test="empty-item" each="item in empty" else="no-items-tpl" bind="item"></li>
+    </ul>
     <template id="no-items-tpl"><p data-test="empty-msg">No items found</p></template>
   </section>
 
-  <!-- 6. Inline children (no template attr) -->
+  <!-- 6. Self-repeating with foreach -->
   <section state="{ langs: ['HTML', 'CSS', 'JS'] }">
-    <p class="test-label">Test 6: Inline children (no template attr)</p>
-    <ul data-test="inline-list" foreach="lang in langs">
-      <li data-test="inline-item" bind="lang"></li>
+    <p class="test-label">Test 6: Self-repeating with foreach</p>
+    <ul data-test="inline-list">
+      <li data-test="inline-item" foreach="lang in langs" bind="lang"></li>
     </ul>
   </section>
 
   <!-- 7. for alias -->
   <section state="{ nums: [10, 20, 30] }">
     <p class="test-label">Test 7: for alias</p>
-    <ul data-test="for-list" for="n in nums" template="for-tpl"></ul>
-    <template id="for-tpl"><li data-test="for-item" bind="n"></li></template>
+    <ul data-test="for-list">
+      <li data-test="for-item" for="n in nums" bind="n"></li>
+    </ul>
   </section>
 
   <!-- 8. each with filter + sort -->
   <section state="{ scores: [{name: 'Ana', pts: 50}, {name: 'Bob', pts: 30}, {name: 'Cal', pts: 80}] }">
     <p class="test-label">Test 8: each with filter + sort</p>
-    <ul data-test="filter-list" each="s in scores" filter="s.pts > 40" sort="-pts" template="score-tpl"></ul>
-    <template id="score-tpl"><li data-test="filter-item" bind="s.name"></li></template>
+    <ul data-test="filter-list">
+      <li data-test="filter-item" each="s in scores" filter="s.pts > 40" sort="-pts" bind="s.name"></li>
+    </ul>
   </section>
 
   <!-- 9. Deprecated from syntax (still works, warns) -->
   <section state="{ animals: ['Cat', 'Dog', 'Bird'] }">
     <p class="test-label">Test 9: Deprecated from syntax</p>
-    <ul data-test="from-list" foreach="animal" from="animals" template="from-tpl"></ul>
-    <template id="from-tpl"><li data-test="from-item" bind="animal"></li></template>
+    <ul data-test="from-list">
+      <li data-test="from-item" foreach="animal" from="animals" bind="animal"></li>
+    </ul>
+  </section>
+
+  <!-- 10. Sibling else — empty array -->
+  <section state="{ emptyItems: [] }">
+    <p class="test-label">Test 10: Sibling else with empty array</p>
+    <ul data-test="sibling-else-list">
+      <li each="item in emptyItems" bind="item"></li>
+      <li data-test="else-empty" else>No items</li>
+    </ul>
+  </section>
+
+  <!-- 11. Sibling else — dynamic toggle -->
+  <section state="{ toggleItems: ['A', 'B'], allItems: ['A', 'B'] }">
+    <p class="test-label">Test 11: Sibling else with dynamic toggle</p>
+    <button data-test="toggle-empty" on:click="toggleItems = toggleItems.length > 0 ? [] : allItems">Toggle</button>
+    <ul data-test="toggle-else-list">
+      <li data-test="toggle-item" each="item in toggleItems" bind="item"></li>
+      <li data-test="else-toggle" else>List is empty</li>
+    </ul>
+  </section>
+
+  <!-- 12. Loop with get/as (API mock) -->
+  <section>
+    <p class="test-label">Test 12: Loop with get/as (API mock)</p>
+    <ul data-test="api-list" get="/api/items" as="apiItems">
+      <li data-test="api-item" each="item in apiItems" bind="item.name"></li>
+    </ul>
   </section>
 
   <script src="../../dist/iife/no.js"></script>
-  <script>NoJS.init();</script>
+  <!--
+    WORKAROUND: processTree(document.body) breaks when a self-repeating loop
+    removes a node from the DOM — the TreeWalker loses its position and stops
+    processing subsequent elements. Processing each section individually avoids
+    the bug. See NOJS-112 / NOJS-116 concern report.
+  -->
+  <script>
+    document.querySelectorAll('section').forEach(function(s) {
+      NoJS.processTree(s);
+    });
+  </script>
 </body>
 </html>

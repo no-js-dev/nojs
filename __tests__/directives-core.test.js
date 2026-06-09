@@ -3961,6 +3961,283 @@ describe('Sibling else for loop directives (NOJS-114)', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
+//  NOJS-125/127: Loop else="#template" pattern + guard in conditionals
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Loop else template pattern (NOJS-125)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('foreach else="#tpl" shows template when array is empty, toggles to populated and back', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'no-items';
+    tpl.innerHTML = '<p>No items</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: [] }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('else', '#no-items');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // Empty state: template content should be rendered
+    expect(host.querySelector('p')).not.toBeNull();
+    expect(host.querySelector('p').textContent).toBe('No items');
+    expect(host.querySelectorAll('span').length).toBe(0);
+
+    // Toggle to populated
+    const ctx = findContext(host);
+    ctx.$set('items', ['a', 'b']);
+    const spans = host.querySelectorAll('span');
+    expect(spans.length).toBe(2);
+    expect(spans[0].textContent).toBe('a');
+    expect(spans[1].textContent).toBe('b');
+    // Template content gone
+    expect(host.querySelector('p')).toBeNull();
+
+    // Toggle back to empty
+    ctx.$set('items', []);
+    expect(host.querySelector('p')).not.toBeNull();
+    expect(host.querySelector('p').textContent).toBe('No items');
+    expect(host.querySelectorAll('span').length).toBe(0);
+  });
+
+  test('each else="#tpl" shows template when array is empty', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'each-empty-tpl';
+    tpl.innerHTML = '<p>Each empty</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: [] }');
+    const el = document.createElement('span');
+    el.setAttribute('each', 'item in items');
+    el.setAttribute('else', '#each-empty-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(host.querySelector('p')).not.toBeNull();
+    expect(host.querySelector('p').textContent).toBe('Each empty');
+
+    // Populate — template gone
+    const ctx = findContext(host);
+    ctx.$set('items', ['x']);
+    expect(host.querySelectorAll('span').length).toBe(1);
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('for else="#tpl" shows template when array is empty', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'for-empty-tpl';
+    tpl.innerHTML = '<p>For empty</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: [] }');
+    const el = document.createElement('span');
+    el.setAttribute('for', 'item in items');
+    el.setAttribute('else', '#for-empty-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(host.querySelector('p')).not.toBeNull();
+    expect(host.querySelector('p').textContent).toBe('For empty');
+
+    // Populate — template gone
+    const ctx = findContext(host);
+    ctx.$set('items', ['y']);
+    expect(host.querySelectorAll('span').length).toBe(1);
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('foreach else="#tpl" does NOT show template when array is null (early return path)', () => {
+    // When the list resolves to null/undefined, the loop handler returns
+    // early before reaching the elseTpl path. Only _syncElseSibling fires.
+    // The elseTpl pattern only activates for empty arrays (list.length === 0).
+    const tpl = document.createElement('template');
+    tpl.id = 'null-tpl';
+    tpl.innerHTML = '<p>Null list</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: null }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('else', '#null-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // Template is NOT injected — null takes the early return before elseTpl
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('foreach else="#tpl" does NOT show template when array is undefined (early return path)', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'undef-tpl';
+    tpl.innerHTML = '<p>Undefined list</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('else', '#undef-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // Template is NOT injected — undefined takes the early return before elseTpl
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('null/undefined arrays show sibling else even with elseTpl on the loop', () => {
+    // Combination: elseTpl on loop + sibling else. For null, only sibling fires.
+    const tpl = document.createElement('template');
+    tpl.id = 'combo-tpl';
+    tpl.innerHTML = '<p>Template fallback</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: null }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('else', '#combo-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    const sibElse = document.createElement('div');
+    sibElse.setAttribute('else', '');
+    sibElse.textContent = 'Sibling empty';
+    host.appendChild(sibElse);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // elseTpl NOT injected (null takes early return)
+    expect(host.querySelector('p')).toBeNull();
+    // Sibling else IS visible
+    expect(sibElse.style.display).not.toBe('none');
+    expect(sibElse.textContent).toBe('Sibling empty');
+  });
+
+  test('else directive handler does NOT process elements with loop attributes', () => {
+    // The guard in conditionals.js should skip elements that have
+    // foreach/each/for — even if they also have else="#tpl".
+    // Without the guard, the else handler would try to evaluate
+    // preceding if/else-if siblings and potentially clobber content.
+    const tpl = document.createElement('template');
+    tpl.id = 'guard-tpl';
+    tpl.innerHTML = '<p>Guard template</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: ["a", "b"] }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('else', '#guard-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // Items should render normally — the else directive should NOT
+    // have interfered by restoring original children or hiding the element.
+    const spans = host.querySelectorAll('span');
+    expect(spans.length).toBe(2);
+    expect(spans[0].textContent).toBe('a');
+    expect(spans[1].textContent).toBe('b');
+    // No template content should be injected (array is not empty)
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('else directive handler does NOT process elements with each attribute', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'guard-each-tpl';
+    tpl.innerHTML = '<p>Each guard</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: ["x"] }');
+    const el = document.createElement('span');
+    el.setAttribute('each', 'item in items');
+    el.setAttribute('else', '#guard-each-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    const spans = host.querySelectorAll('span');
+    expect(spans.length).toBe(1);
+    expect(spans[0].textContent).toBe('x');
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('else directive handler does NOT process elements with for attribute', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'guard-for-tpl';
+    tpl.innerHTML = '<p>For guard</p>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: ["z"] }');
+    const el = document.createElement('span');
+    el.setAttribute('for', 'item in items');
+    el.setAttribute('else', '#guard-for-tpl');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    const spans = host.querySelectorAll('span');
+    expect(spans.length).toBe(1);
+    expect(spans[0].textContent).toBe('z');
+    expect(host.querySelector('p')).toBeNull();
+  });
+
+  test('sibling else does NOT support template refs (uses inline content only)', () => {
+    // Sibling else shows/hides its own children, it does not perform
+    // template lookups from the else attribute value. This test documents
+    // the current behavior: the value of else on a sibling is ignored;
+    // only inline content is shown.
+    const tpl = document.createElement('template');
+    tpl.id = 'sibling-ref-tpl';
+    tpl.innerHTML = '<em>From template</em>';
+    document.body.appendChild(tpl);
+
+    const host = document.createElement('div');
+    host.setAttribute('state', '{ items: [] }');
+    const el = document.createElement('span');
+    el.setAttribute('foreach', 'item in items');
+    el.setAttribute('bind', 'item');
+    host.appendChild(el);
+    // Sibling else with a template ref value — should be ignored
+    const elseEl = document.createElement('div');
+    elseEl.setAttribute('else', '#sibling-ref-tpl');
+    elseEl.textContent = 'Inline fallback';
+    host.appendChild(elseEl);
+    document.body.appendChild(host);
+    processTree(host);
+
+    // Sibling else should be visible with its inline content
+    expect(elseEl.style.display).not.toBe('none');
+    expect(elseEl.textContent).toBe('Inline fallback');
+    // Template content should NOT be injected into the sibling
+    expect(elseEl.querySelector('em')).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
 //  NOJS-76: error-boundary re-entrancy guard
 // ═══════════════════════════════════════════════════════════════════════
 

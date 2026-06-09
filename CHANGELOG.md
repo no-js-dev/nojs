@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.14.0](https://github.com/ErickXavier/no-js/compare/v1.13.3...v1.14.0) — 2026-06-09
 
 ### Added
 
@@ -22,10 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pagination & Triggers documentation page with 7 live interactive demos
 - i18n translations (PT, ES, FR, IT) for pagination documentation
 - E2E tests: 17 Playwright tests covering pagination, triggers, and insert modes
+- Unit tests: 60 tests for pagination directives covering all modes, security, and disposal
 
-### Changed
+### Fixed
 
-- `fetch.js`: expose response headers via `meta` parameter in `_doFetch` for cursor extraction
+- `_resolveField()` security: added `_FORBIDDEN_PROPS` guard against prototype pollution ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
+- `_resetPagination()` unconditionally recreates scroll observer — fixes stale observer after reset ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
+- Sentinel generation counter (`_sentinelGen`) prevents disposer accumulation across resets ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
+- First-fetch sentinel registers `_onDispose` — fixes leak on element removal before pagination ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
+- `_removeInlineError()` helper added for proper error wrapper cleanup ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
+- `fetch.js`: expose response headers via `meta` before `_REPLACE` early return ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 
 ## [1.13.3] - 2026-06-05
 

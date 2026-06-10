@@ -136,8 +136,7 @@
         "filter": "Espressione di filtro",
         "sort": "Proprietà di ordinamento (solo nome, senza prefisso della variabile elemento)",
         "limit": "Numero massimo di elementi",
-        "offset": "Salta elementi",
-        "else": "Fallback per stato vuoto (elemento fratello o riferimento al template)"
+        "offset": "Salta elementi"
       },
       "events": {
         "title": "Eventi",
@@ -499,8 +498,7 @@
         "offset": "Numero di elementi da saltare",
         "preview": "Anteprima",
         "template": "ID di template esterno (opzionale — i figli diventano il template se omesso)",
-        "elseSibling": "Elemento fratello con attributo else, mostrato quando l'array è vuoto",
-        "elseTpl": "ID del template sull'elemento del loop — renderizzato quando l'array è vuoto (alternativa all'else fratello)"
+        "elseTpl": "ID del template renderizzato quando l'array è vuoto (es: else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Esempio completo con tutti gli attributi",
@@ -512,7 +510,7 @@
       },
       "inline": {
         "title": "Self-Repeating Pattern",
-        "text": "Posiziona la direttiva di loop sull'elemento che si ripete. L'elemento viene clonato per ogni item dell'array. Aggiungi un elemento fratello con else per gestire array vuoti."
+        "text": "Posiziona la direttiva del loop sull'elemento ripetuto stesso. L'elemento viene clonato per ogni item dell'array. Usa else=\"templateId\" per referenziare un template per lo stato vuoto."
       },
       "deprecated": {
         "title": "Deprecato: attributo from",
@@ -545,7 +543,8 @@
       "elseTpl": {
         "title": "Else con Riferimento al Template",
         "text": "Invece di un elemento else fratello, puoi inserire else=\"templateId\" direttamente sull'elemento del loop. Quando l'array è vuoto, il contenuto del template referenziato sostituisce l'output del loop.",
-        "callout": "L'attributo else sull'elemento del loop si attiva solo per array vuoti ([]). Per sorgenti null o undefined, usa un elemento else fratello."
+        "callout": "L'attributo else sull'elemento del loop si attiva solo per array vuoti ([]). Per sorgenti null o undefined, il loop semplicemente non renderizza nulla.",
+        "breaking": "Breaking change (v1.15): il pattern else fratello per i loop è stato rimosso. Usa else=\"templateId\" sull'elemento del loop."
       }
     },
     "templates": {

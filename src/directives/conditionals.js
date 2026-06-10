@@ -150,9 +150,6 @@ registerDirective("else", {
   init(el) {
     // Skip if this element also has an "if" directive (else is used as an attribute of if)
     if (el.hasAttribute("if")) return;
-    // Skip if this element is managed by a loop's sibling-else handler.
-    // The loop directive sets __loopElse on elements it owns.
-    if (el.__loopElse) return;
     // Skip if this element has a loop directive — the loop handler
     // uses the else attribute as a template reference for empty state.
     if (el.hasAttribute("foreach") || el.hasAttribute("each") || el.hasAttribute("for")) return;

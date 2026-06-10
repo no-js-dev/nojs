@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = 3999;
 const DOCS = __dirname;
 const PROJECT = path.resolve(DOCS, '..');
 const LOCAL_BUILD = path.join(PROJECT, 'dist/iife/no.js');

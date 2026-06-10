@@ -136,8 +136,7 @@
         "filter": "Filter expression",
         "sort": "Sort property (name only, not prefixed with item variable)",
         "limit": "Max items",
-        "offset": "Skip items",
-        "else": "Empty-state fallback (sibling element or template reference)"
+        "offset": "Skip items"
       },
       "events": {
         "title": "Events",
@@ -499,8 +498,7 @@
         "limit": "Maximum number of items to render",
         "offset": "Number of items to skip",
         "template": "External template ID (optional — children become template if omitted)",
-        "elseSibling": "Sibling element with else attribute, shown when array is empty",
-        "elseTpl": "Template ID on the loop element itself — rendered when array is empty (alternative to sibling else)"
+        "elseTpl": "Template ID rendered when array is empty (e.g. else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Full Example with All Attributes",
@@ -512,7 +510,7 @@
       },
       "inline": {
         "title": "Self-Repeating Pattern",
-        "text": "Place the loop directive on the repeating element itself. The element is cloned for each item in the array. Add a sibling element with else to handle empty arrays."
+        "text": "Place the loop directive on the repeating element itself. The element is cloned for each item in the array. Use else=\"templateId\" to reference a template for the empty state."
       },
       "deprecated": {
         "title": "Deprecated: from Attribute",
@@ -545,7 +543,8 @@
       "elseTpl": {
         "title": "Else with Template Reference",
         "text": "Instead of a sibling else element, you can place else=\"templateId\" directly on the loop element. When the array is empty, the referenced template content replaces the loop output.",
-        "callout": "The else attribute on the loop element only activates for empty arrays ([]). For null or undefined sources, use a sibling else element instead."
+        "callout": "The else attribute on the loop element only activates for empty arrays ([]). For null or undefined sources, the loop simply renders nothing.",
+        "breaking": "Breaking change (v1.15): the sibling else pattern for loops has been removed. Use else=\"templateId\" on the loop element instead."
       }
     },
     "templates": {

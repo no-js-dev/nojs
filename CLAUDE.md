@@ -48,7 +48,7 @@ No linter configured.
 - **registry.js** — Directive registration via `registerDirective(name, handler)`. Core directives frozen after init — plugins can add but not override.
 - **filters.js** — 32+ built-in filters (currency, date, uppercase, etc.). Self-register on import. Custom: `NoJS.filter('name', fn)`.
 - **directives/** — 15+ directive files organized by category (state, http, binding, conditionals, loops, styling, events, refs, validation, i18n, dnd, head, animations). One file per category, side-effect imports for registration.
-  - **Loop/else patterns:** loop directives (`foreach`, `each`, `for`) support empty-state rendering via a sibling `else` element or an inline `else="templateId"` attribute on the loop element itself. The conditional `else` handler skips elements that carry a loop directive.
+  - **Loop/else pattern:** loop directives (`foreach`, `each`, `for`) support empty-state rendering via `else="templateId"` on the loop element, referencing a `<template>`. The sibling else pattern was removed in v1.15. The conditional `else` handler skips elements that carry a loop directive.
 
 ### Directive priority order
 

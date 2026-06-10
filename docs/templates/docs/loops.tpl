@@ -18,7 +18,6 @@
     <span class="hl-tag">&lt;h2</span> <span class="hl-attr">bind</span>=<span class="hl-str">"post.title"</span><span class="hl-tag">&gt;&lt;/h2&gt;</span>
     <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"'#' + $index"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
   <span class="hl-tag">&lt;/article&gt;</span>
-  <span class="hl-tag">&lt;p</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No posts found<span class="hl-tag">&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
       <div class="demo-preview" state="{ fruits: ['Apple', 'Banana', 'Cherry', 'Date'] }">
         <div class="demo-result-label" t="docs.loops.foreach.preview"></div>
@@ -38,6 +37,7 @@
   <span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in menuItems"</span>
       <span class="hl-attr">index</span>=<span class="hl-str">"idx"</span>
       <span class="hl-attr">key</span>=<span class="hl-str">"item.id"</span>
+      <span class="hl-attr">else</span>=<span class="hl-str">"noMenuItems"</span>
       <span class="hl-attr">filter</span>=<span class="hl-str">"item.active"</span>
       <span class="hl-attr">sort</span>=<span class="hl-str">"order"</span>
       <span class="hl-attr">limit</span>=<span class="hl-str">"10"</span><span class="hl-tag">&gt;</span>
@@ -45,8 +45,10 @@
       <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.label"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
     <span class="hl-tag">&lt;/a&gt;</span>
   <span class="hl-tag">&lt;/li&gt;</span>
-  <span class="hl-tag">&lt;li</span> <span class="hl-attr">else</span> <span class="hl-attr">class</span>=<span class="hl-str">"empty"</span><span class="hl-tag">&gt;</span>No items available<span class="hl-tag">&lt;/li&gt;</span>
-<span class="hl-tag">&lt;/ul&gt;</span></pre></div>
+<span class="hl-tag">&lt;/ul&gt;</span>
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"noMenuItems"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;li</span> <span class="hl-attr">class</span>=<span class="hl-str">"empty"</span><span class="hl-tag">&gt;</span>No items available<span class="hl-tag">&lt;/li&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
 
     <table class="doc-table">
       <thead>
@@ -57,8 +59,7 @@
         <tr><td><code>template</code></td><td t="docs.loops.foreach.template"></td></tr>
         <tr><td><code>index</code></td><td t="docs.loops.foreach.index"></td></tr>
         <tr><td><code>key</code></td><td t="docs.loops.foreach.key"></td></tr>
-        <tr><td><code>else</code> <small>(sibling)</small></td><td t="docs.loops.foreach.elseSibling"></td></tr>
-        <tr><td><code>else</code> <small>(attribute)</small></td><td t="docs.loops.foreach.elseTpl"></td></tr>
+        <tr><td><code>else</code></td><td t="docs.loops.foreach.elseTpl"></td></tr>
         <tr><td><code>filter</code></td><td t="docs.loops.foreach.filter"></td></tr>
         <tr><td><code>sort</code></td><td t="docs.loops.foreach.sort"></td></tr>
         <tr><td><code>limit</code></td><td t="docs.loops.foreach.limit"></td></tr>
@@ -74,9 +75,12 @@
     <p class="doc-text" t="docs.loops.inline.text"></p>
     <div class="code-block"><pre><span class="hl-tag">&lt;ul&gt;</span>
   <span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"user in users"</span>
+      <span class="hl-attr">else</span>=<span class="hl-str">"noUsers"</span>
       <span class="hl-attr">bind</span>=<span class="hl-str">"user.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
-  <span class="hl-tag">&lt;li</span> <span class="hl-attr">else</span><span class="hl-tag">&gt;</span>No users found<span class="hl-tag">&lt;/li&gt;</span>
-<span class="hl-tag">&lt;/ul&gt;</span></pre></div>
+<span class="hl-tag">&lt;/ul&gt;</span>
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"noUsers"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;li&gt;</span>No users found<span class="hl-tag">&lt;/li&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
   </div>
 
   <!-- else template reference -->
@@ -92,6 +96,9 @@
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
     <div class="callout">
       <p t="docs.loops.elseTpl.callout"></p>
+    </div>
+    <div class="callout callout-warning">
+      <p t="docs.loops.elseTpl.breaking"></p>
     </div>
   </div>
 

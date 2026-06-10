@@ -136,8 +136,7 @@
         "filter": "Expressão de filtro",
         "sort": "Propriedade para ordenação (apenas nome, sem prefixo da variável do item)",
         "limit": "Máximo de itens",
-        "offset": "Pular itens",
-        "else": "Fallback para estado vazio (elemento irmão ou referência de template)"
+        "offset": "Pular itens"
       },
       "events": {
         "title": "Eventos",
@@ -499,8 +498,7 @@
         "offset": "Número de itens para pular",
         "preview": "Prévia",
         "template": "ID de template externo (opcional — os filhos se tornam o template se omitido)",
-        "elseSibling": "Elemento irmão com atributo else, exibido quando o array está vazio",
-        "elseTpl": "ID de template no próprio elemento do loop — renderizado quando o array está vazio (alternativa ao else irmão)"
+        "elseTpl": "ID de template renderizado quando o array está vazio (ex: else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Exemplo completo com todos os atributos",
@@ -512,7 +510,7 @@
       },
       "inline": {
         "title": "Self-Repeating Pattern",
-        "text": "Coloque a diretiva de loop no próprio elemento que se repete. O elemento é clonado para cada item do array. Adicione um elemento irmão com else para tratar arrays vazios."
+        "text": "Coloque a diretiva de loop no próprio elemento repetido. O elemento é clonado para cada item do array. Use else=\"templateId\" para referenciar um template para o estado vazio."
       },
       "deprecated": {
         "title": "Deprecated: Atributo from",
@@ -545,7 +543,8 @@
       "elseTpl": {
         "title": "Else com Referência de Template",
         "text": "Em vez de um elemento else irmão, você pode colocar else=\"templateId\" diretamente no elemento do loop. Quando o array está vazio, o conteúdo do template referenciado substitui a saída do loop.",
-        "callout": "O atributo else no elemento do loop só é ativado para arrays vazios ([]). Para fontes null ou undefined, use um elemento else irmão."
+        "callout": "O atributo else no elemento do loop só é ativado para arrays vazios ([]). Para fontes null ou undefined, o loop simplesmente não renderiza nada.",
+        "breaking": "Breaking change (v1.15): o padrão de else irmão para loops foi removido. Use else=\"templateId\" no próprio elemento do loop."
       }
     },
     "templates": {

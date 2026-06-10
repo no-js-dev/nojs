@@ -97,24 +97,7 @@
     </ul>
   </section>
 
-  <!-- 10. Sibling else — empty array -->
-  <section state="{ emptyItems: [] }">
-    <p class="test-label">Test 10: Sibling else with empty array</p>
-    <ul data-test="sibling-else-list">
-      <li each="item in emptyItems" bind="item"></li>
-      <li data-test="else-empty" else>No items</li>
-    </ul>
-  </section>
-
-  <!-- 11. Sibling else — dynamic toggle -->
-  <section state="{ toggleItems: ['A', 'B'], allItems: ['A', 'B'] }">
-    <p class="test-label">Test 11: Sibling else with dynamic toggle</p>
-    <button data-test="toggle-empty" on:click="toggleItems = toggleItems.length > 0 ? [] : allItems">Toggle</button>
-    <ul data-test="toggle-else-list">
-      <li data-test="toggle-item" each="item in toggleItems" bind="item"></li>
-      <li data-test="else-toggle" else>List is empty</li>
-    </ul>
-  </section>
+  <!-- 10-11. (removed — sibling else pattern no longer supported) -->
 
   <!-- 12. Loop with get/as (API mock) -->
   <section>
@@ -124,15 +107,7 @@
     </ul>
   </section>
 
-  <!-- 13. foreach with sibling else — toggle between empty and populated -->
-  <section state="{ feItems: [], feAll: ['X', 'Y', 'Z'] }">
-    <p class="test-label">Test 13: foreach sibling else with toggle</p>
-    <button data-test="fe-sib-toggle" on:click="feItems = feItems.length > 0 ? [] : feAll">Toggle</button>
-    <ul data-test="fe-sib-list">
-      <li data-test="fe-sib-item" foreach="item in feItems" bind="item"></li>
-      <li data-test="fe-sib-else" else>No data available</li>
-    </ul>
-  </section>
+  <!-- 13. (removed — sibling else pattern no longer supported) -->
 
   <!-- 14. foreach with else template reference — toggle between empty and populated -->
   <section state="{ feTplItems: [], feTplAll: [{name: 'Alpha'}, {name: 'Beta'}] }">

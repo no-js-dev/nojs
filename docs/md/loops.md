@@ -61,38 +61,9 @@ Use the `template` attribute to reference a `<template>` element by ID. The loop
 </ul>
 ```
 
-### Sibling `else` for Empty Lists
+### Empty-State Fallback with `else`
 
-When the source array is empty, `null`, or `undefined`, the loop renders nothing. Place a sibling element with `else` immediately after the loop element to show fallback content:
-
-```html
-<ul>
-  <li foreach="item in items" bind="item.name"></li>
-  <li else>No items found</li>
-</ul>
-```
-
-The `else` element is hidden when items exist and shown when the list is empty. This works with all three aliases (`foreach`, `each`, `for`).
-
-You can also reference an external template with `else="templateId"` on the sibling:
-
-```html
-<ul>
-  <li foreach="item in items" bind="item.name"></li>
-  <li else="emptyTpl"></li>
-</ul>
-
-<template id="emptyTpl">
-  <li class="empty-state">
-    <p>Nothing to display.</p>
-    <button on:click="reload()">Retry</button>
-  </li>
-</template>
-```
-
-### Inline `else` on the Loop Element
-
-Instead of a sibling, you can place the `else` attribute directly on the loop element with a template reference. When the list is empty, the referenced template content replaces the loop:
+When the source array is empty, the loop renders nothing. Place `else="templateId"` on the loop element to reference a `<template>` for the empty state:
 
 ```html
 <article foreach="item in items" else="noItems">
@@ -104,14 +75,16 @@ Instead of a sibling, you can place the `else` attribute directly on the loop el
 </template>
 ```
 
-Both patterns produce the same result — use the sibling form when you want inline fallback content, and the inline `else` attribute when you want to reference a shared template.
+When `items` is an empty array (`[]`), the template content replaces the loop output. When items are present, the template is removed and items render normally. Both bare ID (`else="noItems"`) and hash syntax (`else="#noItems"`) are accepted.
+
+> **Breaking change (v1.15):** The sibling `else` pattern (`<li else>No items</li>` placed after a loop element) has been removed. Use `else="templateId"` on the loop element itself instead.
 
 ### Attributes
 
 | Attribute | Description |
 |-----------|-------------|
 | `foreach` | `"item in array"` — variable name and source expression |
-| `else` | Template ID for empty-state content rendered when the list is empty (alternative to a sibling `else` element) |
+| `else` | Template ID rendered when array is empty (e.g. `else="noItemsTpl"`) |
 | `template` | ID of the `<template>` element to clone for each item (optional — when omitted, the element's own children are the template) |
 | `index` | Variable name for the index (default: `$index`) |
 | `key` | Unique key expression for DOM diffing |
@@ -124,13 +97,13 @@ Both patterns produce the same result — use the sibling form when you want inl
 | `animate-stagger` | Delay (ms) between each item's enter animation |
 | `animate-duration` | Max duration (ms) before leave animation is force-completed |
 
-Empty-state rendering supports two patterns: a **sibling element** with the `else` attribute (documented above), or an **inline `else` attribute** on the loop element itself referencing a template ID.
+Empty-state rendering uses the `else` attribute on the loop element to reference a `<template>` by ID.
 
 ---
 
 ## Aliases: `each` and `for`
 
-`each` and `for` are aliases for `foreach`. They share the same handler and support all the same attributes — `filter`, `sort`, `limit`, `offset`, `key`, `animate-*`, `template`, `index`, and loop variables. The sibling `else` element also works with all three.
+`each` and `for` are aliases for `foreach`. They share the same handler and support all the same attributes — `filter`, `sort`, `limit`, `offset`, `key`, `animate-*`, `else`, `template`, `index`, and loop variables.
 
 ```html
 <!-- All three are equivalent — the element repeats as siblings -->

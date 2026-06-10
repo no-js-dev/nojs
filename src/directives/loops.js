@@ -98,28 +98,6 @@ const _loopHandler = {
     // Delta optimization is disabled when filter/sort/offset modify rendered order.
     const hasPipeline = !!(filterExpr || sortProp || offset);
 
-    // ── Sibling else capture ────────────────────────────────────────────
-    // Before removing el from the DOM, check for a next sibling element
-    // with an `else` attribute (but NOT `if`, `else-if`, or loop directives).
-    // This sibling shows when the loop is empty and hides when it has items.
-    const _LOOP_DIRECTIVES = ["foreach", "each", "for"];
-    let elseSibling = null;
-    let elseSiblingChildren = null;
-    const nextEl = el.nextElementSibling;
-    if (nextEl && nextEl.hasAttribute("else")
-      && !nextEl.hasAttribute("if") && !nextEl.hasAttribute("else-if")
-      && !_LOOP_DIRECTIVES.some((d) => nextEl.hasAttribute(d))) {
-      elseSibling = nextEl;
-      elseSiblingChildren = [...nextEl.childNodes].map((n) => n.cloneNode(true));
-      // Hide initially — update() will set the correct state.
-      elseSibling.style.display = "none";
-      // Mark as loop-managed so the else directive in conditionals.js skips it.
-      elseSibling.__loopElse = true;
-      // Mark as declared so the parent processTree walk does not process it.
-      // The loop handler owns this element's lifecycle exclusively.
-      elseSibling.__declared = true;
-    }
-
     // ── Self-repeating setup ──────────────────────────────────────────
     // The element with the loop directive IS the template. Insert comment
     // markers at its position, then remove it from the DOM. Clones are
@@ -157,38 +135,11 @@ const _loopHandler = {
       return clone;
     }
 
-    // Syncs the sibling else element's visibility based on whether the
-    // loop rendered any items. When empty: show else content (restore
-    // original children, process tree). When non-empty: hide and dispose.
-    function _syncElseSibling(isEmpty) {
-      if (!elseSibling) return;
-      if (isEmpty) {
-        if (elseSibling.style.display !== "") {
-          elseSibling.style.display = "";
-          _disposeTree(elseSibling);
-          elseSibling.innerHTML = "";
-          for (const child of elseSiblingChildren)
-            elseSibling.appendChild(child.cloneNode(true));
-          elseSibling.__declared = false;
-          processTree(elseSibling);
-        }
-      } else {
-        if (elseSibling.style.display !== "none") {
-          _disposeTree(elseSibling);
-          elseSibling.innerHTML = "";
-          elseSibling.style.display = "none";
-        }
-      }
-    }
-
     function update() {
       let list = /[\[\]()\s+\-*\/!?:&|]/.test(listPath)
         ? evaluate(listPath, ctx)
         : resolve(listPath, ctx);
-      if (!Array.isArray(list)) {
-        _syncElseSibling(true);
-        return;
-      }
+      if (!Array.isArray(list)) return;
 
       // Same-reference optimisation: propagate to managed clones without DOM rebuild.
       const managedClones = _getManagedClones(startMarker, endMarker);
@@ -254,23 +205,21 @@ const _loopHandler = {
             node = node.nextSibling;
           }
         }
-        _syncElseSibling(true);
+
         prevRendered = null;
         return;
       }
 
-      // Empty list without companion else template — sync sibling else only
+      // Empty list without else template — just clear
       if (list.length === 0) {
         _clearManagedClones(startMarker, endMarker);
         keyMap.clear();
-        _syncElseSibling(true);
         prevRendered = null;
         return;
       }
 
       if (keyExpr) {
         reconcileItems(list, list.length);
-        _syncElseSibling(false);
         prevRendered = null;
         return;
       }
@@ -360,7 +309,6 @@ const _loopHandler = {
             remaining--;
             if (remaining <= 0) {
               renderItems();
-              _syncElseSibling(false);
             }
           };
           clone.addEventListener("animationend", done, { once: true });
@@ -370,7 +318,6 @@ const _loopHandler = {
       } else if (!tryDeltaAppend()) {
         renderItems();
       }
-      _syncElseSibling(false);
     }
 
     // Key-based reconciliation — applied to the final (filtered, sorted,

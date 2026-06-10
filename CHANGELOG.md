@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fetch.js`: expose response headers via `meta` before `_REPLACE` early return ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 - Conditionals: guard `else` directive from firing on loop elements that use `else="templateId"` for empty-state rendering — the conditional handler now skips elements with `foreach`, `each`, or `for` attributes ([b24b6e9](https://github.com/ErickXavier/no-js/commit/b24b6e9))
 
+### Breaking Changes
+
+- **Sibling else for loops removed**: the `<p else>No items</p>` pattern (placing an element with `else` after a loop element) is no longer supported. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state
+
 ## [1.13.3] - 2026-06-05
 
 ### Fixed

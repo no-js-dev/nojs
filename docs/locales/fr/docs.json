@@ -136,8 +136,7 @@
         "filter": "Expression de filtrage",
         "sort": "Propriété de tri (nom seul, sans préfixe de variable d'élément)",
         "limit": "Nombre maximum d'éléments",
-        "offset": "Éléments à ignorer",
-        "else": "Fallback pour l'état vide (élément frère ou référence de template)"
+        "offset": "Éléments à ignorer"
       },
       "events": {
         "title": "Événements",
@@ -499,8 +498,7 @@
         "offset": "Nombre d'éléments à ignorer",
         "preview": "Aperçu",
         "template": "ID de template externe (optionnel — les enfants deviennent le template si omis)",
-        "elseSibling": "Élément frère avec attribut else, affiché quand le tableau est vide",
-        "elseTpl": "ID de template sur l'élément de boucle — rendu quand le tableau est vide (alternative au else frère)"
+        "elseTpl": "ID de template rendu quand le tableau est vide (ex : else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Exemple complet avec tous les attributs",
@@ -512,7 +510,7 @@
       },
       "inline": {
         "title": "Self-Repeating Pattern",
-        "text": "Placez la directive de boucle sur l'élément qui se répète lui-même. L'élément est cloné pour chaque item du tableau. Ajoutez un élément frère avec else pour gérer les tableaux vides."
+        "text": "Placez la directive de boucle sur l'élément répété lui-même. L'élément est cloné pour chaque item du tableau. Utilisez else=\"templateId\" pour référencer un template pour l'état vide."
       },
       "deprecated": {
         "title": "Déprécié : attribut from",
@@ -545,7 +543,8 @@
       "elseTpl": {
         "title": "Else avec Référence de Template",
         "text": "Au lieu d'un élément else frère, vous pouvez placer else=\"templateId\" directement sur l'élément de boucle. Quand le tableau est vide, le contenu du template référencé remplace la sortie de la boucle.",
-        "callout": "L'attribut else sur l'élément de boucle ne s'active que pour les tableaux vides ([]). Pour les sources null ou undefined, utilisez un élément else frère."
+        "callout": "L'attribut else sur l'élément de boucle ne s'active que pour les tableaux vides ([]). Pour les sources null ou undefined, la boucle ne rend simplement rien.",
+        "breaking": "Breaking change (v1.15) : le pattern else frère pour les boucles a été supprimé. Utilisez else=\"templateId\" sur l'élément de boucle."
       }
     },
     "templates": {

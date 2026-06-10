@@ -11,7 +11,6 @@ Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an erro
 ```html
 <div get="/api/users" as="users" error="#usersError">
   <div each="user in users" template="userCard"></div>
-  <p else>No users found.</p>
 </div>
 
 <template id="usersError" var="err">

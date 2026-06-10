@@ -89,11 +89,11 @@ Absolute URLs skip base resolution:
      as="users"
      loading="#usersSkeleton"
      error="#usersError"
+     empty="#noUsers"
      refresh="30000"
      cached>
 
   <div each="user in users" template="userCard"></div>
-  <p else>No users found.</p>
 
 </div>
 
@@ -103,6 +103,10 @@ Absolute URLs skip base resolution:
 
 <template id="usersError" var="err">
   <div class="error">Failed to load: <span bind="err.message"></span></div>
+</template>
+
+<template id="noUsers">
+  <p>No users found.</p>
 </template>
 ```
 
@@ -256,9 +260,9 @@ The skeleton is hidden automatically when:
 
 <div get="/api/feed" as="items"
      skeleton="skeleton"
-     loading="#spinnerTpl">
+     loading="#spinnerTpl"
+     empty="#emptyTpl">
   <div each="item in items" template="feedItem"></div>
-  <div else>No feed items</div>
 </div>
 ```
 

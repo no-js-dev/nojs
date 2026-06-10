@@ -97,7 +97,7 @@ Render one of many templates based on a value.
 
 ## `else` on Loop Elements
 
-Loop directives (`foreach`, `each`, `for`) support `else="templateId"` to reference a `<template>` for empty-state fallback:
+Loop directives (`foreach`, `each`, `for`) support `else="templateId"` to reference a `<template>` for empty-state fallback. The template renders when the list is empty (`[]`) or null/undefined/non-array — e.g. API state before the first fetch:
 
 ```html
 <article foreach="item in items" else="noItems">

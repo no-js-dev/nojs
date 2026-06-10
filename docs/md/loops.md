@@ -52,18 +52,22 @@ Use the `template` attribute to reference a `<template>` element by ID. The loop
       filter="item.active"
       sort="item.order"
       limit="10"
-      offset="0">
+      offset="0"
+      else="noItemsTpl">
     <a bind-href="item.link">
       <span bind="idx + 1"></span> - <span bind="item.label"></span>
     </a>
   </li>
-  <li else>No items available</li>
 </ul>
+
+<template id="noItemsTpl">
+  <li>No items available</li>
+</template>
 ```
 
 ### Empty-State Fallback with `else`
 
-When the source array is empty, the loop renders nothing. Place `else="templateId"` on the loop element to reference a `<template>` for the empty state:
+Place `else="templateId"` on the loop element to reference a `<template>` for the empty state. The template renders when the list is empty (`[]`) **or** null/undefined/non-array — e.g. API state before the first fetch resolves:
 
 ```html
 <article foreach="item in items" else="noItems">
@@ -75,7 +79,7 @@ When the source array is empty, the loop renders nothing. Place `else="templateI
 </template>
 ```
 
-When `items` is an empty array (`[]`), the template content replaces the loop output. When items are present, the template is removed and items render normally. Both bare ID (`else="noItems"`) and hash syntax (`else="#noItems"`) are accepted.
+When `items` is an empty array (`[]`), null, undefined, or any non-array value, the template content replaces the loop output. When items are present, the template is removed and items render normally. Both bare ID (`else="noItems"`) and hash syntax (`else="#noItems"`) are accepted.
 
 > **Breaking change (v1.15):** The sibling `else` pattern (`<li else>No items</li>` placed after a loop element) has been removed. Use `else="templateId"` on the loop element itself instead.
 
@@ -84,7 +88,7 @@ When `items` is an empty array (`[]`), the template content replaces the loop ou
 | Attribute | Description |
 |-----------|-------------|
 | `foreach` | `"item in array"` — variable name and source expression |
-| `else` | Template ID rendered when array is empty (e.g. `else="noItemsTpl"`) |
+| `else` | Template ID rendered when the array is empty or null/undefined/non-array (e.g. `else="noItemsTpl"`) |
 | `template` | ID of the `<template>` element to clone for each item (optional — when omitted, the element's own children are the template) |
 | `index` | Variable name for the index (default: `$index`) |
 | `key` | Unique key expression for DOM diffing |
@@ -259,7 +263,7 @@ Loop directives are fully reactive. When the source array changes (push, splice,
 
 ## See Also
 
-- [Conditionals](conditionals.md) — `else` also works as a sibling after loop elements
+- [Conditionals](conditionals.md) — `else="templateId"` on the loop element renders a template for empty lists
 - [Templates](templates.md) — external templates referenced by loops
 - [Animations](animations.md) — `animate-stagger` for list enter/leave effects
 - [Filters & Pipes](filters.md) — `count`, `first`, `last`, `reverse`, `sortBy` filters

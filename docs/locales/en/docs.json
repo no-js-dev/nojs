@@ -136,7 +136,8 @@
         "filter": "Filter expression",
         "sort": "Sort property (name only, not prefixed with item variable)",
         "limit": "Max items",
-        "offset": "Skip items"
+        "offset": "Skip items",
+        "else": "Template rendered when the array is empty or null/undefined"
       },
       "events": {
         "title": "Events",
@@ -498,11 +499,11 @@
         "limit": "Maximum number of items to render",
         "offset": "Number of items to skip",
         "template": "External template ID (optional — children become template if omitted)",
-        "elseTpl": "Template ID rendered when array is empty (e.g. else=\"noItemsTpl\")"
+        "elseTpl": "Template ID rendered when the array is empty or null/undefined (e.g. else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Full Example with All Attributes",
-        "text": "A complete example showing foreach with filtering, sorting, pagination, and a sibling else for the empty-state fallback."
+        "text": "A complete example showing foreach with filtering, sorting, pagination, and an else template for the empty-state fallback."
       },
       "aliases": {
         "title": "Aliases: each and for",
@@ -542,8 +543,8 @@
       },
       "elseTpl": {
         "title": "Else with Template Reference",
-        "text": "Instead of a sibling else element, you can place else=\"templateId\" directly on the loop element. When the array is empty, the referenced template content replaces the loop output.",
-        "callout": "The else attribute on the loop element only activates for empty arrays ([]). For null or undefined sources, the loop simply renders nothing.",
+        "text": "Place else=\"templateId\" directly on the loop element. When the list is empty ([]) or null/undefined, the referenced template content replaces the loop output.",
+        "callout": "The else attribute on the loop element activates for empty arrays ([]) and also for null, undefined, or non-array sources — e.g. API state before the first fetch resolves.",
         "breaking": "Breaking change (v1.15): the sibling else pattern for loops has been removed. Use else=\"templateId\" on the loop element instead."
       }
     },

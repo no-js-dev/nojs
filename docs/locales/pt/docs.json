@@ -136,7 +136,8 @@
         "filter": "Expressão de filtro",
         "sort": "Propriedade para ordenação (apenas nome, sem prefixo da variável do item)",
         "limit": "Máximo de itens",
-        "offset": "Pular itens"
+        "offset": "Pular itens",
+        "else": "Template renderizado quando o array está vazio ou é null/undefined"
       },
       "events": {
         "title": "Eventos",
@@ -498,11 +499,11 @@
         "offset": "Número de itens para pular",
         "preview": "Prévia",
         "template": "ID de template externo (opcional — os filhos se tornam o template se omitido)",
-        "elseTpl": "ID de template renderizado quando o array está vazio (ex: else=\"noItemsTpl\")"
+        "elseTpl": "ID de template renderizado quando o array está vazio ou é null/undefined (ex: else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Exemplo completo com todos os atributos",
-        "text": "Um exemplo completo mostrando foreach com filtragem, ordenação, paginação e um else irmão para o fallback de estado vazio."
+        "text": "Um exemplo completo mostrando foreach com filtragem, ordenação, paginação e um template else para o fallback de estado vazio."
       },
       "aliases": {
         "title": "Aliases: each e for",
@@ -542,8 +543,8 @@
       },
       "elseTpl": {
         "title": "Else com Referência de Template",
-        "text": "Em vez de um elemento else irmão, você pode colocar else=\"templateId\" diretamente no elemento do loop. Quando o array está vazio, o conteúdo do template referenciado substitui a saída do loop.",
-        "callout": "O atributo else no elemento do loop só é ativado para arrays vazios ([]). Para fontes null ou undefined, o loop simplesmente não renderiza nada.",
+        "text": "Coloque else=\"templateId\" diretamente no elemento do loop. Quando a lista está vazia ([]) ou é null/undefined, o conteúdo do template referenciado substitui a saída do loop.",
+        "callout": "O atributo else no elemento do loop é ativado para arrays vazios ([]) e também para fontes null, undefined ou que não são arrays — por exemplo, o estado da API antes do primeiro fetch resolver.",
         "breaking": "Breaking change (v1.15): o padrão de else irmão para loops foi removido. Use else=\"templateId\" no próprio elemento do loop."
       }
     },

@@ -164,8 +164,7 @@ Loop directives use the `template` attribute to reference external templates. Th
 
 ```html
 <ul get="/api/users" as="users">
-  <li each="user in users" template="userCard"></li>
-  <li else>No users found</li>
+  <li each="user in users" template="userCard" else="noUsersTpl"></li>
 </ul>
 
 <template id="userCard">
@@ -174,15 +173,19 @@ Loop directives use the `template` attribute to reference external templates. Th
     <p bind="user.email"></p>
   </div>
 </template>
+
+<template id="noUsersTpl">
+  <li>No users found</li>
+</template>
 ```
 
-The sibling `else` element shows when the array is empty. You can also point `else` at a template ID: `else="emptyTpl"`.
+The `else="templateId"` attribute on the loop element references a `<template>` rendered when the array is empty (`[]`) or null/undefined/non-array — e.g. before the fetch resolves.
 
 ---
 
 ## See Also
 
-- [Loops](loops.md) — self-repeating elements and sibling `else` for empty lists
+- [Loops](loops.md) — self-repeating elements and `else="templateId"` for empty lists
 - [Routing](routing.md) — route templates and file-based routing
 - [Data Fetching](data-fetching.md) — `loading`, `error`, `success` templates
 

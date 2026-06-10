@@ -903,7 +903,7 @@ Use the `template` attribute to reference a `<template>` element by ID:
 | `template` | ID of the `<template>` element to clone for each item (optional — when omitted, inline children are the template) |
 | `index` | Variable name for the index (default: `$index`) |
 | `key` | Unique key expression for DOM diffing |
-| `else` | Template ID rendered when array is empty (e.g. `else="noItemsTpl"` or `else="#noItems"`) |
+| `else` | Template ID rendered when the array is empty or null/undefined/non-array (e.g. `else="noItemsTpl"` or `else="#noItems"`) |
 | `filter` | Expression to filter items (like `Array.filter`) |
 | `sort` | Property path to sort by (prefix with `-` for descending) |
 | `limit` | Maximum number of items to render |
@@ -5105,7 +5105,7 @@ Complete reference of every No.JS directive.
 | `sort` | `sort="item.name"` | Sort property |
 | `limit` | `limit="10"` | Max items |
 | `offset` | `offset="5"` | Skip items |
-| `else` | `else="noItemsTpl"` | Template ID rendered when array is empty |
+| `else` | `else="noItemsTpl"` | Template ID rendered when the array is empty or null/undefined |
 
 > **Breaking change (v1.15):** The sibling `else` pattern for loops (`<p else>No items</p>` after a loop element) has been removed. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state.
 

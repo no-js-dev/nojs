@@ -136,7 +136,8 @@
         "filter": "Expression de filtrage",
         "sort": "Propriété de tri (nom seul, sans préfixe de variable d'élément)",
         "limit": "Nombre maximum d'éléments",
-        "offset": "Éléments à ignorer"
+        "offset": "Éléments à ignorer",
+        "else": "Template rendu quand le tableau est vide ou null/undefined"
       },
       "events": {
         "title": "Événements",
@@ -498,11 +499,11 @@
         "offset": "Nombre d'éléments à ignorer",
         "preview": "Aperçu",
         "template": "ID de template externe (optionnel — les enfants deviennent le template si omis)",
-        "elseTpl": "ID de template rendu quand le tableau est vide (ex : else=\"noItemsTpl\")"
+        "elseTpl": "ID de template rendu quand le tableau est vide ou null/undefined (ex : else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Exemple complet avec tous les attributs",
-        "text": "Un exemple complet montrant foreach avec filtrage, tri, pagination et un else frère pour le secours d'état vide."
+        "text": "Un exemple complet montrant foreach avec filtrage, tri, pagination et un template else pour le secours d'état vide."
       },
       "aliases": {
         "title": "Alias : each et for",
@@ -542,8 +543,8 @@
       },
       "elseTpl": {
         "title": "Else avec Référence de Template",
-        "text": "Au lieu d'un élément else frère, vous pouvez placer else=\"templateId\" directement sur l'élément de boucle. Quand le tableau est vide, le contenu du template référencé remplace la sortie de la boucle.",
-        "callout": "L'attribut else sur l'élément de boucle ne s'active que pour les tableaux vides ([]). Pour les sources null ou undefined, la boucle ne rend simplement rien.",
+        "text": "Placez else=\"templateId\" directement sur l'élément de boucle. Quand la liste est vide ([]) ou null/undefined, le contenu du template référencé remplace la sortie de la boucle.",
+        "callout": "L'attribut else sur l'élément de boucle s'active pour les tableaux vides ([]) et aussi pour les sources null, undefined ou non-array — par exemple l'état de l'API avant la résolution du premier fetch.",
         "breaking": "Breaking change (v1.15) : le pattern else frère pour les boucles a été supprimé. Utilisez else=\"templateId\" sur l'élément de boucle."
       }
     },

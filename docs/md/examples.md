@@ -84,11 +84,13 @@ automatically — no extra code needed in the route itself.
   <!-- Token is attached automatically via the request interceptor -->
   <div get="/me/dashboard" as="data" loading="#dash-skeleton">
     <h2 bind="'Welcome, ' + data.user.name"></h2>
-    <p each="m in data.metrics">
+    <p each="m in data.metrics" else="noMetrics">
       <span bind="m.label"></span>
       <span bind="m.value | number"></span>
     </p>
-    <p else>No metrics available</p>
+    <template id="noMetrics">
+      <p>No metrics available</p>
+    </template>
   </div>
   <button on:click="$store.auth.user = null; $store.auth.token = null">
     Sign out
@@ -152,13 +154,15 @@ simultaneously — no event bus, no shared component.
 
 <!-- Product list -->
 <div get="/products" as="products">
-  <div each="p in products">
+  <div each="p in products" else="noProducts">
     <span bind="p.name"></span>
     <button on:click="$store.cart.items = [...$store.cart.items, p]">
       Add to cart
     </button>
   </div>
-  <div else>No products available</div>
+  <template id="noProducts">
+    <div>No products available</div>
+  </template>
 </div>
 
 <!-- Cart summary: somewhere else entirely -->
@@ -266,11 +270,13 @@ All five patterns combined into a single production-grade SPA:
   <template route="/dashboard" guard="$store.auth.token" redirect="/login">
     <div get="/me/dashboard" as="data">
       <h1 bind="'Welcome, ' + data.user.name"></h1>
-      <p each="m in data.metrics">
+      <p each="m in data.metrics" else="noMetrics">
         <span bind="m.label"></span>
         <span bind="m.value | number"></span>
       </p>
-      <p else>No metrics available</p>
+      <template id="noMetrics">
+        <p>No metrics available</p>
+      </template>
     </div>
     <button on:click="$store.auth.user = null; $store.auth.token = null">
       Sign out

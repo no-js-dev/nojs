@@ -136,7 +136,8 @@
         "filter": "Expresión de filtro",
         "sort": "Propiedad para ordenar (solo el nombre, sin prefijo de variable de elemento)",
         "limit": "Máximo de elementos",
-        "offset": "Omitir elementos"
+        "offset": "Omitir elementos",
+        "else": "Template renderizado cuando el array está vacío o es null/undefined"
       },
       "events": {
         "title": "Eventos",
@@ -498,11 +499,11 @@
         "offset": "Número de elementos a omitir",
         "preview": "Vista previa",
         "template": "ID de plantilla externa (opcional — los hijos se convierten en la plantilla si se omite)",
-        "elseTpl": "ID de template renderizado cuando el array está vacío (ej: else=\"noItemsTpl\")"
+        "elseTpl": "ID de template renderizado cuando el array está vacío o es null/undefined (ej: else=\"noItemsTpl\")"
       },
       "fullExample": {
         "title": "Ejemplo completo con todos los atributos",
-        "text": "Un ejemplo completo mostrando foreach con filtrado, ordenación, paginación y un else hermano para el fallback de estado vacío."
+        "text": "Un ejemplo completo mostrando foreach con filtrado, ordenación, paginación y un template else para el fallback de estado vacío."
       },
       "aliases": {
         "title": "Aliases: each y for",
@@ -542,8 +543,8 @@
       },
       "elseTpl": {
         "title": "Else con Referencia de Template",
-        "text": "En lugar de un elemento else hermano, puedes colocar else=\"templateId\" directamente en el elemento del loop. Cuando el array está vacío, el contenido del template referenciado reemplaza la salida del loop.",
-        "callout": "El atributo else en el elemento del loop solo se activa para arrays vacíos ([]). Para fuentes null o undefined, el loop simplemente no renderiza nada.",
+        "text": "Coloca else=\"templateId\" directamente en el elemento del loop. Cuando la lista está vacía ([]) o es null/undefined, el contenido del template referenciado reemplaza la salida del loop.",
+        "callout": "El atributo else en el elemento del loop se activa para arrays vacíos ([]) y también para fuentes null, undefined o que no son arrays — por ejemplo, el estado de la API antes del primer fetch.",
         "breaking": "Breaking change (v1.15): el patrón de else hermano para loops ha sido eliminado. Usa else=\"templateId\" en el propio elemento del loop."
       }
     },

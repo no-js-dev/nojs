@@ -2,11 +2,12 @@
 //  DIRECTIVES: if, else-if, else, show, hide, switch
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _watchExpr, _onDispose } from "../globals.js";
+import { _watchExpr, _warn, _onDispose } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 import { _animateIn, _animateOut } from "../animations.js";
+import { _isLoopElement } from "./loops.js";
 
 registerDirective("if", {
   priority: 10,
@@ -150,9 +151,11 @@ registerDirective("else", {
   init(el) {
     // Skip if this element also has an "if" directive (else is used as an attribute of if)
     if (el.hasAttribute("if")) return;
-    // Skip if this element has a loop directive — the loop handler
+    // Skip if this element carries a loop directive — the loop handler
     // uses the else attribute as a template reference for empty state.
-    if (el.hasAttribute("foreach") || el.hasAttribute("each") || el.hasAttribute("for")) return;
+    // _isLoopElement only claims `for` values that are loop-shaped, so
+    // HTML's native `for` on label/output still works as an else branch.
+    if (_isLoopElement(el)) return;
     const ctx = findContext(el);
     const thenId = el.getAttribute("then");
     const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
@@ -160,14 +163,19 @@ registerDirective("else", {
     // parent change does not needlessly rebuild children, destroying local
     // input state (parity with if/show/hide dedup).
     let currentState;
+    // Migration aid: warn once when no preceding if/else-if sibling exists —
+    // the most likely cause is un-migrated sibling-else loop markup.
+    let warnedOrphan = false;
 
     function update() {
       // Check if any preceding if/else-if was true
       let prev = el.previousElementSibling;
+      let foundCondition = false;
       while (prev) {
         const prevExpr =
           prev.getAttribute("if") || prev.getAttribute("else-if");
         if (prevExpr) {
+          foundCondition = true;
           if (evaluate(prevExpr, ctx)) {
             if (currentState === "hidden") return;
             currentState = "hidden";
@@ -178,6 +186,14 @@ registerDirective("else", {
           }
         } else break;
         prev = prev.previousElementSibling;
+      }
+
+      if (!foundCondition && !warnedOrphan) {
+        warnedOrphan = true;
+        _warn(
+          'else: no preceding if/else-if sibling found — note the sibling else pattern for loops was removed in v1.15; use else="templateId" on the loop element',
+          el,
+        );
       }
 
       // No preceding condition was true — show else content

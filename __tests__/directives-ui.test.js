@@ -1052,7 +1052,7 @@ describe('each directive — uncovered branches', () => {
     expect(clones[1].classList.contains('slideIn')).toBe(true);
   });
 
-  test('each when list value is not an array does nothing', () => {
+  test('each when list value is not an array renders nothing (treated as empty)', () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: "not-an-array" }');
     const container = document.createElement('div');
@@ -1068,7 +1068,7 @@ describe('each directive — uncovered branches', () => {
     expect(container.querySelectorAll('span').length).toBe(0);
   });
 
-  test('each when list value is null does nothing', () => {
+  test('each when list value is null renders nothing (treated as empty)', () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', '{ items: null }');
     const container = document.createElement('div');

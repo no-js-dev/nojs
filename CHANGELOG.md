@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased](https://github.com/ErickXavier/no-js/compare/v1.14.0...HEAD)
+
+### Added
+
+- Unit tests for the loop `else="templateId"` pattern, the conditionals guard, and null/undefined early-return behavior ([73b36b3](https://github.com/ErickXavier/no-js/commit/73b36b3))
+- E2E tests for loop else patterns across `foreach`/`each`/`for` variants ([b841446](https://github.com/ErickXavier/no-js/commit/b841446))
+- QA regression tests for the else-template hardening fixes ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+
+### Changed
+
+- Docs: documented the inline `else="templateId"` pattern on loop elements across markdown docs and HTML templates with i18n keys for all 5 locales ([d25c1c8](https://github.com/ErickXavier/no-js/commit/d25c1c8), [d7d7334](https://github.com/ErickXavier/no-js/commit/d7d7334))
+- Docs: purged all stale sibling-else teaching from markdown docs, `cheatsheet.tpl`, `llms-full.txt`, and all 5 locales; documented the new empty-or-null/undefined else-template semantics ([e8dd849](https://github.com/ErickXavier/no-js/commit/e8dd849))
+
+### Fixed
+
+- Conditionals: guard `else` directive from firing on loop elements that use `else="templateId"` for empty-state rendering — the conditional handler now skips elements with `foreach`, `each`, or `for` attributes ([b24b6e9](https://github.com/ErickXavier/no-js/commit/b24b6e9))
+- Loops: same-ref fast path no longer swallows updates while the else template is showing ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+- Loops: a missing else-template ID now clears stale clones and warns once instead of failing silently ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+- Loops: the else template is no longer re-cloned on every update while the list stays empty — preserves input state inside the empty-state template ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+- Conditionals: `<label for="..." else>` is correctly treated as a conditional else, not a loop element — loop detection now uses the shared `_isLoopElement` predicate ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+- Conditionals: one-time warning for an orphan `else` with no preceding `if`/`else-if` ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+
+### Breaking Changes
+
+- **Sibling else for loops removed**: the `<p else>No items</p>` pattern (placing an element with `else` after a loop element) is no longer supported. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state ([4e20448](https://github.com/ErickXavier/no-js/commit/4e20448))
+- **Loops: null/undefined/non-array lists now render the else template** — previously they rendered nothing; non-array values are now normalized to the empty path so the `else="templateId"` template shows ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+
 ## [1.14.0](https://github.com/ErickXavier/no-js/compare/v1.13.3...v1.14.0) — 2026-06-09
 
 ### Added
@@ -32,11 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First-fetch sentinel registers `_onDispose` — fixes leak on element removal before pagination ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 - `_removeInlineError()` helper added for proper error wrapper cleanup ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 - `fetch.js`: expose response headers via `meta` before `_REPLACE` early return ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
-- Conditionals: guard `else` directive from firing on loop elements that use `else="templateId"` for empty-state rendering — the conditional handler now skips elements with `foreach`, `each`, or `for` attributes ([b24b6e9](https://github.com/ErickXavier/no-js/commit/b24b6e9))
-
-### Breaking Changes
-
-- **Sibling else for loops removed**: the `<p else>No items</p>` pattern (placing an element with `else` after a loop element) is no longer supported. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state
 
 ## [1.13.3] - 2026-06-05
 

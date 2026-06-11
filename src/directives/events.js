@@ -153,6 +153,7 @@ registerDirective("on:*", {
           if (mod === "space" && e.key !== " ") return;
           if (mod === "delete" && e.key !== "Delete" && e.key !== "Backspace")
             return;
+          if (mod === "backspace" && e.key !== "Backspace") return;
           if (mod === "up" && e.key !== "ArrowUp") return;
           if (mod === "down" && e.key !== "ArrowDown") return;
           if (mod === "left" && e.key !== "ArrowLeft") return;

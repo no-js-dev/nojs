@@ -2,7 +2,7 @@
   <img src="docs/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
 </h1>
 
-![version](https://img.shields.io/badge/version-1.13.2-blue)
+![version](https://img.shields.io/badge/version-1.14.0-blue)
 [![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/erickxavier/no-js/badge)](https://www.jsdelivr.com/package/gh/erickxavier/no-js)
 
 **The HTML-First Reactive Framework**
@@ -29,12 +29,12 @@ No build step. No virtual DOM. No transpiler. No JSX. Just HTML.
 - **State Management** — `state` (local), `store` (global), `computed`, `watch`, `notify()`
 - **Head Management** — `page-title`, `page-description`, `page-canonical`, `page-jsonld` for SEO-friendly SPAs
 - **SPA Routing** — `route`, `route-view`, guards, params, nested routes, wildcard catch-all, `focusBehavior`
-- **Forms & Validation** — Built-in + custom validators, per-rule errors, async support, `$form` context
+- **Forms & Validation** — Built-in + custom validators, per-rule errors, async support, `$form` context (via NoJS-Elements)
 - **Plugin System** — Extend with reusable packages: interceptors, globals, directives, lifecycle hooks
 - **Animations** — `animate`, `transition` with stagger support
 - **i18n** — `t` directive with pluralization, namespaces, browser detection
 - **Filters** — `uppercase`, `currency`, `date`, `truncate`, 32 built-in pipes
-- **Drag & Drop** — `drag`, `drop`, `drag-list`, multi-select, keyboard DnD
+- **Drag & Drop** — `drag`, `drop`, `drag-list`, multi-select, keyboard DnD (via NoJS-Elements)
 - **DevTools** — Built-in inspector with context mutation, store inspection, element highlighting
 - **Security** — DOMParser-based sanitization, CSP-safe (no eval/Function), header redaction, prototype pollution protection
 - **Custom Directives** — Extend with `NoJS.directive()`
@@ -86,6 +86,7 @@ const NoJS = require('@erickxavier/no-js');
 <html>
 <head>
   <script src="https://cdn.no-js.dev/"></script>
+  <script src="https://cdn-elements.no-js.dev/"></script> <!-- validation & DnD -->
 </head>
 <body base="https://jsonplaceholder.typicode.com">
 
@@ -102,7 +103,7 @@ const NoJS = require('@erickxavier/no-js');
     <button on:click="count++">Clicked <span bind="count"></span> times</button>
   </div>
 
-  <!-- Form with validation -->
+  <!-- Form with validation (requires NoJS-Elements) -->
   <form post="/posts" validate success="#ok">
     <input name="title" required minlength="3" />
     <button type="submit" bind-disabled="!$form.valid">Submit</button>

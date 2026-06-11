@@ -101,10 +101,11 @@ Rapid clicks automatically **abort** the previous in-flight request before start
 
 ### Events
 
-`call` emits lifecycle events on the document:
+`call` emits events on the NoJS event bus (listen with `NoJS.on(...)`):
 
 - **`fetch:success`** — `{ url, data }` on successful response
 - **`fetch:error`** — `{ url, error }` on failure
+- **`fetch:end`** — `{ url }` when the request completes (success or failure)
 
 ### Request Lifecycle
 

@@ -36,7 +36,10 @@
       base: '/',
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
       templates: 'pages',       // Default base path for file-based routing (default: 'pages')
-      ext: '.tpl'              // Default file extension for file-based routing (fallback: '.html')
+      ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
+      suppressHashWarning: false, // Suppress hash-in-history-mode console warning
+      focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
+      viewTransition: true       // Enable View Transition API for route changes (default: true)
     },
     // Note: Anchor links (href="#id") are automatically
     // intercepted in both modes — they scroll to the target
@@ -49,7 +52,8 @@
       detectBrowser: true,
       loadPath: '/locales/{locale}.json',  // Load from external JSON (default: null)
       ns: ['common'],           // Namespaces to preload (default: [])
-      cache: true               // Cache fetched locale files (default: true)
+      cache: true,              // Cache fetched locale files (default: true)
+      persist: false             // Persist selected locale to localStorage (default: false)
     },
 
     // Debugging
@@ -57,10 +61,15 @@
     devtools: true,            // Enables browser devtools panel
 
     // Security
-    sanitize: true,            // Sanitize bind-html
+    sanitize: true,                       // Sanitize bind-html (default: true)
+    dangerouslyDisableSanitize: false,    // Bypass ALL sanitization (not recommended)
 
     // Performance
     exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
+    maxEventListeners: 100,    // Max listeners per event on the NoJS event bus (default: 100)
+
+    // App identity
+    appId: '',                 // Application identifier (exposed via devtools)
   });
 </script>
 ```
@@ -70,6 +79,8 @@
 **Type:** `boolean` | **Default:** `false`
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
+
+> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
 
 ---
 
@@ -139,7 +150,9 @@ NoJS.config({
 });
 ```
 
-When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `sanitize: false` to disable sanitization entirely (not recommended — see [Security](#security)).
+When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `dangerouslyDisableSanitize: true` to disable sanitization entirely (not recommended — see [Security](#security)).
+
+> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes. Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
 
 The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 
@@ -235,6 +248,55 @@ NoJS.config({ exprCacheSize: 100 });
 ```
 
 Non-positive or non-numeric values are ignored and the default of 500 is used.
+
+---
+
+### `maxEventListeners`
+
+**Type:** `number` | **Default:** `100`
+
+Maximum number of listener functions allowed per event name on the NoJS event bus (`NoJS.on()`). When the limit is reached, a `MaxListenersExceeded` warning is logged and the new listener is still registered. Increase this if your application legitimately uses many listeners for the same event (e.g. a plugin-heavy setup).
+
+---
+
+### `appId`
+
+**Type:** `string` | **Default:** `""`
+
+An optional application identifier. Exposed via the devtools panel for distinguishing between multiple NoJS instances or environments.
+
+---
+
+### `i18n.persist`
+
+**Type:** `boolean` | **Default:** `false`
+
+When `true`, the currently selected locale is persisted to `localStorage`. On the next page load, the persisted locale is restored automatically — useful for remembering a user's language preference across sessions.
+
+```js
+NoJS.i18n({ persist: true });
+```
+
+---
+
+## Event Bus Events
+
+The NoJS event bus (`NoJS.on()`) emits the following framework events. Use `NoJS.on(event, callback)` to subscribe; the returned function unsubscribes the listener.
+
+| Event | Payload | When |
+|-------|---------|------|
+| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) received a successful response |
+| `fetch:error` | `{ url, error }` | An HTTP directive failed (network error or non-ok status) |
+| `fetch:end` | `{ url }` | An HTTP request completed (success or failure) — useful for spinners or progress bars |
+| `plugins:ready` | _(none)_ | All registered plugins have been initialized during `NoJS.init()` |
+
+```js
+// Example: global loading indicator
+let activeRequests = 0;
+NoJS.on('fetch:success', () => { activeRequests--; updateSpinner(); });
+NoJS.on('fetch:error', () => { activeRequests--; updateSpinner(); });
+NoJS.on('fetch:end', () => { /* always fires, regardless of outcome */ });
+```
 
 ---
 

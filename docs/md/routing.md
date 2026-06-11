@@ -181,7 +181,7 @@ Instead of declaring each route template manually, point your `route-view` outle
 |-----------|---------|-------------|
 | `src` | `"pages"` | Base folder for template resolution (per-outlet override; config: `router.templates`) |
 | `route-index` | `"index"` | Filename for the root route `/` |
-| `ext` | `".tpl"` | File extension appended to route segments (fallback: `".html"`) |
+| `ext` | `".tpl"` | File extension appended to route segments |
 | `i18n-ns` | — | When present, auto-derives i18n namespace from filename |
 
 > **Config default:** The default `router.templates` is `"pages"`, so file-based routing works out of the box — just add `route-view` to your outlet. Override with `NoJS.config({ router: { templates: 'views' } })` or per-outlet via `src="./custom/"`.

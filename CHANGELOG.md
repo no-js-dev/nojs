@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `style--*` CSS custom properties now use `setProperty()` instead of bracket assignment
+- `style-map` handler now uses `setProperty()`/`removeProperty()` for CSS custom properties (same fix as `style--*` applied to the map code path)
+- Replaced stale "v1.15" version references with "Unreleased" in conditionals, loops, and llms-full docs
 - `.backspace` key modifier now correctly filters keydown events
 - Fixed `on:keydown.ctrl.s` example → `on:keydown.ctrl.enter` (letter-key modifiers unsupported)
 - Fixed `on:error` handler variable from `$event` to `$error`

@@ -109,7 +109,7 @@ Loop directives (`foreach`, `each`, `for`) support `else="templateId"` to refere
 </template>
 ```
 
-> **Breaking change (v1.15):** The sibling `else` pattern for loops has been removed. Use `else="templateId"` on the loop element itself. See [Loops](loops.md) for details.
+> **Breaking change (Unreleased):** The sibling `else` pattern for loops has been removed. Use `else="templateId"` on the loop element itself. See [Loops](loops.md) for details.
 
 ---
 

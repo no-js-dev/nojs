@@ -10,7 +10,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Core Guides
 
-- [Data Fetching](#data-fetching) — `get`, `post`, `put`, `patch`, `delete`, base URL, caching
+- [Data Fetching](#data-fetching) — `get`, `post`, `put`, `patch`, `delete`, base URL, caching, pagination
 - [Data Binding](#data-binding) — `bind`, `bind-html`, `bind-*`, `model`
 - [Conditionals](#conditionals) — `if`, `else-if`, `show`, `hide`, `switch`/`case`
 - [Loops](#loops) — `foreach` (primary), `each`/`for` (aliases), loop variables, nesting
@@ -20,7 +20,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 ## Interaction
 
 - [Events](#events) — `on:*`, modifiers, lifecycle hooks, `$event`, `$el`
-- [Forms & Validation](#forms--validation) — `validate`, `$form`, custom validators
+- [Forms & Validation](#forms--validation) — `validate`, `$form`, custom validators (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](#actions--refs) — `call`, `trigger`, `ref`, `$refs`
 
 ## Presentation
@@ -35,9 +35,9 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Head Management](#head-management) — Per-route `page-title`, `page-description`, `page-canonical`, `page-jsonld`
 - [Internationalization](#internationalization-i18n) — `t`, pluralization, locale switching
 - [Custom Directives](#custom-directives) — Extend No.JS with your own directives
-- [Error Handling](#error-handling) — Per-element errors, boundaries, global handler
+- [Error Handling](#error-handling) — Per-element errors, boundaries, global handler via `NoJS.on('error', fn)`
 - [Configuration](#configuration--security) — Global settings, interceptors, CSRF, security
-- [Drag and Drop](#drag-and-drop) — `drag`, `drop`, sortable lists, multi-select
+- [Drag and Drop](#drag-and-drop) — `drag`, `drop`, sortable lists, multi-select (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
 - [Plugins](#plugins) — Plugin system with lifecycle hooks, interceptors, globals
 
 ## Reference
@@ -136,13 +136,13 @@ Directives run in a defined order:
 | Priority | Directives | Description |
 |----------|-----------|-------------|
 | 0 | `state`, `store` | Initialize local/global state |
-| 1 | `get`, `post`, `put`, `patch`, `delete`, `error-boundary`, `i18n-ns` | Fetch data, error boundaries, i18n namespace |
+| 1 | `get`, `post`, `put`, `patch`, `delete`, `error-boundary`, `i18n-ns`, `page-title`, `page-description`, `page-canonical`, `page-jsonld` | Fetch data, error boundaries, i18n namespace, head management |
 | 2 | `computed`, `watch` | Derived values and side-effect watchers |
 | 5 | `ref` | Element references |
 | 10 | `if`, `switch`, `foreach`, `each`, `for`, `use`, `drag-list` | Structural (add/remove DOM) |
 | 15 | `drag`, `drop` | Drag and drop setup |
-| 16 | `drag-multiple` | Multi-select drag setup |
-| 20 | `bind`, `bind-*`, `model`, `class-*`, `style-*`, `on:*`, `show`, `hide`, `t`, `call`, `trigger`, `page-title`, `page-description` | Rendering, events, i18n, actions, head |
+| 16 | `drag-multiple` | Multi-select drag |
+| 20 | `bind`, `bind-*`, `model`, `class-*`, `style-*`, `on:*`, `show`, `hide`, `t`, `call`, `trigger` | Rendering, events, i18n, actions |
 | 30 | `validate` | Form validation side effects |
 
 ### Expression Syntax
@@ -470,6 +470,89 @@ hidden. These attributes are not injected automatically in the current release.
 
 ---
 
+## Pagination & Infinite Scroll
+
+No.JS supports built-in pagination for `get` directives. New pages of data can be appended or prepended to the existing content without replacing it.
+
+### Pagination Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `get-trigger` | `string` | How the next page is requested: `"scroll"` (IntersectionObserver-based infinite scroll), `"button"` (auto-generated "Load More" button), or `"visible"` (fetch when element enters viewport) |
+| `get-trigger-label` | `string` | Label text for the load-more button (default: `"Load More"`) |
+| `get-insert` | `string` | How new data is inserted: `"append"` (after existing items) or `"prepend"` (before existing items). **Required** for `scroll` and `button` triggers — without it, content is replaced |
+| `get-page` | `number` | Enable offset-based pagination. Sets the initial page number (default: `1`). Auto-increments on each fetch. Use `{page}` in the URL to interpolate |
+| `get-cursor` | _(boolean)_ | Enable cursor-based pagination. The cursor value is extracted from each response and used in the next request via `{cursor}` in the URL |
+| `get-cursor-field` | `string` | JSON field name to extract the next cursor from (e.g. `"nextCursor"`). When omitted, defaults to auto-detection |
+| `get-threshold` | `string` | `rootMargin` for the IntersectionObserver. Default: `"200px"` for `scroll`, `"0px"` for `visible` |
+
+> **Note:** `get-cursor` and `get-page` are mutually exclusive. If both are set, cursor-based pagination takes precedence with a console warning.
+
+### Offset-Based Pagination
+
+```html
+<div get="/api/posts?page={page}&limit=10"
+     as="posts"
+     get-trigger="scroll"
+     get-insert="append"
+     get-page="1"
+     get-threshold="300px">
+  <div each="post in posts" key="post.id">
+    <h3 bind="post.title"></h3>
+  </div>
+</div>
+```
+
+The `page` context variable starts at `1` and auto-increments after each successful fetch. When the server returns an empty array, pagination stops automatically.
+
+### Cursor-Based Pagination
+
+```html
+<div get="/api/feed?cursor={cursor}&limit=20"
+     as="items"
+     get-trigger="scroll"
+     get-insert="append"
+     get-cursor
+     get-cursor-field="nextCursor">
+  <div each="item in items" key="item.id">
+    <p bind="item.content"></p>
+  </div>
+</div>
+```
+
+The cursor starts as an empty string on the first request. After each response, the value of the field specified by `get-cursor-field` is extracted and used for the next request.
+
+### Load More Button
+
+```html
+<div get="/api/comments?page={page}"
+     as="comments"
+     get-trigger="button"
+     get-trigger-label="Show older comments"
+     get-insert="append"
+     get-page="1">
+  <div each="comment in comments" key="comment.id">
+    <p bind="comment.text"></p>
+  </div>
+</div>
+```
+
+The button is auto-generated and inserted after the content. It is automatically removed when the end of data is reached or while a fetch is in progress.
+
+### `fetch:end` Event
+
+The `fetch:end` event fires on the NoJS event bus after every HTTP request completes, regardless of success or failure. This is useful for dismissing global loading indicators:
+
+```js
+NoJS.on('fetch:end', ({ url }) => {
+  console.log('Request finished:', url);
+});
+```
+
+See [Configuration → Event Bus Events](configuration.md#event-bus-events) for all available bus events.
+
+---
+
 ## Interceptors
 
 Interceptors hook into the fetch pipeline to modify requests, inspect responses, or short-circuit the entire flow. They support async functions and have a 5-second timeout per interceptor.
@@ -681,9 +764,12 @@ For form inputs, `model` creates automatic two-way data binding:
 </div>
 ```
 
-### Multi-Select
+### Multi-Select (Planned)
+
+> **Warning:** Multi-select `model` binding is **not yet implemented**. The current `model` directive uses `el.value` for `<select>` elements and does not read `selectedOptions` or handle the `multiple` attribute. An array-backed model will write back a single string value, not an array of selected values. This feature is planned for a future release.
 
 ```html
+<!-- NOT YET FUNCTIONAL — shown for reference only -->
 <div state="{ selected: [] }">
   <select model="selected" multiple>
     <option value="a">Option A</option>
@@ -822,11 +908,27 @@ Render one of many templates based on a value.
 
 ---
 
+## `else` on Loop Elements
+
+Loop directives (`foreach`, `each`, `for`) support `else="templateId"` to reference a `<template>` for empty-state fallback. The template renders when the list is empty (`[]`) or null/undefined/non-array — e.g. API state before the first fetch:
+
+```html
+<article foreach="item in items" else="noItems">
+  <h2 bind="item.title"></h2>
+</article>
+
+<template id="noItems">
+  <p>No items found.</p>
+</template>
+```
+
+> **Breaking change (Unreleased):** The sibling `else` pattern for loops has been removed. Use `else="templateId"` on the loop element itself. See [Loops](loops.md) for details.
+
 ---
 
 ## See Also
 
-- [Loops](loops.md) — `foreach` with `filter` for conditional rendering of list items
+- [Loops](loops.md) — `foreach` with `filter` for conditional rendering, and `else` for empty lists
 - [Dynamic Styling](styling.md) — `show`/`hide` alternative via `class-*`
 - [Templates](templates.md) — template-based conditional content with `then`/`else`
 
@@ -836,11 +938,11 @@ Render one of many templates based on a value.
 
 ## `foreach` — Iterate Over Arrays
 
-`foreach` is the primary iteration directive. It repeats its content for each item in an array.
+`foreach` is the primary iteration directive. The element that carries the directive IS the repeating template — it is removed from the DOM, and clones are inserted as siblings between comment markers for each item in the array.
 
-### Inline Children (default)
+### Self-Repeating Element
 
-When no `template` attribute is provided, the element's children are used as the repeating template:
+The element with `foreach` (or `each` / `for`) is the template itself. No wrapper element is needed — the loop element repeats as a sibling:
 
 ```html
 <div get="/posts" as="posts">
@@ -854,13 +956,17 @@ When no `template` attribute is provided, the element's children are used as the
 </div>
 ```
 
+Each `<li>` clone is inserted directly inside the `<ul>`. The original `<li foreach="...">` element is removed and used as the template source.
+
 ### External Template
 
-Use the `template` attribute to reference a `<template>` element by ID:
+Use the `template` attribute to reference a `<template>` element by ID. The loop element is still the repeating unit — clones of the referenced template are inserted as siblings:
 
 ```html
 <div get="/posts" as="posts">
-  <div foreach="post in posts" key="post.id" template="postCard"></div>
+  <ul>
+    <li foreach="post in posts" key="post.id" template="postCard"></li>
+  </ul>
 </div>
 
 <template id="postCard">
@@ -879,31 +985,49 @@ Use the `template` attribute to reference a `<template>` element by ID:
   <li foreach="item in menuItems"
       index="idx"
       key="item.id"
-      else="#noItems"
       filter="item.active"
       sort="item.order"
       limit="10"
-      offset="0">
+      offset="0"
+      else="noItemsTpl">
     <a bind-href="item.link">
       <span bind="idx + 1"></span> - <span bind="item.label"></span>
     </a>
   </li>
 </ul>
 
-<template id="noItems">
-  <li class="empty">No items available</li>
+<template id="noItemsTpl">
+  <li>No items available</li>
 </template>
 ```
+
+### Empty-State Fallback with `else`
+
+Place `else="templateId"` on the loop element to reference a `<template>` for the empty state. The template renders when the list is empty (`[]`) **or** null/undefined/non-array — e.g. API state before the first fetch resolves:
+
+```html
+<article foreach="item in items" else="noItems">
+  <h2 bind="item.title"></h2>
+</article>
+
+<template id="noItems">
+  <p class="empty-state">No items found.</p>
+</template>
+```
+
+When `items` is an empty array (`[]`), null, undefined, or any non-array value, the template content replaces the loop output. When items are present, the template is removed and items render normally. Both bare ID (`else="noItems"`) and hash syntax (`else="#noItems"`) are accepted.
+
+> **Breaking change (Unreleased):** The sibling `else` pattern (`<li else>No items</li>` placed after a loop element) has been removed. Use `else="templateId"` on the loop element itself instead.
 
 ### Attributes
 
 | Attribute | Description |
 |-----------|-------------|
 | `foreach` | `"item in array"` — variable name and source expression |
-| `template` | ID of the `<template>` element to clone for each item (optional — when omitted, inline children are the template) |
+| `else` | Template ID rendered when the array is empty or null/undefined/non-array (e.g. `else="noItemsTpl"`) |
+| `template` | ID of the `<template>` element to clone for each item (optional — when omitted, the element's own children are the template) |
 | `index` | Variable name for the index (default: `$index`) |
 | `key` | Unique key expression for DOM diffing |
-| `else` | Template ID rendered when the array is empty or null/undefined/non-array (e.g. `else="noItemsTpl"` or `else="#noItems"`) |
 | `filter` | Expression to filter items (like `Array.filter`) |
 | `sort` | Property path to sort by (prefix with `-` for descending) |
 | `limit` | Maximum number of items to render |
@@ -913,6 +1037,8 @@ Use the `template` attribute to reference a `<template>` element by ID:
 | `animate-stagger` | Delay (ms) between each item's enter animation |
 | `animate-duration` | Max duration (ms) before leave animation is force-completed |
 
+Empty-state rendering uses the `else` attribute on the loop element to reference a `<template>` by ID.
+
 ---
 
 ## Aliases: `each` and `for`
@@ -920,10 +1046,10 @@ Use the `template` attribute to reference a `<template>` element by ID:
 `each` and `for` are aliases for `foreach`. They share the same handler and support all the same attributes — `filter`, `sort`, `limit`, `offset`, `key`, `animate-*`, `else`, `template`, `index`, and loop variables.
 
 ```html
-<!-- All three are equivalent -->
-<div foreach="item in items" key="item.id">...</div>
-<div each="item in items" key="item.id">...</div>
-<div for="item in items" key="item.id">...</div>
+<!-- All three are equivalent — the element repeats as siblings -->
+<li foreach="item in items" key="item.id">...</li>
+<li each="item in items" key="item.id">...</li>
+<li for="item in items" key="item.id">...</li>
 ```
 
 Use whichever reads best for your context. `foreach` is the canonical name used throughout this documentation.
@@ -954,10 +1080,10 @@ When you supply a `key` attribute, the directive switches to **key-based reconci
 
 ```html
 <!-- Without key: full rebuild on every change -->
-<div foreach="item in items" template="itemTpl"></div>
+<li foreach="item in items" template="itemTpl"></li>
 
 <!-- With key: only changed items are added/removed -->
-<div foreach="item in items" key="item.id" template="itemTpl"></div>
+<li foreach="item in items" key="item.id" template="itemTpl"></li>
 ```
 
 The `key` value must be **unique and stable** across renders — typically a database ID or UUID. Using a non-unique key (e.g. `$index`) defeats reconciliation since items will always appear to match.
@@ -974,7 +1100,7 @@ The `key` value must be **unique and stable** across renders — typically a dat
 
 ### Positional metadata after reorder
 
-After a reorder (e.g. sort), the reconciler calls `$notify()` on the context of each retained wrapper. This propagates the updated `$index`, `$first`, `$last`, `$even`, `$odd`, and `$count` values to all child watchers, including nested bindings and class expressions that depend on position.
+After a reorder (e.g. sort), the reconciler calls `$notify()` on the context of each retained clone. This propagates the updated `$index`, `$first`, `$last`, `$even`, `$odd`, and `$count` values to all child watchers, including nested bindings and class expressions that depend on position.
 
 ```html
 <template id="itemTpl">
@@ -1001,24 +1127,38 @@ Inside any loop, these variables are automatically available:
 | `$odd` | `true` if index is odd |
 
 ```html
-<div foreach="item in items">
-  <div class-first="$first"
-       class-last="$last"
-       class-striped="$odd">
-    <span bind="($index + 1) + ' of ' + $count"></span>
-    <span bind="item.name"></span>
-  </div>
-</div>
+<ul>
+  <li foreach="item in items">
+    <span class-first="$first"
+         class-last="$last"
+         class-striped="$odd">
+      <span bind="($index + 1) + ' of ' + $count"></span>
+      <span bind="item.name"></span>
+    </span>
+  </li>
+</ul>
 ```
 
 ---
 
 ## Nested Loops
 
-Child loops can access parent scope variables:
+Child loops can access parent scope variables. Each loop element repeats as siblings inside its container:
 
 ```html
-<div foreach="category in categories" template="catTpl"></div>
+<div foreach="category in categories">
+  <h3 bind="category.name"></h3>
+  <p foreach="product in category.products">
+    <!-- Access both product AND category from parent scope -->
+    <span bind="category.name"></span>: <span bind="product.name"></span>
+  </p>
+</div>
+```
+
+With external templates:
+
+```html
+<section foreach="category in categories" template="catTpl"></section>
 
 <template id="catTpl">
   <h3 bind="category.name"></h3>
@@ -1026,7 +1166,6 @@ Child loops can access parent scope variables:
 </template>
 
 <template id="prodTpl">
-  <!-- Access both product AND category from parent scope -->
   <p><span bind="category.name"></span>: <span bind="product.name"></span></p>
 </template>
 ```
@@ -1041,9 +1180,9 @@ Loop directives are fully reactive. When the source array changes (push, splice,
 
 ```html
 <div state="{ items: ['A', 'B', 'C'] }">
-  <div foreach="item in items">
-    <span bind="item"></span>
-  </div>
+  <ul>
+    <li foreach="item in items" bind="item"></li>
+  </ul>
   <button on:click="items.push('New')">Add Item</button>
   <!-- Loop updates automatically -->
 </div>
@@ -1051,15 +1190,16 @@ Loop directives are fully reactive. When the source array changes (push, splice,
 
 > **Note:** `foreach`/`each`/`for` iterate over arrays only. Object iteration is not directly supported — use the `keys` or `values` filter to convert objects to arrays first:
 > ```html
-> <div foreach="key in settings | keys">
+> <span foreach="key in settings | keys">
 >   <span bind="key"></span>: <span bind="settings[key]"></span>
-> </div>
+> </span>
 > ```
 
 ---
 
 ## See Also
 
+- [Conditionals](conditionals.md) — `else="templateId"` on the loop element renders a template for empty lists
 - [Templates](templates.md) — external templates referenced by loops
 - [Animations](animations.md) — `animate-stagger` for list enter/leave effects
 - [Filters & Pipes](filters.md) — `count`, `first`, `last`, `reverse`, `sortBy` filters
@@ -1227,9 +1367,34 @@ Both plain IDs and `#id` syntax are accepted. Each `include` creates a fresh ind
 
 ---
 
+## Templates with Loops
+
+Loop directives use the `template` attribute to reference external templates. The loop element is the repeating unit — clones of the referenced template are inserted as siblings:
+
+```html
+<ul get="/api/users" as="users">
+  <li each="user in users" template="userCard" else="noUsersTpl"></li>
+</ul>
+
+<template id="userCard">
+  <div class="card">
+    <h3 bind="user.name"></h3>
+    <p bind="user.email"></p>
+  </div>
+</template>
+
+<template id="noUsersTpl">
+  <li>No users found</li>
+</template>
+```
+
+The `else="templateId"` attribute on the loop element references a `<template>` rendered when the array is empty (`[]`) or null/undefined/non-array — e.g. before the fetch resolves.
+
+---
+
 ## See Also
 
-- [Loops](loops.md) — `template` attribute for loop item templates
+- [Loops](loops.md) — self-repeating elements and `else="templateId"` for empty lists
 - [Routing](routing.md) — route templates and file-based routing
 - [Data Fetching](data-fetching.md) — `loading`, `error`, `success` templates
 
@@ -1554,7 +1719,7 @@ Bind any DOM event directly in HTML:
 
 <!-- Key modifiers -->
 <input on:keydown.enter="submit()"
-       on:keydown.ctrl.s="save()"
+       on:keydown.ctrl.enter="save()"
        on:keydown.shift.delete="deleteAll()" />
 
 <!-- Combine modifiers -->
@@ -1579,6 +1744,8 @@ Bind any DOM event directly in HTML:
 | `.alt` | Alt key held |
 | `.shift` | Shift key held |
 | `.meta` | Meta/Command key held |
+
+> **Note:** Only the modifiers listed above are supported. Single-letter key modifiers (e.g. `.s`, `.a`) are **not** recognized and will be silently ignored. Combine `.ctrl`, `.alt`, `.shift`, or `.meta` with named keys like `.enter`, `.escape`, `.space`, etc.
 
 ---
 
@@ -1645,6 +1812,14 @@ The `trigger` directive emits a custom event from the element, typically used fo
 **Previous:** [Templates ←](templates.md) | **Next:** [Forms & Validation →](forms-validation.md)
 
 # Forms & Validation
+
+> **Moved to NoJS Elements** — As of v1.13.0, the `validate` directive and form validation rules are part of the `@erickxavier/nojs-elements` plugin.
+>
+> See the [NoJS Elements documentation](https://github.com/ErickXavier/nojs-elements) for the full reference.
+>
+> **Migration:** Install `@erickxavier/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
+>
+> **Note:** Declarative form submission (`post`, `put`, etc.) remains in core — only the `validate` directive moved.
 
 ## Declarative Form Submission
 
@@ -2010,10 +2185,11 @@ Rapid clicks automatically **abort** the previous in-flight request before start
 
 ### Events
 
-`call` emits lifecycle events on the document:
+`call` emits events on the NoJS event bus (listen with `NoJS.on(...)`):
 
 - **`fetch:success`** — `{ url, data }` on successful response
 - **`fetch:error`** — `{ url, error }` on failure
+- **`fetch:end`** — `{ url }` when the request completes (success or failure)
 
 ### Request Lifecycle
 
@@ -2689,7 +2865,7 @@ Instead of declaring each route template manually, point your `route-view` outle
 |-----------|---------|-------------|
 | `src` | `"pages"` | Base folder for template resolution (per-outlet override; config: `router.templates`) |
 | `route-index` | `"index"` | Filename for the root route `/` |
-| `ext` | `".tpl"` | File extension appended to route segments (fallback: `".html"`) |
+| `ext` | `".tpl"` | File extension appended to route segments |
 | `i18n-ns` | — | When present, auto-derives i18n namespace from filename |
 
 > **Config default:** The default `router.templates` is `"pages"`, so file-based routing works out of the box — just add `route-view` to your outlet. Override with `NoJS.config({ router: { templates: 'views' } })` or per-outlet via `src="./custom/"`.
@@ -3088,6 +3264,8 @@ Hash mode produces URLs like `https://your-site.com/#/about`. These work on any 
 > ```js
 > NoJS.config({ router: { useHash: true, suppressHashWarning: true } });
 > ```
+
+---
 
 ---
 
@@ -3494,11 +3672,17 @@ wins. Keep one directive per head element per page.
 
 ### Cleanup on unmount
 
-Head elements (`<title>`, `<meta name="description">`, etc.) injected by
-these directives are **not removed** if the host `<div hidden>` is later
-removed from the DOM (e.g. via an `if=` directive). The head element remains
-with its last value. This is by design for the common case (always-present
-host element), but worth noting for conditional page-metadata patterns.
+The `page-description`, `page-canonical`, and `page-jsonld` directives
+register disposal hooks that **remove** the `<head>` elements they created
+when the host `<div hidden>` is removed from the DOM (e.g. via an `if=`
+directive or SPA route change). This prevents stale metadata from persisting
+across route transitions. Only elements created by the directive are removed
+— hand-written elements already present in `<head>` are left untouched.
+
+`page-title` is the exception: it sets `document.title` directly and does
+**not** reset the title on disposal, since the browser always requires a
+title value. The last value persists until another directive or route
+overwrites it.
 
 ### `page-jsonld` template capture
 
@@ -3916,7 +4100,12 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 
 ## `error-boundary` — Catch Errors in a Subtree
 
-Wrap a section of your page with `error-boundary` to catch any error that occurs within it — including expression evaluation errors, failed HTTP requests, and runtime exceptions:
+Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
+
+1. **Expression evaluation errors** — dispatched as `nojs:error` CustomEvents that bubble up from handler expressions (e.g. a `bind` or `on:click` expression throws).
+2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
+
+> **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 
 ```html
 <div error-boundary="#errorFallback">
@@ -3933,7 +4122,7 @@ Wrap a section of your page with `error-boundary` to catch any error that occurs
 </template>
 ```
 
-When an error is caught, the boundary dispatches a `nojs:error` CustomEvent on the boundary element with the error details in `event.detail`.
+When an error is caught, the boundary replaces its children with the fallback template. The `nojs:error` CustomEvent carries the error details in `event.detail`.
 
 ---
 
@@ -3944,13 +4133,13 @@ Use `NoJS.on()` to listen for errors globally — useful for logging, analytics,
 ```html
 <script>
   // Catch all framework errors
-  NoJS.on('error', (error, context) => {
+  NoJS.on('error', ({ url, error }) => {
     console.error('[No.JS Error]', error);
     // Send to error tracking service
   });
 
   // Catch HTTP-specific errors
-  NoJS.on('fetch:error', (url, error) => {
+  NoJS.on('fetch:error', ({ url, error }) => {
     if (error.status === 401) {
       NoJS.store.auth.user = null;
       NoJS.notify();
@@ -4040,7 +4229,10 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
       base: '/',
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
       templates: 'pages',       // Default base path for file-based routing (default: 'pages')
-      ext: '.tpl'              // Default file extension for file-based routing (fallback: '.html')
+      ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
+      suppressHashWarning: false, // Suppress hash-in-history-mode console warning
+      focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
+      viewTransition: true       // Enable View Transition API for route changes (default: true)
     },
     // Note: Anchor links (href="#id") are automatically
     // intercepted in both modes — they scroll to the target
@@ -4053,7 +4245,8 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
       detectBrowser: true,
       loadPath: '/locales/{locale}.json',  // Load from external JSON (default: null)
       ns: ['common'],           // Namespaces to preload (default: [])
-      cache: true               // Cache fetched locale files (default: true)
+      cache: true,              // Cache fetched locale files (default: true)
+      persist: false             // Persist selected locale to localStorage (default: false)
     },
 
     // Debugging
@@ -4061,10 +4254,15 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
     devtools: true,            // Enables browser devtools panel
 
     // Security
-    sanitize: true,            // Sanitize bind-html
+    sanitize: true,                       // Sanitize bind-html (default: true)
+    dangerouslyDisableSanitize: false,    // Bypass ALL sanitization (not recommended)
 
     // Performance
     exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
+    maxEventListeners: 100,    // Max listeners per event on the NoJS event bus (default: 100)
+
+    // App identity
+    appId: '',                 // Application identifier (exposed via devtools)
   });
 </script>
 ```
@@ -4074,6 +4272,8 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
 **Type:** `boolean` | **Default:** `false`
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
+
+> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
 
 ---
 
@@ -4143,7 +4343,9 @@ NoJS.config({
 });
 ```
 
-When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `sanitize: false` to disable sanitization entirely (not recommended — see [Security](#security)).
+When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `dangerouslyDisableSanitize: true` to disable sanitization entirely (not recommended — see [Security](#security)).
+
+> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes. Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
 
 The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 
@@ -4242,6 +4444,55 @@ Non-positive or non-numeric values are ignored and the default of 500 is used.
 
 ---
 
+### `maxEventListeners`
+
+**Type:** `number` | **Default:** `100`
+
+Maximum number of listener functions allowed per event name on the NoJS event bus (`NoJS.on()`). When the limit is reached, a `MaxListenersExceeded` warning is logged and the new listener is still registered. Increase this if your application legitimately uses many listeners for the same event (e.g. a plugin-heavy setup).
+
+---
+
+### `appId`
+
+**Type:** `string` | **Default:** `""`
+
+An optional application identifier. Exposed via the devtools panel for distinguishing between multiple NoJS instances or environments.
+
+---
+
+### `i18n.persist`
+
+**Type:** `boolean` | **Default:** `false`
+
+When `true`, the currently selected locale is persisted to `localStorage`. On the next page load, the persisted locale is restored automatically — useful for remembering a user's language preference across sessions.
+
+```js
+NoJS.i18n({ persist: true });
+```
+
+---
+
+## Event Bus Events
+
+The NoJS event bus (`NoJS.on()`) emits the following framework events. Use `NoJS.on(event, callback)` to subscribe; the returned function unsubscribes the listener.
+
+| Event | Payload | When |
+|-------|---------|------|
+| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) received a successful response |
+| `fetch:error` | `{ url, error }` | An HTTP directive failed (network error or non-ok status) |
+| `fetch:end` | `{ url }` | An HTTP request completed (success or failure) — useful for spinners or progress bars |
+| `plugins:ready` | _(none)_ | All registered plugins have been initialized during `NoJS.init()` |
+
+```js
+// Example: global loading indicator
+let activeRequests = 0;
+NoJS.on('fetch:success', () => { activeRequests--; updateSpinner(); });
+NoJS.on('fetch:error', () => { activeRequests--; updateSpinner(); });
+NoJS.on('fetch:end', () => { /* always fires, regardless of outcome */ });
+```
+
+---
+
 ## Plugin System
 
 No.JS includes a plugin system for extending the framework with reusable packages. The following methods are available on the `NoJS` object:
@@ -4267,248 +4518,30 @@ See [Plugins →](plugins.md) for the full API reference, plugin lifecycle, secu
 
 ---
 
-**Previous:** [Error Handling ←](error-handling.md) | **Next:** [Drag and Drop →](drag-and-drop.md)
+**Previous:** [Error Handling ←](error-handling.md) | **Next:** [Playground →](playground.md)
 
-# Drag and Drop
+# Drag & Drop
 
-## `drag` — Make an Element Draggable
+> **Moved to NoJS Elements** — As of v1.13.0, the drag-and-drop directives (`drag`, `drop`, `drag-list`, `drag-multiple`) are part of the `@erickxavier/nojs-elements` plugin.
+>
+> See the [NoJS Elements documentation](https://github.com/ErickXavier/nojs-elements) for the full reference.
+>
+> **Migration:** Install `@erickxavier/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
 
-```html
-<!-- Basic draggable -->
-<div drag="item">Drag me</div>
-
-<!-- With type (for filtering drop zones) -->
-<div drag="task" drag-type="task">Task card</div>
-
-<!-- With handle (only the grip icon starts a drag) -->
-<div drag="item" drag-handle=".grip">
-  <span class="grip">&#x2801;&#x2801;</span>
-  <span bind="item.name"></span>
-</div>
-
-<!-- Disabled state (reactive) -->
-<div drag="item" drag-disabled="isLocked">Locked item</div>
-```
-
-### Drag Attributes
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `drag` | expression | *required* | The value being dragged |
-| `drag-type` | string | `"default"` | Named type — only matching `drop-accept` zones respond |
-| `drag-effect` | `"copy"` \| `"move"` \| `"link"` | `"move"` | Maps to `dataTransfer.effectAllowed` |
-| `drag-handle` | CSS selector | — | Restricts the grab area to a child element |
-| `drag-image` | CSS selector \| `"none"` | — | Custom drag ghost element |
-| `drag-image-offset` | `"x,y"` | `"0,0"` | Pixel offset for custom drag image |
-| `drag-disabled` | expression | `false` | When truthy, disables dragging |
-| `drag-class` | string | `"nojs-dragging"` | Class added while dragging |
-| `drag-ghost-class` | string | — | Class added to the drag image element |
-| `drag-group` | string | — | Group name for multi-select |
-
----
-
-## `drop` — Define a Drop Zone
+## Quick Start
 
 ```html
-<!-- Basic drop zone -->
-<div drop="items = [...items, $drag]"
-     drop-accept="task">
-  Drop tasks here
-</div>
+<!-- 1. Load core + Elements -->
+<script src="https://cdn.no-js.dev/"></script>
+<script src="https://cdn.no-js.dev/elements/"></script>
 
-<!-- With sortable index -->
-<div drop="items.splice($dropIndex, 0, $drag)"
-     drop-accept="task"
-     drop-sort="vertical"
-     drop-placeholder="auto">
-</div>
+<!-- 2. Enable plugin -->
+<script>NoJS.use(NoJSElements);</script>
 
-<!-- Max capacity -->
-<div drop="slots = [...slots, $drag]"
-     drop-accept="*"
-     drop-max="3">
-  Max 3 items
-</div>
+<!-- 3. Use directives as before -->
+<div drag="task" drag-data="item">Drag me</div>
+<div drop="task">Drop here</div>
 ```
-
-### Drop Attributes
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `drop` | statement | *required* | Expression executed on drop |
-| `drop-accept` | string (comma-separated) | `"default"` | Accepted `drag-type`(s). Use `"*"` for any |
-| `drop-effect` | `"copy"` \| `"move"` \| `"link"` | `"move"` | Maps to `dataTransfer.dropEffect` |
-| `drop-class` | string | `"nojs-drag-over"` | Class added when valid item hovers |
-| `drop-reject-class` | string | `"nojs-drop-reject"` | Class added when item is rejected (wrong type or max exceeded) |
-| `drop-disabled` | expression | `false` | When truthy, disables dropping |
-| `drop-max` | expression (number) | `Infinity` | Max items the zone accepts |
-| `drop-sort` | `"vertical"` \| `"horizontal"` \| `"grid"` | — | Enables sortable reorder by position |
-| `drop-placeholder` | template ID \| `"auto"` | — | Shows a placeholder at insertion point |
-| `drop-placeholder-class` | string | `"nojs-drop-placeholder"` | Class for the placeholder |
-| `drop-settle-class` | string | `"nojs-drop-settle"` | Custom CSS class for the settle animation |
-| `drop-empty-class` | string | `"nojs-drag-list-empty"` | Custom CSS class for empty state on drop zone |
-
----
-
-## `drag-list` — Sortable List
-
-High-level shorthand for sortable lists bound to arrays. Combines `each` + `drag` + `drop` in one element.
-
-```html
-<!-- Basic sortable list -->
-<div drag-list="tasks"
-     template="task-tpl"
-     drag-list-key="id"
-     drop-sort="vertical">
-</div>
-
-<!-- Two-list transfer (Kanban) -->
-<div state="{ todo: [...], done: [] }">
-  <div drag-list="todo"
-       template="task-tpl"
-       drag-list-key="id"
-       drag-type="task"
-       drop-accept="task"
-       drop-sort="vertical"
-       drag-list-remove
-       on:reorder="console.log('reordered')">
-  </div>
-
-  <div drag-list="done"
-       template="task-tpl"
-       drag-list-key="id"
-       drag-type="task"
-       drop-accept="task"
-       drop-sort="vertical"
-       drag-list-remove
-       on:receive="console.log('received', $event.detail.item)">
-  </div>
-</div>
-
-<template id="task-tpl">
-  <div class="card">
-    <span bind="item.title"></span>
-  </div>
-</template>
-```
-
-### Drag-List Attributes
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `drag-list` | path | *required* | Path to array in state |
-| `template` | template ID | — | Template for each item (same as `each`) |
-| `drag-list-key` | property name | — | Unique key per item for stable identity |
-| `drag-list-item` | variable name | `"item"` | Loop variable name in template |
-| `drop-sort` | `"vertical"` \| `"horizontal"` \| `"grid"` | `"vertical"` | Layout direction |
-| `drop-accept` | string | *self* | Types accepted (defaults to same list only) |
-| `drag-list-copy` | boolean attr | — | Copy items instead of moving |
-| `drag-list-remove` | boolean attr | — | Remove items when dragged out |
-| `drag-disabled` | expression | `false` | Disables dragging from this list |
-| `drop-disabled` | expression | `false` | Disables dropping into this list |
-| `drop-max` | expression (number) | `Infinity` | Max items allowed |
-| `drop-settle-class` | string | `"nojs-drop-settle"` | Custom CSS class for the settle animation |
-| `drop-empty-class` | string | `"nojs-drag-list-empty"` | Custom CSS class for empty state on drag-list |
-| `drop-placeholder` | template ID \| `"auto"` | — | Shows a placeholder where the item will be dropped |
-
-### Drag-List Events
-
-| Event | `$event.detail` | Description |
-|-------|-----------------|-------------|
-| `on:reorder` | `{ list, item, from, to }` | Item reordered within same list |
-| `on:receive` | `{ list, item, from, fromList }` | Item received from another list |
-| `on:remove` | `{ list, item, index }` | Item removed (dragged out) |
-
----
-
-## `drag-multiple` — Multi-Select
-
-Enables click-to-select before dragging multiple items as a group.
-
-```html
-<div each="card in cards" template="cardTpl" style="display:contents"></div>
-
-<template id="cardTpl">
-  <div drag="card"
-       drag-type="card"
-       drag-group="kanban"
-       drag-multiple>
-    <span bind="card.title"></span>
-  </div>
-</template>
-```
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `drag-multiple` | boolean attr | — | Enables click-to-select |
-| `drag-multiple-class` | string | `"nojs-selected"` | Class added to selected items |
-| `drag-group` | string | *required* | Group name — all selected items move together |
-
-- **Click** selects a single item (replaces previous selection)
-- **Ctrl/Cmd+Click** adds to selection
-- **Escape** clears the selection
-- When dragging a selected item, `$drag` becomes an **array** of all selected items
-
----
-
-## Implicit Variables
-
-Available inside `drop` expressions:
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `$drag` | any | The dragged value. Array if multi-select |
-| `$dragType` | string | The `drag-type` of the item |
-| `$dragEffect` | string | The `drag-effect` |
-| `$dropIndex` | number | Insertion index within the drop zone |
-| `$source` | object \| null | `{ list, index, el }` — source info |
-| `$target` | object \| null | `{ list, index, el }` — target info |
-
----
-
-## CSS Classes
-
-No.JS automatically injects these classes:
-
-| Class | When applied |
-|-------|-------------|
-| `.nojs-dragging` | On the source element while dragging |
-| `.nojs-drag-over` | On the drop zone while a valid item hovers |
-| `.nojs-drop-reject` | On the drop zone when the item is rejected (wrong type or max exceeded) |
-| `.nojs-drop-placeholder` | On the insertion placeholder |
-| `.nojs-selected` | On multi-selected items |
-| `.nojs-drop-settle` | Brief settle animation on drop |
-| `.nojs-drag-list-empty` | On a `drag-list` when it has no items |
-
----
-
-## Accessibility
-
-No.JS automatically adds:
-
-- `draggable="true"` on drag sources
-- `aria-grabbed="true/false"` reflecting drag state
-- `aria-dropeffect` on drop zones
-- `role="listbox"` on `drag-list` containers
-- `role="option"` on `drag-list` items
-- `tabindex="0"` for keyboard access
-- **Space** to grab, **Escape** to cancel, **Arrow keys** to navigate, **Enter** to drop
-
-### Touch Devices
-
-Drag and drop uses the HTML Drag and Drop API, which has limited support on touch devices. For mobile-friendly drag interactions, consider using a touch-event polyfill or the `drag-list` directive which provides a higher-level abstraction.
-
----
-
-## See Also
-
-- [Loops](loops.md) — `foreach`/`each` for rendering list items
-- [Events](events.md) — `on:reorder`, `on:receive`, `on:remove` event handling
-- [Animations](animations.md) — settle animations on drop
-
----
-
-**Previous:** [Internationalization ←](i18n.md) | **Next:** [Head Management →](head-management.md)
 
 # Plugins
 
@@ -5059,6 +5092,13 @@ Complete reference of every No.JS directive.
 | `skeleton` | `skeleton="cardSkel"` | Show/hide a placeholder element during loading |
 | `retry` | `retry="3"` | Number of retry attempts on failure |
 | `retry-delay` | `retry-delay="1000"` | Delay between retries in ms |
+| `get-trigger` | `get-trigger="scroll"` | Pagination trigger: `"scroll"` (infinite), `"button"` (load more), or `"visible"` |
+| `get-trigger-label` | `get-trigger-label="Show more"` | Label for the auto-generated load-more button (default `"Load More"`) |
+| `get-insert` | `get-insert="append"` | How new pages are inserted: `"append"` or `"prepend"` (default replaces content) |
+| `get-page` | `get-page="1"` | Enable offset-based pagination starting at the given page number |
+| `get-cursor` | `get-cursor` | Enable cursor-based pagination |
+| `get-cursor-field` | `get-cursor-field="next"` | JSON field name containing the next cursor value |
+| `get-threshold` | `get-threshold="300px"` | `rootMargin` for the IntersectionObserver (default `"200px"` for scroll, `"0px"` for visible) |
 
 ## State
 
@@ -5093,21 +5133,21 @@ Complete reference of every No.JS directive.
 
 ## Loops
 
+The element with the loop directive IS the repeating template. It is removed from the DOM and clones are inserted as siblings.
+
 | Directive | Example | Description |
 |-----------|---------|-------------|
-| `foreach` | `foreach="item in items"` | Iterate over arrays (primary directive) |
+| `foreach` | `foreach="item in items"` | Iterate over arrays (primary directive). The element repeats as siblings. |
 | `each` | `each="item in items"` | Alias for `foreach` |
 | `for` | `for="item in items"` | Alias for `foreach` |
-| `template` | `template="tplId"` | Template to clone (optional — inline children used when omitted) |
+| `else` (template) | `else="noItemsTpl"` | Template rendered when the array is empty or null/undefined |
+| `template` | `template="tplId"` | Template to clone for each item (optional — own children used when omitted) |
 | `index` | `index="i"` | Index variable name |
 | `key` | `key="item.id"` | Unique key for diffing |
 | `filter` | `filter="item.active"` | Filter expression |
 | `sort` | `sort="item.name"` | Sort property |
 | `limit` | `limit="10"` | Max items |
 | `offset` | `offset="5"` | Skip items |
-| `else` | `else="noItemsTpl"` | Template ID rendered when the array is empty or null/undefined |
-
-> **Breaking change (v1.15):** The sibling `else` pattern for loops (`<p else>No items</p>` after a loop element) has been removed. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state.
 
 ## Events
 
@@ -5121,18 +5161,21 @@ Complete reference of every No.JS directive.
 | `on:unmounted` | `on:unmounted="cleanup()"` | Lifecycle: unmounted |
 | `on:init` | `on:init="setup()"` | Lifecycle: first processed |
 | `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM mutation observed |
-| `on:error` | `on:error="log($event)"` | Lifecycle: error in subtree |
+| `on:error` | `on:error="log($error)"` | Lifecycle: error in subtree |
 
 ## Styling
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
 | `class-*` | `class-active="isOn"` | Toggle CSS class |
+| `class-list` | `class-list="['a', cond && 'b']"` | Class from array |
 | `class-map` | `class-map="{ a: x }"` | Class from object |
 | `style-*` | `style-color="c"` | Set inline style |
 | `style-map` | `style-map="{ ... }"` | Style from object |
 
 ## Forms
+
+> **Note:** Form validation requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
@@ -5153,7 +5196,7 @@ Complete reference of every No.JS directive.
 | `route-view="name"` | `route-view="sidebar"` | Named route outlet |
 | `route-view[src]` | `route-view src="./pages/"` | File-based routing outlet |
 | `route-index` | `route-index="overview"` | Filename for root `/` (default `"index"`) |
-| `ext` | `ext=".html"` | File extension (default `".tpl"`, fallback `".html"`) |
+| `ext` | `ext=".html"` | File extension for file-based routing (default `".tpl"`) |
 | `i18n-ns` | `i18n-ns` | Auto-derive i18n namespace from route filename |
 | `outlet` | `outlet="sidebar"` | Target a named outlet from a route template |
 | `route-active` | `route-active="cls"` | Active link class |
@@ -5180,6 +5223,8 @@ Complete reference of every No.JS directive.
 | `transition` | `transition="fade"` | CSS transition |
 
 ## Drag and Drop
+
+> **Note:** Drag and Drop requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only stubs that log a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
@@ -5330,10 +5375,13 @@ automatically — no extra code needed in the route itself.
   <!-- Token is attached automatically via the request interceptor -->
   <div get="/me/dashboard" as="data" loading="#dash-skeleton">
     <h2 bind="'Welcome, ' + data.user.name"></h2>
-    <div each="m in data.metrics">
+    <p each="m in data.metrics" else="noMetrics">
       <span bind="m.label"></span>
       <span bind="m.value | number"></span>
-    </div>
+    </p>
+    <template id="noMetrics">
+      <p>No metrics available</p>
+    </template>
   </div>
   <button on:click="$store.auth.user = null; $store.auth.token = null">
     Sign out
@@ -5362,7 +5410,6 @@ manipulation.
 
   <!-- GET fires 300ms after the user stops typing -->
   <div get="/products?q={query}"
-       watch="query"
        debounce="300"
        as="results">
 
@@ -5370,16 +5417,16 @@ manipulation.
       No results for <strong bind="query"></strong>
     </p>
 
-    <div each="item in results">
+    <p each="item in results">
       <span bind="item.name"></span>
       <span bind="item.price | currency"></span>
-    </div>
+    </p>
 
   </div>
 </div>
 ```
 
-**Key concepts:** `model` · `watch` · `debounce` · dynamic `get` with interpolation · `show`
+**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `show`
 
 ---
 
@@ -5398,21 +5445,24 @@ simultaneously — no event bus, no shared component.
 
 <!-- Product list -->
 <div get="/products" as="products">
-  <div each="p in products">
+  <div each="p in products" else="noProducts">
     <span bind="p.name"></span>
     <button on:click="$store.cart.items = [...$store.cart.items, p]">
       Add to cart
     </button>
   </div>
+  <template id="noProducts">
+    <div>No products available</div>
+  </template>
 </div>
 
 <!-- Cart summary: somewhere else entirely -->
-<div show="$store.cart.items.length > 0">
-  <div each="item in $store.cart.items">
+<ul show="$store.cart.items.length > 0">
+  <li each="item in $store.cart.items">
     <span bind="item.name"></span>
     <span bind="item.price | currency"></span>
-  </div>
-</div>
+  </li>
+</ul>
 ```
 
 **Key concepts:** `store` · `$store.*` cross-component reactivity · `each` · `show`
@@ -5435,10 +5485,10 @@ A server-status dashboard that refreshes automatically every 5 seconds using the
         bind="s.healthy ? 'Online' : 'Degraded'">
   </span>
 
-  <div each="metric in s.metrics">
+  <p each="metric in s.metrics">
     <span bind="metric.label"></span>
     <span bind="metric.value | number"></span>
-  </div>
+  </p>
 
 </div>
 ```
@@ -5511,10 +5561,13 @@ All five patterns combined into a single production-grade SPA:
   <template route="/dashboard" guard="$store.auth.token" redirect="/login">
     <div get="/me/dashboard" as="data">
       <h1 bind="'Welcome, ' + data.user.name"></h1>
-      <div each="m in data.metrics">
+      <p each="m in data.metrics" else="noMetrics">
         <span bind="m.label"></span>
         <span bind="m.value | number"></span>
-      </div>
+      </p>
+      <template id="noMetrics">
+        <p>No metrics available</p>
+      </template>
     </div>
     <button on:click="$store.auth.user = null; $store.auth.token = null">
       Sign out

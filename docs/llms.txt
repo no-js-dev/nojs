@@ -35,8 +35,8 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Head Management](https://no-js.dev/#/head-management): Per-route `page-title`, `page-description`, `page-canonical`, `page-jsonld` attributes on `<template route>`
 - [Internationalization](https://no-js.dev/#/i18n): `t="key"` directive, pluralization, locale switching, async locale loading, fallback chains, interpolation
 - [Drag and Drop](https://no-js.dev/#/drag-and-drop): `drag` source, `drop` zone, `drag-list` for sortable reordering, multi-select, custom placeholders, event handlers (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
-- [Custom Directives](https://no-js.dev/#/custom-directives): Extend the framework via `NoJS.directive(name, { priority, init(el, value, ctx) })` with full access to the reactive context
-- [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.config({ onError })`
+- [Custom Directives](https://no-js.dev/#/custom-directives): Extend the framework via `NoJS.directive(name, { priority, init(el, name, value) })` with full access to the reactive context
+- [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.on('error', fn)`
 - [Configuration](https://no-js.dev/#/configuration): `NoJS.config()` for global settings (baseApiUrl, headers, timeout, retries), request/response interceptors, CSRF token support
 
 ## Reference

@@ -77,10 +77,14 @@ registerDirective("style-*", {
           // property removed from the bound object no longer lingers on the
           // element (stale style leak).
           for (const prop of prevProps) {
-            if (!(prop in obj)) el.style[prop] = "";
+            if (!(prop in obj)) {
+              if (prop.startsWith("--")) el.style.removeProperty(prop);
+              else el.style[prop] = "";
+            }
           }
           for (const [prop, val] of Object.entries(obj)) {
-            el.style[prop] = val ?? "";
+            if (prop.startsWith("--")) el.style.setProperty(prop, val ?? "");
+            else el.style[prop] = val ?? "";
           }
           prevProps = nextProps;
         }
@@ -91,10 +95,15 @@ registerDirective("style-*", {
     }
 
     // style-{property}="expr" (e.g. style-color, style-font-size)
-    const cssProp = suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    // CSS custom properties: style---primary-color -> suffix "--primary-color"
+    // Must use setProperty() — bracket assignment is an inert JS expando.
+    const isCustomProp = suffix.startsWith("--");
+    const cssProp = isCustomProp ? suffix : suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
     function update() {
       const val = evaluate(expr, ctx);
-      el.style[cssProp] = val != null ? String(val) : "";
+      const v = val != null ? String(val) : "";
+      if (isCustomProp) el.style.setProperty(cssProp, v);
+      else el.style[cssProp] = v;
     }
     _watchExpr(expr, ctx, update);
     update();

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/ErickXavier/no-js/compare/v1.14.0...HEAD)
+## [Unreleased](https://github.com/ErickXavier/no-js/compare/v1.14.1...HEAD)
 
 ### Added
 
@@ -31,6 +31,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Sibling else for loops removed**: the `<p else>No items</p>` pattern (placing an element with `else` after a loop element) is no longer supported. Use `else="templateId"` on the loop element itself to reference a `<template>` for the empty state ([4e20448](https://github.com/ErickXavier/no-js/commit/4e20448))
 - **Loops: null/undefined/non-array lists now render the else template** — previously they rendered nothing; non-array values are now normalized to the empty path so the `else="templateId"` template shows ([f67ad0a](https://github.com/ErickXavier/no-js/commit/f67ad0a))
+
+## [1.14.1](https://github.com/ErickXavier/no-js/compare/v1.14.0...v1.14.1) — 2026-06-11
+
+### Fixed
+
+- `style--*` CSS custom properties now use `setProperty()` instead of bracket assignment
+- `style-map` handler now uses `setProperty()`/`removeProperty()` for CSS custom properties (same fix as `style--*` applied to the map code path)
+- Replaced stale "v1.15" version references with "Unreleased" in conditionals, loops, and llms-full docs
+- `.backspace` key modifier now correctly filters keydown events
+- Fixed `on:keydown.ctrl.s` example → `on:keydown.ctrl.enter` (letter-key modifiers unsupported)
+- Fixed `on:error` handler variable from `$event` to `$error`
+- Added "(via NoJS-Elements)" qualifiers to validate/DnD features in README
+- Added Elements CDN script to flagship form example
+- Corrected error-boundary scope, head cleanup behavior, event bus wording
+- Removed phantom `.html` extension fallback claims from router docs
+- Added multi-select `model` caveat (not yet implemented)
+- Documented pagination directives (`get-trigger`, `get-insert`, `get-page`, etc.)
+- Documented `dangerouslyDisableSanitize`, `i18n.persist`, `maxEventListeners`, `appId` config options
+- Regenerated `llms-full.txt` from current docs, fixed `llms.txt` signatures
 
 ## [1.14.0](https://github.com/ErickXavier/no-js/compare/v1.13.3...v1.14.0) — 2026-06-09
 

@@ -144,11 +144,17 @@ wins. Keep one directive per head element per page.
 
 ### Cleanup on unmount
 
-Head elements (`<title>`, `<meta name="description">`, etc.) injected by
-these directives are **not removed** if the host `<div hidden>` is later
-removed from the DOM (e.g. via an `if=` directive). The head element remains
-with its last value. This is by design for the common case (always-present
-host element), but worth noting for conditional page-metadata patterns.
+The `page-description`, `page-canonical`, and `page-jsonld` directives
+register disposal hooks that **remove** the `<head>` elements they created
+when the host `<div hidden>` is removed from the DOM (e.g. via an `if=`
+directive or SPA route change). This prevents stale metadata from persisting
+across route transitions. Only elements created by the directive are removed
+— hand-written elements already present in `<head>` are left untouched.
+
+`page-title` is the exception: it sets `document.title` directly and does
+**not** reset the title on disposal, since the browser always requires a
+title value. The last value persists until another directive or route
+overwrites it.
 
 ### `page-jsonld` template capture
 

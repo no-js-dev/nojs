@@ -41,7 +41,12 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 
 ## `error-boundary` — Catch Errors in a Subtree
 
-Wrap a section of your page with `error-boundary` to catch any error that occurs within it — including expression evaluation errors, failed HTTP requests, and runtime exceptions:
+Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
+
+1. **Expression evaluation errors** — dispatched as `nojs:error` CustomEvents that bubble up from handler expressions (e.g. a `bind` or `on:click` expression throws).
+2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
+
+> **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 
 ```html
 <div error-boundary="#errorFallback">
@@ -58,7 +63,7 @@ Wrap a section of your page with `error-boundary` to catch any error that occurs
 </template>
 ```
 
-When an error is caught, the boundary dispatches a `nojs:error` CustomEvent on the boundary element with the error details in `event.detail`.
+When an error is caught, the boundary replaces its children with the fallback template. The `nojs:error` CustomEvent carries the error details in `event.detail`.
 
 ---
 

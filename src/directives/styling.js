@@ -91,10 +91,15 @@ registerDirective("style-*", {
     }
 
     // style-{property}="expr" (e.g. style-color, style-font-size)
-    const cssProp = suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    // CSS custom properties: style---primary-color -> suffix "--primary-color"
+    // Must use setProperty() — bracket assignment is an inert JS expando.
+    const isCustomProp = suffix.startsWith("--");
+    const cssProp = isCustomProp ? suffix : suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
     function update() {
       const val = evaluate(expr, ctx);
-      el.style[cssProp] = val != null ? String(val) : "";
+      const v = val != null ? String(val) : "";
+      if (isCustomProp) el.style.setProperty(cssProp, v);
+      else el.style[cssProp] = v;
     }
     _watchExpr(expr, ctx, update);
     update();

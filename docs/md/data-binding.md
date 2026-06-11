@@ -94,9 +94,12 @@ For form inputs, `model` creates automatic two-way data binding:
 </div>
 ```
 
-### Multi-Select
+### Multi-Select (Planned)
+
+> **Warning:** Multi-select `model` binding is **not yet implemented**. The current `model` directive uses `el.value` for `<select>` elements and does not read `selectedOptions` or handle the `multiple` attribute. An array-backed model will write back a single string value, not an array of selected values. This feature is planned for a future release.
 
 ```html
+<!-- NOT YET FUNCTIONAL — shown for reference only -->
 <div state="{ selected: [] }">
   <select model="selected" multiple>
     <option value="a">Option A</option>

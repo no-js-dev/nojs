@@ -292,6 +292,89 @@ hidden. These attributes are not injected automatically in the current release.
 
 ---
 
+## Pagination & Infinite Scroll
+
+No.JS supports built-in pagination for `get` directives. New pages of data can be appended or prepended to the existing content without replacing it.
+
+### Pagination Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `get-trigger` | `string` | How the next page is requested: `"scroll"` (IntersectionObserver-based infinite scroll), `"button"` (auto-generated "Load More" button), or `"visible"` (fetch when element enters viewport) |
+| `get-trigger-label` | `string` | Label text for the load-more button (default: `"Load More"`) |
+| `get-insert` | `string` | How new data is inserted: `"append"` (after existing items) or `"prepend"` (before existing items). **Required** for `scroll` and `button` triggers — without it, content is replaced |
+| `get-page` | `number` | Enable offset-based pagination. Sets the initial page number (default: `1`). Auto-increments on each fetch. Use `{page}` in the URL to interpolate |
+| `get-cursor` | _(boolean)_ | Enable cursor-based pagination. The cursor value is extracted from each response and used in the next request via `{cursor}` in the URL |
+| `get-cursor-field` | `string` | JSON field name to extract the next cursor from (e.g. `"nextCursor"`). When omitted, defaults to auto-detection |
+| `get-threshold` | `string` | `rootMargin` for the IntersectionObserver. Default: `"200px"` for `scroll`, `"0px"` for `visible` |
+
+> **Note:** `get-cursor` and `get-page` are mutually exclusive. If both are set, cursor-based pagination takes precedence with a console warning.
+
+### Offset-Based Pagination
+
+```html
+<div get="/api/posts?page={page}&limit=10"
+     as="posts"
+     get-trigger="scroll"
+     get-insert="append"
+     get-page="1"
+     get-threshold="300px">
+  <div each="post in posts" key="post.id">
+    <h3 bind="post.title"></h3>
+  </div>
+</div>
+```
+
+The `page` context variable starts at `1` and auto-increments after each successful fetch. When the server returns an empty array, pagination stops automatically.
+
+### Cursor-Based Pagination
+
+```html
+<div get="/api/feed?cursor={cursor}&limit=20"
+     as="items"
+     get-trigger="scroll"
+     get-insert="append"
+     get-cursor
+     get-cursor-field="nextCursor">
+  <div each="item in items" key="item.id">
+    <p bind="item.content"></p>
+  </div>
+</div>
+```
+
+The cursor starts as an empty string on the first request. After each response, the value of the field specified by `get-cursor-field` is extracted and used for the next request.
+
+### Load More Button
+
+```html
+<div get="/api/comments?page={page}"
+     as="comments"
+     get-trigger="button"
+     get-trigger-label="Show older comments"
+     get-insert="append"
+     get-page="1">
+  <div each="comment in comments" key="comment.id">
+    <p bind="comment.text"></p>
+  </div>
+</div>
+```
+
+The button is auto-generated and inserted after the content. It is automatically removed when the end of data is reached or while a fetch is in progress.
+
+### `fetch:end` Event
+
+The `fetch:end` event fires on the NoJS event bus after every HTTP request completes, regardless of success or failure. This is useful for dismissing global loading indicators:
+
+```js
+NoJS.on('fetch:end', ({ url }) => {
+  console.log('Request finished:', url);
+});
+```
+
+See [Configuration → Event Bus Events](configuration.md#event-bus-events) for all available bus events.
+
+---
+
 ## Interceptors
 
 Interceptors hook into the fetch pipeline to modify requests, inspect responses, or short-circuit the entire flow. They support async functions and have a 5-second timeout per interceptor.

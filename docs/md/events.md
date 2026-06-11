@@ -52,7 +52,7 @@ Bind any DOM event directly in HTML:
 
 <!-- Key modifiers -->
 <input on:keydown.enter="submit()"
-       on:keydown.ctrl.s="save()"
+       on:keydown.ctrl.enter="save()"
        on:keydown.shift.delete="deleteAll()" />
 
 <!-- Combine modifiers -->
@@ -77,6 +77,8 @@ Bind any DOM event directly in HTML:
 | `.alt` | Alt key held |
 | `.shift` | Shift key held |
 | `.meta` | Meta/Command key held |
+
+> **Note:** Only the modifiers listed above are supported. Single-letter key modifiers (e.g. `.s`, `.a`) are **not** recognized and will be silently ignored. Combine `.ctrl`, `.alt`, `.shift`, or `.meta` with named keys like `.enter`, `.escape`, `.space`, etc.
 
 ---
 

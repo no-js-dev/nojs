@@ -23,6 +23,13 @@ Complete reference of every No.JS directive.
 | `skeleton` | `skeleton="cardSkel"` | Show/hide a placeholder element during loading |
 | `retry` | `retry="3"` | Number of retry attempts on failure |
 | `retry-delay` | `retry-delay="1000"` | Delay between retries in ms |
+| `get-trigger` | `get-trigger="scroll"` | Pagination trigger: `"scroll"` (infinite), `"button"` (load more), or `"visible"` |
+| `get-trigger-label` | `get-trigger-label="Show more"` | Label for the auto-generated load-more button (default `"Load More"`) |
+| `get-insert` | `get-insert="append"` | How new pages are inserted: `"append"` or `"prepend"` (default replaces content) |
+| `get-page` | `get-page="1"` | Enable offset-based pagination starting at the given page number |
+| `get-cursor` | `get-cursor` | Enable cursor-based pagination |
+| `get-cursor-field` | `get-cursor-field="next"` | JSON field name containing the next cursor value |
+| `get-threshold` | `get-threshold="300px"` | `rootMargin` for the IntersectionObserver (default `"200px"` for scroll, `"0px"` for visible) |
 
 ## State
 
@@ -85,7 +92,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `on:unmounted` | `on:unmounted="cleanup()"` | Lifecycle: unmounted |
 | `on:init` | `on:init="setup()"` | Lifecycle: first processed |
 | `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM mutation observed |
-| `on:error` | `on:error="log($event)"` | Lifecycle: error in subtree |
+| `on:error` | `on:error="log($error)"` | Lifecycle: error in subtree |
 
 ## Styling
 
@@ -98,6 +105,8 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `style-map` | `style-map="{ ... }"` | Style from object |
 
 ## Forms
+
+> **Note:** Form validation requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
@@ -118,7 +127,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `route-view="name"` | `route-view="sidebar"` | Named route outlet |
 | `route-view[src]` | `route-view src="./pages/"` | File-based routing outlet |
 | `route-index` | `route-index="overview"` | Filename for root `/` (default `"index"`) |
-| `ext` | `ext=".html"` | File extension (default `".tpl"`, fallback `".html"`) |
+| `ext` | `ext=".html"` | File extension for file-based routing (default `".tpl"`) |
 | `i18n-ns` | `i18n-ns` | Auto-derive i18n namespace from route filename |
 | `outlet` | `outlet="sidebar"` | Target a named outlet from a route template |
 | `route-active` | `route-active="cls"` | Active link class |
@@ -145,6 +154,8 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `transition` | `transition="fade"` | CSS transition |
 
 ## Drag and Drop
+
+> **Note:** Drag and Drop requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only stubs that log a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|

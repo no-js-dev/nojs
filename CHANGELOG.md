@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `_removeInlineError()` helper added for proper error wrapper cleanup ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 - `fetch.js`: expose response headers via `meta` before `_REPLACE` early return ([b32fb35](https://github.com/ErickXavier/no-js/commit/b32fb35))
 
-## [1.13.3] - 2026-06-05
+## [1.13.3](https://github.com/ErickXavier/no-js/compare/v1.13.1...v1.13.3) — 2026-06-05
 
 ### Fixed
 
@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reintegrated core hardening (engine, directives, subsystems) from security review onto current main.
 
-## [1.13.2] - 2026-06-02
+## [1.13.2](https://github.com/ErickXavier/no-js/compare/v1.13.1...v1.13.2) — 2026-06-02
 
 ### Fixed
 
@@ -110,13 +110,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Related modules: `globals.js`, `filters.js`, `i18n.js`, `devtools.js`, and the `binding`, `styling`, `state`, `events`, `refs`, and `head` directives.
 - The prior DnD/validation extraction to `@erickxavier/nojs-elements` remains intact — no behavior reverted.
 
-## [1.13.1] - 2026-06-01
+## [1.13.1](https://github.com/ErickXavier/no-js/compare/v1.13.0...v1.13.1) — 2026-06-01
 
 ### Changed
 
 - Ecosystem version-sync release — no functional changes to Core. Bumped to stay lockstep with the rest of the NoJS ecosystem, companion to the NoJS-LSP plugin-metadata polish.
 
-## [1.13.0] - 2026-05-27
+## [1.13.0](https://github.com/ErickXavier/no-js/compare/v1.12.0...v1.13.0) — 2026-05-27
 
 ### Changed
 

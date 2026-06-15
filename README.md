@@ -2,6 +2,7 @@
   <img src="docs/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
 </h1>
 
+[![CI](https://github.com/ErickXavier/no-js/actions/workflows/ci.yml/badge.svg)](https://github.com/ErickXavier/no-js/actions/workflows/ci.yml)
 ![version](https://img.shields.io/badge/version-1.14.1-blue)
 [![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/erickxavier/no-js/badge)](https://www.jsdelivr.com/package/gh/erickxavier/no-js)
 

@@ -39,6 +39,72 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.on('error', fn)`
 - [Configuration](https://no-js.dev/#/configuration): `NoJS.config()` for global settings (baseApiUrl, headers, timeout, retries), request/response interceptors, CSRF token support
 
+## Public API
+
+Methods and properties on the `NoJS` object (`import NoJS from '@erickxavier/no-js'` or `window.NoJS` via CDN):
+
+### Configuration
+
+- `NoJS.config(opts?: object): void` — Merge global settings. Keys: `baseApiUrl` (string), `headers` (object), `timeout` (number, ms), `retries` (number), `cache` (object), `templates` (object), `router` (object), `i18n` (object), `stores` (object), `exprCacheSize` (number, default 500), `dangerouslyDisableSanitize` (boolean), `maxEventListeners` (number), `debug` (boolean), `appId` (string), `csrf` (object). Security-critical keys (`sanitize`, `dangerouslyDisableSanitize`, `sanitizeHtml`) are locked after `init()`.
+- `NoJS.baseApiUrl: string` — Get or set the base API URL for fetch directives.
+
+### Lifecycle
+
+- `NoJS.init(root?: HTMLElement): Promise<void>` — Initialize the framework. Loads i18n locales, processes template includes, loads remote templates (phase 1 blocking, phase 2 background), activates the router if a `[route-view]` element exists, processes the DOM tree, and runs plugin `init` hooks. Called automatically by the CDN build; manual for ESM/CJS. Returns a Promise that resolves when first paint is complete.
+- `NoJS.dispose(): Promise<void>` — Full teardown. Awaits any in-flight `init()`, disposes plugins in reverse installation order (with 3s timeout each), clears globals, interceptors, router, and devtools. Resets config lock.
+
+### Plugin System
+
+- `NoJS.use(plugin: object | function, options?: object): void` — Register a plugin. Plugin must have `{ name: string, install: function }` or be a named function. The `install(NoJS, options)` callback runs immediately. If `init()` has already completed and the plugin has an `init` method, it is called. Options: `{ trusted: true }` grants access to sensitive HTTP headers.
+- `NoJS.global(name: string, value: any): void` — Register a reactive global accessible as `$name` in expressions. Validates identifier format, blocks reserved names and prototype pollution vectors, sanitizes object values, and wraps in a reactive context. Notifies all store watchers on registration.
+- `NoJS.internals: object` — Frozen object exposing semi-private APIs for trusted plugins: `execStatement`, `cloneTemplate`, `disposeChildren`, `disposeTree`, `warn`, `validators`, `removeCoreDirective`, `onDispose`.
+
+### Directives, Filters, and Validators
+
+- `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. Core directives are frozen after `init()` — plugins can add new ones but not override built-ins.
+- `NoJS.filter(name: string, fn: function): void` — Register a custom filter for pipe syntax (`value | filterName`). Built-in filter names cannot be overridden. Throws `TypeError` if name or fn is invalid.
+- `NoJS.validator(name: string, fn: function): void` — Register a custom form validation rule. Built-in validator names (`required`, `email`, `url`, `min`, `max`, `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha`, `alphanumeric`) cannot be overridden. Throws `TypeError` if name or fn is invalid.
+
+### Internationalization
+
+- `NoJS.i18n(opts: object): void` — Configure i18n. Options: `loadPath` (string, e.g. `/locales/{locale}.json`), `defaultLocale` (string), `fallbackLocale` (string), `persist` (boolean, saves to localStorage), `detectBrowser` (boolean), `ns` (array of namespace strings), `cache` (boolean), `locales` (object mapping locale codes to metadata).
+- `NoJS.locale: string` — Get or set the active locale. Setting triggers re-fetch of all loaded namespaces for the new locale.
+
+### Event Bus
+
+- `NoJS.on(event: string, fn: function): function` — Subscribe to a global event. Returns an unsubscribe function. Warns on listener count exceeding `maxEventListeners` (configurable, helps detect memory leaks).
+
+### HTTP Interceptors
+
+- `NoJS.interceptor(type: 'request' | 'response', fn: function): void` — Register a request or response interceptor. Supports async functions. When called inside a plugin's `install()`, the interceptor is tracked to that plugin. Request interceptors can return `NoJS.CANCEL` (abort), `NoJS.RESPOND` (short-circuit with mock), or `NoJS.REPLACE` (swap response data).
+
+### State
+
+- `NoJS.store: object` — Access the global store object. Stores are created via `NoJS.config({ stores: { name: data } })` or the `store` directive.
+- `NoJS.notify(): void` — Trigger UI update after external JavaScript mutations to store data. Notifies all store watchers.
+
+### Routing
+
+- `NoJS.router: object | null` — Access the router instance (created when a `[route-view]` element exists). Methods: `push(path)`, `replace(path)`, `back()`, `forward()`. `null` if no route-view outlet is in the DOM.
+
+### Sentinel Symbols
+
+- `NoJS.CANCEL: Symbol` — Return from a request interceptor to abort the request.
+- `NoJS.RESPOND: Symbol` — Return from a request interceptor to short-circuit with a mock response.
+- `NoJS.REPLACE: Symbol` — Return from a response interceptor to replace the response data.
+
+### Utility Functions (for custom directives)
+
+- `NoJS.createContext(data: object): Proxy` — Create a new reactive context (Proxy-backed) from a plain object.
+- `NoJS.evaluate(expr: string, context: object): any` — Evaluate a No.JS expression against a reactive context. CSP-safe, no eval.
+- `NoJS.resolve(expr: string, context: object): any` — Resolve a dotted property path against a context.
+- `NoJS.findContext(el: HTMLElement): object | null` — Walk up the DOM to find the nearest reactive context attached to an ancestor element.
+- `NoJS.processTree(root: HTMLElement): void` — Walk a DOM subtree and execute all matching directives by priority.
+
+### Metadata
+
+- `NoJS.version: string` — The framework version string (e.g. `"1.14.1"`).
+
 ## Reference
 
 - [Directive Cheatsheet](https://no-js.dev/#/cheatsheet): Every directive with syntax, attributes, and usage at a glance

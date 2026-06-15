@@ -13,16 +13,13 @@ import {
   _SENSITIVE_HEADERS,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate } from "../evaluate.js";
+import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
 import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
-
-// Prototype-pollution guard — mirrors _FORBIDDEN_PROPS in evaluate.js
-const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1 };
 
 // ─── Sentinel helpers ──────────────────────────────────────────────────────
 // Sentinel: a zero-height div used as a positional anchor for append/prepend

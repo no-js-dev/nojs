@@ -722,7 +722,7 @@ function _parseExpr(tokens) {
 // ---------------------------------------------------------------------------
 // AST tree-walking evaluator
 // ---------------------------------------------------------------------------
-const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1 };
+export const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };
 
 /* Safe subset of JS globals available in expressions (no eval/Function/process) */
 const _SAFE_GLOBALS = {

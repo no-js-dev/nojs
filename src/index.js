@@ -86,6 +86,22 @@ function _isUnsafeGlobalValue(value) {
 }
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+// Built-in filter names — prevent user code from overwriting core filters
+const _BUILTIN_FILTER_NAMES = new Set([
+  "uppercase", "lowercase", "capitalize", "truncate", "trim", "stripHtml",
+  "slugify", "nl", "nl2br", "encodeUri", "number", "currency", "percent",
+  "filesize", "ordinal", "count", "first", "last", "join", "reverse",
+  "unique", "sortBy", "where", "pluck", "keys", "values", "json", "debug",
+  "default", "date", "datetime", "relative", "fromNow",
+]);
+
+// Built-in validator names — prevent user code from overwriting core validators
+// (core validators are registered by @erickxavier/nojs-elements)
+const _BUILTIN_VALIDATOR_NAMES = new Set([
+  "required", "email", "url", "min", "max", "minlength", "maxlength",
+  "pattern", "match", "number", "integer", "alpha", "alphanumeric",
+]);
 function _deepCheckUnsafe(obj, seen = new Set()) {
   if (!obj || typeof obj !== "object" || seen.has(obj)) return;
   seen.add(obj);
@@ -446,11 +462,31 @@ const NoJS = {
 
   // Register custom filter
   filter(name, fn) {
+    if (typeof name !== "string" || !name) {
+      throw new TypeError("NoJS.filter() requires a non-empty string name.");
+    }
+    if (typeof fn !== "function") {
+      throw new TypeError(`NoJS.filter(): "${name}" handler must be a function.`);
+    }
+    if (_BUILTIN_FILTER_NAMES.has(name)) {
+      _warn(`NoJS.filter(): "${name}" is a built-in filter and cannot be overridden.`);
+      return;
+    }
     _filters[name] = fn;
   },
 
   // Register custom validator
   validator(name, fn) {
+    if (typeof name !== "string" || !name) {
+      throw new TypeError("NoJS.validator() requires a non-empty string name.");
+    }
+    if (typeof fn !== "function") {
+      throw new TypeError(`NoJS.validator(): "${name}" handler must be a function.`);
+    }
+    if (_BUILTIN_VALIDATOR_NAMES.has(name)) {
+      _warn(`NoJS.validator(): "${name}" is a built-in validator and cannot be overridden.`);
+      return;
+    }
     _validators[name] = fn;
   },
 

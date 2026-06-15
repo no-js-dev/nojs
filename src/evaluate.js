@@ -1158,7 +1158,8 @@ function _evalNode(node, scope) {
       default:
         return undefined;
     }
-  } catch (_e) {
+  } catch (e) {
+    _warn("_evalNode error:", node?.type, e?.message || e);
     return undefined;
   }
 }

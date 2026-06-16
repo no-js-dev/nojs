@@ -6,6 +6,7 @@ const PORT = 3999;
 const DOCS = __dirname;
 const PROJECT = path.resolve(DOCS, '..');
 const LOCAL_BUILD = path.join(PROJECT, 'dist/iife/no.js');
+const LOCAL_ELEMENTS_BUILD = path.resolve(PROJECT, '../NoJS-Elements/dist/iife/nojs-elements.js');
 
 const CDN_PATTERN = /https:\/\/cdn\.no-js\.dev\//g;
 const LOCAL_SCRIPT = '/__local__/no.js';
@@ -135,6 +136,14 @@ const server = http.createServer((req, res) => {
     console.log(`  ⚡ serving local build → dist/iife/no.js`);
     res.writeHead(200, { 'Content-Type': 'application/javascript' });
     fs.createReadStream(LOCAL_BUILD).pipe(res);
+    return;
+  }
+
+  // ── Serve local Elements build at /__local__/nojs-elements.js ──
+  if (url === '/__local__/nojs-elements.js') {
+    console.log(`  ⚡ serving local elements → NoJS-Elements/dist/iife/nojs-elements.js`);
+    res.writeHead(200, { 'Content-Type': 'application/javascript' });
+    fs.createReadStream(LOCAL_ELEMENTS_BUILD).pipe(res);
     return;
   }
 

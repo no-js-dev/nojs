@@ -547,9 +547,17 @@ input, select, textarea { font: inherit; }
 .footer-bottom {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-muted);
+}
+.footer-privacy-link {
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+.footer-privacy-link:hover {
+  color: var(--white);
 }
 
 /* ══════════════════════════════════════════════════════════════════

@@ -22,18 +22,18 @@
   <!-- Preconnect to external origins (DNS + TLS handshake in parallel) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.no-js.dev" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-  <link rel="dns-prefetch" href="https://cdn.no-js.dev">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
   <!-- Preload critical CSS (highest priority, avoids late discovery) -->
   <link rel="preload" href="assets/style.css" as="style">
   <link rel="stylesheet" href="assets/style.css">
 
   <!-- Preload NoJS framework script (starts fetch early, deferred execution) -->
-  <link rel="preload" href="https://cdn.no-js.dev/" as="script" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/erickxavier/no-js@main/dist/iife/no.js" as="script" crossorigin>
 
   <!-- Google Fonts — non-render-blocking (swap to screen media on load) -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -145,14 +145,73 @@
   - GitHub: https://github.com/ErickXavier/no-js
   </script>
 
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-566FC80W9J"></script>
+  <!-- Google Analytics — loaded only after cookie consent -->
   <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
+    (function() {
+      var GA_ID = 'G-566FC80W9J';
+      var COOKIE_NAME = 'nojs_consent';
 
-    gtag('config', 'G-566FC80W9J');
+      function getCookie(name) {
+        var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return match ? match[1] : null;
+      }
+
+      function setCookie(name, value, days) {
+        var d = new Date();
+        d.setTime(d.getTime() + days * 864e5);
+        document.cookie = name + '=' + value + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+      }
+
+      function loadGA() {
+        if (window.__nojs_ga_loaded) return;
+        window.__nojs_ga_loaded = true;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', GA_ID);
+      }
+
+      function hideBanner() {
+        var banner = document.getElementById('cookie-consent');
+        if (banner) banner.style.display = 'none';
+      }
+
+      function showBanner() {
+        var banner = document.getElementById('cookie-consent');
+        if (banner) banner.style.display = 'flex';
+      }
+
+      // Check existing consent on page load
+      var consent = getCookie(COOKIE_NAME);
+      if (consent === '1') {
+        loadGA();
+      } else if (consent !== '0') {
+        // No consent decision yet — show banner after DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', showBanner);
+        } else {
+          // DOM already parsed (unlikely for head script, but safe)
+          showBanner();
+        }
+      }
+
+      // Expose handlers for banner buttons
+      window.__nojs_consent = {
+        accept: function() {
+          setCookie(COOKIE_NAME, '1', 365);
+          loadGA();
+          hideBanner();
+        },
+        decline: function() {
+          setCookie(COOKIE_NAME, '0', 365);
+          hideBanner();
+        }
+      };
+    })();
   </script>
 
 </head>
@@ -314,6 +373,7 @@
       <div class="footer-divider"></div>
       <div class="footer-bottom">
         <span t="shell.footer.license"></span>
+        <a href="privacy.html" class="footer-privacy-link">Privacy Policy</a>
         <span class="footer-version" bind="'No.JS v' + version"></span>
       </div>
     </div>
@@ -324,8 +384,17 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
   </button>
 
+  <!-- ═══ Cookie Consent Banner (vanilla JS, no NoJS dependency) ═══ -->
+  <div id="cookie-consent" role="alert" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;background:#0F172A;border-top:1px solid #1E293B;padding:16px 24px;align-items:center;justify-content:center;gap:16px;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:#94A3B8;flex-wrap:wrap;">
+    <span>This site uses cookies for analytics. <a href="privacy.html" style="color:#0EA5E9;text-decoration:underline;">Learn more</a></span>
+    <span style="display:inline-flex;gap:8px;">
+      <button onclick="window.__nojs_consent.accept()" style="background:#0EA5E9;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Accept</button>
+      <button onclick="window.__nojs_consent.decline()" style="background:transparent;color:#94A3B8;border:1px solid #334155;padding:8px 20px;border-radius:6px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;font-weight:500;cursor:pointer;">Decline</button>
+    </span>
+  </div>
+
   <!-- ═══ Scripts ═══ -->
-  <script src="https://cdn.no-js.dev/"></script>
+  <script src="https://cdn.jsdelivr.net/gh/erickxavier/no-js@main/dist/iife/no.js"></script>
   <script>
     // ─── Boot loader: hide once NoJS is hydrated ───────────────────
     // Idempotent fade-out + DOM removal so the splash never traps focus.

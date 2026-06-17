@@ -20,7 +20,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 ## Interaction
 
 - [Events](#events) — `on:*`, modifiers, lifecycle hooks, `$event`, `$el`
-- [Forms & Validation](#forms--validation) — `validate`, `$form`, custom validators (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
+- [Forms & Validation](#forms--validation) — `validate`, `$form`, custom validators (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](#actions--refs) — `call`, `trigger`, `ref`, `$refs`
 
 ## Presentation
@@ -37,7 +37,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Custom Directives](#custom-directives) — Extend No.JS with your own directives
 - [Error Handling](#error-handling) — Per-element errors, boundaries, global handler via `NoJS.on('error', fn)`
 - [Configuration](#configuration--security) — Global settings, interceptors, CSRF, security
-- [Drag and Drop](#drag-and-drop) — `drag`, `drop`, sortable lists, multi-select (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
+- [Drag and Drop](#drag-and-drop) — `drag`, `drop`, sortable lists, multi-select (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Plugins](#plugins) — Plugin system with lifecycle hooks, interceptors, globals
 
 ## Reference
@@ -65,18 +65,18 @@ Download `dist/iife/no.js` and include it with a `<script>` tag.
 ### npm / ESM
 
 ```bash
-npm install @erickxavier/no-js
+npm install @no-js-dev/nojs
 ```
 
 ```javascript
-import NoJS from '@erickxavier/no-js';
+import NoJS from '@no-js-dev/nojs';
 NoJS.init();
 ```
 
 Or with CommonJS:
 
 ```javascript
-const NoJS = require('@erickxavier/no-js');
+const NoJS = require('@no-js-dev/nojs');
 NoJS.init();
 ```
 
@@ -1813,11 +1813,11 @@ The `trigger` directive emits a custom event from the element, typically used fo
 
 # Forms & Validation
 
-> **Moved to NoJS Elements** — As of v1.13.0, the `validate` directive and form validation rules are part of the `@erickxavier/nojs-elements` plugin.
+> **Moved to NoJS Elements** — As of v1.13.0, the `validate` directive and form validation rules are part of the `@no-js-dev/nojs-elements` plugin.
 >
-> See the [NoJS Elements documentation](https://github.com/ErickXavier/nojs-elements) for the full reference.
+> See the [NoJS Elements documentation](https://github.com/no-js-dev/nojs-elements) for the full reference.
 >
-> **Migration:** Install `@erickxavier/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
+> **Migration:** Install `@no-js-dev/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
 >
 > **Note:** Declarative form submission (`post`, `put`, etc.) remains in core — only the `validate` directive moved.
 
@@ -4522,11 +4522,11 @@ See [Plugins →](plugins.md) for the full API reference, plugin lifecycle, secu
 
 # Drag & Drop
 
-> **Moved to NoJS Elements** — As of v1.13.0, the drag-and-drop directives (`drag`, `drop`, `drag-list`, `drag-multiple`) are part of the `@erickxavier/nojs-elements` plugin.
+> **Moved to NoJS Elements** — As of v1.13.0, the drag-and-drop directives (`drag`, `drop`, `drag-list`, `drag-multiple`) are part of the `@no-js-dev/nojs-elements` plugin.
 >
-> See the [NoJS Elements documentation](https://github.com/ErickXavier/nojs-elements) for the full reference.
+> See the [NoJS Elements documentation](https://github.com/no-js-dev/nojs-elements) for the full reference.
 >
-> **Migration:** Install `@erickxavier/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
+> **Migration:** Install `@no-js-dev/nojs-elements` and add `NoJS.use(NoJSElements)` before `NoJS.init()`.
 
 ## Quick Start
 
@@ -5175,7 +5175,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 
 ## Forms
 
-> **Note:** Form validation requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
+> **Note:** Form validation requires the [`@no-js-dev/nojs-elements`](https://www.npmjs.com/package/@no-js-dev/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
@@ -5224,7 +5224,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 
 ## Drag and Drop
 
-> **Note:** Drag and Drop requires the [`@erickxavier/nojs-elements`](https://www.npmjs.com/package/@erickxavier/nojs-elements) plugin. Core includes only stubs that log a console warning.
+> **Note:** Drag and Drop requires the [`@no-js-dev/nojs-elements`](https://www.npmjs.com/package/@no-js-dev/nojs-elements) plugin. Core includes only stubs that log a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|

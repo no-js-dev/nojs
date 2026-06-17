@@ -2,9 +2,9 @@
   <img src="docs/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
 </h1>
 
-[![CI](https://github.com/ErickXavier/no-js/actions/workflows/ci.yml/badge.svg)](https://github.com/ErickXavier/no-js/actions/workflows/ci.yml)
+[![CI](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml/badge.svg)](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml)
 ![version](https://img.shields.io/badge/version-1.14.1-blue)
-[![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/erickxavier/no-js/badge)](https://www.jsdelivr.com/package/gh/erickxavier/no-js)
+[![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/no-js-dev/nojs/badge)](https://www.jsdelivr.com/package/gh/no-js-dev/nojs)
 
 **The HTML-First Reactive Framework**
 
@@ -67,15 +67,15 @@ NoJS.config({
 ### NPM
 
 ```bash
-npm install @erickxavier/no-js
+npm install @no-js-dev/nojs
 ```
 
 ```javascript
 // ESM
-import NoJS from '@erickxavier/no-js';
+import NoJS from '@no-js-dev/nojs';
 
 // CommonJS
-const NoJS = require('@erickxavier/no-js');
+const NoJS = require('@no-js-dev/nojs');
 ```
 
 ---
@@ -199,9 +199,9 @@ Full documentation is available in the [docs/](docs/) folder:
 
 | Tool | Description |
 |------|-------------|
-| [NoJS Elements](https://github.com/ErickXavier/nojs-elements) | Drag, drop & validation — drag/drop/drag-list/drag-multiple/validate, migrated out of core in v1.13.0 |
-| [NoJS-LSP](https://github.com/ErickXavier/nojs-lsp) | VS Code extension — autocomplete, hover docs, diagnostics for No.JS HTML |
-| [NoJS-Skill](https://github.com/ErickXavier/nojs-skill) | Claude Code skill — guided No.JS project generation |
+| [NoJS Elements](https://github.com/no-js-dev/nojs-elements) | Drag, drop & validation — drag/drop/drag-list/drag-multiple/validate, migrated out of core in v1.13.0 |
+| [NoJS-LSP](https://github.com/no-js-dev/nojs-lsp) | VS Code extension — autocomplete, hover docs, diagnostics for No.JS HTML |
+| [NoJS-Skill](https://github.com/no-js-dev/nojs-skill) | Claude Code skill — guided No.JS project generation |
 
 ---
 
@@ -210,7 +210,7 @@ Full documentation is available in the [docs/](docs/) folder:
 Join the conversation and get help:
 
 - [Discord](https://discord.gg/CaSbGYg3xY)
-- [GitHub Discussions](https://github.com/ErickXavier/no-js/discussions)
+- [GitHub Discussions](https://github.com/no-js-dev/nojs/discussions)
 
 ## Contributing
 

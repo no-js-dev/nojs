@@ -41,7 +41,7 @@ describe('DnD deprecation stubs', () => {
       processTree(parent);
 
       expect(_warn).toHaveBeenCalledWith(
-        expect.stringContaining(`"${name}" has moved to @erickxavier/nojs-elements`)
+        expect.stringContaining(`"${name}" has moved to @no-js-dev/nojs-elements`)
       );
     }
   );
@@ -78,7 +78,7 @@ describe('Validate deprecation stub', () => {
     processTree(parent);
 
     expect(_warn).toHaveBeenCalledWith(
-      expect.stringContaining('"validate" has moved to @erickxavier/nojs-elements')
+      expect.stringContaining('"validate" has moved to @no-js-dev/nojs-elements')
     );
   });
 

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const TOOL_URLS = {
   elements: 'https://elements.no-js.dev/',
   lsp: 'https://lsp.no-js.dev/',
-  skill: 'https://github.com/ErickXavier/nojs-skill',
+  skill: 'https://github.com/no-js-dev/nojs-skill',
 };
 
 const TOOL_COUNT = 3;

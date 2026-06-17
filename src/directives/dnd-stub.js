@@ -2,7 +2,7 @@ import { _warn } from "../globals.js";
 import { registerDirective } from "../registry.js";
 
 const _STUB_MSG = (name) =>
-  `[NoJS] "${name}" has moved to @erickxavier/nojs-elements. ` +
+  `[NoJS] "${name}" has moved to @no-js-dev/nojs-elements. ` +
   `Install the plugin and call NoJS.use(NoJSElements) to enable it.`;
 
 for (const name of ["drag", "drop", "drag-list", "drag-multiple"]) {

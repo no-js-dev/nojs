@@ -2,7 +2,7 @@
 
 ## Overview
 
-No.JS v1.13.0 (2026-05-27) moved **Drag and Drop** and **Form Validation** from Core into the [`@erickxavier/nojs-elements`](https://elements.no-js.dev) plugin package. This is a **breaking change** for any project that uses `drag`, `drop`, `drag-list`, `drag-multiple`, or `validate` directives.
+No.JS v1.13.0 (2026-05-27) moved **Drag and Drop** and **Form Validation** from Core into the [`@no-js-dev/nojs-elements`](https://elements.no-js.dev) plugin package. This is a **breaking change** for any project that uses `drag`, `drop`, `drag-list`, `drag-multiple`, or `validate` directives.
 
 Core now ships lightweight deprecation stubs for these directives. If your HTML uses them without loading Elements, the stubs emit a console warning explaining the migration but do not provide the functionality.
 
@@ -10,8 +10,8 @@ Core now ships lightweight deprecation stubs for these directives. If your HTML 
 
 | Directive | File removed | Lines | Replacement |
 |-----------|-------------|-------|-------------|
-| `drag`, `drop`, `drag-list`, `drag-multiple` | `src/directives/dnd.js` | 1,162 | `@erickxavier/nojs-elements` |
-| `validate` | `src/directives/validation.js` | 552 | `@erickxavier/nojs-elements` |
+| `drag`, `drop`, `drag-list`, `drag-multiple` | `src/directives/dnd.js` | 1,162 | `@no-js-dev/nojs-elements` |
+| `validate` | `src/directives/validation.js` | 552 | `@no-js-dev/nojs-elements` |
 
 The associated unit tests and E2E tests were also migrated to the Elements repository.
 
@@ -26,13 +26,13 @@ The associated unit tests and E2E tests were also migrated to the Elements repos
 ### 1. Install NoJS Elements
 
 ```bash
-npm install @erickxavier/nojs-elements
+npm install @no-js-dev/nojs-elements
 ```
 
 Or via CDN:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@erickxavier/nojs-elements/dist/iife/nojs-elements.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@no-js-dev/nojs-elements/dist/iife/nojs-elements.js"></script>
 ```
 
 ### 2. Load Elements after Core
@@ -43,7 +43,7 @@ Or via CDN:
 <!-- Core -->
 <script src="https://cdn.no-js.dev/"></script>
 <!-- Elements plugin — must come after Core -->
-<script src="https://cdn.jsdelivr.net/npm/@erickxavier/nojs-elements/dist/iife/nojs-elements.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@no-js-dev/nojs-elements/dist/iife/nojs-elements.js"></script>
 ```
 
 The Elements IIFE auto-registers itself via `NoJS.use()`.
@@ -51,8 +51,8 @@ The Elements IIFE auto-registers itself via `NoJS.use()`.
 **ESM / npm:**
 
 ```js
-import NoJS from '@erickxavier/no-js';
-import NoJSElements from '@erickxavier/nojs-elements';
+import NoJS from '@no-js-dev/nojs';
+import NoJSElements from '@no-js-dev/nojs-elements';
 
 NoJS.use(NoJSElements);
 NoJS.init();
@@ -86,7 +86,7 @@ If you registered custom validators via `NoJS.validator()`, this still works the
 
 ```html
 <script src="https://cdn.no-js.dev/"></script>
-<script src="https://cdn.jsdelivr.net/npm/@erickxavier/nojs-elements/dist/iife/nojs-elements.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@no-js-dev/nojs-elements/dist/iife/nojs-elements.js"></script>
 
 <!-- HTML is identical — no changes needed -->
 <form validate>
@@ -105,8 +105,8 @@ The only change is adding the Elements script tag.
 If after upgrading to v1.13.0+ you see console warnings like:
 
 ```
-[NoJS] "validate" has moved to @erickxavier/nojs-elements. Install it to restore functionality.
-[NoJS] "drag" has moved to @erickxavier/nojs-elements. Install it to restore functionality.
+[NoJS] "validate" has moved to @no-js-dev/nojs-elements. Install it to restore functionality.
+[NoJS] "drag" has moved to @no-js-dev/nojs-elements. Install it to restore functionality.
 ```
 
 Then you need to add the Elements plugin as described above.
@@ -124,4 +124,4 @@ A: To keep Core lightweight and focused on the reactive engine. DnD and validati
 A: Yes. NoJS Elements also provides UI components like tooltips, popovers, modals, dropdowns, toasts, tabs, trees, steppers, skeletons, split panes, and sortable tables. See [elements.no-js.dev](https://elements.no-js.dev) for the full list.
 
 **Q: Can I use Elements without Core?**
-A: No. Elements is a plugin that requires Core (`@erickxavier/no-js`) to be loaded first.
+A: No. Elements is a plugin that requires Core (`@no-js-dev/nojs`) to be loaded first.

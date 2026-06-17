@@ -17,18 +17,18 @@ Download `dist/iife/no.js` and include it with a `<script>` tag.
 ### npm / ESM
 
 ```bash
-npm install @erickxavier/no-js
+npm install @no-js-dev/nojs
 ```
 
 ```javascript
-import NoJS from '@erickxavier/no-js';
+import NoJS from '@no-js-dev/nojs';
 NoJS.init();
 ```
 
 Or with CommonJS:
 
 ```javascript
-const NoJS = require('@erickxavier/no-js');
+const NoJS = require('@no-js-dev/nojs');
 NoJS.init();
 ```
 

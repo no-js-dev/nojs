@@ -2,7 +2,7 @@
 
 ## Overview
 
-No.JS is an HTML-first reactive framework with zero dependencies. Users build dynamic web apps using HTML attributes only — no JavaScript required. Distributed via CDN (`cdn.no-js.dev`) and npm (`@erickxavier/no-js`).
+No.JS is an HTML-first reactive framework with zero dependencies. Users build dynamic web apps using HTML attributes only — no JavaScript required. Distributed via CDN (`cdn.no-js.dev`) and npm (`@no-js-dev/nojs`).
 
 ## Architecture
 

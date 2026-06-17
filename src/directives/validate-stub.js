@@ -15,7 +15,7 @@ registerDirective("validate", {
   priority: 30,
   init(el, attrName) {
     _warn(
-      `[NoJS] "validate" has moved to @erickxavier/nojs-elements. ` +
+      `[NoJS] "validate" has moved to @no-js-dev/nojs-elements. ` +
       `Install the plugin and call NoJS.use(NoJSElements) to enable it.`
     );
 
@@ -41,7 +41,7 @@ registerDirective("validate", {
       const handler = (e) => {
         e.preventDefault();
         _warn(
-          `[NoJS] Form submission blocked — "validate" requires @erickxavier/nojs-elements.`
+          `[NoJS] Form submission blocked — "validate" requires @no-js-dev/nojs-elements.`
         );
       };
       form.addEventListener("submit", handler);

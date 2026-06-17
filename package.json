@@ -1,5 +1,5 @@
 {
-  "name": "@erickxavier/no-js",
+  "name": "@no-js-dev/nojs",
   "version": "1.14.1",
   "description": "The HTML-first reactive framework — build dynamic web apps with just HTML attributes, no JavaScript required",
   "main": "dist/cjs/no.js",
@@ -54,11 +54,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ErickXavier/no-js.git"
+    "url": "git+https://github.com/no-js-dev/nojs.git"
   },
-  "homepage": "https://github.com/ErickXavier/no-js#readme",
+  "homepage": "https://github.com/no-js-dev/nojs#readme",
   "bugs": {
-    "url": "https://github.com/ErickXavier/no-js/issues"
+    "url": "https://github.com/no-js-dev/nojs/issues"
   },
   "author": "exs.dev",
   "license": "MIT",

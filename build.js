@@ -9,7 +9,7 @@ const banner = `/**
  * @author ${pkg.author}
  * @homepage https://no-js.dev
  * @license MIT
- * @see https://github.com/ErickXavier/no-js
+ * @see https://github.com/no-js-dev/nojs
  */`;
 
 const shared = {

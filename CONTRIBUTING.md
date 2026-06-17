@@ -13,7 +13,7 @@ This guide will walk you through everything you need to get started.
   - [Code of Conduct](#code-of-conduct)
   - [Getting Started](#getting-started)
   - [Project Structure](#project-structure)
-    - [Framework (`@erickxavier/no-js`)](#framework-erickxavierno-js)
+    - [Framework (`@no-js-dev/nojs`)](#framework-no-js-devnojs)
   - [Development Setup](#development-setup)
     - [Prerequisites](#prerequisites)
     - [Framework](#framework)
@@ -53,8 +53,8 @@ No.JS consists of **two separate repositories**:
 
 | Repository | Package | Purpose |
 | --- | --- | --- |
-| [no-js](https://github.com/ErickXavier/no-js) | `@erickxavier/no-js` | The core framework |
-| [nojs-lsp](https://github.com/ErickXavier/nojs-lsp) | `nojs-lsp` | VS Code language server extension |
+| [no-js](https://github.com/no-js-dev/nojs) | `@no-js-dev/nojs` | The core framework |
+| [nojs-lsp](https://github.com/no-js-dev/nojs-lsp) | `nojs-lsp` | VS Code language server extension |
 
 Most contributions touch the **framework repo**. If your change affects developer tooling (completions, hover docs, diagnostics), you'll need to update the **LSP repo** as well. See [The LSP Companion](#the-lsp-companion) for details.
 
@@ -62,7 +62,7 @@ Most contributions touch the **framework repo**. If your change affects develope
 
 ## Project Structure
 
-### Framework (`@erickxavier/no-js`)
+### Framework (`@no-js-dev/nojs`)
 
 ```plaintext
 src/
@@ -115,7 +115,7 @@ docs/                    # Documentation site
 
 ```bash
 # Clone and install
-git clone https://github.com/ErickXavier/no-js.git
+git clone https://github.com/no-js-dev/nojs.git
 cd no-js
 npm install
 
@@ -139,7 +139,7 @@ npm run test:all
 ### LSP
 
 ```bash
-git clone https://github.com/ErickXavier/nojs-lsp.git
+git clone https://github.com/no-js-dev/nojs-lsp.git
 cd nojs-lsp
 npm install
 
@@ -372,7 +372,7 @@ npm run build && npm test && npm run test:e2e
 
 ## The LSP Companion
 
-The [NoJS LSP](https://github.com/ErickXavier/nojs-lsp) extension provides VS Code IntelliSense for No.JS attributes. When your framework change introduces or modifies a directive, filter, or validator, the LSP needs to be updated so developers get accurate completions, hover docs, and diagnostics.
+The [NoJS LSP](https://github.com/no-js-dev/nojs-lsp) extension provides VS Code IntelliSense for No.JS attributes. When your framework change introduces or modifies a directive, filter, or validator, the LSP needs to be updated so developers get accurate completions, hover docs, and diagnostics.
 
 **Files you may need to update in the LSP repo:**
 
@@ -391,8 +391,8 @@ If you're not comfortable updating the LSP, note it in your PR description and a
 
 ## Need Help?
 
-- **Questions?** Open a [Discussion](https://github.com/ErickXavier/no-js/discussions) on GitHub
-- **Found a bug?** Open an [Issue](https://github.com/ErickXavier/no-js/issues) with a minimal reproduction
-- **First-time contributor?** Look for issues labeled [`good first issue`](https://github.com/ErickXavier/no-js/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- **Questions?** Open a [Discussion](https://github.com/no-js-dev/nojs/discussions) on GitHub
+- **Found a bug?** Open an [Issue](https://github.com/no-js-dev/nojs/issues) with a minimal reproduction
+- **First-time contributor?** Look for issues labeled [`good first issue`](https://github.com/no-js-dev/nojs/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 We appreciate every contribution, no matter how small. Welcome aboard!

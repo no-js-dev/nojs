@@ -98,7 +98,7 @@ const _BUILTIN_FILTER_NAMES = new Set([
 ]);
 
 // Built-in validator names — prevent user code from overwriting core validators
-// (core validators are registered by @erickxavier/nojs-elements)
+// (core validators are registered by @no-js-dev/nojs-elements)
 const _BUILTIN_VALIDATOR_NAMES = new Set([
   "required", "email", "url", "min", "max", "minlength", "maxlength",
   "pattern", "match", "number", "integer", "alpha", "alphanumeric",

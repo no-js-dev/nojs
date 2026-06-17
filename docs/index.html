@@ -23,18 +23,18 @@
   <!-- Preconnect to external origins (DNS + TLS handshake in parallel) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdn.no-js.dev" crossorigin>
   <link rel="preconnect" href="https://www.googletagmanager.com">
   <link rel="dns-prefetch" href="https://fonts.googleapis.com">
   <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  <link rel="dns-prefetch" href="https://cdn.no-js.dev">
 
   <!-- Preload critical CSS (highest priority, avoids late discovery) -->
   <link rel="preload" href="assets/style.css" as="style">
   <link rel="stylesheet" href="assets/style.css">
 
   <!-- Preload NoJS framework script (starts fetch early, deferred execution) -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/erickxavier/no-js@main/dist/iife/no.js" as="script" crossorigin>
+  <link rel="preload" href="https://cdn.no-js.dev/" as="script" crossorigin>
 
   <!-- Google Fonts — non-render-blocking (swap to screen media on load) -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -374,7 +374,6 @@
       <div class="footer-divider"></div>
       <div class="footer-bottom">
         <span t="shell.footer.license"></span>
-        <a href="/privacy.html" class="footer-privacy-link">Privacy Policy</a>
         <span class="footer-version" bind="'No.JS v' + version"></span>
       </div>
     </div>
@@ -387,7 +386,7 @@
 
   <!-- ═══ Cookie Consent Banner (vanilla JS, no NoJS dependency) ═══ -->
   <div id="cookie-consent" role="alert" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;background:#0F172A;border-top:1px solid #1E293B;padding:16px 24px;align-items:center;justify-content:center;gap:16px;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:#94A3B8;flex-wrap:wrap;">
-    <span>This site uses cookies for analytics. <a href="/privacy.html" style="color:#0EA5E9;text-decoration:underline;">Learn more</a></span>
+    <span>This site uses cookies for analytics.</span>
     <span style="display:inline-flex;gap:8px;">
       <button onclick="window.__nojs_consent.accept()" style="background:#0EA5E9;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Accept</button>
       <button onclick="window.__nojs_consent.decline()" style="background:transparent;color:#94A3B8;border:1px solid #334155;padding:8px 20px;border-radius:6px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;font-weight:500;cursor:pointer;">Decline</button>
@@ -395,7 +394,7 @@
   </div>
 
   <!-- ═══ Scripts ═══ -->
-  <script src="https://cdn.jsdelivr.net/gh/erickxavier/no-js@main/dist/iife/no.js"></script>
+  <script src="https://cdn.no-js.dev/"></script>
   <script>
     // ─── Boot loader: hide once NoJS is hydrated ───────────────────
     // Idempotent fade-out + DOM removal so the splash never traps focus.

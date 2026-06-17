@@ -20,7 +20,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 ## Interaction
 
 - [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:error`, `on:unmounted`); `$event` and `$el` references
-- [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `min`, `max`, `pattern`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
+- [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `min`, `max`, `pattern`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](https://no-js.dev/#/actions-refs): `call` (trigger HTTP from any element), `trigger` (dispatch custom events), `ref` (name an element), `$refs` (access named elements)
 
 ## Presentation
@@ -34,14 +34,14 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Routing](https://no-js.dev/#/routing): SPA navigation with `route="/path/:param"`, `route-view` outlet, route guards, nested routes, View Transition API (slide, fade, scale presets), file-based routing, query params, hash navigation, redirects, 404 handling
 - [Head Management](https://no-js.dev/#/head-management): Per-route `page-title`, `page-description`, `page-canonical`, `page-jsonld` attributes on `<template route>`
 - [Internationalization](https://no-js.dev/#/i18n): `t="key"` directive, pluralization, locale switching, async locale loading, fallback chains, interpolation
-- [Drag and Drop](https://no-js.dev/#/drag-and-drop): `drag` source, `drop` zone, `drag-list` for sortable reordering, multi-select, custom placeholders, event handlers (requires `@erickxavier/nojs-elements` plugin since v1.13.0)
+- [Drag and Drop](https://no-js.dev/#/drag-and-drop): `drag` source, `drop` zone, `drag-list` for sortable reordering, multi-select, custom placeholders, event handlers (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Custom Directives](https://no-js.dev/#/custom-directives): Extend the framework via `NoJS.directive(name, { priority, init(el, name, value) })` with full access to the reactive context
 - [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.on('error', fn)`
 - [Configuration](https://no-js.dev/#/configuration): `NoJS.config()` for global settings (baseApiUrl, headers, timeout, retries), request/response interceptors, CSRF token support
 
 ## Public API
 
-Methods and properties on the `NoJS` object (`import NoJS from '@erickxavier/no-js'` or `window.NoJS` via CDN):
+Methods and properties on the `NoJS` object (`import NoJS from '@no-js-dev/nojs'` or `window.NoJS` via CDN):
 
 ### Configuration
 
@@ -116,7 +116,7 @@ Methods and properties on the `NoJS` object (`import NoJS from '@erickxavier/no-
 
 - [NoJS Elements](https://elements.no-js.dev): UI element plugins — drag-and-drop, form validation, tooltips, popovers, modals, dropdowns, toasts, tabs, trees, steppers, skeletons, split panes, sortable tables
 - [NoJS LSP](https://lsp.no-js.dev): VS Code language server extension — completions for 43+ directives, real-time diagnostics, hover docs, go-to-definition, semantic highlighting, code actions, and 23 built-in snippets
-- [NoJS Skill](https://github.com/ErickXavier/nojs-skill): Claude Code AI skill for No.JS development
-- [npm](https://www.npmjs.com/package/@erickxavier/no-js): Install via npm
-- [GitHub](https://github.com/ErickXavier/no-js): Source code, issues, and contributions
+- [NoJS Skill](https://github.com/no-js-dev/nojs-skill): Claude Code AI skill for No.JS development
+- [npm](https://www.npmjs.com/package/@no-js-dev/nojs): Install via npm
+- [GitHub](https://github.com/no-js-dev/nojs): Source code, issues, and contributions
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=exs.nojs-lsp): Install the NoJS LSP extension directly

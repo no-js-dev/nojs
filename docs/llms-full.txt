@@ -164,7 +164,28 @@ Most directive values accept **JavaScript expressions** evaluated against the cu
 
 <!-- Template literals (bind-html) -->
 <div bind-html="`<strong>${user.name}</strong>`"></div>
+
+<!-- i18n proxy (dot-notation translation access) -->
+<span bind="$i18n.common.buttons.save"></span>
 ```
+
+### Scope Variables
+
+These special variables are available in expression contexts:
+
+| Variable | Available in | Description |
+|----------|-------------|-------------|
+| `$store` | Everywhere | Access global stores (`$store.name.prop`) |
+| `$i18n` | Everywhere | Reactive i18n proxy — dot-notation for lookups (`$i18n.ns.key`), `.t()` for interpolation, `.locale` for get/set |
+| `$event` | `on:*` handlers | Native DOM event object |
+| `$el` | `on:*` handlers | Current DOM element |
+| `$refs` | Everywhere (with `ref`) | Map of named element references |
+| `$route` | Route templates | Route params, query, path, hash |
+| `$form` | `validate` forms | Form state (valid, dirty, errors, fields) |
+| `$index` | Loops | Current iteration index (0-based) |
+| `$count` | Loops | Total item count |
+| `$first` / `$last` | Loops | Boolean — first/last item |
+| `$even` / `$odd` | Loops | Boolean — even/odd index |
 
 ---
 
@@ -1598,6 +1619,39 @@ Add `persist-schema` to validate that keys restored from storage match the initi
        on "theme" and ignores "unknown" -->
 </div>
 ```
+
+---
+
+### Using i18n in State and Store Expressions
+
+The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings that automatically update when the locale changes.
+
+```html
+<!-- Initialize state with translated labels -->
+<div state="{ saveLabel: $i18n.common.buttons.save, title: $i18n.shell.sidebar.introduction }">
+  <h2 bind="title"></h2>
+  <button bind="saveLabel"></button>
+</div>
+
+<!-- Store with translated defaults -->
+<div store="ui" value="{
+  heading: $i18n.landing.hero.title,
+  searchPlaceholder: $i18n.common.search.placeholder
+}"></div>
+
+<!-- Access from anywhere -->
+<input bind-placeholder="$store.ui.searchPlaceholder">
+```
+
+For interpolation or pluralization, use `$i18n.t()` instead of dot-notation:
+
+```html
+<div state="{ greeting: $i18n.t('welcome', { name: user.name }) }">
+  <p bind="greeting"></p>
+</div>
+```
+
+See [Internationalization](#internationalization-i18n) for the full `$i18n.*` reference.
 
 ---
 
@@ -3893,6 +3947,137 @@ The output is passed through `_sanitizeHtml()` to prevent XSS.
 
 ---
 
+## Accessing Translations in Expressions (`$i18n.*`)
+
+The `$i18n` reactive proxy lets you access translation data as dot-notation properties directly in any expression context. This is the preferred approach for simple lookups — no directive or function call needed.
+
+### Syntax
+
+```
+$i18n.[namespace].[key].[subkey]
+```
+
+The proxy resolves dot-path properties against the loaded translation data for the current locale. For example, given this locale file:
+
+```json
+// /locales/en/common.json
+{
+  "buttons": { "save": "Save", "cancel": "Cancel" },
+  "status": { "online": "Online", "offline": "Offline" }
+}
+```
+
+You can access any value with `$i18n.common.buttons.save`.
+
+### Usage in `state` and `store`
+
+```html
+<!-- Initialize state with translated labels -->
+<div state="{ label: $i18n.common.buttons.save }">
+  <button bind="label"></button>
+</div>
+
+<!-- Use in store definitions -->
+<div store="ui" value="{
+  title: $i18n.shell.sidebar.introduction,
+  placeholder: $i18n.common.search.placeholder
+}"></div>
+```
+
+### Usage in `bind`
+
+```html
+<span bind="$i18n.common.buttons.save"></span>
+<h1 bind="$i18n.landing.hero.title"></h1>
+
+<!-- Combine with other expressions -->
+<span bind="$i18n.common.status.online + ' (' + users.length + ')'"></span>
+```
+
+### Usage in `computed`
+
+```html
+<div state="{ role: 'admin' }">
+  <span computed="roleLabel"
+        expr="role === 'admin' ? $i18n.roles.admin : $i18n.roles.user"></span>
+  <p bind="roleLabel"></p>
+</div>
+```
+
+### Usage in conditionals
+
+```html
+<span if="$i18n.features.beta" bind="$i18n.features.beta"></span>
+```
+
+### Usage in `foreach`
+
+```html
+<!-- Translated headers for a table -->
+<th foreach="col in ['name', 'email', 'role']"
+    bind="$i18n.table.headers[col]"></th>
+```
+
+### Usage in attribute binding
+
+```html
+<input bind-placeholder="$i18n.common.search.placeholder">
+<img bind-alt="$i18n.common.logo.alt" src="/logo.png">
+<button bind-title="$i18n.common.buttons.save" bind-aria-label="$i18n.common.buttons.save">
+```
+
+### `$i18n.*` vs `$i18n.t()` — When to Use Each
+
+| | `$i18n.key.path` | `$i18n.t('key.path', opts)` |
+|--|--|--|
+| **Use for** | Simple string lookups | Interpolation, pluralization |
+| **Syntax** | Dot-notation property access | Function call with options |
+| **Interpolation** | No | Yes (`{ name: user.name }`) |
+| **Pluralization** | No | Yes (`{ count: n }`) |
+
+```html
+<!-- Simple lookup — use $i18n.* -->
+<span bind="$i18n.common.buttons.save"></span>
+
+<!-- Interpolation — use $i18n.t() -->
+<span bind="$i18n.t('greeting', { name: user.name })"></span>
+
+<!-- Pluralization — use $i18n.t() -->
+<span bind="$i18n.t('items', { count: cart.length })"></span>
+```
+
+### Reserved Properties
+
+The following properties on `$i18n` always resolve to methods or configuration values, not translation keys:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `locale` | `string` | Current locale (get/set) |
+| `locales` | `object` | All loaded locale data |
+| `t` | `function` | Translation function for interpolation/pluralization |
+| `setLocale` | `function` | Change the active locale |
+
+### Reactivity
+
+All `$i18n.*` bindings are fully reactive. When the locale changes (via `$i18n.locale = 'pt'` or `$i18n.setLocale('pt')`), every element that references `$i18n.*` in any directive automatically re-evaluates with the new locale's data.
+
+### Missing Keys
+
+When a key is not found in the current locale, the proxy returns `undefined`. Combined with the `default` filter, you can provide fallback text:
+
+```html
+<span bind="$i18n.missing.key | default:'Fallback text'"></span>
+```
+
+### Edge Cases
+
+- **Namespace not loaded:** If you access `$i18n.dashboard.title` before the `dashboard` namespace is loaded (via `i18n-ns="dashboard"`), it returns `undefined`. Ensure namespaces are loaded before accessing their keys.
+- **Nested objects:** Deep paths work: `$i18n.settings.sections.general.title` resolves through any nesting depth.
+- **Dynamic keys:** Bracket notation works for computed keys: `$i18n.table.headers[columnName]`.
+- **Filters:** Pipe filters work on `$i18n.*` values: `$i18n.common.title | uppercase`.
+
+---
+
 ---
 
 ## See Also
@@ -5261,6 +5446,10 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `t` | `t="greeting"` | Translate key |
 | `t-*` | `t-name="user.name"` | Translation param |
 | `t-html` | `t="key" t-html` | Render translation as sanitized HTML |
+| `$i18n.*` | `bind="$i18n.common.buttons.save"` | Dot-notation translation access in any expression context |
+| `$i18n.t()` | `bind="$i18n.t('key', { name: val })"` | Translation function for interpolation/pluralization |
+| `$i18n.locale` | `on:click="$i18n.locale = 'pt'"` | Get/set the active locale |
+| `$i18n.setLocale()` | `on:click="$i18n.setLocale('pt')"` | Change the active locale (function form) |
 
 ## Head Management
 

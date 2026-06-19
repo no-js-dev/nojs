@@ -3,7 +3,7 @@
 </h1>
 
 [![CI](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml/badge.svg)](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml)
-![version](https://img.shields.io/badge/version-1.14.1-blue)
+![version](https://img.shields.io/github/v/tag/no-js-dev/nojs?label=version)
 [![jsDelivr hits](https://data.jsdelivr.com/v1/package/gh/no-js-dev/nojs/badge)](https://www.jsdelivr.com/package/gh/no-js-dev/nojs)
 
 **The HTML-First Reactive Framework**

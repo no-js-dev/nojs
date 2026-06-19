@@ -5,10 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.14.1...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.15.0...HEAD)
+
+## [1.15.0](https://github.com/no-js-dev/nojs/compare/v1.14.1...v1.15.0) — 2026-06-19
 
 ### Added
 
+- `feat(i18n): $i18n.[path] reactive translation proxy — access translations as dot-notation properties in any expression context`
 - Unit tests for the loop `else="templateId"` pattern, the conditionals guard, and null/undefined early-return behavior ([73b36b3](https://github.com/no-js-dev/nojs/commit/73b36b3))
 - E2E tests for loop else patterns across `foreach`/`each`/`for` variants ([b841446](https://github.com/no-js-dev/nojs/commit/b841446))
 - QA regression tests for the else-template hardening fixes ([f67ad0a](https://github.com/no-js-dev/nojs/commit/f67ad0a))

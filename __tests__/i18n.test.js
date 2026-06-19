@@ -1,7 +1,12 @@
-import { _i18n, _i18nListeners, _watchI18n, _notifyI18n, _loadI18nForLocale, _loadI18nNamespace } from '../src/i18n.js';
-import { _config } from '../src/globals.js';
-import { processTree, _disposeChildren } from '../src/registry.js';
+import { _i18n, _i18nProxy, _notifyI18n, _loadI18nForLocale, _loadI18nNamespace } from '../src/i18n.js';
+import { _config, _i18nListeners, _watchI18n, _stores, _watchExpr, _setCurrentEl, _onDispose } from '../src/globals.js';
+import { createContext } from '../src/context.js';
+import { evaluate, resolve } from '../src/evaluate.js';
+import { processTree, processElement, _disposeChildren } from '../src/registry.js';
 import '../src/directives/state.js';
+import '../src/directives/binding.js';
+import '../src/directives/conditionals.js';
+import '../src/directives/loops.js';
 import '../src/directives/i18n.js';
 
 describe('i18n System', () => {
@@ -687,5 +692,596 @@ describe('t-html child disposal (M10)', () => {
     expect(disposed).toEqual(['bold-disposed']);
     // And the new content is in place
     expect(el.innerHTML).toContain('<em>Changed</em>');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  $i18n REACTIVE PROXY — UNIT TESTS
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('$i18n proxy — property resolution', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: {
+        shell: {
+          sidebar: {
+            introduction: 'Introduction',
+            features: 'Features',
+          },
+        },
+        common: {
+          buttons: {
+            save: 'Save',
+            cancel: 'Cancel',
+          },
+        },
+        greeting: 'Hello',
+        count: 42,
+        deeply: {
+          nested: {
+            path: {
+              value: 'Deep Value',
+            },
+          },
+        },
+      },
+      pt: {
+        shell: {
+          sidebar: {
+            introduction: 'Introdução',
+            features: 'Funcionalidades',
+          },
+        },
+        common: {
+          buttons: {
+            save: 'Salvar',
+            cancel: 'Cancelar',
+          },
+        },
+        greeting: 'Olá',
+      },
+      es: {
+        greeting: 'Hola',
+      },
+    };
+    _config.i18n.fallbackLocale = 'en';
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+  });
+
+  test('$i18n.namespace.key resolves to translation string', () => {
+    expect(_i18nProxy.shell.sidebar.introduction).toBe('Introduction');
+  });
+
+  test('$i18n.namespace.nested.deep.key resolves nested paths', () => {
+    expect(_i18nProxy.deeply.nested.path.value).toBe('Deep Value');
+  });
+
+  test('$i18n.missing.key returns undefined', () => {
+    expect(_i18nProxy.nonexistent).toBeUndefined();
+  });
+
+  test('$i18n.missing.nested.key returns undefined through nested proxy', () => {
+    // shell exists but shell.missing does not
+    expect(_i18nProxy.shell.missing).toBeUndefined();
+  });
+
+  test('$i18n returns number values as-is', () => {
+    expect(_i18nProxy.count).toBe(42);
+  });
+
+  test('$i18n.namespace returns nested proxy (not raw object)', () => {
+    const shell = _i18nProxy.shell;
+    // It should be a proxy, not the raw object
+    expect(shell).toBeDefined();
+    expect(shell.sidebar).toBeDefined();
+    expect(shell.sidebar.introduction).toBe('Introduction');
+  });
+
+  test('$i18n resolves top-level string key', () => {
+    expect(_i18nProxy.greeting).toBe('Hello');
+  });
+});
+
+describe('$i18n proxy — reserved properties', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: {
+        locale: 'should-not-resolve-to-this',
+        t: 'should-not-resolve-to-this',
+        locales: 'should-not-resolve-to-this',
+        setLocale: 'should-not-resolve-to-this',
+        greeting: 'Hello',
+      },
+    };
+    _config.i18n.fallbackLocale = 'en';
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+  });
+
+  test('$i18n.locale returns current locale (reserved property)', () => {
+    expect(_i18nProxy.locale).toBe('en');
+  });
+
+  test('$i18n.locales returns locales object (reserved property)', () => {
+    expect(_i18nProxy.locales).toBe(_i18n.locales);
+  });
+
+  test('$i18n.t still works for interpolation/pluralization', () => {
+    _i18n.locales = {
+      en: {
+        welcome: 'Hello, {name}!',
+        items: 'one item | {count} items',
+      },
+    };
+    expect(_i18nProxy.t('welcome', { name: 'Alice' })).toBe('Hello, Alice!');
+    expect(_i18nProxy.t('items', { count: 3 })).toBe('3 items');
+  });
+
+  test('$i18n.setLocale changes locale', () => {
+    _i18n.locales = { en: { greeting: 'Hello' }, pt: { greeting: 'Olá' } };
+    _config.i18n.loadPath = null;
+    expect(_i18nProxy.locale).toBe('en');
+    _i18nProxy.setLocale('pt');
+    expect(_i18nProxy.locale).toBe('pt');
+  });
+
+  test('reserved names never resolve to translation keys', () => {
+    // Even though en.locale, en.t, en.locales, en.setLocale exist in the
+    // locale data, the proxy should return the reserved property behavior
+    expect(_i18nProxy.locale).toBe('en'); // not 'should-not-resolve-to-this'
+    expect(typeof _i18nProxy.t).toBe('function'); // not 'should-not-resolve-to-this'
+    expect(typeof _i18nProxy.locales).toBe('object'); // not 'should-not-resolve-to-this'
+    expect(typeof _i18nProxy.setLocale).toBe('function'); // not 'should-not-resolve-to-this'
+  });
+});
+
+describe('$i18n proxy — locale change triggers re-evaluation', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello', nav: { home: 'Home' } },
+      pt: { greeting: 'Olá', nav: { home: 'Início' } },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+  });
+
+  test('locale change triggers re-evaluation of $i18n listeners', () => {
+    const calls = [];
+    _watchI18n(() => calls.push('called'));
+
+    _i18n.locale = 'pt';
+    expect(calls).toEqual(['called']);
+  });
+
+  test('proxy resolves to new locale after setLocale', () => {
+    expect(_i18nProxy.greeting).toBe('Hello');
+    _i18nProxy.setLocale('pt');
+    expect(_i18nProxy.greeting).toBe('Olá');
+  });
+
+  test('nested proxy resolves to new locale after locale change', () => {
+    expect(_i18nProxy.nav.home).toBe('Home');
+    _i18n.locale = 'pt';
+    expect(_i18nProxy.nav.home).toBe('Início');
+  });
+});
+
+describe('$i18n proxy — fallback locale', () => {
+  beforeEach(() => {
+    _i18n._locale = 'fr';
+    _i18n.locales = {
+      en: { greeting: 'Hello', nav: { docs: 'Docs' } },
+      fr: { bonjour: 'Bonjour' },
+    };
+    _config.i18n.fallbackLocale = 'en';
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+  });
+
+  test('falls back to fallback locale for missing top-level key', () => {
+    expect(_i18nProxy.greeting).toBe('Hello');
+  });
+
+  test('falls back to fallback locale for nested keys', () => {
+    expect(_i18nProxy.nav.docs).toBe('Docs');
+  });
+
+  test('returns undefined when both current and fallback are missing', () => {
+    expect(_i18nProxy.nonexistent).toBeUndefined();
+  });
+
+  test('no fallback when fallback locale matches current locale', () => {
+    _i18n._locale = 'en';
+    _config.i18n.fallbackLocale = 'en';
+    // 'bonjour' only exists in fr, not in en
+    expect(_i18nProxy.bonjour).toBeUndefined();
+  });
+
+  test('no fallback when fallbackLocale is not set', () => {
+    _config.i18n.fallbackLocale = null;
+    // fr does not have 'greeting'
+    expect(_i18nProxy.greeting).toBeUndefined();
+  });
+});
+
+describe('$i18n proxy — Symbol and non-string keys', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = { en: { greeting: 'Hello' } };
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+  });
+
+  test('Symbol properties return undefined on root proxy', () => {
+    expect(_i18nProxy[Symbol.toPrimitive]).toBeUndefined();
+  });
+
+  test('Symbol properties return undefined on nested proxy', () => {
+    _i18n.locales = { en: { nav: { home: 'Home' } } };
+    const nav = _i18nProxy.nav;
+    expect(nav[Symbol.toPrimitive]).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  $i18n PROXY — DIRECTIVE INTEGRATION TESTS
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('$i18n proxy in state expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello', nav: { home: 'Home' } },
+      pt: { greeting: 'Olá', nav: { home: 'Início' } },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n resolves in state expression', () => {
+    const el = document.createElement('div');
+    el.setAttribute('state', '{ label: $i18n.greeting }');
+    document.body.appendChild(el);
+    processTree(el);
+
+    const ctx = el.__ctx;
+    expect(ctx.label).toBe('Hello');
+  });
+
+  test('$i18n nested path resolves in state expression', () => {
+    const el = document.createElement('div');
+    el.setAttribute('state', '{ navHome: $i18n.nav.home }');
+    document.body.appendChild(el);
+    processTree(el);
+
+    const ctx = el.__ctx;
+    expect(ctx.navHome).toBe('Home');
+  });
+});
+
+describe('$i18n proxy in bind expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello', nav: { home: 'Home' } },
+      pt: { greeting: 'Olá', nav: { home: 'Início' } },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n resolves in bind expression and updates on locale change', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const span = document.createElement('span');
+    span.setAttribute('bind', '$i18n.greeting');
+    parent.appendChild(span);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(span.textContent).toBe('Hello');
+
+    // Change locale
+    _i18n.locale = 'pt';
+    expect(span.textContent).toBe('Olá');
+  });
+
+  test('$i18n nested path in bind expression updates on locale change', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const span = document.createElement('span');
+    span.setAttribute('bind', '$i18n.nav.home');
+    parent.appendChild(span);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(span.textContent).toBe('Home');
+
+    _i18n.locale = 'pt';
+    expect(span.textContent).toBe('Início');
+  });
+});
+
+describe('$i18n proxy in computed expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello' },
+      pt: { greeting: 'Olá' },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n in computed re-evaluates on locale change', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ label: "" }');
+    const computedEl = document.createElement('span');
+    computedEl.setAttribute('computed', 'label');
+    computedEl.setAttribute('expr', '$i18n.greeting');
+    parent.appendChild(computedEl);
+    const span = document.createElement('span');
+    span.setAttribute('bind', 'label');
+    parent.appendChild(span);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(span.textContent).toBe('Hello');
+
+    _i18n.locale = 'pt';
+    expect(span.textContent).toBe('Olá');
+  });
+});
+
+describe('$i18n proxy in watch expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello' },
+      pt: { greeting: 'Olá' },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n in watch triggers callback on locale change', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ seen: "" }');
+    const watchEl = document.createElement('span');
+    watchEl.setAttribute('watch', '$i18n.greeting');
+    watchEl.setAttribute('on:change', 'seen = $new');
+    parent.appendChild(watchEl);
+    const span = document.createElement('span');
+    span.setAttribute('bind', 'seen');
+    parent.appendChild(span);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial: watch has not fired yet (no change)
+    expect(span.textContent).toBe('');
+
+    _i18n.locale = 'pt';
+    expect(span.textContent).toBe('Olá');
+  });
+});
+
+describe('$i18n proxy in if/show/hide expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { showSection: 'yes' },
+      pt: {},
+    };
+    _config.i18n.fallbackLocale = null;
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _config.i18n.fallbackLocale = 'en';
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n in show condition works and updates on locale change', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('span');
+    el.setAttribute('show', '$i18n.showSection');
+    el.textContent = 'Visible';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // 'yes' is truthy — element visible
+    expect(el.style.display).not.toBe('none');
+
+    // Switch to pt — showSection is undefined (falsy)
+    _i18n.locale = 'pt';
+    expect(el.style.display).toBe('none');
+  });
+});
+
+describe('$i18n proxy in foreach expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: {
+        navItems: ['Home', 'Docs', 'API'],
+      },
+      pt: {
+        navItems: ['Início', 'Documentação', 'API'],
+      },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n in foreach renders collection from translations', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const ul = document.createElement('ul');
+    const li = document.createElement('li');
+    li.setAttribute('foreach', 'item in $i18n.navItems');
+    li.setAttribute('bind', 'item');
+    ul.appendChild(li);
+    parent.appendChild(ul);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    const items = ul.querySelectorAll('li');
+    expect(items.length).toBe(3);
+    expect(items[0].textContent).toBe('Home');
+    expect(items[1].textContent).toBe('Docs');
+    expect(items[2].textContent).toBe('API');
+  });
+});
+
+describe('$i18n proxy in store expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello' },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+    _stores.app = { title: 'MyApp' };
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    delete _stores.app;
+    document.body.innerHTML = '';
+  });
+
+  test('$i18n resolves alongside $store in same expression', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const span = document.createElement('span');
+    span.setAttribute('bind', '$i18n.greeting');
+    parent.appendChild(span);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(span.textContent).toBe('Hello');
+  });
+});
+
+describe('_watchExpr auto-subscribes $i18n expressions', () => {
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {
+      en: { greeting: 'Hello' },
+      pt: { greeting: 'Olá' },
+    };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.loadPath = null;
+    _i18nListeners.clear();
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+  });
+
+  test('_watchExpr adds fn to _i18nListeners when expr contains $i18n', () => {
+    const el = document.createElement('div');
+    el.setAttribute('state', '{}');
+    document.body.appendChild(el);
+    processTree(el);
+    const ctx = el.__ctx;
+
+    _setCurrentEl(el);
+    const fn = jest.fn();
+    _watchExpr('$i18n.greeting', ctx, fn);
+
+    expect(_i18nListeners.has(fn)).toBe(true);
+
+    document.body.innerHTML = '';
+  });
+
+  test('_watchExpr does NOT add to _i18nListeners when expr has no $i18n', () => {
+    const el = document.createElement('div');
+    el.setAttribute('state', '{ x: 1 }');
+    document.body.appendChild(el);
+    processTree(el);
+    const ctx = el.__ctx;
+
+    _setCurrentEl(el);
+    const fn = jest.fn();
+    _watchExpr('x', ctx, fn);
+
+    expect(_i18nListeners.has(fn)).toBe(false);
+
+    document.body.innerHTML = '';
   });
 });

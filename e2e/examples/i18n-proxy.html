@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NoJS – $i18n Proxy</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    section { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+    .test-label { font-size: .85rem; color: #888; margin: 0 0 .25rem; }
+    .value { font-weight: 600; }
+    button { margin: .25rem .25rem .25rem 0; padding: .35rem .75rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <h1>$i18n Proxy</h1>
+
+  <!-- 1. Sidebar pattern: foreach directly with $i18n array -->
+  <section>
+    <p class="test-label">Sidebar: foreach with $i18n</p>
+    <div state="{}">
+      <ul>
+        <li foreach="item in $i18n.sidebar.links" bind="item" data-test="sidebar-item"></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 2. Direct bind with $i18n dot-notation -->
+  <section>
+    <p class="test-label">Direct bind with $i18n</p>
+    <span class="value" state="{}" bind="$i18n.common.save" data-test="direct-bind"></span>
+  </section>
+
+  <!-- 3. Nested path resolution -->
+  <section>
+    <p class="test-label">Nested path: $i18n.nav.footer.copyright</p>
+    <span class="value" state="{}" bind="$i18n.nav.footer.copyright" data-test="nested-path"></span>
+  </section>
+
+  <!-- 4. Locale switch: all bindings update -->
+  <section>
+    <p class="test-label">Locale switch</p>
+    <div state="{}">
+      <span class="value" bind="$i18n.common.save" data-test="locale-switch-text"></span>
+      <div>
+        <button data-test="lang-en" on:click="$i18n.setLocale('en')">English</button>
+        <button data-test="lang-pt" on:click="$i18n.setLocale('pt')">Portugues</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Mixed: $i18n.key alongside $i18n.t('key', opts) -->
+  <section>
+    <p class="test-label">Mixed: proxy + t() interpolation</p>
+    <div state="{ userName: 'Alice' }">
+      <span class="value" bind="$i18n.common.save" data-test="mixed-proxy"></span>
+      <span class="value" t="welcome" t-name="userName" data-test="mixed-t"></span>
+    </div>
+  </section>
+
+  <!-- 6. Conditional: show with $i18n -->
+  <section>
+    <p class="test-label">Conditional: show with $i18n</p>
+    <div state="{}">
+      <span show="$i18n.common.save" data-test="show-i18n">Visible when key exists</span>
+    </div>
+  </section>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({ i18n: { defaultLocale: 'en', fallbackLocale: 'en' } });
+    NoJS.i18n({
+      locales: {
+        en: {
+          sidebar: {
+            links: ['Home', 'Docs', 'API']
+          },
+          common: {
+            save: 'Save',
+            cancel: 'Cancel'
+          },
+          nav: {
+            footer: {
+              copyright: '2026 NoJS'
+            }
+          },
+          welcome: 'Hello, {name}!',
+          showSection: 'yes'
+        },
+        pt: {
+          sidebar: {
+            links: ['Inicio', 'Documentacao', 'API']
+          },
+          common: {
+            save: 'Salvar',
+            cancel: 'Cancelar'
+          },
+          nav: {
+            footer: {
+              copyright: '2026 NoJS'
+            }
+          },
+          welcome: 'Ola, {name}!',
+          showSection: 'sim'
+        }
+      }
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

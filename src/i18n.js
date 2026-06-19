@@ -2,15 +2,7 @@
 //  i18n SYSTEM
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _warn } from "./globals.js";
-
-const _i18nListeners = new Set();
-export { _i18nListeners };
-
-export function _watchI18n(fn) {
-  _i18nListeners.add(fn);
-  return () => _i18nListeners.delete(fn);
-}
+import { _config, _warn, _i18nListeners } from "./globals.js";
 
 // ─── Notify all i18n listeners (shared by setter + directive) ────────
 export function _notifyI18n() {
@@ -159,3 +151,90 @@ export const _i18n = {
     return msg;
   },
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+//  $i18n REACTIVE PROXY
+//  Exposes translation data as dot-notation properties so i18n keys can
+//  be used in any expression context (state, bind, computed, watch, etc.)
+//  Usage: $i18n.shell.sidebar.introduction  →  resolved translation
+// ═══════════════════════════════════════════════════════════════════════
+
+const _I18N_RESERVED = new Set(["locale", "locales", "t", "setLocale"]);
+
+function _createI18nNestedProxy(path) {
+  return new Proxy(Object.create(null), {
+    get(_, key) {
+      // Symbol properties — delegate normally (for JSON.stringify, console.log, etc.)
+      if (typeof key !== "string") return undefined;
+
+      const fullPath = path ? path + "." + key : key;
+      const locale = _i18n.locale;
+      const data = _i18n.locales[locale];
+      const val = fullPath.split(".").reduce((o, k) => o?.[k], data || {});
+
+      // If resolved value is an object → return a nested proxy (recursive)
+      if (val != null && typeof val === "object" && !Array.isArray(val)) {
+        return _createI18nNestedProxy(fullPath);
+      }
+
+      // If it's a string/number → return the leaf value
+      if (val != null) return val;
+
+      // Fallback locale: try fallbackLocale before returning undefined
+      const fb = _config.i18n.fallbackLocale;
+      if (fb && fb !== locale) {
+        const fbData = _i18n.locales[fb];
+        const fbVal = fullPath.split(".").reduce((o, k) => o?.[k], fbData || {});
+        if (fbVal != null && typeof fbVal === "object" && !Array.isArray(fbVal)) {
+          return _createI18nNestedProxy(fullPath);
+        }
+        if (fbVal != null) return fbVal;
+      }
+
+      return undefined;
+    },
+  });
+}
+
+export const _i18nProxy = new Proxy(_i18n, {
+  get(target, key) {
+    // Symbol properties — delegate to _i18n for JSON.stringify, console.log, etc.
+    if (typeof key !== "string") return target[key];
+
+    // Reserved properties — delegate to _i18n directly
+    if (key === "locale" || key === "locales" || key === "t") {
+      return target[key];
+    }
+
+    // setLocale — a convenience method that sets _i18n.locale
+    if (key === "setLocale") {
+      return (value) => { target.locale = value; };
+    }
+
+    // Unknown string properties → resolve into translation data
+    const locale = target.locale;
+    const data = target.locales[locale];
+    const val = data?.[key];
+
+    // If the resolved value is an object → return a nested proxy
+    if (val != null && typeof val === "object" && !Array.isArray(val)) {
+      return _createI18nNestedProxy(key);
+    }
+
+    // If it's a string/number → return the leaf value
+    if (val != null) return val;
+
+    // Fallback locale
+    const fb = _config.i18n.fallbackLocale;
+    if (fb && fb !== locale) {
+      const fbData = target.locales[fb];
+      const fbVal = fbData?.[key];
+      if (fbVal != null && typeof fbVal === "object" && !Array.isArray(fbVal)) {
+        return _createI18nNestedProxy(key);
+      }
+      if (fbVal != null) return fbVal;
+    }
+
+    return undefined;
+  },
+});

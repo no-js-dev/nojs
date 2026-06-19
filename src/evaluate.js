@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals } from "./globals.js";
-import { _i18n } from "./i18n.js";
+import { _i18nProxy } from "./i18n.js";
 import { _collectKeys } from "./context.js";
 
 function _makeCache() {
@@ -1379,7 +1379,7 @@ export function evaluate(expr, ctx) {
     if (!("$store"  in scope)) scope.$store  = _stores;
     if (!("$route"  in scope)) scope.$route  = _routerInstance?.current;
     if (!("$router" in scope)) scope.$router = _routerInstance;
-    if (!("$i18n"   in scope)) scope.$i18n   = _i18n;
+    if (!("$i18n"   in scope)) scope.$i18n   = _i18nProxy;
     if (!("$refs"   in scope)) scope.$refs   = ctx.$refs;
     if (!("$form"   in scope)) scope.$form   = ctx.$form || null;
     // Inject plugin globals (cannot shadow local or core $ variables)
@@ -1420,7 +1420,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     if (!("$store"  in scope)) scope.$store  = _stores;
     if (!("$route"  in scope)) scope.$route  = _routerInstance?.current;
     if (!("$router" in scope)) scope.$router = _routerInstance;
-    if (!("$i18n"   in scope)) scope.$i18n   = _i18n;
+    if (!("$i18n"   in scope)) scope.$i18n   = _i18nProxy;
     if (!("$refs"   in scope)) scope.$refs   = ctx.$refs;
     // Inject plugin globals (before extraVars so $event etc. take priority)
     for (const gk in _globals) {

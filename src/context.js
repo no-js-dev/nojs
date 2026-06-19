@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
-import { _i18n } from "./i18n.js";
+import { _i18nProxy } from "./i18n.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -138,7 +138,7 @@ export function createContext(data = {}, parent = null) {
         case "$store":  return _stores;
         case "$route":  return _routerInstance ? _routerInstance.current : {};
         case "$router": return _routerInstance;
-        case "$i18n":   return _i18n;
+        case "$i18n":   return _i18nProxy;
         case "$form":   return target.$form || null;
       }
 

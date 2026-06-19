@@ -2,8 +2,7 @@
 //  DIRECTIVE REGISTRY & DOM PROCESSING
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _currentEl, _setCurrentEl, _deleteStoreWatcher, _warn } from "./globals.js";
-import { _i18nListeners } from "./i18n.js";
+import { _currentEl, _setCurrentEl, _deleteStoreWatcher, _i18nListeners, _warn } from "./globals.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 
 const _directives = new Map();

@@ -9,12 +9,12 @@
  * PR #68 — NOJS-38: Partitioned store watchers (M6)
  */
 
-import { _config, _stores, _storeWatchers, _setCurrentEl, _onDispose, _watchExpr, _notifyStoreWatchers, _addStoreWatcher, _deleteStoreWatcher, _extractStoreName, _refs, _globals } from '../src/globals.js';
+import { _config, _stores, _storeWatchers, _setCurrentEl, _onDispose, _watchExpr, _notifyStoreWatchers, _addStoreWatcher, _deleteStoreWatcher, _extractStoreName, _refs, _globals, _i18nListeners, _watchI18n } from '../src/globals.js';
 import { createContext, _startBatch, _endBatch, _collectKeys, _resetCtxId } from '../src/context.js';
 import { evaluate, resolve, _execStatement, _exprCache, _stmtCache } from '../src/evaluate.js';
 import { registerDirective, processTree, processElement, _disposeTree, _disposeChildren } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
-import { _i18n, _i18nListeners, _watchI18n, _notifyI18n, _i18nTranslationCache } from '../src/i18n.js';
+import { _i18n, _notifyI18n, _i18nTranslationCache } from '../src/i18n.js';
 
 import '../src/filters.js';
 import '../src/directives/state.js';

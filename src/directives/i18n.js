@@ -3,8 +3,8 @@
 //  DIRECTIVE: i18n-ns (load namespace before children)
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _i18n, _watchI18n, _loadI18nNamespace, _notifyI18n } from "../i18n.js";
-import { _watchExpr } from "../globals.js";
+import { _i18n, _loadI18nNamespace, _notifyI18n } from "../i18n.js";
+import { _watchExpr, _watchI18n } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _sanitizeHtml } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";

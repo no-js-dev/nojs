@@ -199,6 +199,39 @@ Add `persist-schema` to validate that keys restored from storage match the initi
 
 ---
 
+### Using i18n in State and Store Expressions
+
+The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings that automatically update when the locale changes.
+
+```html
+<!-- Initialize state with translated labels -->
+<div state="{ saveLabel: $i18n.common.buttons.save, title: $i18n.shell.sidebar.introduction }">
+  <h2 bind="title"></h2>
+  <button bind="saveLabel"></button>
+</div>
+
+<!-- Store with translated defaults -->
+<div store="ui" value="{
+  heading: $i18n.landing.hero.title,
+  searchPlaceholder: $i18n.common.search.placeholder
+}"></div>
+
+<!-- Access from anywhere -->
+<input bind-placeholder="$store.ui.searchPlaceholder">
+```
+
+For interpolation or pluralization, use `$i18n.t()` instead of dot-notation:
+
+```html
+<div state="{ greeting: $i18n.t('welcome', { name: user.name }) }">
+  <p bind="greeting"></p>
+</div>
+```
+
+See [Internationalization](i18n.md) for the full `$i18n.*` reference.
+
+---
+
 ### Context Scoping
 
 Reactive contexts inherit from parent elements, like lexical scoping. A child `state` can shadow a parent's property:

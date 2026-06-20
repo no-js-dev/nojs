@@ -402,20 +402,31 @@ describe('filters.js — sortBy without key', () => {
 });
 
 describe('filters.js — fromNow future dates', () => {
+  let nowSpy;
+  const FIXED_NOW = new Date('2025-06-15T12:00:00.000Z').getTime();
+
+  beforeEach(() => {
+    nowSpy = jest.spyOn(Date, 'now').mockReturnValue(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    nowSpy.mockRestore();
+  });
+
   test('fromNow in a moment for near-future', () => {
-    const soonDate = new Date(Date.now() + 30 * 1000);
+    const soonDate = new Date(FIXED_NOW + 30 * 1000);
     const result = _filters.fromNow(soonDate.toISOString());
     expect(result).toBe('in a moment');
   });
 
   test('fromNow in Xm for future minutes', () => {
-    const futureMin = new Date(Date.now() + 10 * 60 * 1000);
+    const futureMin = new Date(FIXED_NOW + 10 * 60 * 1000);
     const result = _filters.fromNow(futureMin.toISOString());
     expect(result).toBe('in 10m');
   });
 
   test('fromNow in Xd for future days', () => {
-    const futureDays = new Date(Date.now() + 3 * 86400 * 1000);
+    const futureDays = new Date(FIXED_NOW + 3 * 86400 * 1000);
     const result = _filters.fromNow(futureDays.toISOString());
     expect(result).toBe('in 3d');
   });

@@ -14,26 +14,6 @@
 
 Download `dist/iife/no.js` and include it with a `<script>` tag.
 
-### npm / ESM
-
-```bash
-npm install @no-js-dev/nojs
-```
-
-```javascript
-import NoJS from '@no-js-dev/nojs';
-NoJS.init();
-```
-
-Or with CommonJS:
-
-```javascript
-const NoJS = require('@no-js-dev/nojs');
-NoJS.init();
-```
-
-> When using npm, you must call `NoJS.init()` manually after the DOM is ready. The CDN script handles this automatically.
-
 ---
 
 ## Minimal Example

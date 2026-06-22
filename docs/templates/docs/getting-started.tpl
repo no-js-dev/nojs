@@ -27,11 +27,6 @@
     <h3 class="doc-subtitle" id="getting-started-self-hosted" t="docs.gettingStarted.installation.selfHostedSubtitle"></h3>
     <p class="doc-text" t="docs.gettingStarted.installation.selfHostedText"></p>
 
-    <h3 class="doc-subtitle" id="getting-started-npm" t="docs.gettingStarted.installation.npmSubtitle"></h3>
-    <div class="code-block"><pre><span class="hl-kw">npm install</span> @erickxavier/no-js</pre></div>
-    <div class="code-block"><pre><span class="hl-kw">import</span> NoJS <span class="hl-kw">from</span> <span class="hl-str">'@erickxavier/no-js'</span>;
-NoJS.init();</pre></div>
-    <p class="doc-text" t="docs.gettingStarted.installation.npmText"></p>
   </div>
 
   <!-- Quick Start -->
@@ -105,7 +100,7 @@ NoJS.init();</pre></div>
         <tr><td>30</td><td><code>validate</code> <sup style="color:#B45309;">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow7"></td></tr>
       </tbody>
     </table>
-    <p style="font-size: 13px; color: #78350F; margin-top: 8px;"><sup style="color:#B45309;">*</sup> Moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Plugins</a>.</p>
+    <p style="font-size: 13px; color: #78350F; margin-top: 8px;"><sup style="color:#B45309;">*</sup> Moved to <a href="https://github.com/no-js-dev/nojs-elements" style="color: #92400E; font-weight: 600;">NoJS Elements</a>. Core retains deprecation stubs. See <a href="#/docs/plugins" style="color: #92400E; font-weight: 600;">Plugins</a>.</p>
 
     <h3 class="doc-subtitle" id="getting-started-expressions" t="docs.gettingStarted.coreConcepts.expressionSubtitle"></h3>
     <p class="doc-text" t="docs.gettingStarted.coreConcepts.expressionText"></p>

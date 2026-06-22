@@ -45,13 +45,11 @@ No build step. No virtual DOM. No transpiler. No JSX. Just HTML.
 
 ## Quick Start
 
-### CDN
-
 ```html
 <script src="https://cdn.no-js.dev/"></script>
 ```
 
-With the CDN, No.JS auto-starts on `DOMContentLoaded`. You can configure it before it loads:
+No.JS auto-starts on `DOMContentLoaded`. You can configure it before it loads:
 
 ```html
 <script>
@@ -62,20 +60,6 @@ NoJS.config({
   },
 });
 </script>
-```
-
-### NPM
-
-```bash
-npm install @no-js-dev/nojs
-```
-
-```javascript
-// ESM
-import NoJS from '@no-js-dev/nojs';
-
-// CommonJS
-const NoJS = require('@no-js-dev/nojs');
 ```
 
 ---
@@ -199,9 +183,10 @@ Full documentation is available in the [docs/](docs/) folder:
 
 | Tool | Description |
 |------|-------------|
-| [NoJS Elements](https://github.com/no-js-dev/nojs-elements) | Drag, drop & validation — drag/drop/drag-list/drag-multiple/validate, migrated out of core in v1.13.0 |
+| [NoJS Elements](https://github.com/no-js-dev/nojs-elements) | Drag, drop & validation — drag/drop/drag-list/drag-multiple/validate, migrated out of core |
 | [NoJS-LSP](https://github.com/no-js-dev/nojs-lsp) | VS Code extension — autocomplete, hover docs, diagnostics for No.JS HTML |
 | [NoJS-Skill](https://github.com/no-js-dev/nojs-skill) | Claude Code skill — guided No.JS project generation |
+| [NoJS-CLI](https://github.com/no-js-dev/nojs-cli) | Node.js CLI tooling (inactive/maintenance) |
 
 ---
 

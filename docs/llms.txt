@@ -6,7 +6,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Getting Started
 
-- [Installation & Quick Start](https://no-js.dev/#/getting-started): CDN script tag, npm install, minimal example, how the framework initializes and processes the DOM
+- [Installation & Quick Start](https://no-js.dev/#/getting-started): CDN script tag, minimal example, how the framework initializes and processes the DOM
 
 ## Core Guides
 
@@ -41,7 +41,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Public API
 
-Methods and properties on the `NoJS` object (`import NoJS from '@no-js-dev/nojs'` or `window.NoJS` via CDN):
+Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Configuration
 
@@ -115,8 +115,7 @@ Methods and properties on the `NoJS` object (`import NoJS from '@no-js-dev/nojs'
 ## Ecosystem
 
 - [NoJS Elements](https://elements.no-js.dev): UI element plugins — drag-and-drop, form validation, tooltips, popovers, modals, dropdowns, toasts, tabs, trees, steppers, skeletons, split panes, sortable tables
-- [NoJS LSP](https://lsp.no-js.dev): VS Code language server extension — completions for 43+ directives, real-time diagnostics, hover docs, go-to-definition, semantic highlighting, code actions, and 23 built-in snippets
+- [NoJS LSP](https://lsp.no-js.dev): VS Code language server extension — completions for 45+ directives, real-time diagnostics, hover docs, go-to-definition, semantic highlighting, code actions, and 41 built-in snippets
 - [NoJS Skill](https://github.com/no-js-dev/nojs-skill): Claude Code AI skill for No.JS development
-- [npm](https://www.npmjs.com/package/@no-js-dev/nojs): Install via npm
 - [GitHub](https://github.com/no-js-dev/nojs): Source code, issues, and contributions
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=exs.nojs-lsp): Install the NoJS LSP extension directly

@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.15.3...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.15.4...HEAD)
+
+## [1.15.4](https://github.com/no-js-dev/nojs/compare/v1.15.3...v1.15.4) — 2026-06-22
+
+### Fixed
+
+- fix(docs): remove npm install references from README and docs — NoJS Core is CDN-only
+- fix(docs): remove old `@erickxavier/no-js` namespace from getting-started template
+- fix(docs): add NoJS-CLI to ecosystem table, remove hardcoded v1.13.0
+- fix(docs): remove surviving npmjs.com links from llms-full.txt
+- fix(docs): update stale LSP counts in llms.txt (45+ directives, 41 snippets)
 
 ## [1.15.3](https://github.com/no-js-dev/nojs/compare/v1.15.2...v1.15.3) — 2026-06-20
 

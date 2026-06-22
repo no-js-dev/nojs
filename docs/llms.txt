@@ -115,7 +115,7 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 ## Ecosystem
 
 - [NoJS Elements](https://elements.no-js.dev): UI element plugins — drag-and-drop, form validation, tooltips, popovers, modals, dropdowns, toasts, tabs, trees, steppers, skeletons, split panes, sortable tables
-- [NoJS LSP](https://lsp.no-js.dev): VS Code language server extension — completions for 43+ directives, real-time diagnostics, hover docs, go-to-definition, semantic highlighting, code actions, and 23 built-in snippets
+- [NoJS LSP](https://lsp.no-js.dev): VS Code language server extension — completions for 45+ directives, real-time diagnostics, hover docs, go-to-definition, semantic highlighting, code actions, and 41 built-in snippets
 - [NoJS Skill](https://github.com/no-js-dev/nojs-skill): Claude Code AI skill for No.JS development
 - [GitHub](https://github.com/no-js-dev/nojs): Source code, issues, and contributions
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=exs.nojs-lsp): Install the NoJS LSP extension directly

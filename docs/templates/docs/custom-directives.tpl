@@ -5,47 +5,47 @@
   <!-- NoJS.directive() -->
   <div class="doc-section">
     <h2 class="doc-title" id="custom-directives-directive" t="docs.customDirectives.directive.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">directive</span>(<span class="hl-str">'tooltip'</span>, {
-    <span class="hl-attr">priority</span>: <span class="hl-num">25</span>,
-    <span class="hl-fn">init</span>(<span class="hl-attr">el</span>, <span class="hl-attr">name</span>, <span class="hl-attr">value</span>) {
-      <span class="hl-kw">const</span> ctx <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">findContext</span>(el);
-      <span class="hl-kw">const</span> text <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">evaluate</span>(value, ctx);
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.directive('tooltip', {
+    priority: 25,
+    init(el, name, value) {
+      const ctx = NoJS.findContext(el);
+      const text = NoJS.evaluate(value, ctx);
 
-      <span class="hl-kw">const</span> tip <span class="hl-op">=</span> document.<span class="hl-fn">createElement</span>(<span class="hl-str">'div'</span>);
-      tip.className <span class="hl-op">=</span> <span class="hl-str">'tooltip'</span>;
-      tip.textContent <span class="hl-op">=</span> text;
+      const tip = document.createElement('div');
+      tip.className = 'tooltip';
+      tip.textContent = text;
 
-      el.<span class="hl-fn">addEventListener</span>(<span class="hl-str">'mouseenter'</span>, () <span class="hl-op">=&gt;</span> document.body.<span class="hl-fn">appendChild</span>(tip));
-      el.<span class="hl-fn">addEventListener</span>(<span class="hl-str">'mouseleave'</span>, () <span class="hl-op">=&gt;</span> tip.<span class="hl-fn">remove</span>());
+      el.addEventListener('mouseenter', () =&gt; document.body.appendChild(tip));
+      el.addEventListener('mouseleave', () =&gt; tip.remove());
     }
   });
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">directive</span>(<span class="hl-str">'clipboard'</span>, {
-    <span class="hl-attr">priority</span>: <span class="hl-num">25</span>,
-    <span class="hl-fn">init</span>(<span class="hl-attr">el</span>, <span class="hl-attr">name</span>, <span class="hl-attr">value</span>) {
-      el.<span class="hl-fn">addEventListener</span>(<span class="hl-str">'click'</span>, () <span class="hl-op">=&gt;</span> {
-        <span class="hl-kw">const</span> ctx <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">findContext</span>(el);
-        <span class="hl-kw">const</span> text <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">evaluate</span>(value, ctx);
-        navigator.clipboard.<span class="hl-fn">writeText</span>(text);
+  NoJS.directive('clipboard', {
+    priority: 25,
+    init(el, name, value) {
+      el.addEventListener('click', () =&gt; {
+        const ctx = NoJS.findContext(el);
+        const text = NoJS.evaluate(value, ctx);
+        navigator.clipboard.writeText(text);
       });
     }
   });
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">directive</span>(<span class="hl-str">'lazy-src'</span>, {
-    <span class="hl-attr">priority</span>: <span class="hl-num">25</span>,
-    <span class="hl-fn">init</span>(<span class="hl-attr">el</span>, <span class="hl-attr">name</span>, <span class="hl-attr">value</span>) {
-      <span class="hl-kw">const</span> observer <span class="hl-op">=</span> <span class="hl-kw">new</span> <span class="hl-fn">IntersectionObserver</span>(([entry]) <span class="hl-op">=&gt;</span> {
-        <span class="hl-kw">if</span> (entry.isIntersecting) {
-          <span class="hl-kw">const</span> ctx <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">findContext</span>(el);
-          el.src <span class="hl-op">=</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">evaluate</span>(value, ctx);
-          observer.<span class="hl-fn">disconnect</span>();
+  NoJS.directive('lazy-src', {
+    priority: 25,
+    init(el, name, value) {
+      const observer = new IntersectionObserver(([entry]) =&gt; {
+        if (entry.isIntersecting) {
+          const ctx = NoJS.findContext(el);
+          el.src = NoJS.evaluate(value, ctx);
+          observer.disconnect();
         }
       });
-      observer.<span class="hl-fn">observe</span>(el);
+      observer.observe(el);
     }
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- Usage -->
@@ -75,12 +75,12 @@
   <div class="doc-section">
     <h2 class="doc-title" id="custom-directives-disposal" t="docs.customDirectives.disposal.title"></h2>
     <p class="doc-text" t="docs.customDirectives.disposal.text"></p>
-    <div class="code-block"><pre><span class="hl-kw">NoJS</span>.directive(<span class="hl-str">'tooltip'</span>, {
-  priority: <span class="hl-num">20</span>,
+    <div class="code-block"><pre highlight>NoJS.directive('tooltip', {
+  priority: 20,
   init(el, attr, value) {
-    <span class="hl-kw">const</span> handler = () =&gt; showTooltip(el, value);
-    el.addEventListener(<span class="hl-str">'mouseenter'</span>, handler);
-    _onDispose(() =&gt; el.removeEventListener(<span class="hl-str">'mouseenter'</span>, handler));
+    const handler = () => showTooltip(el, value);
+    el.addEventListener('mouseenter', handler);
+    _onDispose(() => el.removeEventListener('mouseenter', handler));
   }
 });</pre></div>
     <div class="callout">

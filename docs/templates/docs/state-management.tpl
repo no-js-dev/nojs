@@ -164,9 +164,9 @@
   <div class="doc-section">
     <h2 class="doc-title" id="state-notify" t="docs.stateManagement.notify.title"></h2>
     <p class="doc-text" t="docs.stateManagement.notify.text"></p>
-    <div class="code-block"><pre><span class="hl-cmt">// External JS mutates a store</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-attr">store</span>.<span class="hl-attr">cart</span>.<span class="hl-attr">items</span>.<span class="hl-fn">push</span>({ <span class="hl-attr">id</span>: <span class="hl-num">1</span>, <span class="hl-attr">name</span>: <span class="hl-str">'Widget'</span> });
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">notify</span>();  <span class="hl-cmt">// Flush DOM updates</span></pre></div>
+    <div class="code-block"><pre highlight>// External JS mutates a store
+NoJS.store.cart.items.push({ id: 1, name: 'Widget' });
+NoJS.notify();  // Flush DOM updates</pre></div>
     <div class="callout"><p t="docs.stateManagement.notify.callout"></p></div>
   </div>
 

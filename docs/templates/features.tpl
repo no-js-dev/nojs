@@ -60,72 +60,67 @@
     <h2 class="section-title" t="features.grid.title"></h2>
     <p class="section-subtitle" t="features.grid.subtitle"></p>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <div class="feature-table">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="12" r="3"/>
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.routing.title"></h3>
-        <p class="feature-desc" t="features.grid.routing.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.routing.title"></h3>
+        <p class="feature-table-desc" t="features.grid.routing.desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.forms.title"></h3>
-        <p class="feature-desc" t="features.grid.forms.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.forms.title"></h3>
+        <p class="feature-table-desc" t="features.grid.forms.desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.fetch.title"></h3>
-        <p class="feature-desc" t="features.grid.fetch.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.fetch.title"></h3>
+        <p class="feature-table-desc" t="features.grid.fetch.desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12" r=".5"/>
             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.css.title"></h3>
-        <p class="feature-desc" t="features.grid.css.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.css.title"></h3>
+        <p class="feature-table-desc" t="features.grid.css.desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.lifecycle.title"></h3>
-        <p class="feature-desc" t="features.grid.lifecycle.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.lifecycle.title"></h3>
+        <p class="feature-table-desc" t="features.grid.lifecycle.desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <div class="feature-table-row">
+        <div class="feature-table-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
             <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
           </svg>
         </div>
-        <h3 class="feature-title" t="features.grid.zero.title"></h3>
-        <p class="feature-desc" t="features.grid.zero.desc" t-html></p>
+        <h3 class="feature-table-title" t="features.grid.zero.title"></h3>
+        <p class="feature-table-desc" t="features.grid.zero.desc" t-html></p>
       </div>
     </div>
   </section>

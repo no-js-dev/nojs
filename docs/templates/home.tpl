@@ -77,51 +77,34 @@
     <h2 class="section-title" t="home.features.title"></h2>
     <p class="section-subtitle" t="home.features.subtitle"></p>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
+    <div class="features-list">
+      <div class="feature-item">
+        <span class="feature-num">01</span>
+        <div class="feature-body">
+          <h3 class="feature-title" t="home.features.f1Title"></h3>
+          <p class="feature-desc" t="home.features.f1Desc" t-html></p>
         </div>
-        <h3 class="feature-title" t="home.features.f1Title"></h3>
-        <p class="feature-desc" t="home.features.f1Desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 10.28A6 6 0 0 0 7.72 10c0 .13 0 .25.03.38A5.5 5.5 0 0 0 2 16a5.5 5.5 0 0 0 5.5 5.5h10.5A4.5 4.5 0 0 0 22 17a4.5 4.5 0 0 0-4-4.72z"></path>
-            <polyline points="9 16 12 19 15 16"></polyline>
-            <line x1="12" y1="12" x2="12" y2="19"></line>
-          </svg>
+      <div class="feature-item">
+        <span class="feature-num">02</span>
+        <div class="feature-body">
+          <h3 class="feature-title" t="home.features.f2Title"></h3>
+          <p class="feature-desc" t="home.features.f2Desc" t-html></p>
         </div>
-        <h3 class="feature-title" t="home.features.f2Title"></h3>
-        <p class="feature-desc" t="home.features.f2Desc" t-html></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-          </svg>
+      <div class="feature-item">
+        <span class="feature-num">03</span>
+        <div class="feature-body">
+          <h3 class="feature-title" t="home.features.f3Title"></h3>
+          <p class="feature-desc" t="home.features.f3Desc"></p>
         </div>
-        <h3 class="feature-title" t="home.features.f3Title"></h3>
-        <p class="feature-desc" t="home.features.f3Desc"></p>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"></path>
-            <line x1="16" y1="8" x2="2" y2="22"></line>
-            <line x1="17.5" y1="15" x2="9" y2="15"></line>
-          </svg>
+      <div class="feature-item">
+        <span class="feature-num">04</span>
+        <div class="feature-body">
+          <h3 class="feature-title" t="home.features.f4Title"></h3>
+          <p class="feature-desc" t="home.features.f4Desc"></p>
         </div>
-        <h3 class="feature-title" t="home.features.f4Title"></h3>
-        <p class="feature-desc" t="home.features.f4Desc"></p>
       </div>
     </div>
   </section>

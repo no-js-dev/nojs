@@ -42,19 +42,19 @@
   <!-- Global Error Handler -->
   <div class="doc-section">
     <h2 class="doc-title" id="error-handling-global-handler" t="docs.errorHandling.globalHandler.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">on</span>(<span class="hl-str">'error'</span>, ({ <span class="hl-attr">url</span>, <span class="hl-attr">error</span> }) <span class="hl-op">=&gt;</span> {
-    console.<span class="hl-fn">error</span>(<span class="hl-str">'[No.JS Error]'</span>, url, error);
-    <span class="hl-cmt">// Send to error tracking service</span>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.on('error', ({ url, error }) =&gt; {
+    console.error('[No.JS Error]', url, error);
+    // Send to error tracking service
   });
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">on</span>(<span class="hl-str">'fetch:error'</span>, <span class="hl-kw">async</span> ({ <span class="hl-attr">url</span>, <span class="hl-attr">error</span> }) <span class="hl-op">=&gt;</span> {
-    <span class="hl-kw">if</span> (error.status <span class="hl-op">===</span> <span class="hl-num">401</span>) {
-      <span class="hl-fn">NoJS</span>.store.auth.user <span class="hl-op">=</span> <span class="hl-kw">null</span>;
-      <span class="hl-kw">await</span> <span class="hl-fn">NoJS</span>.router.<span class="hl-fn">push</span>(<span class="hl-str">'/login'</span>);
+  NoJS.on('fetch:error', async ({ url, error }) =&gt; {
+    if (error.status === 401) {
+      NoJS.store.auth.user = null;
+      await NoJS.router.push('/login');
     }
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- error-boundary -->

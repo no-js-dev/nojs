@@ -23,18 +23,18 @@
   <!-- Programmatic Configuration -->
   <div class="doc-section">
     <h2 class="doc-title" id="data-fetching-config" t="docs.dataFetching.config.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-    <span class="hl-attr">baseApiUrl</span>: <span class="hl-str">'https://api.myapp.com/v1'</span>,
-    <span class="hl-attr">headers</span>: {
-      <span class="hl-str">'Authorization'</span>: <span class="hl-str">'Bearer '</span> + localStorage.<span class="hl-fn">getItem</span>(<span class="hl-str">'token'</span>),
-      <span class="hl-str">'Content-Type'</span>: <span class="hl-str">'application/json'</span>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.config({
+    baseApiUrl: 'https://api.myapp.com/v1',
+    headers: {
+      'Authorization': 'Bearer ' + localStorage.getItem('token'),
+      'Content-Type': 'application/json'
     },
-    <span class="hl-attr">timeout</span>: <span class="hl-num">10000</span>,
-    <span class="hl-attr">retries</span>: <span class="hl-num">2</span>,
-    <span class="hl-attr">retryDelay</span>: <span class="hl-num">1000</span>
+    timeout: 10000,
+    retries: 2,
+    retryDelay: 1000
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- Per-Request Headers -->
@@ -298,69 +298,69 @@
     <p class="doc-text" t="docs.dataFetching.interceptors.text"></p>
 
     <h3 class="doc-title" id="data-fetching-interceptors-basic" t="docs.dataFetching.interceptors.basicTitle"></h3>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-cmt">// Add a header to every request</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">options</span>) =&gt; {
-    options.headers[<span class="hl-str">'X-Request-ID'</span>] = crypto.<span class="hl-fn">randomUUID</span>();
-    <span class="hl-kw">return</span> options;
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  // Add a header to every request
+  NoJS.interceptor('request', (url, options) =&gt; {
+    options.headers['X-Request-ID'] = crypto.randomUUID();
+    return options;
   });
 
-  <span class="hl-cmt">// Handle 401 responses globally</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'response'</span>, (<span class="hl-attr">response</span>, <span class="hl-attr">url</span>) =&gt; {
-    <span class="hl-kw">if</span> (response.status === <span class="hl-num">401</span>) {
-      NoJS.store.auth.user = <span class="hl-kw">null</span>;
-      NoJS.<span class="hl-fn">notify</span>();
-      NoJS.router.<span class="hl-fn">push</span>(<span class="hl-str">'/login'</span>);
-      <span class="hl-kw">throw new</span> <span class="hl-fn">Error</span>(<span class="hl-str">'Unauthorized'</span>);
+  // Handle 401 responses globally
+  NoJS.interceptor('response', (response, url) =&gt; {
+    if (response.status === 401) {
+      NoJS.store.auth.user = null;
+      NoJS.notify();
+      NoJS.router.push('/login');
+      throw new Error('Unauthorized');
     }
-    <span class="hl-kw">return</span> response;
+    return response;
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-async" t="docs.dataFetching.interceptors.asyncTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.asyncText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, <span class="hl-kw">async</span> (<span class="hl-attr">url</span>, <span class="hl-attr">options</span>) =&gt; {
-    <span class="hl-kw">const</span> token = <span class="hl-kw">await</span> <span class="hl-fn">refreshTokenIfExpired</span>();
-    options.headers[<span class="hl-str">'Authorization'</span>] = <span class="hl-str">'Bearer '</span> + token;
-    <span class="hl-kw">return</span> options;
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.interceptor('request', async (url, options) =&gt; {
+    const token = await refreshTokenIfExpired();
+    options.headers['Authorization'] = 'Bearer ' + token;
+    return options;
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-cancel" t="docs.dataFetching.interceptors.cancelTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.cancelText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">opts</span>) =&gt; {
-    <span class="hl-kw">if</span> (!navigator.onLine) {
-      <span class="hl-kw">return</span> { [NoJS.CANCEL]: <span class="hl-kw">true</span> };
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.interceptor('request', (url, opts) =&gt; {
+    if (!navigator.onLine) {
+      return { [NoJS.CANCEL]: true };
     }
-    <span class="hl-kw">return</span> opts;
+    return opts;
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-respond" t="docs.dataFetching.interceptors.respondTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.respondText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">const</span> cache = <span class="hl-kw">new</span> <span class="hl-fn">Map</span>();
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  const cache = new Map();
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">opts</span>) =&gt; {
-    <span class="hl-kw">if</span> (opts.method === <span class="hl-str">'GET'</span> &amp;&amp; cache.<span class="hl-fn">has</span>(url)) {
-      <span class="hl-kw">return</span> { [NoJS.RESPOND]: cache.<span class="hl-fn">get</span>(url) };
+  NoJS.interceptor('request', (url, opts) =&gt; {
+    if (opts.method === 'GET' &amp;&amp; cache.has(url)) {
+      return { [NoJS.RESPOND]: cache.get(url) };
     }
-    <span class="hl-kw">return</span> opts;
+    return opts;
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-replace" t="docs.dataFetching.interceptors.replaceTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.replaceText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'response'</span>, (<span class="hl-attr">response</span>, <span class="hl-attr">url</span>) =&gt; {
-    <span class="hl-kw">if</span> (url.<span class="hl-fn">includes</span>(<span class="hl-str">'/users'</span>)) {
-      <span class="hl-kw">return</span> { [NoJS.REPLACE]: { users: [], normalized: <span class="hl-kw">true</span> } };
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.interceptor('response', (response, url) =&gt; {
+    if (url.includes('/users')) {
+      return { [NoJS.REPLACE]: { users: [], normalized: true } };
     }
-    <span class="hl-kw">return</span> response;
+    return response;
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-redaction" t="docs.dataFetching.interceptors.redactionTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.redactionText"></p>

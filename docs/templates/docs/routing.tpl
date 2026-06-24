@@ -104,9 +104,9 @@
     <div class="callout">
       <p t="docs.routing.programmatic.callout"></p>
     </div>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">await</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">router</span>.<span class="hl-fn">push</span>(<span class="hl-str">'/dashboard'</span>);
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  await NoJS.router.push('/dashboard');
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- Nested Routes -->
@@ -386,8 +386,8 @@
   <div class="doc-section">
     <h2 class="doc-title" id="routing-focus-behavior" t="docs.routing.focusBehavior.title"></h2>
     <p class="doc-text" t="docs.routing.focusBehavior.text"></p>
-    <div class="code-block"><pre><span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">focusBehavior</span>: <span class="hl-str">'auto'</span> }
+    <div class="code-block"><pre highlight>NoJS.config({
+  router: { focusBehavior: 'auto' }
 });</pre></div>
     <p class="doc-text" t="docs.routing.focusBehavior.text2"></p>
     <ol class="doc-list">
@@ -466,14 +466,14 @@
     <!-- Configuration -->
     <h3 class="doc-subtitle" t="docs.routing.viewTransitions.configTitle"></h3>
     <p class="doc-text" t="docs.routing.viewTransitions.configText" t-html></p>
-    <div class="code-block"><pre><span class="hl-cmt">// View Transition API is enabled by default</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">viewTransition</span>: <span class="hl-kw">true</span> }  <span class="hl-cmt">// default</span>
+    <div class="code-block"><pre highlight>// View Transition API is enabled by default
+NoJS.config({
+  router: { viewTransition: true }  // default
 });
 
-<span class="hl-cmt">// Fall back to legacy class-based transitions</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">viewTransition</span>: <span class="hl-kw">false</span> }
+// Fall back to legacy class-based transitions
+NoJS.config({
+  router: { viewTransition: false }
 });</pre></div>
 
     <!-- Custom CSS -->
@@ -591,7 +591,7 @@ RewriteRule ^ index.html [QSA,L]</pre></div>
     <!-- Hash mode -->
     <h3 class="doc-subtitle" id="routing-deployment-hash" t="docs.routing.deployment.hashTitle"></h3>
     <p class="doc-text" t="docs.routing.deployment.hashText" t-html></p>
-    <div class="code-block"><pre><span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({ <span class="hl-attr">router</span>: { <span class="hl-attr">useHash</span>: <span class="hl-kw">true</span> } });</pre></div>
+    <div class="code-block"><pre highlight>NoJS.config({ router: { useHash: true } });</pre></div>
     <div class="callout">
       <p t="docs.routing.deployment.hashCallout" t-html></p>
     </div>

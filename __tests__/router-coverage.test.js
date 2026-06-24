@@ -650,3 +650,152 @@ describe('Router — active class edge cases', () => {
     expect(links[1].classList.contains('active')).toBe(true);
   });
 });
+
+// ── Space-separated active classes (NOJS-195) ────────────────────────────────
+
+describe('Router — space-separated active classes', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top' };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+    setRouterInstance(null);
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+    document.body.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  test('route-active with space-separated classes toggles each class individually', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/about"><p>About</p></template>
+      <a route="/" route-active="bg-sky-500 text-white font-bold">Home</a>
+      <a route="/about" route-active="bg-sky-500 text-white font-bold">About</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/about');
+
+    const links = document.querySelectorAll('a[route]');
+    // Home link should NOT have any of the classes
+    expect(links[0].classList.contains('bg-sky-500')).toBe(false);
+    expect(links[0].classList.contains('text-white')).toBe(false);
+    expect(links[0].classList.contains('font-bold')).toBe(false);
+    // About link SHOULD have all three classes
+    expect(links[1].classList.contains('bg-sky-500')).toBe(true);
+    expect(links[1].classList.contains('text-white')).toBe(true);
+    expect(links[1].classList.contains('font-bold')).toBe(true);
+  });
+
+  test('route-active-exact with space-separated classes toggles each class individually', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/users"><p>Users</p></template>
+      <template route="/users/1"><p>User 1</p></template>
+      <a route="/users" route-active-exact="cls-x cls-y">Users</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+
+    await router.push('/users');
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('cls-x')).toBe(true);
+    expect(link.classList.contains('cls-y')).toBe(true);
+
+    // Navigate away to a sub-route — exact match should remove both classes
+    await router.push('/users/1');
+    expect(link.classList.contains('cls-x')).toBe(false);
+    expect(link.classList.contains('cls-y')).toBe(false);
+  });
+
+  test('single class still works (backward compatibility)', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/page"><p>Page</p></template>
+      <a route="/page" route-active="single-cls">Page</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/page');
+
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('single-cls')).toBe(true);
+  });
+
+  test('single class works for route-active-exact (backward compatibility)', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/page"><p>Page</p></template>
+      <a route="/page" route-active-exact="exact-cls">Page</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/page');
+
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('exact-cls')).toBe(true);
+  });
+
+  test('multiple spaces between class names are handled correctly', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/page"><p>Page</p></template>
+      <a route="/page" route-active="cls-a   cls-b">Page</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/page');
+
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('cls-a')).toBe(true);
+    expect(link.classList.contains('cls-b')).toBe(true);
+  });
+
+  test('leading and trailing whitespace in class string is handled', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/page"><p>Page</p></template>
+      <a route="/page" route-active-exact="  spaced-cls  ">Page</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/page');
+
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('spaced-cls')).toBe(true);
+    // Ensure no empty-string class was toggled (would throw DOMException)
+    expect(link.classList.length).toBe(1);
+  });
+
+  test('classes are removed when navigating away from active route', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/page"><p>Page</p></template>
+      <a route="/page" route-active="tw-a tw-b tw-c">Page</a>
+    `;
+    const router = _createRouter();
+    await router.init();
+
+    await router.push('/page');
+    const link = document.querySelector('a[route]');
+    expect(link.classList.contains('tw-a')).toBe(true);
+    expect(link.classList.contains('tw-b')).toBe(true);
+    expect(link.classList.contains('tw-c')).toBe(true);
+
+    await router.push('/');
+    expect(link.classList.contains('tw-a')).toBe(false);
+    expect(link.classList.contains('tw-b')).toBe(false);
+    expect(link.classList.contains('tw-c')).toBe(false);
+  });
+});

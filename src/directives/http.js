@@ -1035,6 +1035,49 @@ for (const method of HTTP_METHODS) {
         }
       }
 
+      // ── Reactive params watching: re-fetch when params expression changes ──
+      // Independent of URL watching — handles the case where the URL stays
+      // the same but params (e.g. params="{filters}") resolve to new values.
+      // Suppressed for get-trigger="none" (manual-only, same as URL watcher).
+      if (paramsAttr && trigger !== "none") {
+        const paramsDebounceMs = parseInt(el.getAttribute("debounce")) || 0;
+        let _lastParamsJson = "";
+        try {
+          const initial = evaluate(paramsAttr, ctx);
+          _lastParamsJson = JSON.stringify(initial) || "";
+        } catch { /* ignore — first doRequest() will evaluate */ }
+        let _paramsDebounceTimer = null;
+
+        function onParamsChange() {
+          let newParamsJson = "";
+          try {
+            const resolved = evaluate(paramsAttr, ctx);
+            newParamsJson = JSON.stringify(resolved) || "";
+          } catch { return; /* expression error — skip re-fetch */ }
+          if (newParamsJson !== _lastParamsJson) {
+            _lastParamsJson = newParamsJson;
+            if (_paramsDebounceTimer) clearTimeout(_paramsDebounceTimer);
+            if (paramsDebounceMs > 0) {
+              _paramsDebounceTimer = setTimeout(doRequest, paramsDebounceMs);
+            } else {
+              doRequest();
+            }
+          }
+        }
+
+        _onDispose(() => {
+          if (_paramsDebounceTimer) clearTimeout(_paramsDebounceTimer);
+        });
+
+        // Watch all ancestor contexts for changes (same pattern as URL watcher)
+        let paramsAncestor = parentCtx;
+        while (paramsAncestor && paramsAncestor.__isProxy) {
+          const unwatch = paramsAncestor.$watch(onParamsChange);
+          _onDispose(unwatch);
+          paramsAncestor = paramsAncestor.$parent;
+        }
+      }
+
       // Expose doRequest for programmatic re-fetch via $refs
       // For pagination insert modes, full reset before fetching
       if (isPaginationTrigger && isInsertMode) {

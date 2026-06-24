@@ -1587,6 +1587,198 @@ describe('reactive URL watching', () => {
   });
 });
 
+describe('reactive params watching (NOJS-196)', () => {
+  beforeEach(httpSetup);
+  afterEach(httpTeardown);
+
+  test('re-fetches when params expression value changes even with static URL', async () => {
+    global.fetch
+      .mockResolvedValueOnce(mockJsonResponse({ items: ['a'] }))
+      .mockResolvedValueOnce(mockJsonResponse({ items: ['b'] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: { status: "active" } }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/items');
+    el.setAttribute('as', 'result');
+    el.setAttribute('params', 'filters');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const firstUrl = global.fetch.mock.calls[0][0];
+    expect(firstUrl).toContain('status=active');
+
+    // Change the params expression value — URL stays the same template
+    const ctx = findContext(parent);
+    ctx.filters = { status: 'archived' };
+
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const secondUrl = global.fetch.mock.calls[1][0];
+    expect(secondUrl).toContain('status=archived');
+  });
+
+  test('does NOT re-fetch when params resolve to same value', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ items: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: { page: 1 } }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/items');
+    el.setAttribute('as', 'result');
+    el.setAttribute('params', 'filters');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // Set filters to an identical-value object — should NOT trigger re-fetch
+    const ctx = findContext(parent);
+    ctx.filters = { page: 1 };
+
+    await flush(100);
+
+    // Still 1 — stringify comparison prevents duplicate fetch
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('params watcher is suppressed when get-trigger="none"', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ items: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: { q: "hello" } }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/search');
+    el.setAttribute('as', 'result');
+    el.setAttribute('params', 'filters');
+    el.setAttribute('get-trigger', 'none');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    // trigger="none" means no auto-fetch at all
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    // Change params — should still NOT trigger a fetch
+    const ctx = findContext(parent);
+    ctx.filters = { q: "world" };
+
+    await flush(100);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('params watcher with undefined params does not crash', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: undefined }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/data');
+    el.setAttribute('as', 'result');
+    el.setAttribute('params', 'filters');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    // Should not throw
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // Transition from undefined to a real object
+    const ctx = findContext(parent);
+    ctx.filters = { type: 'new' };
+
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const secondUrl = global.fetch.mock.calls[1][0];
+    expect(secondUrl).toContain('type=new');
+  });
+
+  test('params watcher with empty object does not trigger spurious re-fetch', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: {} }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/data');
+    el.setAttribute('as', 'result');
+    el.setAttribute('params', 'filters');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // Set to another empty object — same JSON, should not re-fetch
+    const ctx = findContext(parent);
+    ctx.filters = {};
+
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('reactive params watching with debounce (NOJS-196)', () => {
+  beforeEach(() => {
+    httpSetup();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    httpTeardown();
+  });
+
+  test('debounces re-fetch when params change with debounce attribute', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ items: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ filters: { q: "a" } }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/search');
+    el.setAttribute('as', 'results');
+    el.setAttribute('params', 'filters');
+    el.setAttribute('debounce', '300');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await jest.advanceTimersByTimeAsync(50);
+    expect(global.fetch).toHaveBeenCalledTimes(1); // initial fetch
+
+    const ctx = findContext(parent);
+
+    // Rapid param changes — should debounce
+    ctx.filters = { q: 'ab' };
+    await jest.advanceTimersByTimeAsync(100);
+    ctx.filters = { q: 'abc' };
+    await jest.advanceTimersByTimeAsync(100);
+
+    // Should still be 1 — debounce has not fired yet
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // After debounce period elapses, should fire once
+    await jest.advanceTimersByTimeAsync(400);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('polling with refresh-interval', () => {
   beforeEach(() => {
     httpSetup();

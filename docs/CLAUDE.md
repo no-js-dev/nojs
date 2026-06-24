@@ -18,21 +18,22 @@ There are no tests, no linting, and no CI. Changes are verified visually in a br
 
 ## Architecture
 
-### Pages
+### Architecture
 
-Five standalone HTML pages sharing one CSS file and an identical layout shell:
+Single-page application (SPA) powered by NoJS's `route-view` directive with file-based routing. Two entry points (`index.html` and `404.html`) share the same layout shell and load page content from `templates/*.tpl` files.
 
-| Page | File | Purpose |
-|------|------|---------|
-| Home | `index.html` | Landing page with hero, feature cards, directive showcases, and getting-started tabs |
-| Docs | `docs.html` | Reference documentation with a scrollspy sidebar |
-| Examples | `examples.html` | Interactive code examples organized by directive category |
-| FAQ | `faq.html` | Accordion-style Q&A using native `<details>`/`<summary>` |
-| Playground | `playground.html` | Split-pane code editor with a simulated browser preview |
+| Route | Template | Purpose |
+|-------|----------|---------|
+| `/` (home) | `templates/home.tpl` | Landing page with hero, feature cards, directive showcases, and getting-started |
+| `/features` | `templates/features.tpl` | Feature overview grid |
+| `/docs` | `templates/docs.tpl` | Reference documentation with sidebar navigation and TOC |
+| `/examples` | `templates/examples.tpl` | Interactive code examples organized by directive category |
+| `/faq` | `templates/faq.tpl` | Accordion-style Q&A |
+| `/playground` | `templates/playground.tpl` | Split-pane code editor with live preview |
 
-### Shared Layout Pattern (every page)
+### Shared Layout Pattern
 
-Each page follows the same DOM skeleton:
+Both `index.html` and `404.html` follow the same DOM skeleton:
 
 ```
 <div class="layout-container">
@@ -40,33 +41,32 @@ Each page follows the same DOM skeleton:
   <div class="nojs-grid" />        ← dotted grid background
   <nav class="sticky-nav" />       ← shared sticky header (logo + links + GitHub)
   <div class="page-transition-wrapper">
-    <header class="subpage-hero" /> ← page title + subtitle (index.html uses .hero-content instead)
-    <main class="page-body" />      ← page-specific content
-    <footer class="site-footer" />  ← 3-column footer (copyright / designer / links)
+    <div route-view />              ← SPA route outlet (loads templates/*.tpl)
+    <footer class="site-footer" />  ← 3-column footer
   </div>
 </div>
 ```
 
-The nav active state is set by adding `class="active"` to the current page's `<a>` inside `.nav-links`. There is no templating — the nav/footer HTML is duplicated in every file.
+The `route-view` element uses `src="templates/"` and `route-index="home"` for file-based routing. Page templates are `.tpl` files with i18n namespace auto-derivation via the `i18n-ns` attribute.
 
 ### Inline JavaScript
 
-Minimal — only vanilla `<script>` blocks at the end of `<body>`:
+Minimal — only vanilla `<script>` blocks at the end of `<body>` in the entry HTML files:
 
-- **All pages**: Sticky nav scroll handler (adds `.scrolled` class when `scrollY > 10`)
-- **index.html**: Diamond animation delay shuffler + CDN/npm tab switcher (`window.switchTab`)
-- **docs.html**: `IntersectionObserver`-based scrollspy that highlights the active sidebar link
-- **playground.html**: Tab switching between editor/preview panes
+- **index.html / 404.html**: Playground engine lazy-loader, hero editor init, diamond animation delay shuffler, TOC builder + scrollspy, sticky nav scroll handler, custom `highlight` directive registration
+- **playground/engine.js**: Full playground engine (syntax highlighting, file management, preview iframe)
+- **playground/editor.js**: Reusable lightweight code editor component
 
-No external JS dependencies are loaded.
+NoJS framework and NoJS Elements are loaded from CDN (`cdn.no-js.dev`, `cdn-elements.no-js.dev`).
 
 ### CSS Design System (`style.css`)
 
-Single 900+ line file. Key tokens in `:root`:
+Single 3000+ line file. Key tokens in `:root`:
 
 - Fonts: `--font-sans` (Geist), `--font-mono` (Geist Mono) — loaded from Google Fonts
 - Colors: `--bg-color` (#07080b), `--accent-blue` (#2563eb), `--text-primary/secondary/muted`, `--glass-bg`, `--border-color`
-- Layout: `--max-width-section` (768px)
+- Semantic: `--error` (#ef4444), `--success` (#22c55e)
+- Layout: `--max-width-section` (72rem / 1152px), `--max-width-content` (48rem / 768px)
 
 Major CSS features:
 - **View Transitions API**: `@view-transition { navigation: auto }` with named transitions on `.sticky-nav`, `.page-transition-wrapper`, and `.hero-header` for cross-page fades
@@ -90,4 +90,4 @@ Major CSS features:
 - Syntax highlighting in code blocks uses manual `<span>` classes: `.tok-tag`, `.tok-attr`, `.tok-str`, `.tok-punc`, `.tok-comment`, `.tok-mustache`
 - SVG icons are inlined, not loaded from an icon library
 - No `<div>` soup — semantic elements (`<nav>`, `<main>`, `<header>`, `<footer>`, `<article>`, `<section>`, `<details>`) are used throughout
-- When adding a new page: duplicate an existing page's shell, update the nav `active` class, and wrap content in `.page-transition-wrapper` for view transitions
+- When adding a new page: create a new `templates/<name>.tpl` file — file-based routing resolves it automatically. Add a nav link with `route="/<name>"` and i18n keys to the shell locale files

@@ -884,13 +884,13 @@ for (const method of HTTP_METHODS) {
           } else {
             // Fallback: fire immediately when IntersectionObserver unavailable
             _warn('IntersectionObserver not available, get-trigger="visible" falling back to immediate fetch');
-            if (el.isConnected) doRequest();
+            queueMicrotask(() => { if (el.isConnected) doRequest(); });
           }
         } else if (trigger === "scroll" && isInsertMode) {
           // Infinite scroll: fire initial request. The IntersectionObserver
           // is created lazily in _afterPaginatedFetch() after the first fetch
           // completes and the sentinel is repositioned.
-          if (el.isConnected) doRequest();
+          queueMicrotask(() => { if (el.isConnected) doRequest(); });
         } else if (trigger === "scroll" && !isInsertMode) {
           // scroll without get-insert — fall back to visible behavior (warned above)
           if (typeof IntersectionObserver !== "undefined") {
@@ -909,14 +909,14 @@ for (const method of HTTP_METHODS) {
             observer.observe(el);
             _onDispose(() => observer.disconnect());
           } else {
-            if (el.isConnected) doRequest();
+            queueMicrotask(() => { if (el.isConnected) doRequest(); });
           }
         } else if (trigger === "button" && isInsertMode) {
           // Load-more button: fire initial request, then render button after.
-          if (el.isConnected) doRequest();
+          queueMicrotask(() => { if (el.isConnected) doRequest(); });
         } else if (trigger === "button" && !isInsertMode) {
           // button without get-insert — fall back to immediate (warned above)
-          if (el.isConnected) doRequest();
+          queueMicrotask(() => { if (el.isConnected) doRequest(); });
         } else if (trigger === "hover") {
           // Prefetch on hover: fire on first mouseenter.
           const useOnce = refreshInterval <= 0;
@@ -933,7 +933,7 @@ for (const method of HTTP_METHODS) {
           _onDispose(() => el.removeEventListener("mouseenter", hoverHandler));
         } else {
           // Default: immediate fire (current behavior, no trigger attribute)
-          if (el.isConnected) doRequest();
+          queueMicrotask(() => { if (el.isConnected) doRequest(); });
         }
       } else {
         // Non-GET on non-FORM: attach click listener

@@ -836,7 +836,7 @@ export function _createRouter() {
       const exactClass = link.getAttribute("route-active-exact");
 
       if (exactClass) {
-        link.classList.toggle(exactClass, routeSnapshot.path === routePath);
+        exactClass.split(/\s+/).filter(Boolean).forEach(c => link.classList.toggle(c, routeSnapshot.path === routePath));
       } else if (activeClass && !link.hasAttribute("route-active-exact")) {
         // Prefix match on a path-segment boundary only, so "/foo" does not
         // light up "/foobar" (sibling paths sharing a textual prefix).
@@ -844,7 +844,7 @@ export function _createRouter() {
         const isActive = routePath === "/"
           ? cur === "/"
           : cur === routePath || cur.startsWith(routePath.replace(/\/$/, "") + "/");
-        link.classList.toggle(activeClass, isActive);
+        activeClass.split(/\s+/).filter(Boolean).forEach(c => link.classList.toggle(c, isActive));
       }
     });
 

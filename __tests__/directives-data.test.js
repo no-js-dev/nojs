@@ -2382,3 +2382,160 @@ describe('M6 — call directive sensitive header warning', () => {
     warnSpy.mockRestore();
   });
 });
+
+
+describe('NOJS-194 — GET defers initial fetch to microtask so computed values resolve first', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('initial fetch uses computed value in URL (not undefined)', async () => {
+    // Scenario: state defines base + type, computed derives slug, get uses {slug}.
+    // Priority order: state(0) → get(1) → computed(2).
+    // Without the microtask deferral, get fires doRequest before computed has
+    // evaluated, so {slug} resolves to undefined → wrong URL.
+    const fetchCalls = [];
+    global.fetch = jest.fn((url) => {
+      fetchCalls.push(url);
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ items: ['a', 'b'] })),
+      });
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ type: "fiction", prefix: "bk" }');
+
+    // computed is on the same element as get — both directives on one node.
+    // processElement sorts by priority: get(1) runs before computed(2).
+    const child = document.createElement('div');
+    child.setAttribute('computed', 'slug');
+    child.setAttribute('expr', 'prefix + "-" + type');
+    child.setAttribute('get', '/api/items/{slug}');
+    child.setAttribute('as', 'result');
+    parent.appendChild(child);
+
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Wait for microtask (deferred doRequest) + fetch resolution
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The fetch should have been called exactly once
+    expect(fetchCalls).toHaveLength(1);
+    // The URL must contain the computed value, not "undefined"
+    expect(fetchCalls[0]).toBe('/api/items/bk-fiction');
+    expect(child.__ctx.result).toEqual({ items: ['a', 'b'] });
+  });
+
+  test('initial fetch fires only once (not twice — wrong then correct)', async () => {
+    // Before the fix, the URL watcher would detect a change from undefined →
+    // computed value and trigger a second fetch. With the fix, only one fetch
+    // fires because computed is already resolved before the deferred doRequest.
+    const fetchCalls = [];
+    global.fetch = jest.fn((url) => {
+      fetchCalls.push(url);
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ ok: true })),
+      });
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ userId: 42 }');
+
+    // computed on the same element: processElement runs get(1) before computed(2).
+    const child = document.createElement('div');
+    child.setAttribute('computed', 'uid');
+    child.setAttribute('expr', 'userId');
+    child.setAttribute('get', '/users/{uid}');
+    child.setAttribute('as', 'data');
+    parent.appendChild(child);
+
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Wait long enough for any double-fetch to manifest
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Exactly one fetch, with the correct computed URL
+    expect(fetchCalls).toHaveLength(1);
+    expect(fetchCalls[0]).toBe('/users/42');
+  });
+
+  test('computed on sibling after get in DOM order — fetch uses resolved value', async () => {
+    // When computed is on a sibling that appears AFTER the get element in DOM
+    // order, processTree processes get first. The microtask deferral ensures
+    // the fetch waits for all siblings to be processed.
+    const fetchCalls = [];
+    global.fetch = jest.fn((url) => {
+      fetchCalls.push(url);
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify([])),
+      });
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ lang: "en" }');
+
+    // get element comes first in DOM order
+    const getEl = document.createElement('div');
+    getEl.setAttribute('get', '/i18n/{locale}');
+    getEl.setAttribute('as', 'translations');
+    parent.appendChild(getEl);
+
+    // computed element comes after — processTree processes it second
+    const computedEl = document.createElement('span');
+    computedEl.setAttribute('computed', 'locale');
+    computedEl.setAttribute('expr', 'lang');
+    parent.appendChild(computedEl);
+
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The first fetch must use the computed value
+    expect(fetchCalls[0]).toBe('/i18n/en');
+  });
+
+  test('disposed element does not fetch after microtask', async () => {
+    // The el.isConnected guard inside the microtask must prevent fetching
+    // when the element has been removed from the DOM between scheduling
+    // and execution.
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({})),
+    }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const child = document.createElement('div');
+    child.setAttribute('get', '/api/data');
+    child.setAttribute('as', 'data');
+    parent.appendChild(child);
+
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Remove the element before the microtask fires
+    child.remove();
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Fetch should NOT have been called because el.isConnected was false
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

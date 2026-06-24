@@ -380,7 +380,8 @@
     function _heroInitEditor() {
       var mount = document.getElementById('hero-editor-mount');
       if (!mount) { _heroEditorInstance = null; return; }
-      if (_heroEditorInstance) return;
+      if (_heroEditorInstance && mount.childElementCount > 0) return;
+      _heroEditorInstance = null;
       function _createEditor() {
         var preview = document.getElementById('hero-live-preview');
         _heroEditorInstance = NoJSEditor.create(mount, {

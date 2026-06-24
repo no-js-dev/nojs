@@ -1,9 +1,9 @@
 
 
-import { _stores, _refs, _config, _eventBus, _interceptors, setRouterInstance, _cache } from '../src/globals.js';
+import { _stores, _refs, _config, _eventBus, _interceptors, setRouterInstance, _cache, _storeWatchers, _routeWatchers, _i18nListeners, _notifyStoreWatchers, _notifyRouteWatchers } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { findContext } from '../src/dom.js';
-import { processTree } from '../src/registry.js';
+import { processTree, _disposeTree } from '../src/registry.js';
 import { _cacheSet } from '../src/fetch.js';
 import { _i18n } from '../src/i18n.js';
 
@@ -1584,6 +1584,276 @@ describe('reactive URL watching', () => {
     await flush(100);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('get directive global watcher subscriptions (NOJS-193)', () => {
+  beforeEach(httpSetup);
+  afterEach(() => {
+    httpTeardown();
+    // Clean up global watcher sets to prevent cross-test leaks
+    _storeWatchers.clear();
+    _routeWatchers.clear();
+    _i18nListeners.clear();
+  });
+
+  test('$store reference in get URL subscribes to store watchers and re-fetches on change', async () => {
+    _stores.auth = { token: 'abc123' };
+
+    global.fetch
+      .mockResolvedValueOnce(mockJsonResponse({ user: 'Alice' }))
+      .mockResolvedValueOnce(mockJsonResponse({ user: 'Bob' }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/me?token={$store.auth.token}');
+    el.setAttribute('as', 'profile');
+    el.innerHTML = '<p>Profile</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    // Initial fetch should have fired
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // A store watcher for the "auth" partition should be registered
+    const authSet = _storeWatchers.get('auth');
+    expect(authSet).toBeTruthy();
+    expect(authSet.size).toBeGreaterThanOrEqual(1);
+
+    // Simulate a store change by notifying watchers
+    _stores.auth.token = 'xyz789';
+    _notifyStoreWatchers('auth');
+    await flush(100);
+
+    // Should have re-fetched
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('$route reference in get URL subscribes to route watchers and re-fetches on change', async () => {
+    const mockRouter = { current: { params: { id: '1' }, path: '/users/1', query: {} } };
+    setRouterInstance(mockRouter);
+
+    global.fetch
+      .mockResolvedValueOnce(mockJsonResponse({ name: 'Alice' }))
+      .mockResolvedValueOnce(mockJsonResponse({ name: 'Bob' }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/users/{$route.params.id}');
+    el.setAttribute('as', 'user');
+    el.innerHTML = '<p>User</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // A route watcher should be registered
+    expect(_routeWatchers.size).toBeGreaterThanOrEqual(1);
+
+    // Simulate a route change: update the params, then notify watchers
+    mockRouter.current = { params: { id: '2' }, path: '/users/2', query: {} };
+    _notifyRouteWatchers();
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    setRouterInstance(null);
+  });
+
+  test('URL with both $store and $route subscribes to both watcher sets', async () => {
+    _stores.session = { id: 's1' };
+    const mockRouter = { current: { params: { type: 'posts' }, path: '/posts', query: {} } };
+    setRouterInstance(mockRouter);
+
+    global.fetch
+      .mockResolvedValueOnce(mockJsonResponse({ data: 'initial' }))
+      .mockResolvedValueOnce(mockJsonResponse({ data: 'after-store' }))
+      .mockResolvedValueOnce(mockJsonResponse({ data: 'after-route' }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/{$route.params.type}?sid={$store.session.id}');
+    el.setAttribute('as', 'result');
+    el.innerHTML = '<p>Result</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // Both watcher sets should have registrations
+    const sessionSet = _storeWatchers.get('session');
+    expect(sessionSet).toBeTruthy();
+    expect(sessionSet.size).toBeGreaterThanOrEqual(1);
+    expect(_routeWatchers.size).toBeGreaterThanOrEqual(1);
+
+    // Trigger store change: update data, then notify
+    _stores.session.id = 's2';
+    _notifyStoreWatchers('session');
+    await flush(100);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    // Trigger route change: update params, then notify
+    mockRouter.current = { params: { type: 'comments' }, path: '/comments', query: {} };
+    _notifyRouteWatchers();
+    await flush(100);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+
+    setRouterInstance(null);
+  });
+
+  test('$i18n reference in get URL subscribes to i18n listeners and re-fetches on change', async () => {
+    const originalLocale = _i18n.locale;
+    _i18n.locale = 'en';
+
+    global.fetch
+      .mockResolvedValueOnce(mockJsonResponse({ content: 'en' }))
+      .mockResolvedValueOnce(mockJsonResponse({ content: 'pt' }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/content?lang={$i18n.locale}');
+    el.setAttribute('as', 'content');
+    el.innerHTML = '<p>Content</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // An i18n listener should be registered
+    expect(_i18nListeners.size).toBeGreaterThanOrEqual(1);
+
+    // Simulate locale change: update locale, then notify listeners
+    _i18n.locale = 'pt';
+    for (const fn of [..._i18nListeners]) fn();
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    _i18n.locale = originalLocale;
+  });
+
+  test('disposing element unsubscribes store watchers', async () => {
+    _stores.auth = { token: 'abc' };
+
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/data?t={$store.auth.token}');
+    el.setAttribute('as', 'data');
+    el.innerHTML = '<p>Data</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    const authSet = _storeWatchers.get('auth');
+    expect(authSet).toBeTruthy();
+    const watcherCountBefore = authSet.size;
+
+    // Dispose the element tree
+    _disposeTree(el);
+
+    // The store watcher should have been removed
+    const authSetAfter = _storeWatchers.get('auth');
+    const watcherCountAfter = authSetAfter ? authSetAfter.size : 0;
+    expect(watcherCountAfter).toBeLessThan(watcherCountBefore);
+  });
+
+  test('disposing element unsubscribes route watchers', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/page/{$route.params.slug}');
+    el.setAttribute('as', 'page');
+    el.innerHTML = '<p>Page</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const routeWatcherCountBefore = _routeWatchers.size;
+    expect(routeWatcherCountBefore).toBeGreaterThanOrEqual(1);
+
+    // Dispose the element tree
+    _disposeTree(el);
+
+    expect(_routeWatchers.size).toBeLessThan(routeWatcherCountBefore);
+  });
+
+  test('disposing element unsubscribes i18n listeners', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/content/{$i18n.locale}');
+    el.setAttribute('as', 'content');
+    el.innerHTML = '<p>Content</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const i18nCountBefore = _i18nListeners.size;
+    expect(i18nCountBefore).toBeGreaterThanOrEqual(1);
+
+    // Dispose the element tree
+    _disposeTree(el);
+
+    expect(_i18nListeners.size).toBeLessThan(i18nCountBefore);
+  });
+
+  test('URL without $store/$route/$i18n does not register global watchers', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ items: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ page: 1 }');
+    const el = document.createElement('div');
+    el.setAttribute('get', '/api/items?page={page}');
+    el.setAttribute('as', 'items');
+    el.innerHTML = '<p>Items</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // No global watchers should be registered for plain context vars
+    expect(_storeWatchers.size).toBe(0);
+    expect(_routeWatchers.size).toBe(0);
+    // i18nListeners might have entries from other directive registrations,
+    // so we just verify no new ones were added by checking the count is 0
+    // (since we cleared in afterEach)
+    expect(_i18nListeners.size).toBe(0);
   });
 });
 

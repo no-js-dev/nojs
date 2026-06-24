@@ -24,7 +24,7 @@
   function _hl(escaped, passes) {
     var ph = [], n = 0;
     function mk(cls, text) {
-      var tok = '\x00' + (n++) + '\x00';
+      var tok = '\x00#' + (n++) + '#\x00';
       ph.push('<span class="hl-' + cls + '">' + text + '</span>');
       return tok;
     }
@@ -32,7 +32,7 @@
     for (var i = 0; i < passes.length; i++)
       r = r.replace(passes[i][0], passes[i][1](mk));
     for (var j = 0; j < ph.length; j++)
-      r = r.split('\x00' + j + '\x00').join(ph[j]);
+      r = r.split('\x00#' + j + '#\x00').join(ph[j]);
     return r;
   }
 

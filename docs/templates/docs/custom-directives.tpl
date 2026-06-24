@@ -1,11 +1,5 @@
 <!-- Custom Directives — from custom-directives.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.customDirectives.hero.badge"></span>
-  <h1 class="hero-title" t="docs.customDirectives.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.customDirectives.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- NoJS.directive() -->

@@ -1,66 +1,72 @@
 {
   "examples": {
     "hero": {
-      "badge": "Aprenda com Exemplos",
-      "title": "Exemplos",
-      "subtitle": "Padrões do mundo real que você vai realmente usar em produção — em HTML puro."
+      "title": "Vitrine de Exemplos",
+      "subtitle": "Veja como as diretivas do NoJS substituem o boilerplate e dão vida aos layouts usando apenas atributos HTML semânticos."
     },
-    "login": {
-      "badge": "Intermediário",
-      "title": "Login com JWT",
-      "desc": "Um fluxo completo de login: validação de formulário, POST para endpoint de autenticação, salvar o JWT em um store global e anexar automaticamente o token a cada requisição subsequente via interceptor de request.",
-      "signIn": "Entrar",
-      "previewHint": "Preencha ambos os campos para testar a pré-visualização interativa",
-      "signedIn": "Conectado!",
-      "signOut": "Sair",
-      "emailLabel": "E-mail",
-      "passwordLabel": "Senha"
+    "cat1": { "title": "Estado & Binding", "subtitle": "Gerenciamento de estado reativo com atualizações automáticas do DOM — sem wiring manual." },
+    "cat2": { "title": "Condicionais & Loops", "subtitle": "Controle a renderização com atributos declarativos. Exiba, oculte, itere e ramifique — tudo em HTML." },
+    "cat3": { "title": "Busca de Dados", "subtitle": "Verbos HTTP integrados com estados de carregamento, tratamento de erros e cache — zero boilerplate." },
+    "cat4": { "title": "Rotas & Templates", "subtitle": "Navegação client-side e composição de templates reutilizáveis sem etapa de build." },
+    "counter": {
+      "badge": "Interativo",
+      "name": "Contador Simples",
+      "desc": "Contador reativo local. Atualiza automaticamente quando as variáveis mudam. Pausa a execução e destaca estados de forma limpa."
     },
-    "dashboard": {
-      "badge": "Intermediário",
-      "title": "Rota Protegida & Validação de Token",
-      "desc": "Uma rota protegida pelo auth store, combinada com um <strong>interceptor de response</strong> que atua como um script de controle: a cada chamada de API, se o servidor retorna <code>401</code> ou <code>403</code>, o token é invalidado e o usuário é redirecionado para o login automaticamente — sem código extra na própria rota.",
-      "welcome": "Bem-vinda de volta, Jane",
-      "activeSession": "● Sessão ativa",
-      "requestsToday": "Requisições hoje",
-      "errorRate": "Taxa de erros",
-      "uptime": "Uptime",
-      "activeUsers": "Usuários ativos",
-      "interceptorNote": "Se qualquer requisição retornar <code>401</code> ou <code>403</code>, o interceptor limpa o token e redireciona para <code>/login</code> automaticamente."
+    "binding": {
+      "badge": "Bidirecional",
+      "name": "Input Binding ao Vivo",
+      "desc": "Vincule um input ao estado com <code>model</code> e renderize em outro lugar com <code>bind</code>. Mudanças propagam instantaneamente."
+    },
+    "computed": {
+      "badge": "Derivado",
+      "name": "Valores Computados",
+      "desc": "Defina valores derivados com <code>computed</code> e <code>expr</code>. Eles recalculam automaticamente quando as dependências mudam."
     },
     "search": {
-      "badge": "Iniciante",
-      "title": "Busca em Tempo Real",
-      "desc": "Um input de busca instantânea que dispara uma requisição GET com debounce a cada tecla digitada, renderizando resultados reativamente. Sem <code>addEventListener</code>, sem <code>setTimeout</code>, sem manipulação do DOM.",
-      "noResults": "Sem resultados"
+      "badge": "Loops & Filtros",
+      "name": "Lista de Busca Filtrada",
+      "desc": "Filtre itens de um array interativamente usando bindings bidirecionais de input (<code>model</code>) e loops (<code>foreach</code>)."
     },
-    "cart": {
-      "badge": "Intermediário",
-      "title": "Carrinho de Compras",
-      "desc": "Um store global compartilhado entre uma lista de produtos e um badge de carrinho — em diferentes partes da página. Quando um produto é adicionado, o badge e o resumo do carrinho atualizam simultaneamente, sem event bus ou componente compartilhado.",
-      "products": "Produtos",
-      "cartLabel": "Carrinho",
-      "total": "Total",
-      "addHint": "Adicione um produto para ver o carrinho"
+    "todo": {
+      "badge": "CRUD",
+      "name": "Lista de Tarefas",
+      "desc": "Adicione e remova itens com <code>foreach</code>, <code>on:click</code> e métodos de array. CRUD completo em HTML puro."
     },
-    "polling": {
-      "badge": "Iniciante",
-      "title": "Polling em Tempo Real",
-      "desc": "Um painel de status do servidor que atualiza automaticamente a cada 5 segundos usando o atributo <code>refresh</code>. Estilização condicional reage instantaneamente ao estado de saúde atual — sem <code>setInterval</code>, sem loop de <code>fetch</code>.",
-      "serverStatus": "Status do Servidor",
-      "cpu": "CPU",
-      "reqPerSec": "Req/s",
-      "errors": "Erros",
-      "lastResponse": "Último tempo de resposta",
-      "nextPoll": "Próximo refresh em",
-      "refreshNote": "Atualiza automaticamente via <code>refresh=\"5000\"</code>",
-      "onlineBadge": "Online"
+    "switchCase": {
+      "badge": "Ramificação",
+      "name": "Switch / Case",
+      "desc": "Renderize conteúdo diferente com base em um valor usando <code>switch</code>, <code>case</code> e <code>default</code> — como um switch nativo."
     },
-    "cta": {
-      "title": "Quer Mais Exemplos?",
-      "subtitle": "Confira a documentação completa para padrões avançados.",
-      "viewDocs": "Ver Documentação",
-      "github": "Repositório GitHub"
+    "fetch": {
+      "badge": "HTTP / Fetching",
+      "name": "API Fetcher com Skeleton",
+      "desc": "Busque e exiba dados de uma API. O elemento skeleton designado mantém o espaço do layout e desaparece automaticamente quando os dados chegam."
+    },
+    "formPost": {
+      "badge": "Formulários",
+      "name": "Envio de Formulário",
+      "desc": "Envie dados de formulário com <code>post</code> e <code>body</code>. Combine com <code>model</code> para campos reativos e validação inline."
+    },
+    "pagination": {
+      "badge": "Paginação",
+      "name": "Lista com Carregar Mais",
+      "desc": "Pagine resultados de API com <code>get-trigger</code>, <code>get-page</code> e <code>get-insert</code>. Anexe novos itens ao clicar."
+    },
+    "router": {
+      "badge": "SPA",
+      "name": "Roteador Básico",
+      "desc": "Defina rotas com <code>route</code> e renderize em <code>route-view</code>. Links ativos são destacados com <code>route-active</code>."
+    },
+    "templates": {
+      "badge": "Composição",
+      "name": "Templates Reutilizáveis",
+      "desc": "Componha UI com <code>use</code> e <code>&lt;slot&gt;</code>. Passe dados via <code>state</code> — como componentes, mas apenas templates HTML."
+    },
+    "dynamicStyles": {
+      "badge": "Estilização",
+      "name": "Classes & Estilos Dinâmicos",
+      "desc": "Alterne classes com <code>class-*</code> e defina estilos inline com <code>style-*</code>. Ambos reagem a mudanças de estado automaticamente."
     }
   }
 }

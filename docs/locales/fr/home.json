@@ -1,0 +1,67 @@
+{
+  "home": {
+    "hero": {
+      "headline1": "Construisez le Web.",
+      "headline2": "Pas",
+      "subtitle": "Le framework HTML-first pour construire des applications web rapides et interactives.",
+      "getStarted": "Commencer",
+      "github": "Voir sur GitHub"
+    },
+    "features": {
+      "title": "Conçu pour la Simplicité",
+      "subtitle": "NoJS remplace la surcharge des frameworks JavaScript modernes par des directives HTML natives qui gèrent l'état, le fetching et le routage.",
+      "f1Title": "Réactivité HTML-First",
+      "f1Desc": "Écrivez la logique réactive directement dans votre balisage avec des attributs comme <code>state</code>, <code>bind</code> et <code>foreach</code>. Pas de Virtual DOM ni d'étape de compilation.",
+      "f2Title": "HTTP Déclaratif",
+      "f2Desc": "Effectuez des appels <code>GET</code>, <code>POST</code>, <code>PUT</code> et <code>DELETE</code> directement via des attributs. Gérez les états de chargement, les skeletons et les erreurs dynamiquement.",
+      "f3Title": "Routage SPA",
+      "f3Desc": "Router côté client complet avec paramètres de route, query parameters, guards de route, layouts imbriqués et View Transitions natives.",
+      "f4Title": "Zéro Dépendance",
+      "f4Desc": "Un seul script autonome de moins de 30 Ko gzippé. Inclut la gestion d'état, la traduction i18n, la validation de formulaires et le drag-and-drop."
+    },
+    "directives": {
+      "title": "Directives Claires et Déclaratives",
+      "subtitle": "Exprimez la logique applicative directement dans les éléments. Des contextes réactifs à portée lexicale se propagent dans le DOM.",
+      "s1Badge": "Liaison de données",
+      "s1Name": "state & model",
+      "s1Desc": "Définissez des portées réactives avec <code>state=\"...\"</code>. Liez les champs en synchronisation bidirectionnelle avec <code>model</code> pour les inputs, textareas et menus select.",
+      "s2Badge": "Conditions",
+      "s2Name": "if & show",
+      "s2Desc": "Basculez des parties du DOM avec <code>if</code>/<code>else-if</code>/<code>else</code> (qui ajoute/supprime des éléments entièrement) ou <code>show</code>/<code>hide</code> (qui bascule les propriétés CSS de display).",
+      "s3Badge": "Boucles & Listes",
+      "s3Name": "foreach",
+      "s3Desc": "Affichez des listes facilement avec <code>foreach=\"item in list\"</code>. Fournit automatiquement des variables auxiliaires comme <code>$index</code>, <code>$first</code>, <code>$last</code>, <code>$even</code> et <code>$odd</code>."
+    },
+    "http": {
+      "title": "Data Fetching sans JS",
+      "subtitle": "Interrogez des APIs, cachez les réponses et gérez les loaders nativement via des propriétés déclaratives.",
+      "featureTitle": "URLs Réactives & Skeletons",
+      "featureDesc": "Les placeholders disparaissent automatiquement à l'arrivée des données. Tout segment d'URL ou query parameter contenant <code>{variable}</code> déclenche automatiquement un nouveau fetch à chaque mise à jour de cet état.",
+      "item1Title": "Prévenir le CLS",
+      "item1Desc": "Les nœuds <code>skeleton=\"...\"</code> pré-rendus occupent l'espace exact du layout avant la fin du chargement.",
+      "item2Title": "Support du cache",
+      "item2Desc": "Ajoutez <code>cached</code> pour stocker les réponses en mémoire, localStorage ou sessionStorage.",
+      "item3Title": "Auto-polling",
+      "item3Desc": "Ajoutez <code>refresh=\"30000\"</code> pour synchroniser les données du serveur toutes les 30 secondes.",
+      "previewTab": "Aperçu (Chargement)"
+    },
+    "getStarted": {
+      "title": "Premiers Pas",
+      "subtitle": "Deux étapes. Pas d'outils de build, pas de gestionnaire de paquets, pas de configuration.",
+      "step1Label": "Installez l'AI Skill",
+      "step1Badge": "Recommandé",
+      "step1Desc": "Ajoutez la <strong>NoJS Skill</strong> à votre agent de code IA. Elle gère le scaffolding, la configuration du CDN, la génération de composants et des conseils d'expert sur chaque directive.",
+      "step2Label": "Ajoutez le CDN",
+      "step2Desc": "Ou insérez la balise script directement dans votre HTML. NoJS s'initialise automatiquement au chargement du DOM et commence à traiter les directives immédiatement."
+    },
+    "manifesto": {
+      "kicker": "UN MANIFESTE",
+      "col1p1": "Quelque part entre la « pensée composant » et le « diffing du DOM virtuel », nous avons oublié que le navigateur comprend déjà le HTML. Il sait déjà mettre à jour le DOM. Il gère déjà les événements.",
+      "col1p2": "Nous avons empilé abstraction sur abstraction jusqu'à ce qu'un simple formulaire nécessite trois fichiers, un pipeline de build et un runtime de framework.",
+      "col2p1": "No.JS fait le pari inverse. Le navigateur n'est pas l'ennemi, c'est la plateforme. Le HTML n'est pas limité, il est sous-exploité. Les attributs ne sont pas primitifs, ils sont un DSL qui n'attend qu'à émerger.",
+      "col2p2": "Nous avons construit No.JS avec une conviction : si vous pouvez l'exprimer en HTML, vous devriez le faire.",
+      "col3p1": "Le résultat est un framework que vous pouvez apprendre en un après-midi et déployer en 30 secondes. Non pas parce que nous l'avons rendu simple, mais parce que le navigateur était déjà capable. Nous nous sommes juste écartés du chemin.",
+      "col3p2": "Ce n'est pas anti-JavaScript. C'est pro-HTML."
+    }
+  }
+}

@@ -1,11 +1,5 @@
 <!-- Animations — from animations.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.animations.hero.badge"></span>
-  <h1 class="hero-title" t="docs.animations.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.animations.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- animate -->
@@ -78,6 +72,31 @@
      <span class="hl-attr">animate-stagger</span>=<span class="hl-str">"50"</span><span class="hl-tag">&gt;</span>  <span class="hl-cmt">&lt;!-- 50ms delay between each item --&gt;</span>
   <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- View Transitions -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="animations-view-transitions" t="docs.animations.viewTransitions.title"></h2>
+    <p class="doc-text" t="docs.animations.viewTransitions.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;main</span> <span class="hl-attr">route-view</span> <span class="hl-attr">transition</span>=<span class="hl-str">"slide"</span><span class="hl-tag">&gt;&lt;/main&gt;</span></pre></div>
+
+    <h3 class="doc-subtitle" id="animations-view-transitions-config" t="docs.animations.viewTransitions.configTitle"></h3>
+    <div class="code-block"><pre>NoJS.config({ <span class="hl-attr">router</span>: { <span class="hl-attr">viewTransition</span>: <span class="hl-num">true</span> } });</pre></div>
+
+    <h3 class="doc-subtitle" id="animations-view-transitions-presets" t="docs.animations.viewTransitions.presetsTitle"></h3>
+    <table class="doc-table">
+      <thead><tr><th t="docs.animations.viewTransitions.colPreset"></th><th t="docs.animations.viewTransitions.colEffect"></th></tr></thead>
+      <tbody>
+        <tr><td><code>fade</code></td><td t="docs.animations.viewTransitions.presetFade"></td></tr>
+        <tr><td><code>slide-left</code></td><td t="docs.animations.viewTransitions.presetSlideLeft"></td></tr>
+        <tr><td><code>slide-right</code></td><td t="docs.animations.viewTransitions.presetSlideRight"></td></tr>
+        <tr><td><code>slide-up</code></td><td t="docs.animations.viewTransitions.presetSlideUp"></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p t="docs.animations.viewTransitions.routingCallout" t-html></p>
+    </div>
   </div>
 
   <!-- Built-in Animation Names -->

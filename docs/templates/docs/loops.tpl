@@ -1,11 +1,5 @@
 <!-- Loops — Iteration Directives -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.loops.hero.badge"></span>
-  <h1 class="hero-title" t="docs.loops.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.loops.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- foreach — primary -->
@@ -182,6 +176,86 @@
     <div class="callout">
       <p t="docs.loops.objectIteration.callout"></p>
     </div>
+  </div>
+
+  <!-- Key-Based Reconciliation -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="loops-key-reconciliation" t="docs.loops.keyReconciliation.title"></h2>
+    <p class="doc-text" t="docs.loops.keyReconciliation.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Without key: full rebuild on every change --&gt;</span>
+<span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"itemTpl"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
+
+<span class="hl-cmt">&lt;!-- With key: only changed items are added/removed --&gt;</span>
+<span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">key</span>=<span class="hl-str">"item.id"</span> <span class="hl-attr">template</span>=<span class="hl-str">"itemTpl"</span><span class="hl-tag">&gt;&lt;/li&gt;</span></pre></div>
+    <div class="callout">
+      <p t="docs.loops.keyReconciliation.callout"></p>
+    </div>
+
+    <h3 class="doc-subtitle" t="docs.loops.keyReconciliation.whenTitle"></h3>
+    <table class="doc-table">
+      <thead>
+        <tr><th t="docs.loops.keyReconciliation.colUseCase"></th><th t="docs.loops.keyReconciliation.colRecommendation"></th></tr>
+      </thead>
+      <tbody>
+        <tr><td t="docs.loops.keyReconciliation.staticLists"></td><td t="docs.loops.keyReconciliation.noKeyNeeded"></td></tr>
+        <tr><td t="docs.loops.keyReconciliation.smallLists"></td><td t="docs.loops.keyReconciliation.noKeyNeeded"></td></tr>
+        <tr><td t="docs.loops.keyReconciliation.largeLists"></td><td t="docs.loops.keyReconciliation.useKey"></td></tr>
+        <tr><td t="docs.loops.keyReconciliation.mutatingArrays"></td><td t="docs.loops.keyReconciliation.useKeyPreserve"></td></tr>
+        <tr><td t="docs.loops.keyReconciliation.embeddedInputs"></td><td t="docs.loops.keyReconciliation.useKeyReset"></td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="doc-subtitle" t="docs.loops.keyReconciliation.positionalTitle"></h3>
+    <p class="doc-text" t="docs.loops.keyReconciliation.positionalText"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"itemTpl"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-cmt">&lt;!-- $index, $odd, $first re-render correctly after sort or reorder --&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">class-striped</span>=<span class="hl-str">"$odd"</span> <span class="hl-attr">class-first</span>=<span class="hl-str">"$first"</span><span class="hl-tag">&gt;</span>
+    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"($index + 1) + '. ' + item.name"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+  <span class="hl-tag">&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
+  </div>
+
+  <!-- External Template in Loops -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="loops-external-template" t="docs.loops.externalTemplate.title"></h2>
+    <p class="doc-text" t="docs.loops.externalTemplate.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/posts"</span> <span class="hl-attr">as</span>=<span class="hl-str">"posts"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;ul&gt;</span>
+    <span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"post in posts"</span> <span class="hl-attr">key</span>=<span class="hl-str">"post.id"</span> <span class="hl-attr">template</span>=<span class="hl-str">"postCard"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
+  <span class="hl-tag">&lt;/ul&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"postCard"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;article&gt;</span>
+    <span class="hl-tag">&lt;h2</span> <span class="hl-attr">bind</span>=<span class="hl-str">"post.title"</span><span class="hl-tag">&gt;&lt;/h2&gt;</span>
+    <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"post.body"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
+    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"'#' + $index"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+  <span class="hl-tag">&lt;/article&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
+  </div>
+
+  <!-- Loop Animation Attributes -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="loops-animation-attrs" t="docs.loops.animationAttrs.title"></h2>
+    <p class="doc-text" t="docs.loops.animationAttrs.text"></p>
+    <table class="doc-table">
+      <thead>
+        <tr><th t="docs.loops.animationAttrs.col1"></th><th t="docs.loops.animationAttrs.col2"></th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>animate</code> / <code>animate-enter</code></td><td t="docs.loops.animationAttrs.enter"></td></tr>
+        <tr><td><code>animate-leave</code></td><td t="docs.loops.animationAttrs.leave"></td></tr>
+        <tr><td><code>animate-stagger</code></td><td t="docs.loops.animationAttrs.stagger"></td></tr>
+        <tr><td><code>animate-duration</code></td><td t="docs.loops.animationAttrs.duration"></td></tr>
+      </tbody>
+    </table>
+    <div class="code-block"><pre><span class="hl-tag">&lt;li</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span>
+    <span class="hl-attr">key</span>=<span class="hl-str">"item.id"</span>
+    <span class="hl-attr">animate-enter</span>=<span class="hl-str">"fade-in"</span>
+    <span class="hl-attr">animate-leave</span>=<span class="hl-str">"fade-out"</span>
+    <span class="hl-attr">animate-stagger</span>=<span class="hl-str">"50"</span>
+    <span class="hl-attr">animate-duration</span>=<span class="hl-str">"300"</span>
+    <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span></pre></div>
   </div>
 
 </div>

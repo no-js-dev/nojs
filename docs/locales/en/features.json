@@ -1,7 +1,6 @@
 {
   "features": {
     "hero": {
-      "badge": "Why No.JS?",
       "title": "Built for Modern Web Development",
       "subtitle": "Every feature designed to make HTML-first development powerful, fast, and enjoyable."
     },
@@ -9,32 +8,19 @@
       "badge": "Core Feature",
       "title": "Reactive State Management",
       "desc": "Declare state directly in HTML with state. Changes automatically propagate to all bound elements — no store setup, no reducers, no boilerplate.",
-      "h1": "Automatic dependency tracking",
-      "h2": "Nested object support",
-      "h3": "Computed properties",
-      "h4": "Cross-component state sharing"
+      "highlights": "Automatic dependency tracking, nested object support, computed properties, and cross-component state sharing."
     },
     "showcase2": {
       "badge": "Rendering",
       "title": "Declarative Rendering",
       "desc": "Use if, each, show, and bind to control what renders. No JSX, no template literals — just HTML attributes.",
-      "h1": "Conditional rendering with if",
-      "h2": "List rendering with each",
-      "h3": "Text interpolation with bind",
-      "h4": "Visibility toggle with show",
-      "item1": "Buy groceries",
-      "item2": "Take out trash",
-      "item3": "Fix the bug"
+      "highlights": "Conditional rendering with <code>if</code>, list rendering with <code>each</code>, text interpolation with <code>bind</code>, and visibility toggle with <code>show</code>."
     },
     "showcase3": {
       "badge": "Interactivity",
       "title": "Intuitive Event Handling",
       "desc": "Bind events with on:event syntax. Access state directly in handlers without this or callbacks.",
-      "h1": "Click, submit, input, and more",
-      "h2": "Direct state access in handlers",
-      "h3": "Event modifiers support",
-      "h4": "No wrapper functions needed",
-      "clickedLabel": "Clicked:"
+      "highlights": "Click, submit, input, and more. Direct state access in handlers with event modifier support — no wrapper functions needed."
     },
     "grid": {
       "title": "More Features",
@@ -68,9 +54,6 @@
       "title": "Ready to Build?",
       "subtitle": "Start using No.JS in under 30 seconds.",
       "button": "Get Started Now"
-    },
-    "showcase": {
-      "previewLabel": "▶  PREVIEW"
     }
   }
 }

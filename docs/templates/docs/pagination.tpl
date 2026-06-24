@@ -143,12 +143,6 @@
 }
 </style>
 
-<section class="hero-section">
-  <span class="badge" t="docs.pagination.hero.badge"></span>
-  <h1 class="hero-title" t="docs.pagination.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.pagination.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Quick Start -->

@@ -1,0 +1,372 @@
+/* NoJS Playground — Minimal-Class Dark Theme
+ *
+ * Sensible defaults for semantic HTML.
+ * Layout scopes via data-layout attribute.
+ *
+ *  1. Theme Variables
+ *  2. Reset & Scrollbar
+ *  3. Base Typography
+ *  4. Layout Scopes
+ *  5. Board Layout (Kanban)
+ *  6. Form Elements (generic)
+ */
+
+
+/* 1. Theme Variables ––––––––––––––––––––––––––––––––––– */
+
+:root {
+  color-scheme: dark;
+
+  --bg:           #0a0c10;
+  --surface:      #0d0f14;
+  --card:         #1a1d2e;
+  --card-hover:   #1e2133;
+
+  --border:       rgba(255,255,255,0.06);
+  --border-hover: rgba(255,255,255,0.1);
+  --border-dashed: rgba(255,255,255,0.1);
+
+  --text:         #e2e8f0;
+  --text-heading: #f1f5f9;
+  --text-sec:     #94a3b8;
+  --text-muted:   #64748b;
+  --text-dim:     #475569;
+
+  --accent:       #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-light: #38bdf8;
+  --accent-bg:    rgba(14,165,233,0.1);
+  --accent-bg3:   rgba(14,165,233,0.05);
+  --accent-bg4:   rgba(14,165,233,0.15);
+
+  --danger:       #f87171;
+  --danger-bg:    rgba(239,68,68,0.1);
+  --danger-bg2:   rgba(239,68,68,0.15);
+
+  --purple:       #c084fc;
+  --purple-bg:    rgba(168,85,247,0.15);
+  --orange:       #fb923c;
+  --orange-bg:    rgba(249,115,22,0.15);
+
+  --radius:       8px;
+  --radius-lg:    12px;
+  --radius-full:  9999px;
+}
+
+
+/* 2. Reset & Scrollbar –––––––––––––––––––––––––––––––– */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+
+/* 3. Base Typography –––––––––––––––––––––––––––––––––– */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.4;
+  margin: 0;
+}
+
+h1 { font-size: 18px; font-weight: 700; color: var(--text-heading); }
+h2 { font-size: 16px; font-weight: 700; color: var(--text-heading); margin: 0; }
+h3 { font-size: 14px; font-weight: 600; color: var(--text-heading); margin: 0; }
+h4 { font-size: 13px; font-weight: 600; color: var(--text-heading); }
+
+strong { font-weight: 600; color: var(--text); display: block; }
+small  { font-size: 12px; color: var(--text-muted); display: block; }
+time   { font-size: 11px; color: var(--text-muted); }
+p      { color: var(--text-sec); }
+
+a { color: #60a5fa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 0.9em; }
+pre  { overflow-x: auto; padding: 12px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); }
+hr   { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+
+input, select, textarea, button { color-scheme: dark; font-family: inherit; }
+
+
+/* 4. Layout Scopes –––––––––––––––––––––––––––––––––––– */
+
+[data-layout] { height: 100vh; }
+[data-layout="board"] { display: flex; flex-direction: column; }
+
+
+/* 5. Board Layout (Kanban) ––––––––––––––––––––––––––– */
+
+[data-layout="board"] > header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+[data-layout="board"] > header > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+[data-layout="board"] > header > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+[data-layout="board"] > header > button:hover {
+  border-color: rgba(14,165,233,0.5);
+  color: var(--accent-light);
+}
+
+[data-layout="board"] main {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  height: calc(100vh - 52px);
+  align-items: flex-start;
+}
+
+/* columns */
+[data-layout="board"] section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  min-width: 260px;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+[data-layout="board"] section > header {
+  padding: 12px 14px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+[data-layout="board"] section > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-layout="board"] section > header h2 { font-size: 14px; font-weight: 600; }
+
+[data-layout="board"] section > header span {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-sec);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.card-list {
+  padding: 0 8px 8px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-list.empty-zone {
+  min-height: 3rem;
+  border: 2px dashed var(--border-hover);
+  border-radius: var(--radius);
+}
+
+/* task card */
+[data-layout="board"] article {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+[data-layout="board"] article:hover {
+  border-color: var(--border-hover);
+  background: var(--card-hover);
+}
+
+[data-layout="board"] article.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+[data-layout="board"] article > h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  list-style: none;
+}
+
+.tags li {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.tags li.feat { background: var(--accent-bg4); color: var(--accent-light); }
+.tags li.bug  { background: var(--danger-bg2); color: var(--danger); }
+.tags li.docs { background: var(--purple-bg);  color: var(--purple); }
+.tags li.high { background: var(--orange-bg);  color: var(--orange); }
+
+/* card footer */
+[data-layout="board"] article > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+[data-layout="board"] article > footer > button {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  transition: all 0.15s ease;
+}
+
+[data-layout="board"] article > footer > button:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* column footer (add card) */
+[data-layout="board"] section > footer { padding: 8px; }
+
+[data-layout="board"] section > footer button {
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+[data-layout="board"] section > footer button:hover {
+  border-color: rgba(14,165,233,0.5);
+  color: var(--accent-light);
+  background: var(--accent-bg3);
+}
+
+[data-layout="board"] section > footer input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-dashed);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  margin-bottom: 6px;
+  outline: none;
+}
+
+[data-layout="board"] section > footer input:focus { border-color: var(--accent); }
+[data-layout="board"] section > footer input::placeholder { color: var(--text-dim); }
+
+.add-form-actions { display: flex; gap: 6px; }
+
+.add-btn {
+  padding: 6px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  width: auto;
+  transition: background 0.15s ease;
+}
+
+.add-btn:hover { background: var(--accent-hover); }
+
+.cancel-btn {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  width: auto;
+  transition: color 0.15s ease;
+}
+
+.cancel-btn:hover { color: #cbd5e1; }
+
+
+/* 6. Form Elements (generic) –––––––––––––––––––––––––– */
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+select,
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+}
+
+input::placeholder,
+textarea::placeholder { color: var(--text-dim); }
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+select:focus,
+textarea:focus { border-color: var(--accent); }
+
+textarea { resize: none; }
+select { cursor: pointer; }

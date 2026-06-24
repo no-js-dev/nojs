@@ -1,11 +1,5 @@
 <!-- State Management — from state-management.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.stateManagement.hero.badge"></span>
-  <h1 class="hero-title" t="docs.stateManagement.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.stateManagement.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- state -->
@@ -137,6 +131,20 @@
      <span class="hl-attr">persist</span>=<span class="hl-str">"sessionStorage"</span>
      <span class="hl-attr">persist-key</span>=<span class="hl-str">"cart"</span><span class="hl-tag">&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- persist-fields -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="state-persist-fields" t="docs.stateManagement.persistFields.title"></h2>
+    <p class="doc-text" t="docs.stateManagement.persistFields.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Only theme and sidebar are persisted — token never touches storage --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">state</span>=<span class="hl-str">"{ theme: 'dark', sidebar: true, token: '' }"</span>
+     <span class="hl-attr">persist</span>=<span class="hl-str">"localStorage"</span>
+     <span class="hl-attr">persist-key</span>=<span class="hl-str">"app-settings"</span>
+     <span class="hl-attr">persist-fields</span>=<span class="hl-str">"theme, sidebar"</span><span class="hl-tag">&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+    <p class="doc-text" t="docs.stateManagement.persistFields.text2"></p>
+    <div class="callout"><p t="docs.stateManagement.persistFields.callout"></p></div>
   </div>
 
   <!-- persist-schema -->

@@ -1,11 +1,5 @@
 <!-- i18n — from i18n.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.i18n.hero.badge"></span>
-  <h1 class="hero-title" t="docs.i18n.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.i18n.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Setup -->
@@ -125,6 +119,15 @@
 
 <span class="hl-cmt">&lt;!-- Current locale --&gt;</span>
 <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"$i18n.locale"</span><span class="hl-tag">&gt;&lt;/span&gt;</span></pre></div>
+  </div>
+
+  <!-- HTML Translations (t-html) -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="i18n-t-html" t="docs.i18n.tHtml.title"></h2>
+    <p class="doc-text" t="docs.i18n.tHtml.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Translation: "Read our &lt;a href='/terms'&gt;terms&lt;/a&gt;" --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">t</span>=<span class="hl-str">"legal.notice"</span> <span class="hl-attr">t-html</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
+    <div class="callout" t="docs.i18n.tHtml.callout"></div>
   </div>
 
   <!-- Number & Date Formatting -->

@@ -1,11 +1,5 @@
 <!-- Head Management — from head-management.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.headManagement.hero.badge"></span>
-  <h1 class="hero-title" t="docs.headManagement.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.headManagement.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Introduction -->

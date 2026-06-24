@@ -1,11 +1,5 @@
 <!-- Actions & Refs — from actions-refs.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.actionsRefs.hero.badge"></span>
-  <h1 class="hero-title" t="docs.actionsRefs.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.actionsRefs.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- call -->
@@ -42,6 +36,97 @@
         <span class="hl-attr">into</span>=<span class="hl-str">"currentUser"</span><span class="hl-tag">&gt;</span>
   Load Profile
 <span class="hl-tag">&lt;/button&gt;</span></pre></div>
+  </div>
+
+  <!-- Call Attributes -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-call-attrs" t="docs.actionsRefs.callAttrs.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.callAttrs.text"></p>
+    <table class="doc-table">
+      <thead><tr><th t="docs.actionsRefs.callAttrs.col1"></th><th t="docs.actionsRefs.callAttrs.col2"></th><th t="docs.actionsRefs.callAttrs.col3"></th></tr></thead>
+      <tbody>
+        <tr><td><code>call</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.call"></td></tr>
+        <tr><td><code>method</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.method"></td></tr>
+        <tr><td><code>body</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.body"></td></tr>
+        <tr><td><code>headers</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.headers"></td></tr>
+        <tr><td><code>as</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.as"></td></tr>
+        <tr><td><code>into</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.into"></td></tr>
+        <tr><td><code>loading</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.loading"></td></tr>
+        <tr><td><code>error</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.error"></td></tr>
+        <tr><td><code>success</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.success"></td></tr>
+        <tr><td><code>then</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.then"></td></tr>
+        <tr><td><code>redirect</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.redirect"></td></tr>
+        <tr><td><code>confirm</code></td><td><code>string</code></td><td t="docs.actionsRefs.callAttrs.confirm"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Loading Template -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-loading" t="docs.actionsRefs.loadingTpl.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.loadingTpl.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;button</span> <span class="hl-attr">call</span>=<span class="hl-str">"/api/deploy"</span>
+        <span class="hl-attr">method</span>=<span class="hl-str">"post"</span>
+        <span class="hl-attr">loading</span>=<span class="hl-str">"#deploySpinner"</span>
+        <span class="hl-attr">success</span>=<span class="hl-str">"#deployDone"</span><span class="hl-tag">&gt;</span>
+  🚀 Deploy
+<span class="hl-tag">&lt;/button&gt;</span>
+
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"deploySpinner"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;span</span> <span class="hl-attr">class</span>=<span class="hl-str">"spinner"</span><span class="hl-tag">&gt;&lt;/span&gt;</span> Deploying…
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
+  </div>
+
+  <!-- Custom Headers -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-headers" t="docs.actionsRefs.customHeaders.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.customHeaders.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;button</span> <span class="hl-attr">call</span>=<span class="hl-str">"/api/admin/clear-cache"</span>
+        <span class="hl-attr">method</span>=<span class="hl-str">"post"</span>
+        <span class="hl-attr">headers</span>=<span class="hl-str">'{"X-Admin-Token": "abc123"}'</span><span class="hl-tag">&gt;</span>
+  Clear Cache
+<span class="hl-tag">&lt;/button&gt;</span></pre></div>
+  </div>
+
+  <!-- Redirect After Success -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-redirect" t="docs.actionsRefs.redirectAfter.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.redirectAfter.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;button</span> <span class="hl-attr">call</span>=<span class="hl-str">"/api/onboarding/complete"</span>
+        <span class="hl-attr">method</span>=<span class="hl-str">"post"</span>
+        <span class="hl-attr">redirect</span>=<span class="hl-str">"/dashboard"</span><span class="hl-tag">&gt;</span>
+  Finish Setup →
+<span class="hl-tag">&lt;/button&gt;</span></pre></div>
+  </div>
+
+  <!-- Abort / SwitchMap -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-abort" t="docs.actionsRefs.abort.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.abort.text"></p>
+  </div>
+
+  <!-- Events -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-events" t="docs.actionsRefs.events.title"></h3>
+    <p class="doc-text" t="docs.actionsRefs.events.text"></p>
+    <table class="doc-table">
+      <thead><tr><th t="docs.actionsRefs.events.col1"></th><th t="docs.actionsRefs.events.col2"></th></tr></thead>
+      <tbody>
+        <tr><td><code>fetch:success</code></td><td t="docs.actionsRefs.events.fetchSuccess"></td></tr>
+        <tr><td><code>fetch:error</code></td><td t="docs.actionsRefs.events.fetchError"></td></tr>
+        <tr><td><code>fetch:end</code></td><td t="docs.actionsRefs.events.fetchEnd"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Request Lifecycle -->
+  <div class="doc-section">
+    <h3 class="doc-title" id="actions-refs-lifecycle" t="docs.actionsRefs.lifecycle.title"></h3>
+    <div class="code-block"><pre><span class="hl-cmt">click → [confirm?] → [loading] → [success | error]</span>
+<span class="hl-cmt">                                      ↓         ↓</span>
+<span class="hl-cmt">                                 render tpl   render tpl</span>
+<span class="hl-cmt">                                 exec `then`  log warning</span>
+<span class="hl-cmt">                                 `redirect`</span></pre></div>
   </div>
 
   <!-- trigger -->

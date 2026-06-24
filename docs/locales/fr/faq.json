@@ -1,12 +1,8 @@
 {
   "faq": {
     "hero": {
-      "badge": "FAQ",
       "title": "Questions Fréquentes",
       "subtitle": "Tout ce que vous devez savoir sur No.JS."
-    },
-    "search": {
-      "placeholder": "Rechercher dans la FAQ"
     },
     "sidebar": {
       "questions": "Questions",
@@ -94,12 +90,6 @@
         "question": "Est-il prêt pour la production ?",
         "answer": "Oui. 1 350+ tests unitaires, testé sur les navigateurs modernes. Ce site de documentation est entièrement construit avec No.JS."
       }
-    },
-    "cta": {
-      "title": "Encore des questions ?",
-      "subtitle": "Consultez la documentation ou rejoignez la communauté.",
-      "docs": "Voir la Documentation",
-      "discord": "Communauté Discord"
     }
   }
 }

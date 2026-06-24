@@ -1,11 +1,5 @@
 <!-- Data Fetching — from data-fetching.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.dataFetching.hero.badge"></span>
-  <h1 class="hero-title" t="docs.dataFetching.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.dataFetching.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Base URL -->
@@ -214,6 +208,172 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- URL Interpolation and Encoding -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="data-fetching-url-encoding" t="docs.dataFetching.urlEncoding.title"></h2>
+    <p class="doc-text" t="docs.dataFetching.urlEncoding.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Safe — query value, encoding is correct --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/search?q={query}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-cmt">&lt;!-- Safe — single-level path segment, no slashes --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/users/{user.id}/profile"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-cmt">&lt;!-- Broken — path contains "/", will become "%2F" --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/files/{path}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>  <span class="hl-cmt">&lt;!-- path = "reports/2026" --&gt;</span>
+
+<span class="hl-cmt">&lt;!-- Workaround — concatenate outside {} --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"'/files/' + path"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- Skeleton Placeholders -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="data-fetching-skeleton" t="docs.dataFetching.skeleton.title"></h2>
+    <p class="doc-text" t="docs.dataFetching.skeleton.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Skeleton lives in the DOM (SSG-friendly, no JS needed to render it) --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">id</span>=<span class="hl-str">"product-skeleton"</span> <span class="hl-attr">class</span>=<span class="hl-str">"skeleton-card"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"skeleton-line"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"skeleton-line short"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-cmt">&lt;!-- skeleton= points to the element's id (without #) --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/products/42"</span> <span class="hl-attr">as</span>=<span class="hl-str">"product"</span> <span class="hl-attr">skeleton</span>=<span class="hl-str">"product-skeleton"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;h1</span> <span class="hl-attr">bind</span>=<span class="hl-str">"product.name"</span><span class="hl-tag">&gt;&lt;/h1&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"product.description"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+
+    <p class="doc-text" t="docs.dataFetching.skeleton.hiddenWhen"></p>
+
+    <h3 class="doc-title" id="data-fetching-skeleton-vs-loading" t="docs.dataFetching.skeleton.combinedTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.skeleton.combinedText"></p>
+    <table class="doc-table">
+      <thead><tr><th></th><th><code>skeleton=</code></th><th><code>loading=</code></th></tr></thead>
+      <tbody>
+        <tr><td t="docs.dataFetching.skeleton.colContent"></td><td t="docs.dataFetching.skeleton.skeletonContent"></td><td t="docs.dataFetching.skeleton.loadingContent"></td></tr>
+        <tr><td t="docs.dataFetching.skeleton.colVisibility"></td><td t="docs.dataFetching.skeleton.skeletonVisibility"></td><td t="docs.dataFetching.skeleton.loadingVisibility"></td></tr>
+        <tr><td t="docs.dataFetching.skeleton.colCLS"></td><td t="docs.dataFetching.skeleton.skeletonCLS"></td><td t="docs.dataFetching.skeleton.loadingCLS"></td></tr>
+        <tr><td t="docs.dataFetching.skeleton.colSSG"></td><td t="docs.dataFetching.skeleton.skeletonSSG"></td><td t="docs.dataFetching.skeleton.loadingSSG"></td></tr>
+      </tbody>
+    </table>
+
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">id</span>=<span class="hl-str">"skeleton"</span> <span class="hl-attr">class</span>=<span class="hl-str">"skeleton-pulse"</span><span class="hl-tag">&gt;</span><span class="hl-cmt">&lt;!-- pre-rendered placeholder --&gt;</span><span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/feed"</span> <span class="hl-attr">as</span>=<span class="hl-str">"items"</span>
+     <span class="hl-attr">skeleton</span>=<span class="hl-str">"skeleton"</span>
+     <span class="hl-attr">loading</span>=<span class="hl-str">"#spinnerTpl"</span>
+     <span class="hl-attr">empty</span>=<span class="hl-str">"#emptyTpl"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">template</span>=<span class="hl-str">"feedItem"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-skeleton-visibility" t="docs.dataFetching.skeleton.visibilityTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.skeleton.visibilityText"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Correct: starts visible, No.JS hides after response --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">id</span>=<span class="hl-str">"skeleton"</span> <span class="hl-attr">class</span>=<span class="hl-str">"skeleton-pulse"</span><span class="hl-tag">&gt;</span>...placeholder...<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-cmt">&lt;!-- Incorrect: display:none in CSS conflicts with No.JS show/hide logic --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">id</span>=<span class="hl-str">"skeleton"</span> <span class="hl-attr">class</span>=<span class="hl-str">"hidden skeleton-pulse"</span><span class="hl-tag">&gt;</span>...placeholder...<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- Pagination & Infinite Scroll -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="data-fetching-pagination" t="docs.dataFetching.pagination.title"></h2>
+    <p class="doc-text" t="docs.dataFetching.pagination.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/posts?page={page}&amp;limit=10"</span>
+     <span class="hl-attr">as</span>=<span class="hl-str">"posts"</span>
+     <span class="hl-attr">get-trigger</span>=<span class="hl-str">"scroll"</span>
+     <span class="hl-attr">get-insert</span>=<span class="hl-str">"append"</span>
+     <span class="hl-attr">get-page</span>=<span class="hl-str">"1"</span>
+     <span class="hl-attr">get-threshold</span>=<span class="hl-str">"300px"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"post in posts"</span> <span class="hl-attr">key</span>=<span class="hl-str">"post.id"</span><span class="hl-tag">&gt;</span>
+    <span class="hl-tag">&lt;h3</span> <span class="hl-attr">bind</span>=<span class="hl-str">"post.title"</span><span class="hl-tag">&gt;&lt;/h3&gt;</span>
+  <span class="hl-tag">&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+    <p class="doc-text" t="docs.dataFetching.pagination.seeAlso"></p>
+  </div>
+
+  <!-- Interceptors -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="data-fetching-interceptors" t="docs.dataFetching.interceptors.title"></h2>
+    <p class="doc-text" t="docs.dataFetching.interceptors.text"></p>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-basic" t="docs.dataFetching.interceptors.basicTitle"></h3>
+    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-cmt">// Add a header to every request</span>
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">options</span>) =&gt; {
+    options.headers[<span class="hl-str">'X-Request-ID'</span>] = crypto.<span class="hl-fn">randomUUID</span>();
+    <span class="hl-kw">return</span> options;
+  });
+
+  <span class="hl-cmt">// Handle 401 responses globally</span>
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'response'</span>, (<span class="hl-attr">response</span>, <span class="hl-attr">url</span>) =&gt; {
+    <span class="hl-kw">if</span> (response.status === <span class="hl-num">401</span>) {
+      NoJS.store.auth.user = <span class="hl-kw">null</span>;
+      NoJS.<span class="hl-fn">notify</span>();
+      NoJS.router.<span class="hl-fn">push</span>(<span class="hl-str">'/login'</span>);
+      <span class="hl-kw">throw new</span> <span class="hl-fn">Error</span>(<span class="hl-str">'Unauthorized'</span>);
+    }
+    <span class="hl-kw">return</span> response;
+  });
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-async" t="docs.dataFetching.interceptors.asyncTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.interceptors.asyncText"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, <span class="hl-kw">async</span> (<span class="hl-attr">url</span>, <span class="hl-attr">options</span>) =&gt; {
+    <span class="hl-kw">const</span> token = <span class="hl-kw">await</span> <span class="hl-fn">refreshTokenIfExpired</span>();
+    options.headers[<span class="hl-str">'Authorization'</span>] = <span class="hl-str">'Bearer '</span> + token;
+    <span class="hl-kw">return</span> options;
+  });
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-cancel" t="docs.dataFetching.interceptors.cancelTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.interceptors.cancelText"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">opts</span>) =&gt; {
+    <span class="hl-kw">if</span> (!navigator.onLine) {
+      <span class="hl-kw">return</span> { [NoJS.CANCEL]: <span class="hl-kw">true</span> };
+    }
+    <span class="hl-kw">return</span> opts;
+  });
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-respond" t="docs.dataFetching.interceptors.respondTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.interceptors.respondText"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-kw">const</span> cache = <span class="hl-kw">new</span> <span class="hl-fn">Map</span>();
+
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">opts</span>) =&gt; {
+    <span class="hl-kw">if</span> (opts.method === <span class="hl-str">'GET'</span> &amp;&amp; cache.<span class="hl-fn">has</span>(url)) {
+      <span class="hl-kw">return</span> { [NoJS.RESPOND]: cache.<span class="hl-fn">get</span>(url) };
+    }
+    <span class="hl-kw">return</span> opts;
+  });
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-replace" t="docs.dataFetching.interceptors.replaceTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.interceptors.replaceText"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
+  <span class="hl-fn">NoJS</span>.<span class="hl-fn">interceptor</span>(<span class="hl-str">'response'</span>, (<span class="hl-attr">response</span>, <span class="hl-attr">url</span>) =&gt; {
+    <span class="hl-kw">if</span> (url.<span class="hl-fn">includes</span>(<span class="hl-str">'/users'</span>)) {
+      <span class="hl-kw">return</span> { [NoJS.REPLACE]: { users: [], normalized: <span class="hl-kw">true</span> } };
+    }
+    <span class="hl-kw">return</span> response;
+  });
+<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-redaction" t="docs.dataFetching.interceptors.redactionTitle"></h3>
+    <p class="doc-text" t="docs.dataFetching.interceptors.redactionText"></p>
+
+    <h3 class="doc-title" id="data-fetching-interceptors-sentinels" t="docs.dataFetching.interceptors.sentinelTitle"></h3>
+    <table class="doc-table">
+      <thead><tr><th t="docs.dataFetching.interceptors.colSentinel"></th><th t="docs.dataFetching.interceptors.colType"></th><th t="docs.dataFetching.interceptors.colEffect"></th></tr></thead>
+      <tbody>
+        <tr><td><code>NoJS.CANCEL</code></td><td t="docs.dataFetching.interceptors.typeRequest"></td><td t="docs.dataFetching.interceptors.cancelEffect"></td></tr>
+        <tr><td><code>NoJS.RESPOND</code></td><td t="docs.dataFetching.interceptors.typeRequest"></td><td t="docs.dataFetching.interceptors.respondEffect"></td></tr>
+        <tr><td><code>NoJS.REPLACE</code></td><td t="docs.dataFetching.interceptors.typeResponse"></td><td t="docs.dataFetching.interceptors.replaceEffect"></td></tr>
+      </tbody>
+    </table>
   </div>
 
 </div>

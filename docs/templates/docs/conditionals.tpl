@@ -1,11 +1,5 @@
 <!-- Conditionals — from conditionals.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.conditionals.hero.badge"></span>
-  <h1 class="hero-title" t="docs.conditionals.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.conditionals.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- if/then/else -->
@@ -23,7 +17,13 @@
      <span class="hl-attr">then</span>=<span class="hl-str">"adminPanel"</span>
      <span class="hl-attr">else</span>=<span class="hl-str">"userPanel"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 
+<span class="hl-cmt">&lt;!-- Negation --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">if</span>=<span class="hl-str">"!user.isLoggedIn"</span>
+     <span class="hl-attr">then</span>=<span class="hl-str">"loginPrompt"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+
 <span class="hl-cmt">&lt;!-- Complex expressions --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">if</span>=<span class="hl-str">"user.role === 'admin' &amp;&amp; user.verified"</span>
+     <span class="hl-attr">then</span>=<span class="hl-str">"adminTpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">if</span>=<span class="hl-str">"cart.items.length > 0"</span>
      <span class="hl-attr">then</span>=<span class="hl-str">"cartTpl"</span>
      <span class="hl-attr">else</span>=<span class="hl-str">"emptyCartTpl"</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
@@ -101,6 +101,20 @@
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">case</span>=<span class="hl-str">"'editor','writer'"</span>    <span class="hl-attr">then</span>=<span class="hl-str">"editorPanel"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">default</span>                     <span class="hl-attr">then</span>=<span class="hl-str">"viewerPanel"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
+  </div>
+
+  <!-- else on loop elements -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="conditionals-else-on-loops" t="docs.conditionals.elseOnLoops.title"></h2>
+    <p class="doc-text" t="docs.conditionals.elseOnLoops.text"></p>
+    <div class="code-block"><pre><span class="hl-tag">&lt;article</span> <span class="hl-attr">foreach</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">else</span>=<span class="hl-str">"noItems"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;h2</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item.title"</span><span class="hl-tag">&gt;&lt;/h2&gt;</span>
+<span class="hl-tag">&lt;/article&gt;</span>
+
+<span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"noItems"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;p&gt;</span>No items found.<span class="hl-tag">&lt;/p&gt;</span>
+<span class="hl-tag">&lt;/template&gt;</span></pre></div>
+    <div class="callout" t="docs.conditionals.elseOnLoops.callout"></div>
   </div>
 
 </div>

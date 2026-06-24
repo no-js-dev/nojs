@@ -2,7 +2,6 @@
   "docs": {
     "gettingStarted": {
       "hero": {
-        "badge": "Primeros Pasos",
         "title": "Documentación",
         "subtitle": "Todo lo que necesitas para construir aplicaciones web reactivas con No.JS"
       },
@@ -15,9 +14,7 @@
         "title": "Instalación",
         "cdnSubtitle": "CDN (recomendado)",
         "selfHostedSubtitle": "Auto-alojado",
-        "selfHostedText": "Descarga dist/iife/no.js e inclúyelo con una etiqueta <script>. Es un solo archivo.",
-        "npmSubtitle": "npm / ESM",
-        "npmText": "Al usar npm, debes llamar a NoJS.init() manualmente después de que el DOM esté listo. El script CDN lo hace automáticamente."
+        "selfHostedText": "Descarga dist/iife/no.js e inclúyelo con una etiqueta <script>. Es un solo archivo."
       },
       "quickStart": {
         "title": "Inicio Rápido",
@@ -56,11 +53,6 @@
       }
     },
     "cheatsheet": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Hoja de Referencia de Directivas",
-        "subtitle": "Referencia completa de cada directiva de No.JS"
-      },
       "data": {
         "title": "Datos",
         "col1": "Directiva",
@@ -285,11 +277,6 @@
       }
     },
     "stateManagement": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Gestión de Estado",
-        "subtitle": "Estado local, stores globales, propiedades computadas y watchers"
-      },
       "state": {
         "title": "state — Estado Local",
         "text": "Crea un contexto reactivo con ámbito en el elemento y sus hijos.",
@@ -334,6 +321,12 @@
         "text": "Cuando JavaScript externo muta una store vía NoJS.store, llame a NoJS.notify() para actualizar todos los bindings del DOM.",
         "callout": "Solo es necesario al mutar NoJS.store desde JavaScript puro — fuera de expresiones HTML. Las mutaciones dentro de on:click o bind se manejan automáticamente."
       },
+      "persistFields": {
+        "title": "persist-fields — Persistencia Selectiva",
+        "text": "Usa persist-fields para controlar exactamente qué campos se guardan y restauran. Los campos no listados nunca se escriben en el almacenamiento, lo cual es útil para mantener valores sensibles (tokens, passwords) fuera de localStorage/sessionStorage.",
+        "text2": "persist-fields acepta una lista de nombres de campos separados por coma. Los espacios alrededor de cada nombre se eliminan, por lo que \"theme, sidebar\" y \"theme,sidebar\" son equivalentes.",
+        "callout": "Omite persist-fields para persistir todos los campos. Cuando está presente, solo los campos listados se guardan — todos los demás campos usan sus valores iniciales al restaurar."
+      },
       "persistSchema": {
         "title": "persist-schema — Validación de Schema",
         "text": "Al restaurar estado persistido, persist-schema valida que las claves restauradas coincidan con la forma del estado inicial. Las claves no presentes en el estado inicial se descartan. Esto previene que datos obsoletos o corruptos rompan tu app tras cambios en el schema."
@@ -345,19 +338,16 @@
       }
     },
     "dataBinding": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Enlace de Datos",
-        "subtitle": "Enlace de datos unidireccional y bidireccional con bind y model"
-      },
       "bind": {
         "title": "bind — Contenido de Texto",
-        "text": "Reemplaza el textContent del elemento con la expresión evaluada."
+        "text": "Reemplaza el textContent del elemento con la expresión evaluada.",
+        "filtersNote": "Las expresiones dentro de <code>bind</code> soportan <a href=\"/docs/filters\">pipe filters</a> para transformar valores en la presentación:"
       },
       "bindHtml": {
         "title": "bind-html — HTML Interno",
         "text": "Renderiza la expresión evaluada como HTML. Sanitizado por defecto.",
-        "callout": "⚠️ Usa sanitización estructural integrada basada en DOMParser: elimina etiquetas <script>, bloquea manejadores de eventos on* y elimina URIs javascript:."
+        "callout": "⚠️ Usa sanitización estructural integrada basada en DOMParser: elimina etiquetas <script>, bloquea manejadores de eventos on* y elimina URIs javascript:.",
+        "sanitizerTip": "<strong>Consejo:</strong> Puedes proporcionar un sanitizer personalizado via <code>NoJS.config({ sanitizeHtml: fn })</code>. Consulta <a href=\"/docs/configuration#security\">Configuración &rarr; Seguridad</a> para más detalles."
       },
       "bindAttr": {
         "title": "bind-* — Enlace de Atributos",
@@ -375,7 +365,8 @@
       },
       "radioSelect": {
         "title": "Radio Buttons & Multi-Select",
-        "text": "model funciona con todos los tipos de input. Para radio buttons, vincula el mismo nombre de model a un grupo — el valor se actualiza al value del radio seleccionado. Para multi-select, el valor del model se convierte en un array de opciones seleccionadas."
+        "text": "model funciona con todos los tipos de input. Para radio buttons, vincula el mismo nombre de model a un grupo — el valor se actualiza al value del radio seleccionado.",
+        "multiSelectWarning": "⚠️ El binding de model con multi-select aún no está implementado. La directiva model actual usa el.value para elementos <select> y no lee selectedOptions ni maneja el atributo multiple. Un model respaldado por un array devolverá un único valor string, no un array de valores seleccionados. Esta funcionalidad está planificada para una versión futura. El ejemplo a continuación se muestra solo como referencia."
       },
       "commonMistakes": {
         "title": "Errores Comunes",
@@ -386,22 +377,24 @@
       }
     },
     "events": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Manejo de Eventos",
-        "subtitle": "Enlaza eventos del DOM directamente en HTML con la sintaxis on:event"
-      },
       "handlers": {
         "title": "on:* — Manejadores de Eventos",
         "text": "Enlaza cualquier evento del DOM directamente en HTML. Accede al estado y las variables de contexto directamente en la expresión del manejador.",
         "preview": "Vista previa",
-        "inputPlaceholder": "Escribe algo...",
         "youTyped": "Escribiste:",
         "countLabel": "Conteo:"
       },
       "modifiers": {
         "title": "Modificadores de Eventos",
-        "text": "Los modificadores permiten controlar el comportamiento del evento directamente en el atributo:"
+        "text": "Los modificadores permiten controlar el comportamiento del evento directamente en el atributo:",
+        "col1": "Modificador",
+        "col2": "Descripción",
+        "prevent": "Llama a preventDefault() en el evento",
+        "stop": "Llama a stopPropagation() en el evento",
+        "once": "El handler se ejecuta solo una vez y luego se elimina automáticamente",
+        "self": "Solo se ejecuta si event.target es el propio elemento",
+        "debounce": "Aplica debounce a la ejecución del handler (añade el retardo en ms, ej. .debounce.300)",
+        "throttle": "Aplica throttle a la ejecución del handler (añade el intervalo en ms, ej. .throttle.200)"
       },
       "eventAndEl": {
         "title": "$event y $el",
@@ -439,11 +432,6 @@
       }
     },
     "conditionals": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Condicionales",
-        "subtitle": "Controla el renderizado con if, show, hide y switch"
-      },
       "ifThenElse": {
         "title": "if / then / else",
         "text": "Renderiza elementos o plantillas condicionalmente basándose en expresiones.",
@@ -476,14 +464,14 @@
         "text": "Renderiza una de varias plantillas basándose en un valor.",
         "inlineSubtitle": "Contenido Inline (sin plantillas)",
         "multiValueSubtitle": "Caso con Múltiples Valores"
+      },
+      "elseOnLoops": {
+        "title": "else en Elementos de Bucle",
+        "text": "Las directivas de bucle (foreach, each, for) soportan else=\"templateId\" para referenciar un <template> como fallback de estado vacío. El template se renderiza cuando la lista está vacía ([]) o es null/undefined/no-array — por ejemplo, el estado de la API antes del primer fetch.",
+        "callout": "El patrón de else hermano para bucles fue eliminado en v1.15. Usa else=\"templateId\" en el propio elemento del bucle. Consulta la página de Bucles para más detalles."
       }
     },
     "loops": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Directivas de Iteración",
-        "subtitle": "Itera sobre arrays con foreach, each y for"
-      },
       "foreach": {
         "title": "foreach — Iterar Sobre Arrays",
         "text": "La directiva de iteración primaria. Coloca foreach=\"item in array\" en el elemento que se repite (self-repeating pattern). El elemento y sus hijos se clonan para cada item. each y for son aliases con comportamiento idéntico.",
@@ -546,14 +534,42 @@
         "text": "Coloca else=\"templateId\" directamente en el elemento del loop. Cuando la lista está vacía ([]) o es null/undefined, el contenido del template referenciado reemplaza la salida del loop.",
         "callout": "El atributo else en el elemento del loop se activa para arrays vacíos ([]) y también para fuentes null, undefined o que no son arrays — por ejemplo, el estado de la API antes del primer fetch.",
         "breaking": "Breaking change (v1.15): el patrón de else hermano para loops ha sido eliminado. Usa else=\"templateId\" en el propio elemento del loop."
+      },
+      "keyReconciliation": {
+        "title": "Reconciliación Basada en Claves",
+        "text": "Por defecto, cuando el array de origen cambia, la directiva de loop realiza una reconstrucción completa — todos los nodos hijos se eliminan y recrean desde cero. Al proporcionar un atributo key, la directiva cambia a reconciliación basada en claves: los nodos DOM existentes para items cuya clave aún está en la lista se reutilizan y su contexto se actualiza en su lugar. Solo los items que realmente aparecieron o desaparecieron generan mutaciones del DOM.",
+        "callout": "El valor de key debe ser único y estable entre renderizados — típicamente un ID de base de datos o UUID. Usar una clave no única (ej: $index) anula la reconciliación ya que los items siempre parecerán coincidir.",
+        "whenTitle": "Cuándo usar key",
+        "colUseCase": "Caso de uso",
+        "colRecommendation": "Recomendación",
+        "staticLists": "Listas estáticas, renderizadas una vez",
+        "smallLists": "Listas con < ~10 items, actualizaciones infrecuentes",
+        "noKeyNeeded": "No se necesita key",
+        "largeLists": "Listas grandes (50+ items) con actualizaciones frecuentes",
+        "useKey": "Usar key",
+        "mutatingArrays": "push / splice / sort en arrays reactivos",
+        "useKeyPreserve": "Usar key para preservar foco, scroll y estado de inputs",
+        "embeddedInputs": "Items con inputs embebidos, video, canvas",
+        "useKeyReset": "Usar key — la reconstrucción completa resetea el estado",
+        "positionalTitle": "Metadatos posicionales después de reordenar",
+        "positionalText": "Después de un reordenamiento (ej: sort), el reconciliador llama a $notify() en el contexto de cada clon retenido. Esto propaga los valores actualizados de $index, $first, $last, $even, $odd y $count a todos los watchers hijos, incluyendo bindings anidados y expresiones de clase que dependen de la posición."
+      },
+      "externalTemplate": {
+        "title": "Plantilla Externa",
+        "text": "Usa el atributo template para referenciar un elemento <template> por ID. El elemento del loop sigue siendo la unidad repetida — los clones de la plantilla referenciada se insertan como hermanos."
+      },
+      "animationAttrs": {
+        "title": "Atributos de Animación en Bucles",
+        "text": "Todas las directivas de bucle (foreach, each, for) soportan animaciones de entrada/salida y escalonamiento mediante estos atributos:",
+        "col1": "Atributo",
+        "col2": "Descripción",
+        "enter": "Clase CSS añadida a cada nuevo item al insertarse",
+        "leave": "Clase CSS añadida a los items antes de su eliminación",
+        "stagger": "Retraso (ms) entre la animación de entrada de cada item",
+        "duration": "Duración máxima (ms) antes de forzar la finalización de la animación de salida"
       }
     },
     "templates": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Plantillas",
-        "subtitle": "Fragmentos HTML reutilizables con variables, slots y carga remota"
-      },
       "basic": {
         "title": "Plantilla Básica",
         "text": "Las plantillas son fragmentos HTML reutilizables que nunca se renderizan directamente. Se clonan cuando son referenciadas por directivas como then, else, template, loading, error, etc."
@@ -604,11 +620,6 @@
       }
     },
     "dataFetching": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Obtención de Datos",
-        "subtitle": "Solicitudes HTTP declarativas — solo agrega atributos a elementos HTML"
-      },
       "baseUrl": {
         "title": "URL Base",
         "text1": "Se establece una vez en cualquier elemento ancestro. Todos los get, post, etc. descendientes resuelven URLs relativas contra ella.",
@@ -673,14 +684,63 @@
       "liveDemo": {
         "title": "Demo en Vivo — Obtención de API",
         "label": "Resultado"
+      },
+      "urlEncoding": {
+        "title": "Interpolación de URL y Encoding",
+        "text": "Desde v1.10, todos los valores <code>{placeholder}</code> en atributos de URL se pasan automáticamente por <code>encodeURIComponent()</code>. Esto es seguro para parámetros de query y segmentos de ruta de un solo nivel, pero romperá rutas de múltiples segmentos que contengan barras — porque <code>/</code> se convierte en <code>%2F</code>. Si tu valor contiene separadores de ruta, concatena fuera de las llaves."
+      },
+      "skeleton": {
+        "title": "Skeleton Placeholders",
+        "text": "El atributo <code>skeleton</code> referencia un elemento DOM (por su <code>id</code>) que actúa como placeholder mientras la solicitud está en curso. A diferencia de <code>loading=</code>, el elemento skeleton existe en el markup de la página desde el inicio — haciéndolo compatible con SSG y previniendo el Cumulative Layout Shift (CLS).",
+        "hiddenWhen": "El skeleton se oculta automáticamente (mediante <code>display: none</code>) cuando la respuesta llega, cuando se usa un método distinto a <code>GET</code>, o cuando la respuesta se sirve desde caché.",
+        "combinedTitle": "Skeleton vs. Loading",
+        "combinedText": "Puedes usar ambos <code>skeleton=</code> y <code>loading=</code> en el mismo elemento. El skeleton se muestra primero (pre-renderizado), luego se oculta cuando la solicitud comienza y el template de loading toma el control hasta que la respuesta llega.",
+        "colContent": "Contenido",
+        "skeletonContent": "Elemento HTML pre-renderizado en la página",
+        "loadingContent": "Template inyectado por No.JS en tiempo de ejecución",
+        "colVisibility": "Visibilidad",
+        "skeletonVisibility": "Visible al cargar la página, oculto después de la respuesta",
+        "loadingVisibility": "Mostrado durante la solicitud, oculto después de la respuesta",
+        "colCLS": "Prevención de CLS",
+        "skeletonCLS": "Sí — ocupa espacio antes de que JS se ejecute",
+        "loadingCLS": "No — inyectado después de que JS se inicializa",
+        "colSSG": "Compatible con SSG",
+        "skeletonSSG": "Sí",
+        "loadingSSG": "No",
+        "visibilityTitle": "Reglas de Visibilidad",
+        "visibilityText": "No ocultes el skeleton con CSS (<code>display: none</code> o una clase <code>.hidden</code>). No.JS gestiona la visibilidad alternando el estilo inline <code>display</code> — si tu CSS oculta el elemento primero, la lógica de mostrar/ocultar entrará en conflicto."
+      },
+      "pagination": {
+        "title": "Paginación & Scroll Infinito",
+        "text": "No.JS soporta paginación declarativa y scroll infinito a través de un conjunto de atributos <code>get-*</code>. Añade <code>get-trigger=\"scroll\"</code> para scroll infinito o <code>get-trigger=\"click\"</code> para un botón de cargar más, combinado con <code>get-insert=\"append\"</code> para acumular resultados.",
+        "seeAlso": "Para la referencia completa de paginación — incluyendo paginación basada en cursor, etiquetas de trigger personalizadas, configuración de threshold, y el evento <code>fetch:end</code> — consulta la página dedicada de <a href=\"#pagination\">Paginación & Scroll Infinito</a>."
+      },
+      "interceptors": {
+        "title": "Interceptors",
+        "text": "Los interceptors te permiten engancharte en cada solicitud y respuesta HTTP realizada por No.JS. Úsalos para headers de autenticación, manejo global de errores, caché, logging o cancelación de solicitudes.",
+        "basicTitle": "Uso Básico",
+        "asyncTitle": "Interceptors Asíncronos",
+        "asyncText": "Los interceptors pueden ser <code>async</code>. No.JS espera a cada interceptor con un timeout de 5 segundos — si el interceptor no se resuelve a tiempo, se omite y se registra una advertencia.",
+        "cancelTitle": "Cancelar Solicitudes (NoJS.CANCEL)",
+        "cancelText": "Retorna un objeto con <code>[NoJS.CANCEL]: true</code> desde un interceptor de solicitud para abortar la solicitud completamente. La directiva fetch trata esto como un <code>AbortError</code>.",
+        "respondTitle": "Respuestas Short-Circuit (NoJS.RESPOND)",
+        "respondText": "Retorna un objeto con <code>[NoJS.RESPOND]: data</code> desde un interceptor de solicitud para omitir la llamada HTTP y usar los datos proporcionados directamente como la respuesta.",
+        "replaceTitle": "Reemplazar Cuerpo de Respuesta (NoJS.REPLACE)",
+        "replaceText": "Retorna un objeto con <code>[NoJS.REPLACE]: data</code> desde un interceptor de respuesta para reemplazar el cuerpo parseado con tus propios datos.",
+        "redactionTitle": "Redacción de Headers",
+        "redactionText": "Por seguridad, No.JS redacta automáticamente headers sensibles (<code>Authorization</code>, <code>X-API-Key</code>, <code>Cookie</code>, etc.) en logs de debug y al pasar datos de solicitud a interceptors no confiables. Solo los interceptors registrados con <code>{ trusted: true }</code> reciben los headers originales.",
+        "sentinelTitle": "Resumen de Sentinels",
+        "colSentinel": "Sentinel",
+        "colType": "Tipo de Interceptor",
+        "colEffect": "Efecto",
+        "typeRequest": "Request",
+        "typeResponse": "Response",
+        "cancelEffect": "Aborta la solicitud (lanza AbortError)",
+        "respondEffect": "Omite la llamada HTTP, retorna los datos proporcionados como respuesta",
+        "replaceEffect": "Reemplaza el cuerpo de respuesta parseado con los datos proporcionados"
       }
     },
     "routing": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Enrutamiento",
-        "subtitle": "Navegación SPA completa del lado del cliente sin recargas de página"
-      },
       "definition": {
         "title": "Definición de Ruta"
       },
@@ -800,7 +860,28 @@
         "colDesc": "Descripción",
         "pageTitleDesc": "Establece <code>document.title</code> cuando la ruta está activa",
         "pageDescriptionDesc": "Establece el contenido de <code>&lt;meta name=\"description\"&gt;</code> cuando la ruta está activa",
+        "pageCanonicalDesc": "Establece el href de <code>&lt;link rel=\"canonical\"&gt;</code> cuando la ruta está activa",
+        "pageJsonldDesc": "Inyecta un bloque <code>&lt;script type=\"application/ld+json\"&gt;</code> en el head del documento",
         "callout": "Para gestión completa del head (URLs canónicas, JSON-LD, Open Graph), consulta la guía de <a href=\"/docs/head-management\">Gestión del Head</a>."
+      },
+      "deployment": {
+        "title": "Despliegue",
+        "text": "No.JS usa la API History de HTML5 por defecto (<code>useHash: false</code>), lo que produce URLs limpias como <code>/about</code> y <code>/products/42</code>. Estas URLs requieren que tu servidor sirva el mismo <code>index.html</code> para <strong>cada ruta</strong> — de lo contrario, una visita directa a una ruta del lado del cliente devuelve un 404 del servidor.",
+        "nginxTitle": "nginx",
+        "apacheTitle": "Apache",
+        "apacheText": "Crea un archivo <code>.htaccess</code> en la raíz de tu aplicación:",
+        "netlifyTitle": "Netlify",
+        "netlifyText": "Crea un archivo <code>_redirects</code> en tu directorio de publicación:",
+        "netlifyToml": "O usa <code>netlify.toml</code>:",
+        "vercelTitle": "Vercel",
+        "vercelText": "Crea un <code>vercel.json</code> en la raíz de tu proyecto:",
+        "cloudflareTitle": "Cloudflare Pages",
+        "cloudflareText": "Crea un archivo <code>_redirects</code> en el directorio de salida de tu proyecto:",
+        "firebaseTitle": "Firebase Hosting",
+        "firebaseText": "En <code>firebase.json</code>:",
+        "hashTitle": "Modo Hash",
+        "hashText": "Si no puedes configurar tu servidor (ej. hosting de archivos estáticos sin reglas de reescritura), usa el modo hash. El modo hash produce URLs como <code>https://tu-sitio.com/#/about</code> — funcionan en cualquier servidor sin configuración, pero <strong>los motores de búsqueda no indexan fragmentos hash como páginas separadas</strong>.",
+        "hashCallout": "No.JS emite una advertencia en consola cuando se detecta <code>useHash: true</code>. Para suprimirla, agrega <code>suppressHashWarning: true</code> a tu configuración del router."
       },
       "focusBehavior": {
         "title": "Accesibilidad — Gestión de Foco",
@@ -848,11 +929,6 @@
       }
     },
     "formsValidation": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Formularios y Validación",
-        "subtitle": "Envío de formularios declarativo con reglas de validación integradas y personalizadas"
-      },
       "submission": {
         "title": "Envío Declarativo de Formularios"
       },
@@ -915,11 +991,8 @@
         "title": "Demo en Vivo — Formulario de Registro",
         "label": "Resultado",
         "usernameLabel": "Usuario",
-        "usernamePlaceholder": "Elige un nombre de usuario",
         "emailLabel": "Correo electrónico",
-        "emailPlaceholder": "tu@ejemplo.com",
         "ageLabel": "Edad",
-        "agePlaceholder": "Tu edad",
         "roleLabel": "Rol",
         "roleDefault": "Selecciona un rol",
         "roleDev": "Desarrollador",
@@ -931,11 +1004,6 @@
       }
     },
     "styling": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Estilos Dinámicos",
-        "subtitle": "Alterna clases CSS y estilos inline reactivamente"
-      },
       "classToggle": {
         "title": "class-* — Alternar Clases",
         "text": "Añade o elimina clases CSS reactivamente basándose en expresiones. Usa class-{name} para toggles individuales o class-map para múltiples clases.",
@@ -966,11 +1034,6 @@
       }
     },
     "animations": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Animaciones y Transiciones",
-        "subtitle": "Animaciones declarativas de entrada/salida y transiciones CSS"
-      },
       "enterLeave": {
         "title": "animate — Animaciones de Entrada/Salida",
         "attrsTitle": "Atributos de Animación",
@@ -1004,6 +1067,19 @@
         "title": "Nombres de Animación Integrados",
         "text": "No.JS incluye estas animaciones CSS:"
       },
+      "viewTransitions": {
+        "title": "View Transitions (Navegacion de Rutas)",
+        "text": "No.JS utiliza la View Transition API para transiciones suaves entre rutas. Agrega el atributo transition a tu outlet route-view para habilitar navegacion animada de forma nativa en el navegador.",
+        "configTitle": "Configuracion",
+        "presetsTitle": "Presets Integrados",
+        "colPreset": "Preset",
+        "colEffect": "Efecto",
+        "presetFade": "Fundido cruzado entre contenido antiguo y nuevo",
+        "presetSlideLeft": "Desliza el contenido hacia la izquierda",
+        "presetSlideRight": "Desliza el contenido hacia la derecha",
+        "presetSlideUp": "Desliza el contenido hacia arriba",
+        "routingCallout": "View Transitions ofrecen mas opciones incluyendo CSS personalizado, accesibilidad y detalles de configuracion. Consulta la seccion <a href=\"/docs/routing#view-transitions\">Routing — View Transitions</a> para la referencia completa."
+      },
       "liveDemo": {
         "title": "Demo en Vivo — Animación con Alternado",
         "label": "Resultado",
@@ -1017,11 +1093,6 @@
       }
     },
     "dnd": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Drag and Drop",
-        "subtitle": "Arrastrar, soltar, listas ordenables y selección múltiple declarativos — cero JavaScript"
-      },
       "drag": {
         "title": "drag — Hacer un Elemento Arrastrable",
         "preview": "Vista previa",
@@ -1183,11 +1254,6 @@
       }
     },
     "filters": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Filtros y Pipes",
-        "subtitle": "Transforma valores en expresiones bind usando la sintaxis de pipe |"
-      },
       "text": {
         "title": "Filtros de Texto"
       },
@@ -1259,11 +1325,6 @@
       }
     },
     "i18n": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Internacionalización (i18n)",
-        "subtitle": "Soporte multiidioma con traducciones, pluralización y formato según la localidad"
-      },
       "setup": {
         "title": "Configuración"
       },
@@ -1283,6 +1344,11 @@
       },
       "usage": {
         "title": "Uso"
+      },
+      "tHtml": {
+        "title": "Traducciones HTML (t-html)",
+        "text": "Agrega el atributo t-html para renderizar un valor de traducción como HTML sanitizado en lugar de texto plano. Esto es útil cuando las traducciones contienen markup como enlaces, texto en negrita u otro HTML inline.",
+        "callout": "La salida HTML se pasa por _sanitizeHtml() para prevenir XSS. Las etiquetas y atributos peligrosos se eliminan automáticamente."
       },
       "formatting": {
         "title": "Formato de Números y Fechas"
@@ -1304,13 +1370,55 @@
       }
     },
     "actionsRefs": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Acciones y Refs",
-        "subtitle": "Dispara llamadas a API, emite eventos personalizados y referencia elementos del DOM"
-      },
       "call": {
         "title": "call — Disparar Solicitudes de API desde Cualquier Elemento"
+      },
+      "callAttrs": {
+        "title": "Atributos",
+        "text": "call soporta los mismos atributos que las directivas HTTP (get, post, etc.), incluyendo plantillas de carga, redirección, encabezados personalizados y más.",
+        "col1": "Atributo",
+        "col2": "Tipo",
+        "col3": "Descripción",
+        "call": "URL para la solicitud (soporta interpolación {variable})",
+        "method": "Método HTTP. Por defecto: \"get\"",
+        "body": "Cuerpo de la solicitud (cadena JSON con interpolación {variable})",
+        "headers": "Cadena JSON de encabezados de solicitud adicionales",
+        "as": "Nombre para asignar la respuesta en el contexto. Por defecto: \"data\"",
+        "into": "Escribir la respuesta en un store global nombrado",
+        "loading": "ID de plantilla a mostrar durante la solicitud (ej. \"#spinner\")",
+        "error": "ID de plantilla a renderizar en caso de error. Recibe el error vía var",
+        "success": "ID de plantilla a renderizar en caso de éxito. Recibe la respuesta vía var",
+        "then": "Expresión a ejecutar en caso de éxito (ej. \"items.push(result)\")",
+        "redirect": "Ruta SPA a la que navegar en caso de éxito",
+        "confirm": "Mostrar diálogo confirm() del navegador antes de enviar"
+      },
+      "loadingTpl": {
+        "title": "Plantilla de Carga",
+        "text": "Muestra un indicador de carga mientras la solicitud está en curso. El elemento se deshabilita durante la carga y su contenido se restaura después."
+      },
+      "customHeaders": {
+        "title": "Encabezados Personalizados",
+        "text": "Pasa encabezados por solicitud como una cadena JSON:"
+      },
+      "redirectAfter": {
+        "title": "Redirección Después del Éxito",
+        "text": "Navega a una ruta SPA después de una solicitud exitosa:"
+      },
+      "abort": {
+        "title": "Abort / SwitchMap",
+        "text": "Los clics rápidos abortan automáticamente la solicitud anterior en curso antes de iniciar una nueva, previniendo condiciones de carrera. Solo se aplica el resultado del último clic."
+      },
+      "events": {
+        "title": "Eventos",
+        "text": "call emite eventos en el bus de eventos de NoJS (escucha con NoJS.on(...)):",
+        "col1": "Evento",
+        "col2": "Descripción",
+        "fetchSuccess": "{ url, data } en respuesta exitosa",
+        "fetchError": "{ url, error } en caso de fallo",
+        "fetchEnd": "{ url } cuando la solicitud se completa (éxito o fallo)"
+      },
+      "lifecycle": {
+        "title": "Ciclo de Vida de la Solicitud"
       },
       "trigger": {
         "title": "trigger — Emitir Eventos Personalizados"
@@ -1332,11 +1440,6 @@
       }
     },
     "customDirectives": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Directivas Personalizadas",
-        "subtitle": "Extiende No.JS con tus propios comportamientos basados en atributos"
-      },
       "directive": {
         "title": "NoJS.directive()"
       },
@@ -1368,11 +1471,6 @@
       }
     },
     "errorHandling": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Manejo de Errores",
-        "subtitle": "Plantillas de error por elemento, lógica de reintentos y manejadores de error globales"
-      },
       "perElement": {
         "title": "Manejo de Errores Por Elemento"
       },
@@ -1380,7 +1478,11 @@
         "title": "Manejador de Errores Global"
       },
       "errorBoundary": {
-        "title": "error-boundary — Capturar Errores en el Subárbol"
+        "title": "error-boundary — Capturar Errores en el Subárbol",
+        "text": "Envuelve una sección de tu página con error-boundary para capturar errores que ocurren dentro de su subárbol. El boundary intercepta dos tipos de errores:",
+        "type1": "Errores de evaluación de expresión — emitidos como CustomEvents nojs:error que se propagan desde expresiones de handlers (ej: una expresión bind o on:click lanza un error).",
+        "type2": "Errores de nivel window — errores JS no capturados y fallos de carga de recursos (ej: un <img> 404) que se originan en elementos dentro del boundary.",
+        "httpCaveat": "error-boundary NO captura solicitudes HTTP fallidas hechas por las directivas get/post/put/patch/delete. Usa el atributo error en el elemento fetch para manejo de errores por solicitud, o NoJS.on('fetch:error', ...) para manejo global de errores HTTP."
       },
       "retry": {
         "title": "Comportamiento de Retry",
@@ -1394,15 +1496,14 @@
       },
       "expressionErrors": {
         "title": "Errores de Expresión",
-        "text": "Cuando una expresión falla al evaluar (ej: acceder a una propiedad de undefined), No.JS captura el error, registra un warning via _warn() y retorna undefined. Una expresión rota nunca derrumba la página completa."
+        "text": "Cuando una expresión falla al evaluar (ej: acceder a una propiedad de undefined), No.JS captura el error, registra un warning via _warn() y retorna undefined. Una expresión rota nunca derrumba la página completa.",
+        "callout": "Activa NoJS.config({ debug: true }) para ver advertencias detalladas de evaluación de expresiones en la consola."
+      },
+      "commonMistakes": {
+        "title": "Errores Comunes"
       }
     },
     "configuration": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Configuración y Seguridad",
-        "subtitle": "Configuración global, interceptores de solicitudes y mejores prácticas de seguridad"
-      },
       "globalSettings": {
         "title": "Configuración Global"
       },
@@ -1431,7 +1532,35 @@
         "nsText": "Array de identificadores de namespace para precargar en init(). Cada namespace corresponde a un archivo JSON separado por idioma. Namespaces adicionales pueden cargarse bajo demanda vía la directiva i18n-ns o el atributo de ruta.",
         "cacheTitle": "i18n.cache",
         "cacheType": "Tipo: boolean | Por defecto: true",
-        "cacheText": "Controla si los archivos JSON de localización obtenidos se almacenan en un Map en memoria después de la primera solicitud. Establece false durante el desarrollo para recarga en caliente de archivos de traducción."
+        "cacheText": "Controla si los archivos JSON de localización obtenidos se almacenan en un Map en memoria después de la primera solicitud. Establece false durante el desarrollo para recarga en caliente de archivos de traducción.",
+        "i18nPersistTitle": "i18n.persist",
+        "i18nPersistType": "Tipo: boolean | Por defecto: false",
+        "i18nPersistText": "Cuando es true, el idioma seleccionado actualmente se persiste en localStorage. En la siguiente carga de página, el idioma persistido se restaura automáticamente — útil para recordar la preferencia de idioma del usuario entre sesiones.",
+        "exprCacheSizeTitle": "exprCacheSize",
+        "exprCacheSizeType": "Tipo: number | Por defecto: 500",
+        "exprCacheSizeText": "Número máximo de entradas en cada una de las dos cachés LRU internas usadas por el evaluador de expresiones: una para ASTs de expresiones analizadas y otra para ASTs de sentencias analizadas. Cuando se alcanza el límite, la entrada menos usada recientemente se expulsa. Auméntalo si tu aplicación evalúa muchas expresiones de plantilla distintas; redúcelo para disminuir la presión de memoria en entornos limitados.",
+        "maxEventListenersTitle": "maxEventListeners",
+        "maxEventListenersType": "Tipo: number | Por defecto: 100",
+        "maxEventListenersText": "Número máximo de funciones listener permitidas por nombre de evento en el bus de eventos de NoJS (NoJS.on()). Cuando se alcanza el límite, se registra una advertencia MaxListenersExceeded y el nuevo listener se registra de todos modos. Aumenta este valor si tu aplicación usa legítimamente muchos listeners para el mismo evento.",
+        "appIdTitle": "appId",
+        "appIdType": "Tipo: string | Por defecto: \"\"",
+        "appIdText": "Un identificador de aplicación opcional. Se expone a través del panel de devtools para distinguir entre múltiples instancias o entornos de NoJS.",
+        "sanitizeHtmlTitle": "sanitizeHtml",
+        "sanitizeHtmlType": "Tipo: function | null | Por defecto: null",
+        "sanitizeHtmlText": "Hook de sanitización personalizado para contenido bind-html. Cuando se establece como función, el sanitizador integrado se omite por completo y se usa la función proporcionada para todo el contenido bind-html. Útil para integrar sanitizadores externos como DOMPurify.",
+        "dangerouslyDisableSanitizeTitle": "dangerouslyDisableSanitize",
+        "dangerouslyDisableSanitizeType": "Tipo: boolean | Por defecto: false",
+        "dangerouslyDisableSanitizeText": "Cuando es true, TODA la sanitización del contenido bind-html se omite. Esto no se recomienda — expone tu aplicación a ataques XSS. Usa sanitizeHtml para proporcionar un sanitizador personalizado en su lugar.",
+        "sanitizeLockCallout": "Las claves de configuración sanitize, dangerouslyDisableSanitize y sanitizeHtml se bloquean después de que init() se completa. Llamar a NoJS.config() después de la inicialización no cambiará estos valores — esto previene que plugins o scripts de ejecución tardía debiliten la postura de seguridad.",
+        "suppressHashWarningTitle": "router.suppressHashWarning",
+        "suppressHashWarningType": "Tipo: boolean | Por defecto: false",
+        "suppressHashWarningText": "Cuando se usa el modo history (useHash: false), NoJS registra una advertencia en consola si detecta un fragmento hash en la URL que parece una ruta. Establece esto a true para suprimir esa advertencia.",
+        "focusBehaviorTitle": "router.focusBehavior",
+        "focusBehaviorType": "Tipo: string | Por defecto: \"none\"",
+        "focusBehaviorText": "Controla la gestión del foco después de la navegación de ruta. Cuando se establece a 'auto', NoJS mueve el foco a un elemento predecible dentro del nuevo contenido de ruta (autofocus, h1, tabindex, o el outlet mismo). Establece a 'none' para deshabilitar.",
+        "viewTransitionTitle": "router.viewTransition",
+        "viewTransitionType": "Tipo: boolean | Por defecto: true",
+        "viewTransitionText": "Controla si las transiciones de ruta usan la API View Transition. Cuando es true (por defecto), los cambios de ruta se animan nativamente por el navegador usando presets integrados (slide, fade, scale, none). Establece a false para volver al sistema de transición basado en clases."
       },
       "apiProperties": {
         "title": "Propiedades de API",
@@ -1455,11 +1584,6 @@
       }
     },
     "plugins": {
-      "hero": {
-        "badge": "Referencia de API",
-        "title": "Plugins",
-        "subtitle": "Extiende No.JS con paquetes reutilizables — analíticas, autenticación, feature flags y más"
-      },
       "use": {
         "title": "NoJS.use()",
         "text": "Registra un plugin antes o después de NoJS.init(). Si la app ya está inicializada, el hook init del plugin se ejecuta inmediatamente.",
@@ -1569,11 +1693,6 @@
       }
     },
     "headManagement": {
-      "hero": {
-        "badge": "Guías",
-        "title": "Gestión del Head",
-        "subtitle": "Gestiona el título del documento, meta description, URL canónica y JSON-LD desde cualquier elemento"
-      },
       "intro": {
         "text": "No.JS te permite controlar los metadatos del <head> de forma declarativa desde cualquier parte de tu markup. Usa elementos ocultos con atributos page-title, page-description, page-canonical y page-jsonld — se evalúan de forma reactiva y actualizan el head del documento automáticamente.",
         "routingTip": "Para gestión del head a nivel de ruta, también puedes usar <code>page-title</code> y <code>page-description</code> directamente en etiquetas <code>&lt;template route=\"...\"&gt;</code>. Consulta <a href=\"/docs/routing#route-head-attributes\">Atributos Head en Rutas</a>."
@@ -1602,7 +1721,7 @@
         "title": "page-jsonld",
         "text": "Inyecta un bloque <script type=\"application/ld+json\"> en el head del documento. El texto interno del elemento se usa como payload JSON-LD.",
         "scriptNote": "El contenido se inserta tal cual — asegúrate de que sea JSON válido. Usa interpolación <code>{variable}</code> para inyectar valores dinámicos.",
-        "marker": "La etiqueta script generada se marca con <code>data-nojs-jsonld</code> para poder identificarla y limpiarla al desmontar.",
+        "marker": "La etiqueta script generada se marca con <code>data-nojs</code> para poder identificarla y limpiarla al desmontar.",
         "fullExampleTitle": "Ejemplo Completo de Página de Producto"
       },
       "notes": {
@@ -1616,11 +1735,6 @@
       }
     },
     "pagination": {
-      "hero": {
-        "badge": "Guía",
-        "title": "Paginación y Triggers",
-        "subtitle": "Infinite scroll declarativo, botones de load more, lazy loading y paginación basada en cursor — todo con atributos HTML."
-      },
       "quickStart": {
         "title": "Inicio Rápido",
         "text": "Añade get-trigger y get-insert a cualquier directiva get para habilitar la paginación. Aquí tienes un ejemplo mínimo de infinite scroll:",
@@ -1677,8 +1791,7 @@
         "liveFeed": {
           "title": "Live Feed (Prepend)",
           "desc": "El nuevo contenido se inserta en la parte superior de la lista, simulando un feed en vivo o un ticker de noticias.",
-          "label": "Resultado en Vivo",
-          "loadNewer": "Cargar Más Recientes"
+          "label": "Resultado en Vivo"
         }
       },
       "matrix": {

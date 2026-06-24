@@ -1,13 +1,11 @@
 {
   "shell": {
-    "flag": "🇮🇹",
     "header": {
       "home": "Pagina iniziale",
       "features": "Funzionalità",
       "examples": "Esempi",
       "docs": "Documentazione",
       "faq": "FAQ",
-      "getStarted": "Inizia Ora",
       "playground": "Playground",
       "tools": "Altro",
       "toolsLsp": "NoJS LSP",
@@ -15,17 +13,21 @@
       "toolsSkill": "NoJS Skill",
       "toolsSkillDesc": "Riferimento AI agent",
       "toolsElements": "NoJS Elements",
-      "toolsElementsDesc": "Drag, drop e validazione"
+      "toolsElementsDesc": "Drag, drop e validazione",
+      "discord": "Discord",
+      "github": "GitHub"
     },
     "footer": {
       "desc": "Il framework reattivo HTML-first",
-      "license": "2026 No.JS - Licenza MIT"
+      "license": "<a href=\"https://github.com/no-js-dev/nojs/blob/main/LICENSE\" class=\"footer-link\" target=\"_blank\" rel=\"noopener noreferrer\">Licenza MIT</a>",
+      "nav": "Navigazione",
+      "tools": "Ecosistema",
+      "community": "Comunità",
+      "poweredBy": "Realizzato con"
     },
     "sidebar": {
       "gettingStarted": "Per Iniziare",
       "introduction": "Introduzione",
-      "quickStart": "Avvio Rapido",
-      "coreConcepts": "Concetti Fondamentali",
       "apiReference": "Riferimento API",
       "directives": "Direttive",
       "actionsRefs": "Azioni & Refs",
@@ -49,41 +51,11 @@
       "animations": "Animazioni",
       "filters": "Filtri",
       "i18n": "i18n",
-      "plugins": "Plugin",
-      "onThisPage": "In Questa Pagina"
-    },
-    "langSwitcher": {
-      "en": "EN",
-      "es": "ES",
-      "pt": "PT",
-      "it": "IT",
-      "fr": "FR"
+      "plugins": "Plugin"
     },
     "demo": {
       "welcome": "Benvenuto in No.JS",
-      "greeting": "Ciao, {name}!",
-      "items": "{count} elemento | {count} elementi",
-      "nav": {
-        "home": "Pagina iniziale",
-        "docs": "Documentazione",
-        "examples": "Esempi"
-      },
-      "actions": {
-        "save": "Salva",
-        "cancel": "Annulla",
-        "delete": "Elimina"
-      },
-      "fruits": {
-        "apple": "Mela",
-        "banana": "Banana",
-        "cherry": "Ciliegia"
-      },
-      "messages": {
-        "success": "Operazione completata con successo!",
-        "error": "Qualcosa è andato storto.",
-        "empty": "Nessun elemento trovato.",
-        "confirm": "Sei sicuro di voler {action}?"
-      }
+      "greeting": "Ciao, {name}!"
     }
   }
 }

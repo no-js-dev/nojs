@@ -1,7 +1,6 @@
 {
   "features": {
     "hero": {
-      "badge": "Por que No.JS?",
       "title": "Feito para o Desenvolvimento Web Moderno",
       "subtitle": "Cada recurso projetado para tornar o desenvolvimento HTML-first poderoso, rápido e agradável."
     },
@@ -9,32 +8,19 @@
       "badge": "Recurso Principal",
       "title": "Gerenciamento de Estado Reativo",
       "desc": "Declare o estado diretamente no HTML com state. Mudanças se propagam automaticamente para todos os elementos vinculados — sem configuração de store, sem reducers, sem boilerplate.",
-      "h1": "Rastreamento automático de dependências",
-      "h2": "Suporte a objetos aninhados",
-      "h3": "Propriedades computadas",
-      "h4": "Compartilhamento de estado entre componentes"
+      "highlights": "Rastreamento automático de dependências, suporte a objetos aninhados, propriedades computadas e compartilhamento de estado entre componentes."
     },
     "showcase2": {
       "badge": "Renderização",
       "title": "Renderização Declarativa",
       "desc": "Use if, each, show e bind para controlar o que renderiza. Sem JSX, sem template literals — apenas atributos HTML.",
-      "h1": "Renderização condicional com if",
-      "h2": "Renderização de listas com each",
-      "h3": "Interpolação de texto com bind",
-      "h4": "Alternância de visibilidade com show",
-      "item1": "Comprar mantimentos",
-      "item2": "Tirar o lixo",
-      "item3": "Corrigir o bug"
+      "highlights": "Renderização condicional com <code>if</code>, renderização de listas com <code>each</code>, interpolação de texto com <code>bind</code> e alternância de visibilidade com <code>show</code>."
     },
     "showcase3": {
       "badge": "Interatividade",
       "title": "Tratamento de Eventos Intuitivo",
       "desc": "Vincule eventos com a sintaxe on:event. Acesse o estado diretamente nos handlers sem this ou callbacks.",
-      "h1": "Click, submit, input e mais",
-      "h2": "Acesso direto ao estado nos handlers",
-      "h3": "Suporte a modificadores de eventos",
-      "h4": "Sem necessidade de funções wrapper",
-      "clickedLabel": "Clicado:"
+      "highlights": "Click, submit, input e mais. Acesso direto ao estado nos handlers com suporte a modificadores de eventos — sem necessidade de funções wrapper."
     },
     "grid": {
       "title": "Mais Recursos",
@@ -68,9 +54,6 @@
       "title": "Pronto para Construir?",
       "subtitle": "Comece a usar o No.JS em menos de 30 segundos.",
       "button": "Começar Agora"
-    },
-    "showcase": {
-      "previewLabel": "▶  PRÉ-VISUALIZAÇÃO"
     }
   }
 }

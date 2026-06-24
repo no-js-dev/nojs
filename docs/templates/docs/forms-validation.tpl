@@ -1,17 +1,11 @@
 <!-- Forms & Validation — from forms-validation.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.formsValidation.hero.badge"></span>
-  <h1 class="hero-title" t="docs.formsValidation.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.formsValidation.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Deprecation Banner (validate directive only) -->
   <div class="nojs-deprecation-banner" style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
     <strong style="color: #92400E; font-size: 15px;">&#x26A0;&#xFE0F; Validation moved to NoJS Elements</strong>
-    <p style="color: #78350F; margin: 8px 0 0; font-size: 14px; line-height: 1.6;">The <code>validate</code> directive and related validation attributes (<code>validate-on</code>, <code>validate-if</code>, <code>error-*</code>, <code>$form</code> context) have moved to <code>@erickxavier/nojs-elements</code> as of v1.13.0. They are still available in core as deprecation stubs that emit warnings. Install the Elements plugin for full functionality. The <code>error-boundary</code> directive remains in core.</p>
+    <p style="color: #78350F; margin: 8px 0 0; font-size: 14px; line-height: 1.6;">The <code>validate</code> directive and related validation attributes (<code>validate-on</code>, <code>validate-if</code>, <code>error-*</code>, <code>$form</code> context) have moved to <code>@no-js-dev/nojs-elements</code> as of v1.13.0. They are still available in core as deprecation stubs that emit warnings. Install the Elements plugin for full functionality. The <code>error-boundary</code> directive remains in core.</p>
     <p style="margin: 8px 0 0;"><a href="#/docs/plugins" style="color: #92400E; font-weight: 600; text-decoration: underline;">Migration Guide &rarr;</a></p>
   </div>
 

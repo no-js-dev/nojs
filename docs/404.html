@@ -127,6 +127,33 @@
       defaultLocale: 'en'
     });
   </script>
+  <script>
+    (function() {
+      function hlJS(raw) {
+        var s = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return s.replace(
+          /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(`(?:[^`\\]|\\.)*`|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(&lt;\/?script&gt;)|(\b(?:const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|throw|try|catch|finally|async|await|this|null|true|false|typeof|instanceof|class|extends|import|export|default|in|of|void|delete)\b)|(\bNoJS\b)|(\b\d+(?:\.\d+)?\b)|(=&gt;|===|!==|==|!=|&gt;=|&lt;=|&amp;&amp;|\|\||[=+\-*\/%!])|\.(\w+)\s*\(|(\w+):|(\w+)\s*\(/g,
+          function(m, cmt, str, tag, kw, nj, num, op, mt, pr, fn) {
+            return cmt ? '<span class="hl-cmt">' + cmt + '</span>' :
+                   str ? '<span class="hl-str">' + str + '</span>' :
+                   tag ? '<span class="hl-tag">' + tag + '</span>' :
+                   kw  ? '<span class="hl-kw">' + kw + '</span>' :
+                   nj  ? '<span class="hl-fn">' + nj + '</span>' :
+                   num ? '<span class="hl-num">' + num + '</span>' :
+                   op  ? '<span class="hl-op">' + op + '</span>' :
+                   mt  ? '.<span class="hl-fn">' + mt + '</span>(' :
+                   pr  ? '<span class="hl-attr">' + pr + '</span>:' :
+                   fn  ? '<span class="hl-fn">' + fn + '</span>(' :
+                   m;
+          }
+        );
+      }
+      NoJS.directive('highlight', {
+        priority: 25,
+        init: function(el) { el.innerHTML = hlJS(el.textContent); }
+      });
+    })();
+  </script>
 </head>
 <body>
   <div class="layout-container">
@@ -353,7 +380,8 @@
     function _heroInitEditor() {
       var mount = document.getElementById('hero-editor-mount');
       if (!mount) { _heroEditorInstance = null; return; }
-      if (_heroEditorInstance) return;
+      if (_heroEditorInstance && mount.childElementCount > 0) return;
+      _heroEditorInstance = null;
       function _createEditor() {
         var preview = document.getElementById('hero-live-preview');
         _heroEditorInstance = NoJSEditor.create(mount, {

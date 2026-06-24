@@ -212,7 +212,7 @@ The `$i18n` reactive proxy is available in all expression contexts, including `s
 
 <!-- Store with translated defaults -->
 <div store="ui" value="{
-  heading: $i18n.landing.hero.title,
+  heading: $i18n.home.hero.title,
   searchPlaceholder: $i18n.common.search.placeholder
 }"></div>
 

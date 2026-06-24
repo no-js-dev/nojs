@@ -82,6 +82,10 @@
   --glass: var(--glass-bg);
   --glass-hover: var(--glass-bg-hover);
 
+  /* Semantic */
+  --error: #ef4444;
+  --success: #22c55e;
+
   /* Surfaces */
   --surface: #0d0f14;
   --neutral: #0a0c12;

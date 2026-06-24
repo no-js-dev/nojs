@@ -2902,8 +2902,8 @@ Explicit `<template route="...">` declarations **always take priority**. This le
 When the `route-view` element has an `i18n-ns` attribute (even without a value), No.JS automatically loads the i18n namespace matching the filename:
 
 ```html
-<!-- Auto-derives namespace: "/" → "landing", "/features" → "features", etc. -->
-<main route-view src="templates/" route-index="landing" i18n-ns></main>
+<!-- Auto-derives namespace: "/" → "home", "/features" → "features", etc. -->
+<main route-view src="templates/" route-index="home" i18n-ns></main>
 ```
 
 This replaces the need to add `i18n-ns="..."` on each route template individually.

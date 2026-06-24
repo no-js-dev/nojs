@@ -106,7 +106,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 
 ## Forms
 
-> **Note:** Form validation requires the [`@no-js-dev/nojs-elements`](https://www.npmjs.com/package/@no-js-dev/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
+> **Note:** Form validation requires the [`@no-js-dev/nojs-elements`](https://github.com/no-js-dev/nojs-elements) plugin. Core includes only a stub that disables submission with a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|
@@ -155,7 +155,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 
 ## Drag and Drop
 
-> **Note:** Drag and Drop requires the [`@no-js-dev/nojs-elements`](https://www.npmjs.com/package/@no-js-dev/nojs-elements) plugin. Core includes only stubs that log a console warning.
+> **Note:** Drag and Drop requires the [`@no-js-dev/nojs-elements`](https://github.com/no-js-dev/nojs-elements) plugin. Core includes only stubs that log a console warning.
 
 | Directive | Example | Description |
 |-----------|---------|-------------|

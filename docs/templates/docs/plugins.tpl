@@ -1,79 +1,73 @@
 <!-- Plugins — from plugins.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.plugins.hero.badge"></span>
-  <h1 class="hero-title" t="docs.plugins.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.plugins.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- NoJS.use() -->
   <div class="doc-section">
     <h2 class="doc-title" id="plugins-use" t="docs.plugins.use.title"></h2>
     <p class="doc-text" t="docs.plugins.use.text"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(analyticsPlugin);
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(authPlugin, { <span class="hl-attr">trusted</span>: <span class="hl-kw">true</span> });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.use(analyticsPlugin);
+  NoJS.use(authPlugin, { trusted: true });
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="plugins-object-form" t="docs.plugins.use.objectFormTitle"></h3>
     <p class="doc-text" t="docs.plugins.use.objectFormText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">const</span> analyticsPlugin <span class="hl-op">=</span> {
-    <span class="hl-attr">name</span>: <span class="hl-str">'analytics'</span>,
-    <span class="hl-attr">version</span>: <span class="hl-str">'1.0.0'</span>,
-    <span class="hl-attr">capabilities</span>: [<span class="hl-str">'interceptor'</span>, <span class="hl-str">'global'</span>],
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  const analyticsPlugin = {
+    name: 'analytics',
+    version: '1.0.0',
+    capabilities: ['interceptor', 'global'],
 
-    <span class="hl-fn">install</span>(<span class="hl-attr">app</span>, <span class="hl-attr">options</span>) {
-      <span class="hl-cmt">// Called immediately by NoJS.use()</span>
-      <span class="hl-cmt">// Register interceptors, globals, directives, etc.</span>
-      app.<span class="hl-fn">global</span>(<span class="hl-str">'analytics'</span>, { <span class="hl-attr">pageViews</span>: <span class="hl-num">0</span> });
+    install(app, options) {
+      // Called immediately by NoJS.use()
+      // Register interceptors, globals, directives, etc.
+      app.global('analytics', { pageViews: 0 });
 
-      app.<span class="hl-fn">interceptor</span>(<span class="hl-str">'response'</span>, (<span class="hl-attr">response</span>, <span class="hl-attr">url</span>) <span class="hl-op">=&gt;</span> {
-        app.store.analytics?.<span class="hl-fn">track</span>(<span class="hl-str">'api_call'</span>, { url });
-        <span class="hl-kw">return</span> response;
+      app.interceptor('response', (response, url) =&gt; {
+        app.store.analytics?.track('api_call', { url });
+        return response;
       });
     },
 
-    <span class="hl-fn">init</span>(<span class="hl-attr">app</span>) {
-      <span class="hl-cmt">// Called after NoJS.init() completes</span>
-      <span class="hl-cmt">// Safe to access the DOM, router, stores</span>
-      console.<span class="hl-fn">log</span>(<span class="hl-str">'Analytics ready'</span>);
+    init(app) {
+      // Called after NoJS.init() completes
+      // Safe to access the DOM, router, stores
+      console.log('Analytics ready');
     },
 
-    <span class="hl-fn">dispose</span>(<span class="hl-attr">app</span>) {
-      <span class="hl-cmt">// Called during NoJS.dispose()</span>
-      <span class="hl-cmt">// Clean up timers, listeners, connections</span>
-      console.<span class="hl-fn">log</span>(<span class="hl-str">'Analytics disposed'</span>);
+    dispose(app) {
+      // Called during NoJS.dispose()
+      // Clean up timers, listeners, connections
+      console.log('Analytics disposed');
     }
   };
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(analyticsPlugin);
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+  NoJS.use(analyticsPlugin);
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="plugins-function-form" t="docs.plugins.use.functionTitle"></h3>
     <p class="doc-text" t="docs.plugins.use.functionText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">function</span> <span class="hl-fn">myLogger</span>(<span class="hl-attr">app</span>, <span class="hl-attr">options</span>) {
-    app.<span class="hl-fn">interceptor</span>(<span class="hl-str">'request'</span>, (<span class="hl-attr">url</span>, <span class="hl-attr">opts</span>) <span class="hl-op">=&gt;</span> {
-      console.<span class="hl-fn">log</span>(<span class="hl-str">`[${options.prefix || 'LOG'}]`</span>, url);
-      <span class="hl-kw">return</span> opts;
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  function myLogger(app, options) {
+    app.interceptor('request', (url, opts) =&gt; {
+      console.log(`[${options.prefix || 'LOG'}]`, url);
+      return opts;
     });
   }
 
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(myLogger, { <span class="hl-attr">prefix</span>: <span class="hl-str">'API'</span> });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+  NoJS.use(myLogger, { prefix: 'API' });
+&lt;/script&gt;</pre></div>
     <div class="callout"><p t="docs.plugins.use.functionCallout"></p></div>
 
     <h3 class="doc-title" id="plugins-options" t="docs.plugins.use.optionsTitle"></h3>
     <p class="doc-text" t="docs.plugins.use.optionsText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(analyticsPlugin, {
-    <span class="hl-attr">trackingId</span>: <span class="hl-str">'UA-123456'</span>,
-    <span class="hl-attr">debug</span>: <span class="hl-kw">true</span>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.use(analyticsPlugin, {
+    trackingId: 'UA-123456',
+    debug: true
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
     <p class="doc-text" t="docs.plugins.use.optionsTrustedNote"></p>
   </div>
 
@@ -130,9 +124,9 @@
     </table>
 
     <h3 class="doc-title" id="plugins-lifecycle" t="docs.plugins.interface.lifecycleTitle"></h3>
-    <div class="code-block"><pre><span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(plugin)     <span class="hl-op">=&gt;</span>  plugin.<span class="hl-fn">install</span>(app, options)
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">init</span>()          <span class="hl-op">=&gt;</span>  ... DOM processed ...  <span class="hl-op">=&gt;</span>  plugin.<span class="hl-fn">init</span>(app)
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">dispose</span>()       <span class="hl-op">=&gt;</span>  plugin.<span class="hl-fn">dispose</span>(app)  <span class="hl-op">=&gt;</span>  ... teardown ...</pre></div>
+    <div class="code-block"><pre highlight>NoJS.use(plugin)     =&gt;  plugin.install(app, options)
+NoJS.init()          =&gt;  ... DOM processed ...  =&gt;  plugin.init(app)
+NoJS.dispose()       =&gt;  plugin.dispose(app)  =&gt;  ... teardown ...</pre></div>
     <ul class="doc-text">
       <li t="docs.plugins.interface.lifecycleInstall"></li>
       <li t="docs.plugins.interface.lifecycleInit"></li>
@@ -141,26 +135,26 @@
 
     <h3 class="doc-title" id="plugins-duplicate" t="docs.plugins.interface.duplicateTitle"></h3>
     <p class="doc-text" t="docs.plugins.interface.duplicateText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(pluginA);     <span class="hl-cmt">// installed</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(pluginA);     <span class="hl-cmt">// silently skipped (same object)</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(pluginB);     <span class="hl-cmt">// warning: name collision (different object, same name)</span>
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.use(pluginA);     // installed
+  NoJS.use(pluginA);     // silently skipped (same object)
+  NoJS.use(pluginB);     // warning: name collision (different object, same name)
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="plugins-freezing" t="docs.plugins.interface.freezingTitle"></h3>
     <p class="doc-text" t="docs.plugins.interface.freezingText"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">const</span> myPlugin <span class="hl-op">=</span> {
-    <span class="hl-attr">name</span>: <span class="hl-str">'charts'</span>,
-    <span class="hl-fn">install</span>(<span class="hl-attr">app</span>) {
-      app.<span class="hl-fn">directive</span>(<span class="hl-str">'chart'</span>, {            <span class="hl-cmt">// new directive — allowed</span>
-        <span class="hl-attr">priority</span>: <span class="hl-num">25</span>,
-        <span class="hl-fn">init</span>(<span class="hl-attr">el</span>, <span class="hl-attr">name</span>, <span class="hl-attr">value</span>) { <span class="hl-cmt">/* ... */</span> }
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  const myPlugin = {
+    name: 'charts',
+    install(app) {
+      app.directive('chart', {            // new directive — allowed
+        priority: 25,
+        init(el, name, value) { /* ... */ }
       });
-      app.<span class="hl-fn">directive</span>(<span class="hl-str">'bind'</span>, { <span class="hl-cmt">/* ... */</span> }); <span class="hl-cmt">// core directive — warning, ignored</span>
+      app.directive('bind', { /* ... */ }); // core directive — warning, ignored
     }
   };
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- NoJS.global() -->
@@ -396,10 +390,10 @@ app.<span class="hl-fn">global</span>(<span class="hl-str">'exec'</span>, Functi
 
     <h3 class="doc-title" id="plugins-validate" t="docs.plugins.security.validateTitle"></h3>
     <p class="doc-text" t="docs.plugins.security.validateText"></p>
-    <div class="code-block"><pre><span class="hl-fn">install</span>(<span class="hl-attr">app</span>, <span class="hl-attr">options</span>) {
-  <span class="hl-kw">if</span> (!options.apiKey) {
-    console.<span class="hl-fn">warn</span>(<span class="hl-str">'[my-plugin] Missing required option: apiKey'</span>);
-    <span class="hl-kw">return</span>;
+    <div class="code-block"><pre highlight>install(app, options) {
+  if (!options.apiKey) {
+    console.warn('[my-plugin] Missing required option: apiKey');
+    return;
   }
 }</pre></div>
   </div>
@@ -409,7 +403,7 @@ app.<span class="hl-fn">global</span>(<span class="hl-str">'exec'</span>, Functi
     <h2 class="doc-title" id="plugins-official">Official Plugins</h2>
 
     <h3 class="doc-title" id="plugins-elements">NoJS Elements</h3>
-    <p class="doc-text">The <code>@erickxavier/nojs-elements</code> package provides UI-centric directives that were extracted from core in v1.13.0 for a leaner default bundle.</p>
+    <p class="doc-text">The <code>@no-js-dev/nojs-elements</code> package provides UI-centric directives that were extracted from core in v1.13.0 for a leaner default bundle.</p>
 
     <table class="doc-table">
       <thead>
@@ -438,11 +432,8 @@ app.<span class="hl-fn">global</span>(<span class="hl-str">'exec'</span>, Functi
 <span class="hl-tag">&lt;script</span> <span class="hl-attr">src</span>=<span class="hl-str">"https://cdn.no-js.dev/"</span><span class="hl-tag">&gt;&lt;/script&gt;</span>
 <span class="hl-tag">&lt;script</span> <span class="hl-attr">src</span>=<span class="hl-str">"https://cdn.no-js.dev/elements"</span><span class="hl-tag">&gt;&lt;/script&gt;</span>
 
-<span class="hl-cmt">&lt;!-- npm --&gt;</span>
+<span class="hl-cmt">&lt;!-- Plugin registration --&gt;</span>
 <span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">import</span> NoJS <span class="hl-kw">from</span> <span class="hl-str">'@erickxavier/nojs'</span>;
-  <span class="hl-kw">import</span> NoJSElements <span class="hl-kw">from</span> <span class="hl-str">'@erickxavier/nojs-elements'</span>;
-
   <span class="hl-fn">NoJS</span>.<span class="hl-fn">use</span>(NoJSElements);
 <span class="hl-tag">&lt;/script&gt;</span></pre></div>
 

@@ -19,7 +19,7 @@ const INDEX_HTML    = path.join(__dirname, 'index.html');
 const LOCALES_DIR   = path.join(__dirname, 'locales', 'en');
 
 const LOCALE_FILES = [
-  'shell.json', 'landing.json', 'features.json',
+  'shell.json', 'home.json', 'features.json',
   'docs.json', 'examples.json', 'faq.json', 'playground.json',
 ];
 

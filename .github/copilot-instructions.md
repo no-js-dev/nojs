@@ -2,7 +2,7 @@
 
 ## Overview
 
-No.JS is an HTML-first reactive framework with zero dependencies. Users build dynamic web apps using HTML attributes only — no JavaScript required. Distributed via CDN (`cdn.no-js.dev`) and npm (`@no-js-dev/nojs`).
+No.JS is an HTML-first reactive framework with zero dependencies. Users build dynamic web apps using HTML attributes only — no JavaScript required. Distributed via CDN (`cdn.no-js.dev`).
 
 ## Architecture
 
@@ -89,7 +89,7 @@ All 3 repos share the same version — never bump individually:
 
 | Repo | Version locations | Publish |
 |------|-------------------|---------|
-| **NoJS** | `package.json:3` + `src/index.js:493` | `npm publish` |
+| **NoJS** | `package.json:3` + `src/index.js:493` | nothing (CDN-only) |
 | **NoJS-LSP** | `package.json:5` | `npx vsce package` (VSIX) |
 | **NoJS-Skill** | `SKILL.md:4` (frontmatter) | none |
 

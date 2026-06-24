@@ -1,7 +1,6 @@
 {
   "features": {
     "hero": {
-      "badge": "Perché No.JS?",
       "title": "Progettato per lo Sviluppo Web Moderno",
       "subtitle": "Ogni funzionalità è pensata per rendere lo sviluppo HTML-first potente, veloce e piacevole."
     },
@@ -9,32 +8,19 @@
       "badge": "Funzionalità Principale",
       "title": "Gestione dello Stato Reattivo",
       "desc": "Dichiara lo stato direttamente in HTML con state. Le modifiche si propagano automaticamente a tutti gli elementi collegati — nessun setup dello store, nessun reducer, nessun boilerplate.",
-      "h1": "Tracciamento automatico delle dipendenze",
-      "h2": "Supporto per oggetti annidati",
-      "h3": "Proprietà calcolate",
-      "h4": "Condivisione dello stato tra componenti"
+      "highlights": "Tracciamento automatico delle dipendenze, supporto per oggetti annidati, proprietà calcolate e condivisione dello stato tra componenti."
     },
     "showcase2": {
       "badge": "Rendering",
       "title": "Rendering Dichiarativo",
       "desc": "Usa if, each, show e bind per controllare cosa viene renderizzato. Nessun JSX, nessun template literal — solo attributi HTML.",
-      "h1": "Rendering condizionale con if",
-      "h2": "Rendering di liste con each",
-      "h3": "Interpolazione del testo con bind",
-      "h4": "Visibilità con show",
-      "item1": "Fare la spesa",
-      "item2": "Portare fuori la spazzatura",
-      "item3": "Correggere il bug"
+      "highlights": "Rendering condizionale con <code>if</code>, rendering di liste con <code>each</code>, interpolazione del testo con <code>bind</code> e visibilità con <code>show</code>."
     },
     "showcase3": {
       "badge": "Interattività",
       "title": "Gestione Eventi Intuitiva",
       "desc": "Collega gli eventi con la sintassi on:event. Accedi allo stato direttamente nei gestori senza this o callback.",
-      "h1": "Click, submit, input e altro",
-      "h2": "Accesso diretto allo stato nei gestori",
-      "h3": "Supporto per modificatori di eventi",
-      "h4": "Nessuna funzione wrapper necessaria",
-      "clickedLabel": "Cliccato:"
+      "highlights": "Click, submit, input e altro. Accesso diretto allo stato nei gestori con supporto per modificatori di eventi — nessuna funzione wrapper necessaria."
     },
     "grid": {
       "title": "Altre Funzionalità",
@@ -68,9 +54,6 @@
       "title": "Pronto a Costruire?",
       "subtitle": "Inizia a usare No.JS in meno di 30 secondi.",
       "button": "Inizia Ora"
-    },
-    "showcase": {
-      "previewLabel": "▶  ANTEPRIMA"
     }
   }
 }

@@ -1,66 +1,72 @@
 {
   "examples": {
     "hero": {
-      "badge": "Learn by Example",
-      "title": "Examples",
-      "subtitle": "Real-world patterns you'll actually use in production — in pure HTML."
+      "title": "Examples Showcase",
+      "subtitle": "See how NoJS directives replace boilerplate and bring layouts to life using only semantic HTML attributes."
     },
-    "login": {
-      "badge": "Intermediate",
-      "title": "Login with JWT",
-      "desc": "A complete login flow: form validation, POST to auth endpoint, save the JWT to a global store, and automatically attach the token to every subsequent request via a request interceptor.",
-      "signIn": "Sign in",
-      "previewHint": "Fill both fields to try the interactive preview",
-      "signedIn": "Signed in!",
-      "signOut": "Sign out",
-      "emailLabel": "Email",
-      "passwordLabel": "Password"
+    "cat1": { "title": "State & Binding", "subtitle": "Reactive state management with automatic DOM updates — no manual wiring needed." },
+    "cat2": { "title": "Conditionals & Loops", "subtitle": "Control rendering with declarative attributes. Show, hide, iterate, and branch — all in HTML." },
+    "cat3": { "title": "Data Fetching", "subtitle": "Built-in HTTP verbs with loading states, error handling, and caching — zero boilerplate." },
+    "cat4": { "title": "Routing & Templates", "subtitle": "Client-side navigation and reusable template composition without a build step." },
+    "counter": {
+      "badge": "Interactive",
+      "name": "Simple Counter",
+      "desc": "Local reactive counter. Updates automatically when variables change. Pauses execution and highlights states cleanly."
     },
-    "dashboard": {
-      "badge": "Intermediate",
-      "title": "Protected Route & Token Validation",
-      "desc": "A route guarded by the auth store, paired with a <strong>response interceptor</strong> that acts as a control script: on every API call, if the server returns <code>401</code> or <code>403</code>, the token is invalidated and the user is redirected to login automatically — no extra code needed in the route itself.",
-      "welcome": "Welcome back, Jane",
-      "activeSession": "● Active session",
-      "requestsToday": "Requests today",
-      "errorRate": "Error rate",
-      "uptime": "Uptime",
-      "activeUsers": "Active users",
-      "interceptorNote": "If any request returns <code>401</code> or <code>403</code>, the interceptor clears the token and redirects to <code>/login</code> automatically."
+    "binding": {
+      "badge": "Two-way",
+      "name": "Live Input Binding",
+      "desc": "Bind an input to state with <code>model</code> and render it elsewhere with <code>bind</code>. Changes propagate instantly."
+    },
+    "computed": {
+      "badge": "Derived",
+      "name": "Computed Values",
+      "desc": "Define derived values with <code>computed</code> and <code>expr</code>. They recalculate automatically when dependencies change."
     },
     "search": {
-      "badge": "Beginner",
-      "title": "Live Search",
-      "desc": "An instant search input that fires a debounced GET request on every keystroke, rendering results reactively. No <code>addEventListener</code>, no <code>setTimeout</code>, no DOM manipulation.",
-      "noResults": "No results"
+      "badge": "Loops & Filters",
+      "name": "Filtered Search List",
+      "desc": "Filter array items interactively using two-way input bindings (<code>model</code>) and loops (<code>foreach</code>)."
     },
-    "cart": {
-      "badge": "Intermediate",
-      "title": "Shopping Cart",
-      "desc": "A global store shared between a product list and a cart badge — in different parts of the page. When a product is added, the badge and the cart summary update simultaneously, with no event bus or shared component needed.",
-      "products": "Products",
-      "cartLabel": "Cart",
-      "total": "Total",
-      "addHint": "Add a product to see the cart"
+    "todo": {
+      "badge": "CRUD",
+      "name": "Todo List",
+      "desc": "Add and remove items with <code>foreach</code>, <code>on:click</code>, and array methods. Full CRUD in pure HTML."
     },
-    "polling": {
-      "badge": "Beginner",
-      "title": "Live Polling",
-      "desc": "A server-status dashboard that refreshes automatically every 5 seconds using the <code>refresh</code> attribute. Conditional styling reacts instantly to the current health state — no <code>setInterval</code>, no <code>fetch</code> loop.",
-      "serverStatus": "Server Status",
-      "cpu": "CPU",
-      "reqPerSec": "Req/s",
-      "errors": "Errors",
-      "lastResponse": "Last response time",
-      "nextPoll": "Next refresh in",
-      "refreshNote": "Refreshes automatically via <code>refresh=\"5000\"</code>",
-      "onlineBadge": "Online"
+    "switchCase": {
+      "badge": "Branching",
+      "name": "Switch / Case",
+      "desc": "Render different content based on a value using <code>switch</code>, <code>case</code>, and <code>default</code> — like a native switch statement."
     },
-    "cta": {
-      "title": "Want More Examples?",
-      "subtitle": "Check out the full documentation for advanced patterns.",
-      "viewDocs": "View Documentation",
-      "github": "GitHub Repository"
+    "fetch": {
+      "badge": "HTTP / Fetching",
+      "name": "API Fetcher with Skeleton",
+      "desc": "Fetch and display API data. The designated skeleton element holds layout spacing and vanishes automatically when data arrives."
+    },
+    "formPost": {
+      "badge": "Forms",
+      "name": "Form Submission",
+      "desc": "Submit form data with <code>post</code> and <code>body</code>. Combine with <code>model</code> for reactive form fields and inline validation."
+    },
+    "pagination": {
+      "badge": "Pagination",
+      "name": "Load More List",
+      "desc": "Paginate API results with <code>get-trigger</code>, <code>get-page</code>, and <code>get-insert</code>. Append new items on button click."
+    },
+    "router": {
+      "badge": "SPA",
+      "name": "Basic Router",
+      "desc": "Define routes with <code>route</code> and render them into <code>route-view</code>. Active links highlight with <code>route-active</code>."
+    },
+    "templates": {
+      "badge": "Composition",
+      "name": "Reusable Templates",
+      "desc": "Compose UI with <code>use</code> and <code>&lt;slot&gt;</code>. Pass data via <code>state</code> — like components, but just HTML templates."
+    },
+    "dynamicStyles": {
+      "badge": "Styling",
+      "name": "Dynamic Classes & Styles",
+      "desc": "Toggle classes with <code>class-*</code> and set inline styles with <code>style-*</code>. Both react to state changes automatically."
     }
   }
 }

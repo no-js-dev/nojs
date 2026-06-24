@@ -1,0 +1,67 @@
+{
+  "home": {
+    "hero": {
+      "headline1": "Build the Web.",
+      "headline2": "Not",
+      "subtitle": "The HTML-first framework for building fast, interactive web applications.",
+      "getStarted": "Get Started",
+      "github": "View on GitHub"
+    },
+    "features": {
+      "title": "Engineered for Simplicity",
+      "subtitle": "NoJS replaces modern JavaScript framework overhead with native HTML directives that manage state, fetching, and routing.",
+      "f1Title": "HTML-First Reactive",
+      "f1Desc": "Write reactive logic directly in your markup using attributes like <code>state</code>, <code>bind</code>, and <code>foreach</code>. No Virtual DOM or compile step needed.",
+      "f2Title": "Declarative HTTP",
+      "f2Desc": "Perform <code>GET</code>, <code>POST</code>, <code>PUT</code>, and <code>DELETE</code> calls directly via attributes. Manage loading states, skeletons, and errors dynamically.",
+      "f3Title": "SPA Routing",
+      "f3Desc": "Full client-side router supporting path params, query parameters, route guards, nested layouts, and fluid native View Transitions.",
+      "f4Title": "Zero Dependencies",
+      "f4Desc": "A single standalone script under 30KB gzipped. Includes state management, i18n translation, form validation, and drag-and-drop."
+    },
+    "directives": {
+      "title": "Clean, Declarative Directives",
+      "subtitle": "Express application logic right in the elements. Lexically scoped reactive contexts propagate down the DOM.",
+      "s1Badge": "Data Binding",
+      "s1Name": "state & model",
+      "s1Desc": "Define reactive scopes using <code>state=\"...\"</code>. Bind fields in two-way synchronicity using <code>model</code> for inputs, textareas, and select menus.",
+      "s2Badge": "Conditionals",
+      "s2Name": "if & show",
+      "s2Desc": "Toggle parts of the DOM using <code>if</code>/<code>else-if</code>/<code>else</code> (which adds/removes elements entirely) or <code>show</code>/<code>hide</code> (which toggles CSS display properties).",
+      "s3Badge": "Loops & Lists",
+      "s3Name": "foreach",
+      "s3Desc": "Render lists seamlessly with <code>foreach=\"item in list\"</code>. Auto-provides helper variables such as <code>$index</code>, <code>$first</code>, <code>$last</code>, <code>$even</code>, and <code>$odd</code>."
+    },
+    "http": {
+      "title": "Zero-JS Data Fetching",
+      "subtitle": "Query APIs, cache responses, and handle loaders natively through declarative properties.",
+      "featureTitle": "Reactive URLs & Skeletons",
+      "featureDesc": "Placeholders automatically hide when data arrives. Any URL segment or query parameter enclosing <code>{variable}</code> automatically triggers a new fetch whenever that state updates.",
+      "item1Title": "Prevent CLS",
+      "item1Desc": "Pre-rendered <code>skeleton=\"...\"</code> nodes occupy exact layout space before loading is done.",
+      "item2Title": "Cache support",
+      "item2Desc": "Add <code>cached</code> to store responses in memory, localStorage, or sessionStorage.",
+      "item3Title": "Auto-polling",
+      "item3Desc": "Add <code>refresh=\"30000\"</code> to keep server data synchronized every 30 seconds.",
+      "previewTab": "Preview (Loading)"
+    },
+    "getStarted": {
+      "title": "Getting Started",
+      "subtitle": "Two steps. No build tools, no package manager, no configuration.",
+      "step1Label": "Install the AI Skill",
+      "step1Badge": "Recommended",
+      "step1Desc": "Add the <strong>NoJS Skill</strong> to your AI coding agent. It handles scaffolding, CDN setup, component generation, and expert guidance on every directive.",
+      "step2Label": "Add the CDN",
+      "step2Desc": "Or drop the script tag directly into your HTML. NoJS auto-initializes on DOM ready and starts parsing directives immediately."
+    },
+    "manifesto": {
+      "kicker": "A MANIFESTO",
+      "col1p1": "Somewhere between \"component thinking\" and \"virtual DOM diffing\", we forgot that the browser already understands HTML. It already knows how to update the DOM. It already handles events.",
+      "col1p2": "We built abstraction upon abstraction until a simple form required three files, a build pipeline, and a framework runtime.",
+      "col2p1": "No.JS is the opposite bet. The browser is not the enemy, it’s the platform. HTML is not limited, it’s underutilized. Attributes are not primitive, they’re a DSL waiting to happen.",
+      "col2p2": "We built No.JS on one conviction: if you can express it in HTML, you should.",
+      "col3p1": "The result is a framework you can learn in an afternoon and ship in 30 seconds. Not because we made it simple, but because the browser was already capable. We just got out of the way.",
+      "col3p2": "This is not anti-JavaScript. It’s pro-HTML."
+    }
+  }
+}

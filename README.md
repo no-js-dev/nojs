@@ -186,7 +186,6 @@ Full documentation is available in the [docs/](docs/) folder:
 | [NoJS Elements](https://github.com/no-js-dev/nojs-elements) | Drag, drop & validation — drag/drop/drag-list/drag-multiple/validate, migrated out of core |
 | [NoJS-LSP](https://github.com/no-js-dev/nojs-lsp) | VS Code extension — autocomplete, hover docs, diagnostics for No.JS HTML |
 | [NoJS-Skill](https://github.com/no-js-dev/nojs-skill) | Claude Code skill — guided No.JS project generation |
-| [NoJS-CLI](https://github.com/no-js-dev/nojs-cli) | Node.js CLI tooling (inactive/maintenance) |
 
 ---
 

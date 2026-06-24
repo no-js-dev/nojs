@@ -1,8 +1,11 @@
 {
   "playground": {
+    "hero": {
+      "title": "Playground",
+      "subtitle": "Scrivi, visualizza e condividi codice NoJS in tempo reale."
+    },
     "toolbar": {
       "reset": "Ripristina",
-      "share": "Condividi",
       "download": "Scarica"
     },
     "console": {

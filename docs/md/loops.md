@@ -81,7 +81,7 @@ Place `else="templateId"` on the loop element to reference a `<template>` for th
 
 When `items` is an empty array (`[]`), null, undefined, or any non-array value, the template content replaces the loop output. When items are present, the template is removed and items render normally. Both bare ID (`else="noItems"`) and hash syntax (`else="#noItems"`) are accepted.
 
-> **Breaking change (Unreleased):** The sibling `else` pattern (`<li else>No items</li>` placed after a loop element) has been removed. Use `else="templateId"` on the loop element itself instead.
+> **Breaking change (v1.15):** The sibling `else` pattern (`<li else>No items</li>` placed after a loop element) has been removed. Use `else="templateId"` on the loop element itself instead.
 
 ### Attributes
 

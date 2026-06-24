@@ -17,6 +17,9 @@ Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an erro
   <div class="error-box">
     <p bind="err.message"></p>
     <p>Status: <span bind="err.status"></span></p>
+    <button on:click="$el.parentElement.dispatchEvent(new Event('retry'))">
+      Try Again
+    </button>
   </div>
 </template>
 ```
@@ -29,8 +32,8 @@ Add `retry` and `retry-delay` to automatically retry failed requests before show
 <div get="/api/users" as="users"
      error="#usersError"
      retry="3"
-     retry-delay="2000">
-  <!-- Retries up to 3 times with 2s between attempts -->
+     retry-delay="1000">
+  <!-- Retries up to 3 times with 1s between attempts (1000ms is the default) -->
   <!-- Error template only renders after all retries fail -->
 </div>
 ```
@@ -64,6 +67,21 @@ Wrap a section of your page with `error-boundary` to catch errors that occur wit
 ```
 
 When an error is caught, the boundary replaces its children with the fallback template. The `nojs:error` CustomEvent carries the error details in `event.detail`.
+
+---
+
+## Error Boundary Events
+
+When an error boundary catches an error, it dispatches a `nojs:error` CustomEvent on the boundary element. Listen with `on:error` to log errors or show notifications:
+
+```html
+<div error-boundary="#fallback"
+     on:error="console.log($event.detail.message)">
+  <!-- children -->
+</div>
+```
+
+> The `$event.detail` object contains: `message` (string), `source` (element), and `error` (original Error object).
 
 ---
 

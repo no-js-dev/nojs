@@ -1,47 +1,41 @@
 <!-- i18n — from i18n.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.i18n.hero.badge"></span>
-  <h1 class="hero-title" t="docs.i18n.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.i18n.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Setup -->
   <div class="doc-section">
     <h2 class="doc-title" id="i18n-setup" t="docs.i18n.setup.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">i18n</span>({
-    <span class="hl-attr">defaultLocale</span>: <span class="hl-str">'en'</span>,
-    <span class="hl-attr">locales</span>: {
-      <span class="hl-attr">en</span>: {
-        <span class="hl-attr">welcome</span>: <span class="hl-str">'Welcome to No.JS'</span>,
-        <span class="hl-attr">greeting</span>: <span class="hl-str">'Hello, {name}!'</span>,
-        <span class="hl-attr">items</span>: <span class="hl-str">'{count} item | {count} items'</span>,  <span class="hl-cmt">// Pluralization</span>
-        <span class="hl-attr">nav</span>: { <span class="hl-attr">home</span>: <span class="hl-str">'Home'</span>, <span class="hl-attr">docs</span>: <span class="hl-str">'Documentation'</span> }
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.i18n({
+    defaultLocale: 'en',
+    locales: {
+      en: {
+        welcome: 'Welcome to No.JS',
+        greeting: 'Hello, {name}!',
+        items: '{count} item | {count} items',  // Pluralization
+        nav: { home: 'Home', docs: 'Documentation' }
       },
-      <span class="hl-attr">es</span>: {
-        <span class="hl-attr">welcome</span>: <span class="hl-str">'Bienvenido a No.JS'</span>,
-        <span class="hl-attr">greeting</span>: <span class="hl-str">'¡Hola, {name}!'</span>,
-        <span class="hl-attr">items</span>: <span class="hl-str">'{count} elemento | {count} elementos'</span>,
-        <span class="hl-attr">nav</span>: { <span class="hl-attr">home</span>: <span class="hl-str">'Inicio'</span>, <span class="hl-attr">docs</span>: <span class="hl-str">'Documentación'</span> }
+      es: {
+        welcome: 'Bienvenido a No.JS',
+        greeting: '¡Hola, {name}!',
+        items: '{count} elemento | {count} elementos',
+        nav: { home: 'Inicio', docs: 'Documentación' }
       },
-      <span class="hl-attr">fr</span>: {
-        <span class="hl-attr">welcome</span>: <span class="hl-str">'Bienvenue sur No.JS'</span>,
-        <span class="hl-attr">greeting</span>: <span class="hl-str">'Bonjour, {name} !'</span>,
-        <span class="hl-attr">items</span>: <span class="hl-str">'{count} élément | {count} éléments'</span>,
-        <span class="hl-attr">nav</span>: { <span class="hl-attr">home</span>: <span class="hl-str">'Accueil'</span>, <span class="hl-attr">docs</span>: <span class="hl-str">'Documentation'</span> }
+      fr: {
+        welcome: 'Bienvenue sur No.JS',
+        greeting: 'Bonjour, {name} !',
+        items: '{count} élément | {count} éléments',
+        nav: { home: 'Accueil', docs: 'Documentation' }
       },
-      <span class="hl-attr">pt</span>: {
-        <span class="hl-attr">welcome</span>: <span class="hl-str">'Bem-vindo ao No.JS'</span>,
-        <span class="hl-attr">greeting</span>: <span class="hl-str">'Olá, {name}!'</span>,
-        <span class="hl-attr">items</span>: <span class="hl-str">'{count} item | {count} itens'</span>,
-        <span class="hl-attr">nav</span>: { <span class="hl-attr">home</span>: <span class="hl-str">'Início'</span>, <span class="hl-attr">docs</span>: <span class="hl-str">'Documentação'</span> }
+      pt: {
+        welcome: 'Bem-vindo ao No.JS',
+        greeting: 'Olá, {name}!',
+        items: '{count} item | {count} itens',
+        nav: { home: 'Início', docs: 'Documentação' }
       }
     }
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- External Locale Files -->
@@ -62,12 +56,12 @@
   <span class="hl-attr">"nav"</span>: { <span class="hl-attr">"home"</span>: <span class="hl-str">"Home"</span>, <span class="hl-attr">"docs"</span>: <span class="hl-str">"Docs"</span> }
 }</pre></div>
 
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">i18n</span>({
-    <span class="hl-attr">defaultLocale</span>: <span class="hl-str">'en'</span>,
-    <span class="hl-attr">loadPath</span>: <span class="hl-str">'/locales/{locale}.json'</span>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.i18n({
+    defaultLocale: 'en',
+    loadPath: '/locales/{locale}.json'
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="i18n-namespace-mode" t="docs.i18n.externalFiles.nsSubtitle"></h3>
     <p class="doc-text" t="docs.i18n.externalFiles.nsText"></p>
@@ -76,13 +70,13 @@
 /locales/es/common.json
 /locales/es/dashboard.json</pre></div>
 
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-fn">NoJS</span>.<span class="hl-fn">i18n</span>({
-    <span class="hl-attr">defaultLocale</span>: <span class="hl-str">'en'</span>,
-    <span class="hl-attr">loadPath</span>: <span class="hl-str">'/locales/{locale}/{ns}.json'</span>,
-    <span class="hl-attr">ns</span>: [<span class="hl-str">'common'</span>]   <span class="hl-cmt">// Loaded at init</span>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.i18n({
+    defaultLocale: 'en',
+    loadPath: '/locales/{locale}/{ns}.json',
+    ns: ['common']   // Loaded at init
   });
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+&lt;/script&gt;</pre></div>
 
     <h3 class="doc-title" id="i18n-ns-route" t="docs.i18n.externalFiles.nsRouteSubtitle"></h3>
     <p class="doc-text" t="docs.i18n.externalFiles.nsRouteText"></p>
@@ -97,7 +91,7 @@
 
     <h3 class="doc-title" id="i18n-caching" t="docs.i18n.externalFiles.cachingSubtitle"></h3>
     <p class="doc-text" t="docs.i18n.externalFiles.cachingText"></p>
-    <div class="code-block"><pre><span class="hl-fn">NoJS</span>.<span class="hl-fn">i18n</span>({ <span class="hl-attr">loadPath</span>: <span class="hl-str">'/locales/{locale}.json'</span>, <span class="hl-attr">cache</span>: <span class="hl-kw">false</span> });</pre></div>
+    <div class="code-block"><pre highlight>NoJS.i18n({ loadPath: '/locales/{locale}.json', cache: false });</pre></div>
   </div>
 
   <!-- Usage -->
@@ -127,6 +121,15 @@
 <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"$i18n.locale"</span><span class="hl-tag">&gt;&lt;/span&gt;</span></pre></div>
   </div>
 
+  <!-- HTML Translations (t-html) -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="i18n-t-html" t="docs.i18n.tHtml.title"></h2>
+    <p class="doc-text" t="docs.i18n.tHtml.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Translation: "Read our &lt;a href='/terms'&gt;terms&lt;/a&gt;" --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">t</span>=<span class="hl-str">"legal.notice"</span> <span class="hl-attr">t-html</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
+    <div class="callout" t="docs.i18n.tHtml.callout"></div>
+  </div>
+
   <!-- Number & Date Formatting -->
   <div class="doc-section">
     <h2 class="doc-title" id="i18n-formatting" t="docs.i18n.formatting.title" t-html></h2>
@@ -150,10 +153,10 @@
   <div class="doc-section">
     <h2 class="doc-title" id="i18n-fallback" t="docs.i18n.fallback.title"></h2>
     <p class="doc-text" t="docs.i18n.fallback.text"></p>
-    <div class="code-block"><pre><span class="hl-kw">NoJS</span>.i18n({
-  defaultLocale: <span class="hl-str">'en'</span>,
-  fallbackLocale: <span class="hl-str">'en'</span>,
-  loadPath: <span class="hl-str">'/locales/{locale}.json'</span>
+    <div class="code-block"><pre highlight>NoJS.i18n({
+  defaultLocale: 'en',
+  fallbackLocale: 'en',
+  loadPath: '/locales/{locale}.json'
 });</pre></div>
     <div class="callout">
       <p t="docs.i18n.fallback.callout"></p>
@@ -164,11 +167,11 @@
   <div class="doc-section">
     <h2 class="doc-title" id="i18n-detection" t="docs.i18n.detection.title"></h2>
     <p class="doc-text" t="docs.i18n.detection.text"></p>
-    <div class="code-block"><pre><span class="hl-kw">NoJS</span>.i18n({
-  detectBrowser: <span class="hl-kw">true</span>,
-  persist: <span class="hl-kw">true</span>,
-  defaultLocale: <span class="hl-str">'en'</span>,
-  loadPath: <span class="hl-str">'/locales/{locale}.json'</span>
+    <div class="code-block"><pre highlight>NoJS.i18n({
+  detectBrowser: true,
+  persist: true,
+  defaultLocale: 'en',
+  loadPath: '/locales/{locale}.json'
 });</pre></div>
     <div class="callout">
       <p t="docs.i18n.detection.callout"></p>

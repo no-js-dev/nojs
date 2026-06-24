@@ -1,11 +1,5 @@
 <!-- Templates — from templates.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.templates.hero.badge"></span>
-  <h1 class="hero-title" t="docs.templates.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.templates.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <div class="doc-section">

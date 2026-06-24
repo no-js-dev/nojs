@@ -12,7 +12,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 - [Data Fetching](https://no-js.dev/#/data-fetching): Declarative HTTP via `get`, `post`, `put`, `patch`, `delete` attributes; base URL, caching, polling, reactive URLs, loading/error/empty templates
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute), `model` (two-way input binding)
-- [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`. `$i18n.*` dot-notation available in state/store expressions for reactive translated values
+- [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
 - [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, nesting
 - [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src`, preloading
@@ -33,7 +33,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 - [Routing](https://no-js.dev/#/routing): SPA navigation with `route="/path/:param"`, `route-view` outlet, route guards, nested routes, View Transition API (slide, fade, scale presets), file-based routing, query params, hash navigation, redirects, 404 handling
 - [Head Management](https://no-js.dev/#/head-management): Per-route `page-title`, `page-description`, `page-canonical`, `page-jsonld` attributes on `<template route>`
-- [Internationalization](https://no-js.dev/#/i18n): `t="key"` directive, pluralization, locale switching, async locale loading, fallback chains, interpolation. `$i18n.[namespace].[key]` reactive proxy for dot-notation translation access in any expression context (`state`, `store`, `computed`, `bind`, conditionals); `$i18n.t()` for interpolation/pluralization; reserved properties: `locale`, `locales`, `t`, `setLocale`
+- [Internationalization](https://no-js.dev/#/i18n): `t="key"` directive, pluralization, locale switching, async locale loading, fallback chains, interpolation
 - [Drag and Drop](https://no-js.dev/#/drag-and-drop): `drag` source, `drop` zone, `drag-list` for sortable reordering, multi-select, custom placeholders, event handlers (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Custom Directives](https://no-js.dev/#/custom-directives): Extend the framework via `NoJS.directive(name, { priority, init(el, name, value) })` with full access to the reactive context
 - [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.on('error', fn)`

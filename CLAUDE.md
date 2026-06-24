@@ -34,7 +34,7 @@ No linter configured.
 | ESM | `src/index.js` | `dist/esm/no.js` | `import` |
 | CJS | `src/index.js` | `dist/cjs/no.js` | `require` |
 
-`build.js` uses esbuild. Runs automatically on `npm publish` via `prepublishOnly`.
+`build.js` uses esbuild.
 
 ### Core modules (src/)
 
@@ -227,11 +227,11 @@ Order is strict — never skip or reorder:
 9. **Push** release branch + **create PR** → main
 10. **Merge** PR (merge commit, not squash)
 11. **Tag** merge commit: `git tag v<x.y.z> && git push origin tag v<x.y.z>`
-12. **Publish**: NoJS nothing (CDN-only), Elements nothing (CDN-only), LSP `npx vsce package`, CLI `npm publish`, Skill → nothing
+12. **Publish**: NoJS nothing (CDN-only), Elements nothing (CDN-only), LSP `npx vsce package`, Skill → nothing
 13. **Cleanup** delete release branches (local + remote)
-14. **Verify** all versions match, tags exist, npm versions correct
+14. **Verify** all versions match, tags exist, CDN updates
 
-Pre-publish checks: `npm whoami` before any `npm publish`. Delete old VSIX before `npx vsce package`.
+Pre-publish checks: delete old VSIX before `npx vsce package`.
 
 ### CDN deployment
 

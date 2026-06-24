@@ -1,6 +1,6 @@
 {
   "name": "@no-js-dev/nojs",
-  "version": "1.15.4",
+  "version": "1.15.5",
   "description": "The HTML-first reactive framework — build dynamic web apps with just HTML attributes, no JavaScript required",
   "main": "dist/cjs/no.js",
   "module": "dist/esm/no.js",
@@ -16,13 +16,6 @@
       "default": "./dist/cjs/no.js"
     }
   },
-  "files": [
-    "dist/",
-    "src/",
-    "types/",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
     "build": "node build.js",
     "lint": "eslint src/",
@@ -37,7 +30,6 @@
     "test:e2e:report": "npx playwright show-report e2e/playwright-report",
     "test:all": "npm test && npm run test:e2e",
     "bench": "jest --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='[]'",
-    "prepublishOnly": "npm run build",
     "prepare": "husky"
   },
   "keywords": [

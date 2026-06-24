@@ -8,7 +8,7 @@ Welcome to the No.JS documentation. Choose a topic to get started.
 
 ## Getting Started
 
-- [Installation & Quick Start](getting-started.md) — CDN, npm, and your first page
+- [Installation & Quick Start](getting-started.md) — CDN, self-hosted, and your first page
 
 ## Core Guides
 

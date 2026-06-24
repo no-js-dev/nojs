@@ -68,7 +68,7 @@ Bind any DOM event directly in HTML:
 | `.tab` | Tab |
 | `.space` | Space |
 | `.delete` | Delete or Backspace |
-| `.backspace` | Delete or Backspace (alias) |
+| `.backspace` | Backspace only |
 | `.up` | ArrowUp |
 | `.down` | ArrowDown |
 | `.left` | ArrowLeft |

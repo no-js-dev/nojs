@@ -158,7 +158,7 @@ overwrites it.
 
 ### `page-jsonld` template capture
 
-The `page-jsonld` watcher captures the element's `innerHTML` as a static
+The `page-jsonld` watcher captures the element's `textContent` as a static
 template string once at directive init time. `{placeholder}` expressions
 inside the JSON are re-evaluated on every reactive update, but structural
 changes to the element's children after init are not picked up.

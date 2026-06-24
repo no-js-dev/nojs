@@ -62,6 +62,7 @@
     var iframe = pageEl.querySelector('.preview-iframe');
     var updateTimer = null;
     var blobUrls = [];
+    var classlessCss = '';
 
     // ── Dialog helpers (replace alert / confirm / prompt) ──
     var dialogEl     = pageEl.querySelector('.pg-dialog');
@@ -110,11 +111,11 @@
     });
 
     function pgAlert(message, opts)  { return _showDialog({ title: (opts && opts.title) || '', message: message, variant: (opts && opts.variant) || '', okLabel: 'OK' }); }
-    function pgConfirm(message)      { return _showDialog({ title: '⚠️', message: message, showCancel: true, okLabel: 'Confirm', cancelLabel: 'Cancel' }); }
+    function pgConfirm(message)      { return _showDialog({ title: 'Confirm', message: message, showCancel: true, okLabel: 'OK', cancelLabel: 'Cancel' }); }
     function pgPrompt(message, dflt) { return _showDialog({ title: '', message: message, input: true, inputValue: dflt || '', showCancel: true, okLabel: 'OK', cancelLabel: 'Cancel' }); }
 
     // ── Default examples (fetched from separate files) ──
-    var EXAMPLE_FILES = ['kanban.html', 'chat.html', 'settings.html'];
+    var EXAMPLE_FILES = ['kanban.html'];
     var EXAMPLE_BASE = 'playground/examples/';
     var defaultFiles = {};
     var defaultTabs = EXAMPLE_FILES.slice();
@@ -130,7 +131,7 @@
     function _hl(escaped, passes) {
       var ph = [], n = 0;
       function mk(cls, text) {
-        var tok = '\x00' + (n++) + '\x00';
+        var tok = '\x00#' + (n++) + '#\x00';
         ph.push('<span class="hl-' + cls + '">' + text + '</span>');
         return tok;
       }
@@ -139,7 +140,7 @@
         r = r.replace(passes[i][0], passes[i][1](mk));
       }
       for (var j = 0; j < ph.length; j++) {
-        r = r.split('\x00' + j + '\x00').join(ph[j]);
+        r = r.split('\x00#' + j + '#\x00').join(ph[j]);
       }
       return r;
     }
@@ -297,6 +298,7 @@
         + '  <base href="' + location.origin + '/">\n'
         + '  <meta charset="UTF-8">\n'
         + '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+        + '  <style>\n' + classlessCss + '\n  </style>\n'
         + '  <script>\n'
         + '    // Intercept console to send to parent\n'
         + '    ["log","warn","error","info"].forEach(function(method) {\n'
@@ -324,11 +326,10 @@
         + '      }, "*");\n'
         + '    };\n'
         + '  <\/script>\n'
-        + '  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@latest"><\/script>\n'
-        + '  <script src="' + (location.hostname === 'localhost' ? '/__local__/no.js' : 'https://cdn.no-js.dev/') + '"><\/script>\n'
+        + '  <script src="https://cdn.no-js.dev/"><\/script>\n'
         + '  <script src="https://cdn-elements.no-js.dev/"><\/script>\n'
         + '</head>\n'
-        + '<body class="font-sans">\n'
+        + '<body>\n'
         + processedHtml + '\n'
         + '</body>\n'
         + '</html>';
@@ -572,14 +573,14 @@
         var url = location.origin + location.pathname + '#/playground?code=' + encodeURIComponent(encoded);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).then(function() {
-            pgAlert('Link copied to clipboard!', { title: '\u2705', variant: 'success' });
+            pgAlert('Link copied to clipboard!', { title: 'Success', variant: 'success' });
           });
         } else {
           // Fallback — show link in prompt-style dialog for manual copy
           pgPrompt('Copy this link:', url);
         }
       } catch(e) {
-        pgAlert('Could not generate share link.', { title: '\u274C', variant: 'error' });
+        pgAlert('Could not generate share link.', { title: 'Error', variant: 'error' });
       }
     };
 
@@ -596,7 +597,7 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } catch(e) {
-        pgAlert('Could not download project.', { title: '\u274C', variant: 'error' });
+        pgAlert('Could not download project.', { title: 'Error', variant: 'error' });
       }
     };
 
@@ -672,11 +673,16 @@
 
     // ── Fetch default example files ──
     function fetchDefaults() {
-      return Promise.all(EXAMPLE_FILES.map(function(name) {
-        return fetch(EXAMPLE_BASE + name).then(function(r) { return r.text(); }).then(function(html) {
+      var bust = '?v=' + Date.now();
+      var cssPromise = fetch('playground/classless.css' + bust)
+        .then(function(r) { return r.text(); })
+        .then(function(css) { classlessCss = css; });
+      var filePromises = EXAMPLE_FILES.map(function(name) {
+        return fetch(EXAMPLE_BASE + name + bust).then(function(r) { return r.text(); }).then(function(html) {
           defaultFiles[name] = { name: name, content: html };
         });
-      }));
+      });
+      return Promise.all([cssPromise].concat(filePromises));
     }
 
     // ── Initialize ──

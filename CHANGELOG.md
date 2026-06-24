@@ -5,7 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.15.4...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.15.5...HEAD)
+
+## [1.15.5](https://github.com/no-js-dev/nojs/compare/v1.15.4...v1.15.5) — 2026-06-24
+
+### Added
+
+- feat(docs): JS syntax highlight directive for code blocks on the docs site
+- feat(docs): full docs site overhaul — new home page, asset cleanup, SPA architecture with route-view
+
+### Fixed
+
+- fix(http): add independent reactive params watcher so URL parameter changes trigger re-fetch
+- fix(http): defer initial `doRequest` to microtask so computed values resolve before first fetch
+- fix(http): add `$store`/`$route`/`$i18n` subscriptions to `get` directive URL watcher
+- fix(router): split space-separated classes in `route-active` toggle
+- fix(docs): prevent `_hl()` placeholder collision with number regex
+- fix(docs): sync `404.html` with `index.html` highlight directive and hero guard
+- fix(docs): re-create hero editor on same-route re-navigation
+- fix(docs): fix `audit-i18n` crash, add `--error`/`--success` CSS tokens, rename landing to home
+
+### Changed
+
+- chore(docs): ecosystem sync — remove CLI and npm install references, CDN-only distribution
+- chore(docs): update CLAUDE.md to reflect SPA architecture with route-view
 
 ## [1.15.4](https://github.com/no-js-dev/nojs/compare/v1.15.3...v1.15.4) — 2026-06-22
 

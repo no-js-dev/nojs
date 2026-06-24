@@ -1,11 +1,5 @@
 <!-- State Management — from state-management.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.stateManagement.hero.badge"></span>
-  <h1 class="hero-title" t="docs.stateManagement.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.stateManagement.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- state -->
@@ -139,6 +133,20 @@
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
   </div>
 
+  <!-- persist-fields -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="state-persist-fields" t="docs.stateManagement.persistFields.title"></h2>
+    <p class="doc-text" t="docs.stateManagement.persistFields.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Only theme and sidebar are persisted — token never touches storage --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">state</span>=<span class="hl-str">"{ theme: 'dark', sidebar: true, token: '' }"</span>
+     <span class="hl-attr">persist</span>=<span class="hl-str">"localStorage"</span>
+     <span class="hl-attr">persist-key</span>=<span class="hl-str">"app-settings"</span>
+     <span class="hl-attr">persist-fields</span>=<span class="hl-str">"theme, sidebar"</span><span class="hl-tag">&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+    <p class="doc-text" t="docs.stateManagement.persistFields.text2"></p>
+    <div class="callout"><p t="docs.stateManagement.persistFields.callout"></p></div>
+  </div>
+
   <!-- persist-schema -->
   <div class="doc-section">
     <h2 class="doc-title" id="state-persist-schema" t="docs.stateManagement.persistSchema.title"></h2>
@@ -156,9 +164,9 @@
   <div class="doc-section">
     <h2 class="doc-title" id="state-notify" t="docs.stateManagement.notify.title"></h2>
     <p class="doc-text" t="docs.stateManagement.notify.text"></p>
-    <div class="code-block"><pre><span class="hl-cmt">// External JS mutates a store</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-attr">store</span>.<span class="hl-attr">cart</span>.<span class="hl-attr">items</span>.<span class="hl-fn">push</span>({ <span class="hl-attr">id</span>: <span class="hl-num">1</span>, <span class="hl-attr">name</span>: <span class="hl-str">'Widget'</span> });
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">notify</span>();  <span class="hl-cmt">// Flush DOM updates</span></pre></div>
+    <div class="code-block"><pre highlight>// External JS mutates a store
+NoJS.store.cart.items.push({ id: 1, name: 'Widget' });
+NoJS.notify();  // Flush DOM updates</pre></div>
     <div class="callout"><p t="docs.stateManagement.notify.callout"></p></div>
   </div>
 

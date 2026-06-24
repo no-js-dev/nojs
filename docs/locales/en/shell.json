@@ -1,13 +1,11 @@
 {
   "shell": {
-    "flag": "🇺🇸",
     "header": {
       "home": "Home",
       "features": "Features",
       "examples": "Examples",
       "docs": "Docs",
       "faq": "FAQ",
-      "getStarted": "Get Started",
       "playground": "Playground",
       "tools": "More",
       "toolsLsp": "NoJS LSP",
@@ -15,17 +13,21 @@
       "toolsSkill": "NoJS Skill",
       "toolsSkillDesc": "AI agent reference",
       "toolsElements": "NoJS Elements",
-      "toolsElementsDesc": "Drag, drop & validation"
+      "toolsElementsDesc": "Drag, drop & validation",
+      "discord": "Discord",
+      "github": "GitHub"
     },
     "footer": {
       "desc": "The HTML-first reactive framework",
-      "license": "2026 No.JS - MIT License"
+      "license": "<a href=\"https://github.com/no-js-dev/nojs/blob/main/LICENSE\" class=\"footer-link\" target=\"_blank\" rel=\"noopener noreferrer\">MIT License</a>",
+      "nav": "Navigation",
+      "tools": "Ecosystem",
+      "community": "Community",
+      "poweredBy": "Powered by"
     },
     "sidebar": {
       "gettingStarted": "Getting Started",
       "introduction": "Introduction",
-      "quickStart": "Quick Start",
-      "coreConcepts": "Core Concepts",
       "apiReference": "API Reference",
       "directives": "Directives",
       "actionsRefs": "Actions & Refs",
@@ -49,41 +51,11 @@
       "animations": "Animations",
       "filters": "Filters",
       "i18n": "i18n",
-      "plugins": "Plugins",
-      "onThisPage": "On This Page"
-    },
-    "langSwitcher": {
-      "en": "EN",
-      "es": "ES",
-      "pt": "PT",
-      "it": "IT",
-      "fr": "FR"
+      "plugins": "Plugins"
     },
     "demo": {
       "welcome": "Welcome to No.JS",
-      "greeting": "Hello, {name}!",
-      "items": "{count} item | {count} items",
-      "nav": {
-        "home": "Home",
-        "docs": "Documentation",
-        "examples": "Examples"
-      },
-      "actions": {
-        "save": "Save",
-        "cancel": "Cancel",
-        "delete": "Delete"
-      },
-      "fruits": {
-        "apple": "Apple",
-        "banana": "Banana",
-        "cherry": "Cherry"
-      },
-      "messages": {
-        "success": "Operation completed successfully!",
-        "error": "Something went wrong.",
-        "empty": "No items found.",
-        "confirm": "Are you sure you want to {action}?"
-      }
+      "greeting": "Hello, {name}!"
     }
   }
 }

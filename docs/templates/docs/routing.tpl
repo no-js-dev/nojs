@@ -1,11 +1,5 @@
 <!-- Routing — from routing.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.routing.hero.badge"></span>
-  <h1 class="hero-title" t="docs.routing.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.routing.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- Route Definition -->
@@ -105,13 +99,14 @@
     <h2 class="doc-title" id="routing-programmatic" t="docs.routing.programmatic.title"></h2>
     <div class="code-block"><pre><span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$router.push('/users/42')"</span><span class="hl-tag">&gt;</span>Go to User<span class="hl-tag">&lt;/button&gt;</span>
 <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$router.back()"</span><span class="hl-tag">&gt;</span>Go Back<span class="hl-tag">&lt;/button&gt;</span>
-<span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$router.replace('/new-path')"</span><span class="hl-tag">&gt;</span>Replace<span class="hl-tag">&lt;/button&gt;</span></pre></div>
+<span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$router.replace('/new-path')"</span><span class="hl-tag">&gt;</span>Replace<span class="hl-tag">&lt;/button&gt;</span>
+<span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$router.forward()"</span><span class="hl-tag">&gt;</span>Go Forward<span class="hl-tag">&lt;/button&gt;</span></pre></div>
     <div class="callout">
       <p t="docs.routing.programmatic.callout"></p>
     </div>
-    <div class="code-block"><pre><span class="hl-tag">&lt;script&gt;</span>
-  <span class="hl-kw">await</span> <span class="hl-fn">NoJS</span>.<span class="hl-fn">router</span>.<span class="hl-fn">push</span>(<span class="hl-str">'/dashboard'</span>);
-<span class="hl-tag">&lt;/script&gt;</span></pre></div>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  await NoJS.router.push('/dashboard');
+&lt;/script&gt;</pre></div>
   </div>
 
   <!-- Nested Routes -->
@@ -378,6 +373,8 @@
       <tbody>
         <tr><td><code>page-title</code></td><td t="docs.routing.headAttributes.pageTitleDesc"></td></tr>
         <tr><td><code>page-description</code></td><td t="docs.routing.headAttributes.pageDescriptionDesc"></td></tr>
+        <tr><td><code>page-canonical</code></td><td t="docs.routing.headAttributes.pageCanonicalDesc"></td></tr>
+        <tr><td><code>page-jsonld</code></td><td t="docs.routing.headAttributes.pageJsonldDesc"></td></tr>
       </tbody>
     </table>
     <div class="callout">
@@ -389,8 +386,8 @@
   <div class="doc-section">
     <h2 class="doc-title" id="routing-focus-behavior" t="docs.routing.focusBehavior.title"></h2>
     <p class="doc-text" t="docs.routing.focusBehavior.text"></p>
-    <div class="code-block"><pre><span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">focusBehavior</span>: <span class="hl-str">'auto'</span> }
+    <div class="code-block"><pre highlight>NoJS.config({
+  router: { focusBehavior: 'auto' }
 });</pre></div>
     <p class="doc-text" t="docs.routing.focusBehavior.text2"></p>
     <ol class="doc-list">
@@ -469,14 +466,14 @@
     <!-- Configuration -->
     <h3 class="doc-subtitle" t="docs.routing.viewTransitions.configTitle"></h3>
     <p class="doc-text" t="docs.routing.viewTransitions.configText" t-html></p>
-    <div class="code-block"><pre><span class="hl-cmt">// View Transition API is enabled by default</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">viewTransition</span>: <span class="hl-kw">true</span> }  <span class="hl-cmt">// default</span>
+    <div class="code-block"><pre highlight>// View Transition API is enabled by default
+NoJS.config({
+  router: { viewTransition: true }  // default
 });
 
-<span class="hl-cmt">// Fall back to legacy class-based transitions</span>
-<span class="hl-fn">NoJS</span>.<span class="hl-fn">config</span>({
-  <span class="hl-attr">router</span>: { <span class="hl-attr">viewTransition</span>: <span class="hl-kw">false</span> }
+// Fall back to legacy class-based transitions
+NoJS.config({
+  router: { viewTransition: false }
 });</pre></div>
 
     <!-- Custom CSS -->
@@ -531,6 +528,73 @@
 <span class="hl-cmt">&lt;!-- New approach (default, no extra CSS needed for presets) --&gt;</span>
 <span class="hl-tag">&lt;main</span> <span class="hl-attr">route-view</span> <span class="hl-attr">transition</span>=<span class="hl-str">"fade"</span><span class="hl-tag">&gt;&lt;/main&gt;</span>
 <span class="hl-cmt">&lt;!-- Works out of the box — uses View Transition API --&gt;</span></pre></div>
+  </div>
+
+  <!-- Deployment -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="routing-deployment" t="docs.routing.deployment.title"></h2>
+    <p class="doc-text" t="docs.routing.deployment.text" t-html></p>
+
+    <!-- nginx -->
+    <h3 class="doc-subtitle" id="routing-deployment-nginx" t="docs.routing.deployment.nginxTitle"></h3>
+    <div class="code-block"><pre><span class="hl-kw">server</span> {
+  <span class="hl-attr">listen</span> <span class="hl-num">80</span>;
+  <span class="hl-attr">root</span> /var/www/your-app;
+  <span class="hl-attr">index</span> index.html;
+
+  <span class="hl-kw">location</span> / {
+    <span class="hl-attr">try_files</span> $uri $uri/ /index.html;
+  }
+}</pre></div>
+
+    <!-- Apache -->
+    <h3 class="doc-subtitle" id="routing-deployment-apache" t="docs.routing.deployment.apacheTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.apacheText"></p>
+    <div class="code-block"><pre>Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [QSA,L]</pre></div>
+
+    <!-- Netlify -->
+    <h3 class="doc-subtitle" id="routing-deployment-netlify" t="docs.routing.deployment.netlifyTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.netlifyText"></p>
+    <div class="code-block"><pre>/*  /index.html  200</pre></div>
+    <p class="doc-text" t="docs.routing.deployment.netlifyToml"></p>
+    <div class="code-block"><pre>[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200</pre></div>
+
+    <!-- Vercel -->
+    <h3 class="doc-subtitle" id="routing-deployment-vercel" t="docs.routing.deployment.vercelTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.vercelText"></p>
+    <div class="code-block"><pre>{
+  <span class="hl-str">"rewrites"</span>: [{ <span class="hl-str">"source"</span>: <span class="hl-str">"/(.*)"</span>, <span class="hl-str">"destination"</span>: <span class="hl-str">"/index.html"</span> }]
+}</pre></div>
+
+    <!-- Cloudflare Pages -->
+    <h3 class="doc-subtitle" id="routing-deployment-cloudflare" t="docs.routing.deployment.cloudflareTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.cloudflareText"></p>
+    <div class="code-block"><pre>/*  /index.html  200</pre></div>
+
+    <!-- Firebase Hosting -->
+    <h3 class="doc-subtitle" id="routing-deployment-firebase" t="docs.routing.deployment.firebaseTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.firebaseText"></p>
+    <div class="code-block"><pre>{
+  <span class="hl-str">"hosting"</span>: {
+    <span class="hl-str">"rewrites"</span>: [
+      { <span class="hl-str">"source"</span>: <span class="hl-str">"**"</span>, <span class="hl-str">"destination"</span>: <span class="hl-str">"/index.html"</span> }
+    ]
+  }
+}</pre></div>
+
+    <!-- Hash mode -->
+    <h3 class="doc-subtitle" id="routing-deployment-hash" t="docs.routing.deployment.hashTitle"></h3>
+    <p class="doc-text" t="docs.routing.deployment.hashText" t-html></p>
+    <div class="code-block"><pre highlight>NoJS.config({ router: { useHash: true } });</pre></div>
+    <div class="callout">
+      <p t="docs.routing.deployment.hashCallout" t-html></p>
+    </div>
   </div>
 
 </div>

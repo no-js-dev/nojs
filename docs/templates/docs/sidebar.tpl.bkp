@@ -1,0 +1,44 @@
+<aside class="docs-sidebar" class-open="sidebarOpen">
+  <nav>
+    <div class="sidebar-group">
+      <h4 class="sidebar-heading" t="shell.sidebar.gettingStarted"></h4>
+      <ul class="sidebar-list">
+        <li><a route="/docs/getting-started" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.introduction"></a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-group">
+      <h4 class="sidebar-heading" t="shell.sidebar.apiReference"></h4>
+      <ul class="sidebar-list">
+        <li><a route="/docs/cheatsheet" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.directives"></a></li>
+        <li><a route="/docs/actions-refs" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.actionsRefs"></a></li>
+        <li><a route="/docs/custom-directives" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.customDirectives"></a></li>
+        <li><a route="/docs/plugins" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.plugins"></a></li>
+        <li><a route="/docs/error-handling" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.errorHandling"></a></li>
+        <li><a route="/docs/configuration" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.configuration"></a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-group">
+      <h4 class="sidebar-heading" t="shell.sidebar.guides"></h4>
+      <ul class="sidebar-list">
+        <li><a route="/docs/state-management" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.stateManagement"></a></li>
+        <li><a route="/docs/events" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.eventHandling"></a></li>
+        <li><a route="/docs/data-binding" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.dataBinding"></a></li>
+        <li><a route="/docs/conditionals" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.conditionals"></a></li>
+        <li><a route="/docs/loops" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.loops"></a></li>
+        <li><a route="/docs/templates" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.templates"></a></li>
+        <li><a route="/docs/data-fetching" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.fetchApi"></a></li>
+        <li><a route="/docs/pagination" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.pagination"></a></li>
+        <li><a route="/docs/routing" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.routing"></a></li>
+        <li><a route="/docs/head-management" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.headManagement"></a></li>
+        <li><a route="/docs/forms-validation" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.forms"></a></li>
+        <li><a route="/docs/styling" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.styling"></a></li>
+        <li><a route="/docs/drag-and-drop" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.dragAndDrop"></a></li>
+        <li><a route="/docs/animations" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.animations"></a></li>
+        <li><a route="/docs/filters" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.filters"></a></li>
+        <li><a route="/docs/i18n" class="sidebar-link" route-active="active" on:click="sidebarOpen = false" t="shell.sidebar.i18n"></a></li>
+      </ul>
+    </div>
+  </nav>
+</aside>

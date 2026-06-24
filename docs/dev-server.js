@@ -8,8 +8,9 @@ const PROJECT = path.resolve(DOCS, '..');
 const LOCAL_BUILD = path.join(PROJECT, 'dist/iife/no.js');
 const LOCAL_ELEMENTS_BUILD = path.resolve(PROJECT, '../NoJS-Elements/dist/iife/nojs-elements.js');
 
-const CDN_PATTERN = /https:\/\/cdn\.no-js\.dev\//g;
+const CDN_SRC_PATTERN = /(<script\s[^>]*src=["'])https:\/\/cdn\.no-js\.dev\/(["'])/g;
 const LOCAL_SCRIPT = '/__local__/no.js';
+const LOCAL_SCRIPT_REPLACEMENT = '$1' + LOCAL_SCRIPT + '$2';
 
 const MIME = {
   '.html': 'text/html',
@@ -164,7 +165,7 @@ const server = http.createServer((req, res) => {
     if (ext === '.html') {
       fs.readFile(resolvedPath, 'utf8', (readErr, html) => {
         if (readErr) { res.writeHead(500); res.end('Error'); return; }
-        const rewritten = html.replace(CDN_PATTERN, LOCAL_SCRIPT);
+        const rewritten = html.replace(CDN_SRC_PATTERN, LOCAL_SCRIPT_REPLACEMENT);
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(rewritten);
       });

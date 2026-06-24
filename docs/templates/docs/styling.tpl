@@ -1,11 +1,5 @@
 <!-- Styling — from styling.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.styling.hero.badge"></span>
-  <h1 class="hero-title" t="docs.styling.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.styling.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- class-* -->

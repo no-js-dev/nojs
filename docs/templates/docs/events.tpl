@@ -1,11 +1,5 @@
 <!-- Events — from events.md -->
 
-<section class="hero-section">
-  <span class="badge" t="docs.events.hero.badge"></span>
-  <h1 class="hero-title" t="docs.events.hero.title"></h1>
-  <p class="hero-subtitle" t="docs.events.hero.subtitle"></p>
-</section>
-
 <div class="doc-content">
 
   <!-- on:* -->
@@ -44,6 +38,17 @@
   <div class="doc-section">
     <h2 class="doc-title" id="events-modifiers" t="docs.events.modifiers.title"></h2>
     <p class="doc-text" t="docs.events.modifiers.text"></p>
+    <table class="doc-table">
+      <thead><tr><th t="docs.events.modifiers.col1"></th><th t="docs.events.modifiers.col2"></th></tr></thead>
+      <tbody>
+        <tr><td><code>.prevent</code></td><td t="docs.events.modifiers.prevent"></td></tr>
+        <tr><td><code>.stop</code></td><td t="docs.events.modifiers.stop"></td></tr>
+        <tr><td><code>.once</code></td><td t="docs.events.modifiers.once"></td></tr>
+        <tr><td><code>.self</code></td><td t="docs.events.modifiers.self"></td></tr>
+        <tr><td><code>.debounce</code></td><td t="docs.events.modifiers.debounce"></td></tr>
+        <tr><td><code>.throttle</code></td><td t="docs.events.modifiers.throttle"></td></tr>
+      </tbody>
+    </table>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- .prevent — calls preventDefault() --&gt;</span>
 <span class="hl-tag">&lt;form</span> <span class="hl-attr">on:submit.prevent</span>=<span class="hl-str">"handleSubmit()"</span><span class="hl-tag">&gt;</span>
 
@@ -108,10 +113,10 @@
         <tr><td><code>.tab</code></td><td t="docs.events.keyModifiers.tab"></td></tr>
         <tr><td><code>.backspace</code></td><td t="docs.events.keyModifiers.backspace"></td></tr>
         <tr><td><code>.delete</code></td><td t="docs.events.keyModifiers.delete"></td></tr>
-        <tr><td><code>.arrow-up</code></td><td t="docs.events.keyModifiers.arrowUp"></td></tr>
-        <tr><td><code>.arrow-down</code></td><td t="docs.events.keyModifiers.arrowDown"></td></tr>
-        <tr><td><code>.arrow-left</code></td><td t="docs.events.keyModifiers.arrowLeft"></td></tr>
-        <tr><td><code>.arrow-right</code></td><td t="docs.events.keyModifiers.arrowRight"></td></tr>
+        <tr><td><code>.up</code></td><td t="docs.events.keyModifiers.arrowUp"></td></tr>
+        <tr><td><code>.down</code></td><td t="docs.events.keyModifiers.arrowDown"></td></tr>
+        <tr><td><code>.left</code></td><td t="docs.events.keyModifiers.arrowLeft"></td></tr>
+        <tr><td><code>.right</code></td><td t="docs.events.keyModifiers.arrowRight"></td></tr>
         <tr><td><code>.ctrl</code></td><td t="docs.events.keyModifiers.ctrl"></td></tr>
         <tr><td><code>.alt</code></td><td t="docs.events.keyModifiers.alt"></td></tr>
         <tr><td><code>.shift</code></td><td t="docs.events.keyModifiers.shift"></td></tr>
@@ -122,7 +127,7 @@
 <span class="hl-tag">&lt;input</span> <span class="hl-attr">on:keydown.enter</span>=<span class="hl-str">"submit()"</span> <span class="hl-tag">/&gt;</span>
 
 <span class="hl-cmt">&lt;!-- Combination --&gt;</span>
-<span class="hl-tag">&lt;input</span> <span class="hl-attr">on:keydown.ctrl.s</span>=<span class="hl-str">"save()"</span> <span class="hl-tag">/&gt;</span>
+<span class="hl-tag">&lt;input</span> <span class="hl-attr">on:keydown.ctrl.enter</span>=<span class="hl-str">"save()"</span> <span class="hl-tag">/&gt;</span>
 
 <span class="hl-cmt">&lt;!-- Multiple modifiers --&gt;</span>
 <span class="hl-tag">&lt;input</span> <span class="hl-attr">on:keydown.ctrl.shift.enter</span>=<span class="hl-str">"submitAll()"</span> <span class="hl-tag">/&gt;</span></pre></div>

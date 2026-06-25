@@ -1,5 +1,5 @@
 <h1>
-  <img src="docs/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
+  <img src="docs/assets/img/logo-dark-round.png" alt="No.JS" width="26" style="vertical-align: middle; margin-top: -6px;"> No.JS
 </h1>
 
 [![CI](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml/badge.svg)](https://github.com/no-js-dev/nojs/actions/workflows/ci.yml)

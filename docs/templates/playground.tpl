@@ -354,6 +354,12 @@
   .pg-global-actions {
     flex-wrap: wrap;
   }
+  .pg-window-btn span {
+    display: none;
+  }
+  .pg-window-title {
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 480px) {

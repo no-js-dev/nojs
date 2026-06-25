@@ -45,10 +45,9 @@
     }, 50);
   }
 
-  // Re-initialize on hashchange (user navigates away and comes back)
-  window.addEventListener('hashchange', function() {
-    if (location.hash.indexOf('#/playground') === 0 || location.hash === '#/playground') {
-      // Small delay to let router load the template
+  // Re-initialize on navigation (user navigates away and comes back)
+  window.addEventListener('popstate', function() {
+    if (location.pathname === '/playground' || location.pathname === '/playground/') {
       setTimeout(function() {
         if (!document.querySelector('.playground-page')) return;
         waitForContext(boot);

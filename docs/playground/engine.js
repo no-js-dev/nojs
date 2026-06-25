@@ -45,9 +45,11 @@
     }, 50);
   }
 
-  // Re-initialize on navigation (user navigates away and comes back)
-  window.addEventListener('popstate', function() {
-    if (location.pathname === '/playground' || location.pathname === '/playground/') {
+  // Re-initialize on any navigation to /playground (including same-route clicks)
+  function _onRouteChange() {
+    var p = location.pathname.replace(/\/+$/, '') || '/';
+    if (p === '/playground') {
+      _initialized = false;
       setTimeout(function() {
         if (!document.querySelector('.playground-page')) return;
         waitForContext(boot);
@@ -55,7 +57,15 @@
     } else {
       _initialized = false;
     }
-  });
+  }
+  window.addEventListener('popstate', _onRouteChange);
+  if (typeof NoJS !== 'undefined' && NoJS.router) {
+    NoJS.router.on(_onRouteChange);
+  } else if (typeof NoJS !== 'undefined' && typeof NoJS.on === 'function') {
+    NoJS.on('plugins:ready', function() {
+      if (NoJS.router) NoJS.router.on(_onRouteChange);
+    });
+  }
 
   function boot(ctx, pageEl) {
     var iframe = pageEl.querySelector('.preview-iframe');

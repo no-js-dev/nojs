@@ -1,5 +1,5 @@
-<aside class="docs-sidebar" class-open="sidebarOpen"
-       state="{ sections: [
+<aside class="docs-sidebar" class-open="sidebarOpen">
+  <nav state="{ sections: [
          { heading: $i18n.shell.sidebar.gettingStarted, links: [
            { route: '/docs/getting-started', label: $i18n.shell.sidebar.introduction }
          ]},
@@ -29,8 +29,7 @@
            { route: '/docs/filters', label: $i18n.shell.sidebar.filters },
            { route: '/docs/i18n', label: $i18n.shell.sidebar.i18n }
          ]}
-       ]}">
-  <nav>
+       ]}" >
     <div class="sidebar-group" foreach="section in sections" key="section.heading">
       <h4 class="sidebar-heading" bind="section.heading"></h4>
       <ul class="sidebar-list">

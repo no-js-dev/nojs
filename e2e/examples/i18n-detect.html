@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NoJS – i18n First-Visit Detection</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    section { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+    .test-label { font-size: .85rem; color: #555; margin: 0 0 .25rem; }
+    .value { font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <main>
+    <h1>i18n — First-Visit Language Detection</h1>
+
+    <!-- 1. Detected translation output -->
+    <section>
+      <h2 class="test-label">Detected welcome (lazy loadPath)</h2>
+      <span class="value" t="welcome" data-test="welcome-text"></span>
+    </section>
+
+    <!-- 2. Resolved locale code -->
+    <section>
+      <h2 class="test-label">Resolved locale</h2>
+      <span class="value" state="{}" bind="$i18n.locale" data-test="resolved-locale"></span>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.i18n({
+      loadPath: './i18n-detect-locales/{locale}/{ns}.json',
+      ns: ['common'],
+      detectBrowser: true,
+      persist: true,
+      defaultLocale: 'en',
+      fallbackLocale: 'en',
+      supportedLocales: ['en', 'es', 'pt', 'it', 'fr']
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

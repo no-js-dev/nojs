@@ -34,8 +34,8 @@
         </div>
         <div class="hero-stat-divider"></div>
         <div class="hero-stat">
-          <span class="hero-stat-value">32</span>
-          <span class="hero-stat-label">built-in filters</span>
+          <span class="hero-stat-value">40+</span>
+          <span class="hero-stat-label">directives</span>
         </div>
       </div>
 

@@ -46,7 +46,7 @@
       },
       "q7": {
         "question": "Quelles fonctionnalités sont incluses ?",
-        "answer": "Tout est livré dans un seul fichier :<br><br>• État réactif et propriétés calculées<br>• Routage SPA avec lazy loading<br>• HTTP déclaratif (GET, POST, PUT, PATCH, DELETE)<br>• i18n avec fichiers de locale externes<br>• Validation de formulaires (Maintenant dans NoJS Elements)<br>• Animations et transitions<br>• Drag and drop (Maintenant dans NoJS Elements)<br>• 32 filtres intégrés"
+        "answer": "Tout est livré dans un seul fichier :<br><br>• État réactif et propriétés calculées<br>• Routage SPA avec lazy loading<br>• HTTP déclaratif (GET, POST, PUT, PATCH, DELETE)<br>• i18n avec fichiers de locale externes<br>• Validation de formulaires (Maintenant dans NoJS Elements)<br>• Animations et transitions<br>• Drag and drop (Maintenant dans NoJS Elements)<br>• 40+ directives"
       },
       "q8": {
         "question": "Quel est le cas d'usage idéal ?",
@@ -80,7 +80,7 @@
       },
       "q14": {
         "question": "Quelle est la taille du bundle ?",
-        "answer": "Un seul fichier, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations et 32 filtres. Drag-and-drop et form validation maintenant dans NoJS Elements."
+        "answer": "Un seul fichier, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations et 40+ directives. Drag-and-drop et form validation maintenant dans NoJS Elements."
       },
       "q15": {
         "question": "Ai-je besoin d'un build ?",

@@ -46,7 +46,7 @@
       },
       "q7": {
         "question": "What features are included?",
-        "answer": "Everything ships in one file:<br><br>• Reactive state and computed properties<br>• SPA routing with lazy loading<br>• Declarative HTTP (GET, POST, PUT, PATCH, DELETE)<br>• i18n with external locale files<br>• Form validation (Now in NoJS Elements)<br>• Animations and transitions<br>• Drag and drop (Now in NoJS Elements)<br>• 32 built-in filters"
+        "answer": "Everything ships in one file:<br><br>• Reactive state and computed properties<br>• SPA routing with lazy loading<br>• Declarative HTTP (GET, POST, PUT, PATCH, DELETE)<br>• i18n with external locale files<br>• Form validation (Now in NoJS Elements)<br>• Animations and transitions<br>• Drag and drop (Now in NoJS Elements)<br>• 40+ directives"
       },
       "q8": {
         "question": "What's the right use case?",
@@ -80,7 +80,7 @@
       },
       "q14": {
         "question": "How big is the bundle?",
-        "answer": "It includes reactivity, routing, data fetching, i18n, animations, and 32 filters. Drag-and-drop and form validation are now in NoJS Elements. Zero dependencies."
+        "answer": "It includes reactivity, routing, data fetching, i18n, animations, and 40+ directives. Drag-and-drop and form validation are now in NoJS Elements. Zero dependencies."
       },
       "q15": {
         "question": "Do I need a build step?",

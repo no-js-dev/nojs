@@ -9,6 +9,11 @@
     * { box-sizing: border-box; }
     body { font-family: sans-serif; margin: 0; background: #07080b; color: var(--text); }
 
+    main { max-width: 960px; margin: 0 auto; padding: 1rem; }
+    main > h1 { font-size: 1.25rem; }
+    section { border: 1px solid var(--border); border-radius: 8px; padding: 0; margin-bottom: 1rem; overflow: visible; }
+    .test-label { font-size: .85rem; color: #9aa3b2; font-weight: 600; margin: .75rem 1rem .25rem; }
+
     /* ── Nav shell (mirrors docs sticky-nav / nav-links) ── */
     .sticky-nav { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
     .nav-hamburger { display: none; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .4rem .6rem; cursor: pointer; }
@@ -51,66 +56,75 @@
   <!-- Global store for the mobile drawer (mirrors docs) -->
   <div store="nav" state="{ menuOpen: false }"></div>
 
-  <nav class="sticky-nav">
-    <span>No.JS</span>
-    <button class="nav-hamburger" data-test="hamburger"
-            on:click="$store.nav.menuOpen = !$store.nav.menuOpen"
-            bind-aria-expanded="$store.nav.menuOpen" aria-label="Toggle navigation menu">Menu</button>
-  </nav>
+  <main>
+    <h1>Language selector &amp; Tools menu — docs nav</h1>
 
-  <div class="nav-links" data-test="drawer" class-open="$store.nav.menuOpen">
-    <a route="/" data-test="nav-home" t="nav.home" on:click="$store.nav.menuOpen = false"></a>
-    <a route="/features" data-test="nav-features" t="nav.features" on:click="$store.nav.menuOpen = false"></a>
+    <!-- Scenario: docs sticky-nav shell (desktop language dropdown, Tools "More" menu, mobile pills) -->
+    <section aria-label="Docs navigation shell">
+      <h2 class="test-label">Sticky nav — language selector, Tools menu &amp; mobile pills</h2>
 
-    <!-- Tools "More" dropdown (NoJS-Elements dropdown family) -->
-    <div class="nav-dropdown" dropdown dropdown-position="bottom" dropdown-align="end">
-      <button class="nav-dropdown-toggle" dropdown-toggle data-test="tools-toggle">
-        <span t="tools.label"></span>
-        <span aria-hidden="true">▾</span>
-      </button>
-      <div class="nav-dropdown-menu" dropdown-menu data-test="tools-menu">
-        <a class="nav-dropdown-link" dropdown-item data-test="tools-elements"
-           href="https://github.com/no-js-dev/nojs-elements" target="_blank" rel="noopener noreferrer">
-          <strong>NoJS Elements</strong>
-          <span t="tools.elementsDesc"></span>
-        </a>
-        <a class="nav-dropdown-link" dropdown-item data-test="tools-lsp"
-           href="https://github.com/no-js-dev/nojs-lsp" target="_blank" rel="noopener noreferrer">
-          <strong>NoJS LSP</strong>
-          <span t="tools.lspDesc"></span>
-        </a>
-        <a class="nav-dropdown-link" dropdown-item data-test="tools-skill"
-           href="https://github.com/no-js-dev/nojs-skill" target="_blank" rel="noopener noreferrer">
-          <strong>NoJS Skill</strong>
-          <span t="tools.skillDesc"></span>
-        </a>
+      <nav class="sticky-nav">
+        <span>No.JS</span>
+        <button class="nav-hamburger" data-test="hamburger"
+                on:click="$store.nav.menuOpen = !$store.nav.menuOpen"
+                bind-aria-expanded="$store.nav.menuOpen" aria-label="Toggle navigation menu">Menu</button>
+      </nav>
+
+      <div class="nav-links" data-test="drawer" class-open="$store.nav.menuOpen">
+        <a route="/" data-test="nav-home" t="nav.home" on:click="$store.nav.menuOpen = false"></a>
+        <a route="/features" data-test="nav-features" t="nav.features" on:click="$store.nav.menuOpen = false"></a>
+
+        <!-- Tools "More" dropdown (NoJS-Elements dropdown family) -->
+        <div class="nav-dropdown" dropdown dropdown-position="bottom" dropdown-align="end">
+          <button class="nav-dropdown-toggle" dropdown-toggle data-test="tools-toggle">
+            <span t="tools.label"></span>
+            <span aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-dropdown-menu" dropdown-menu data-test="tools-menu">
+            <a class="nav-dropdown-link" dropdown-item data-test="tools-elements"
+               href="https://github.com/no-js-dev/nojs-elements" target="_blank" rel="noopener noreferrer">
+              <strong>NoJS Elements</strong>
+              <span t="tools.elementsDesc"></span>
+            </a>
+            <a class="nav-dropdown-link" dropdown-item data-test="tools-lsp"
+               href="https://github.com/no-js-dev/nojs-lsp" target="_blank" rel="noopener noreferrer">
+              <strong>NoJS LSP</strong>
+              <span t="tools.lspDesc"></span>
+            </a>
+            <a class="nav-dropdown-link" dropdown-item data-test="tools-skill"
+               href="https://github.com/no-js-dev/nojs-skill" target="_blank" rel="noopener noreferrer">
+              <strong>NoJS Skill</strong>
+              <span t="tools.skillDesc"></span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Language selector (desktop) — NoJS-Elements dropdown -->
+        <div class="lang-select" dropdown dropdown-position="bottom" dropdown-align="end">
+          <button class="lang-select-toggle" dropdown-toggle data-test="lang-toggle" aria-label="Select language">
+            <span bind="$i18n.locale.toUpperCase()" data-test="lang-current">EN</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+          <div class="lang-select-menu" dropdown-menu data-test="lang-menu">
+            <button dropdown-item data-test="lang-opt-en" on:click="$i18n.locale = 'en'" class-active="$i18n.locale === 'en'">EN</button>
+            <button dropdown-item data-test="lang-opt-es" on:click="$i18n.locale = 'es'" class-active="$i18n.locale === 'es'">ES</button>
+            <button dropdown-item data-test="lang-opt-pt" on:click="$i18n.locale = 'pt'" class-active="$i18n.locale === 'pt'">PT</button>
+            <button dropdown-item data-test="lang-opt-it" on:click="$i18n.locale = 'it'" class-active="$i18n.locale === 'it'">IT</button>
+            <button dropdown-item data-test="lang-opt-fr" on:click="$i18n.locale = 'fr'" class-active="$i18n.locale === 'fr'">FR</button>
+          </div>
+        </div>
+
+        <!-- Language pills (mobile drawer only) -->
+        <div class="lang-pills" data-test="lang-pills" aria-label="Select language">
+          <button class="lang-pill" data-test="pill-en" on:click="$i18n.locale = 'en'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'en'">EN</button>
+          <button class="lang-pill" data-test="pill-es" on:click="$i18n.locale = 'es'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'es'">ES</button>
+          <button class="lang-pill" data-test="pill-pt" on:click="$i18n.locale = 'pt'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'pt'">PT</button>
+          <button class="lang-pill" data-test="pill-it" on:click="$i18n.locale = 'it'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'it'">IT</button>
+          <button class="lang-pill" data-test="pill-fr" on:click="$i18n.locale = 'fr'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'fr'">FR</button>
+        </div>
       </div>
-    </div>
-
-    <!-- Language selector (desktop) — NoJS-Elements dropdown -->
-    <div class="lang-select" dropdown dropdown-position="bottom" dropdown-align="end">
-      <button class="lang-select-toggle" dropdown-toggle data-test="lang-toggle" aria-label="Select language">
-        <span bind="$i18n.locale.toUpperCase()" data-test="lang-current">EN</span>
-        <span aria-hidden="true">▾</span>
-      </button>
-      <div class="lang-select-menu" dropdown-menu data-test="lang-menu">
-        <button dropdown-item data-test="lang-opt-en" on:click="$i18n.locale = 'en'" class-active="$i18n.locale === 'en'">EN</button>
-        <button dropdown-item data-test="lang-opt-es" on:click="$i18n.locale = 'es'" class-active="$i18n.locale === 'es'">ES</button>
-        <button dropdown-item data-test="lang-opt-pt" on:click="$i18n.locale = 'pt'" class-active="$i18n.locale === 'pt'">PT</button>
-        <button dropdown-item data-test="lang-opt-it" on:click="$i18n.locale = 'it'" class-active="$i18n.locale === 'it'">IT</button>
-        <button dropdown-item data-test="lang-opt-fr" on:click="$i18n.locale = 'fr'" class-active="$i18n.locale === 'fr'">FR</button>
-      </div>
-    </div>
-
-    <!-- Language pills (mobile drawer only) -->
-    <div class="lang-pills" data-test="lang-pills" aria-label="Select language">
-      <button class="lang-pill" data-test="pill-en" on:click="$i18n.locale = 'en'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'en'">EN</button>
-      <button class="lang-pill" data-test="pill-es" on:click="$i18n.locale = 'es'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'es'">ES</button>
-      <button class="lang-pill" data-test="pill-pt" on:click="$i18n.locale = 'pt'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'pt'">PT</button>
-      <button class="lang-pill" data-test="pill-it" on:click="$i18n.locale = 'it'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'it'">IT</button>
-      <button class="lang-pill" data-test="pill-fr" on:click="$i18n.locale = 'fr'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'fr'">FR</button>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <!-- NoJS core + Elements (served locally by test-server.js) -->
   <script src="/__local__/no.js"></script>

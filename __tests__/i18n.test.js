@@ -589,8 +589,15 @@ describe('NoJS.i18n() — browser detection with supportedLocales (loadPath)', (
     _config.i18n.supportedLocales = [];
     _config.i18n.persist = false;
     try { localStorage.removeItem('nojs-locale'); } catch (_) {}
+    // jsdom defines `language` on Navigator.prototype (not as an own
+    // property), so `originalLanguage` is `undefined` here. Restoring the
+    // saved own descriptor would leak the mocked value into later describes.
+    // When there was no own descriptor, delete the own property we added so
+    // the prototype getter is restored; otherwise restore the saved one.
     if (originalLanguage) {
       Object.defineProperty(navigator, 'language', originalLanguage);
+    } else {
+      delete navigator.language;
     }
   });
 
@@ -671,6 +678,36 @@ describe('NoJS.i18n() — browser detection with supportedLocales (loadPath)', (
       detectBrowser: false,
       supportedLocales: ['en', 'pt', 'es'],
     });
+    expect(_i18n.locale).toBe('en');
+  });
+
+  test('loadPath + detectBrowser with supportedLocales omitted stays on defaultLocale', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    // No inline bundles, no supportedLocales → defaults to [] and nothing
+    // matches, so the resolved locale must remain the defaultLocale.
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+    });
+    expect(_config.i18n.supportedLocales).toEqual([]);
+    expect(_i18n.locale).toBe('en');
+  });
+
+  test('non-array supportedLocales does not throw and stays on defaultLocale', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    // A bad (non-array) supportedLocales must be guarded so detection cannot
+    // throw on `.includes` — it should be ignored and detection is a no-op.
+    expect(() =>
+      No.i18n({
+        loadPath: '/locales/{locale}.json',
+        defaultLocale: 'en',
+        detectBrowser: true,
+        supportedLocales: null,
+      })
+    ).not.toThrow();
     expect(_i18n.locale).toBe('en');
   });
 });

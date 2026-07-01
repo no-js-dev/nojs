@@ -564,6 +564,117 @@ describe('NoJS.i18n() — external options', () => {
   });
 });
 
+describe('NoJS.i18n() — browser detection with supportedLocales (loadPath)', () => {
+  const originalLanguage = Object.getOwnPropertyDescriptor(navigator, 'language');
+
+  function setNavigatorLanguage(lang) {
+    Object.defineProperty(navigator, 'language', { value: lang, configurable: true });
+  }
+
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _config.i18n.loadPath = null;
+    _config.i18n.ns = [];
+    _config.i18n.supportedLocales = [];
+    _config.i18n.persist = false;
+    try { localStorage.removeItem('nojs-locale'); } catch (_) {}
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _config.i18n.loadPath = null;
+    _config.i18n.ns = [];
+    _config.i18n.supportedLocales = [];
+    _config.i18n.persist = false;
+    try { localStorage.removeItem('nojs-locale'); } catch (_) {}
+    if (originalLanguage) {
+      Object.defineProperty(navigator, 'language', originalLanguage);
+    }
+  });
+
+  test('registers supportedLocales in config', async () => {
+    const { default: No } = await import('../src/index.js');
+    No.i18n({ supportedLocales: ['en', 'pt', 'es'] });
+    expect(_config.i18n.supportedLocales).toEqual(['en', 'pt', 'es']);
+  });
+
+  test('detects prefix (pt) from navigator.language "pt-BR" via supportedLocales under loadPath', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+      supportedLocales: ['en', 'pt', 'es'],
+    });
+    // exact tag 'pt-BR' is not supported, but its prefix 'pt' is
+    expect(_i18n.locale).toBe('pt');
+  });
+
+  test('detects exact tag when supportedLocales contains the full tag', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+      supportedLocales: ['en', 'pt-BR'],
+    });
+    expect(_i18n.locale).toBe('pt-BR');
+  });
+
+  test('stays on defaultLocale when browser language is not supported', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('de-DE');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+      supportedLocales: ['en', 'pt', 'es'],
+    });
+    expect(_i18n.locale).toBe('en');
+  });
+
+  test('persisted nojs-locale wins over browser detection', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    localStorage.setItem('nojs-locale', 'es');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+      persist: true,
+      supportedLocales: ['en', 'pt', 'es'],
+    });
+    expect(_i18n.locale).toBe('es');
+  });
+
+  test('backward compat: inline locales map still detects without supportedLocales', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    No.i18n({
+      defaultLocale: 'en',
+      detectBrowser: true,
+      locales: { en: { hi: 'Hi' }, pt: { hi: 'Oi' } },
+    });
+    expect(_i18n.locale).toBe('pt');
+  });
+
+  test('detectBrowser: false performs no detection regardless of supportedLocales', async () => {
+    const { default: No } = await import('../src/index.js');
+    setNavigatorLanguage('pt-BR');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: false,
+      supportedLocales: ['en', 'pt', 'es'],
+    });
+    expect(_i18n.locale).toBe('en');
+  });
+});
+
 describe('_notifyI18n', () => {
   beforeEach(() => {
     _i18nListeners.clear();

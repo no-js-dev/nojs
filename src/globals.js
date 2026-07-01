@@ -13,7 +13,7 @@ export const _config = {
   cache: { strategy: "none", ttl: 300000 },
   templates: { cache: true },
   router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
-  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], cache: true, persist: false },
+  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false },
   debug: false,
   devtools: false,
   sanitize: true,

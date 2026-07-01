@@ -489,6 +489,7 @@ const NoJS = {
     // Set config options BEFORE locale (setter checks loadPath)
     if (opts.loadPath != null) _config.i18n.loadPath = opts.loadPath;
     if (opts.ns) _config.i18n.ns = opts.ns;
+    if (opts.supportedLocales) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
     if (opts.locales) _i18n.locales = opts.locales;
@@ -510,8 +511,13 @@ const NoJS = {
       const browserLang =
         typeof navigator !== "undefined" ? navigator.language : "en";
       const prefix = browserLang.split("-")[0];
-      if (_i18n.locales[browserLang]) _i18n._locale = browserLang;
-      else if (_i18n.locales[prefix]) _i18n._locale = prefix;
+      // A locale is a match if it exists in the in-memory bundle map (inline
+      // `locales`) OR is declared in `supportedLocales`. The latter is required
+      // for lazy `loadPath` setups where no bundles are loaded yet at this point.
+      const has = (loc) =>
+        _i18n.locales[loc] || _config.i18n.supportedLocales.includes(loc);
+      if (has(browserLang)) _i18n._locale = browserLang;
+      else if (has(prefix)) _i18n._locale = prefix;
     }
   },
 

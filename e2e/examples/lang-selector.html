@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NoJS – Language selector & Tools menu (docs nav)</title>
+  <style>
+    :root { --border: #2a2f3a; --surface: #0d0f14; --text: #e6e9ef; --accent: #3b82f6; }
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 0; background: #07080b; color: var(--text); }
+
+    /* ── Nav shell (mirrors docs sticky-nav / nav-links) ── */
+    .sticky-nav { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+    .nav-hamburger { display: none; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .4rem .6rem; cursor: pointer; }
+
+    .nav-links { display: flex; align-items: center; gap: .5rem; padding: .5rem 1rem; flex-wrap: wrap; }
+    .nav-links > a[route] { color: var(--text); text-decoration: none; padding: .3rem .5rem; }
+    .nav-links > a[route].active { color: var(--accent); font-weight: 700; }
+
+    /* ── Tools "More" dropdown ── */
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-toggle,
+    .lang-select-toggle { display: inline-flex; align-items: center; gap: .35rem; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .35rem .6rem; cursor: pointer; }
+    .nav-dropdown-link { display: flex; flex-direction: column; padding: .5rem .75rem; color: var(--text); text-decoration: none; }
+    .nav-dropdown-menu,
+    .lang-select-menu { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .35rem; min-width: 12rem; }
+    .lang-select-menu { min-width: 5rem; }
+    .lang-select-menu button,
+    .lang-pill { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text); padding: .4rem .6rem; cursor: pointer; border-radius: 6px; }
+    .lang-select-menu button.active,
+    .lang-pill.active { background: var(--accent); color: #fff; font-weight: 700; }
+
+    /* ── Language pills (mobile only) ── */
+    .lang-pills { display: none; gap: .4rem; padding: .5rem 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .lang-pills .lang-pill { width: auto; border: 1px solid var(--border); }
+
+    /* ── Responsive: mirror docs 600px breakpoint ── */
+    @media (max-width: 600px) {
+      .nav-hamburger { display: inline-flex; }
+      .nav-links { display: none; }
+      .nav-links.open { display: flex; flex-direction: column; align-items: stretch; }
+      .lang-select { display: none; }
+      .lang-pills { display: flex; }
+    }
+    @media (min-width: 601px) {
+      .lang-pills { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Global store for the mobile drawer (mirrors docs) -->
+  <div store="nav" state="{ menuOpen: false }"></div>
+
+  <nav class="sticky-nav">
+    <span>No.JS</span>
+    <button class="nav-hamburger" data-test="hamburger"
+            on:click="$store.nav.menuOpen = !$store.nav.menuOpen"
+            bind-aria-expanded="$store.nav.menuOpen" aria-label="Toggle navigation menu">Menu</button>
+  </nav>
+
+  <div class="nav-links" data-test="drawer" class-open="$store.nav.menuOpen">
+    <a route="/" data-test="nav-home" t="nav.home" on:click="$store.nav.menuOpen = false"></a>
+    <a route="/features" data-test="nav-features" t="nav.features" on:click="$store.nav.menuOpen = false"></a>
+
+    <!-- Tools "More" dropdown (NoJS-Elements dropdown family) -->
+    <div class="nav-dropdown" dropdown dropdown-position="bottom" dropdown-align="end">
+      <button class="nav-dropdown-toggle" dropdown-toggle data-test="tools-toggle">
+        <span t="tools.label"></span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div class="nav-dropdown-menu" dropdown-menu data-test="tools-menu">
+        <a class="nav-dropdown-link" dropdown-item data-test="tools-elements"
+           href="https://github.com/no-js-dev/nojs-elements" target="_blank" rel="noopener noreferrer">
+          <strong>NoJS Elements</strong>
+          <span t="tools.elementsDesc"></span>
+        </a>
+        <a class="nav-dropdown-link" dropdown-item data-test="tools-lsp"
+           href="https://github.com/no-js-dev/nojs-lsp" target="_blank" rel="noopener noreferrer">
+          <strong>NoJS LSP</strong>
+          <span t="tools.lspDesc"></span>
+        </a>
+        <a class="nav-dropdown-link" dropdown-item data-test="tools-skill"
+           href="https://github.com/no-js-dev/nojs-skill" target="_blank" rel="noopener noreferrer">
+          <strong>NoJS Skill</strong>
+          <span t="tools.skillDesc"></span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Language selector (desktop) — NoJS-Elements dropdown -->
+    <div class="lang-select" dropdown dropdown-position="bottom" dropdown-align="end">
+      <button class="lang-select-toggle" dropdown-toggle data-test="lang-toggle" aria-label="Select language">
+        <span bind="$i18n.locale.toUpperCase()" data-test="lang-current">EN</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div class="lang-select-menu" dropdown-menu data-test="lang-menu">
+        <button dropdown-item data-test="lang-opt-en" on:click="$i18n.locale = 'en'" class-active="$i18n.locale === 'en'">EN</button>
+        <button dropdown-item data-test="lang-opt-es" on:click="$i18n.locale = 'es'" class-active="$i18n.locale === 'es'">ES</button>
+        <button dropdown-item data-test="lang-opt-pt" on:click="$i18n.locale = 'pt'" class-active="$i18n.locale === 'pt'">PT</button>
+        <button dropdown-item data-test="lang-opt-it" on:click="$i18n.locale = 'it'" class-active="$i18n.locale === 'it'">IT</button>
+        <button dropdown-item data-test="lang-opt-fr" on:click="$i18n.locale = 'fr'" class-active="$i18n.locale === 'fr'">FR</button>
+      </div>
+    </div>
+
+    <!-- Language pills (mobile drawer only) -->
+    <div class="lang-pills" data-test="lang-pills" aria-label="Select language">
+      <button class="lang-pill" data-test="pill-en" on:click="$i18n.locale = 'en'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'en'">EN</button>
+      <button class="lang-pill" data-test="pill-es" on:click="$i18n.locale = 'es'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'es'">ES</button>
+      <button class="lang-pill" data-test="pill-pt" on:click="$i18n.locale = 'pt'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'pt'">PT</button>
+      <button class="lang-pill" data-test="pill-it" on:click="$i18n.locale = 'it'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'it'">IT</button>
+      <button class="lang-pill" data-test="pill-fr" on:click="$i18n.locale = 'fr'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'fr'">FR</button>
+    </div>
+  </div>
+
+  <!-- NoJS core + Elements (served locally by test-server.js) -->
+  <script src="/__local__/no.js"></script>
+  <script src="/__local__/nojs-elements.js"></script>
+  <script>
+    NoJS.config({ i18n: { defaultLocale: 'en', fallbackLocale: 'en' } });
+    NoJS.i18n({
+      defaultLocale: 'en',
+      fallbackLocale: 'en',
+      locales: {
+        en: { nav: { home: 'Home', features: 'Features' }, tools: { label: 'More', elementsDesc: 'Drag, drop & validation', lspDesc: 'VS Code extension', skillDesc: 'AI agent reference' } },
+        es: { nav: { home: 'Inicio', features: 'Características' }, tools: { label: 'Más', elementsDesc: 'Drag, drop y validación', lspDesc: 'Extensión VS Code', skillDesc: 'Referencia AI agent' } },
+        pt: { nav: { home: 'Início', features: 'Recursos' }, tools: { label: 'Mais', elementsDesc: 'Drag, drop e validação', lspDesc: 'Extensão VS Code', skillDesc: 'Referência AI agent' } },
+        it: { nav: { home: 'Inizio', features: 'Funzionalità' }, tools: { label: 'Altro', elementsDesc: 'Drag, drop e validazione', lspDesc: 'Estensione VS Code', skillDesc: 'Riferimento AI agent' } },
+        fr: { nav: { home: 'Accueil', features: 'Fonctionnalités' }, tools: { label: 'Plus', elementsDesc: 'Glisser, déposer et validation', lspDesc: 'Extension VS Code', skillDesc: 'Référence AI agent' } }
+      }
+    });
+  </script>
+</body>
+</html>

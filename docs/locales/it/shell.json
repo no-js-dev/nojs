@@ -15,7 +15,8 @@
       "toolsElements": "NoJS Elements",
       "toolsElementsDesc": "Drag, drop e validazione",
       "discord": "Discord",
-      "github": "GitHub"
+      "github": "GitHub",
+      "selectLanguage": "Seleziona lingua"
     },
     "footer": {
       "desc": "Il framework reattivo HTML-first",

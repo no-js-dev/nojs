@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.16.0...HEAD)
 
+### Fixed
+
+- fix(i18n): guard `supportedLocales` in `NoJS.i18n()` — a non-array value is now ignored instead of throwing during first-visit browser-language detection, and the detection use-site defends against a non-array config
+- fix(i18n): browser-language detection no longer throws when `navigator` exists without a `language` property (`navigator.language` falsiness now falls back to `"en"`)
+
+### Changed
+
+- chore(docs): the docs language selector `aria-label` is now localized via `bind-aria-label="$i18n.t('shell.header.selectLanguage')"` on both the desktop toggle and the mobile pill row; added the `header.selectLanguage` key to all five shell locales (en/pt/es/fr/it)
+
+### Tests
+
+- test(i18n): added coverage for `supportedLocales` omitted (defaults to `[]`) and non-array `supportedLocales` under `detectBrowser`; fixed a jsdom `navigator.language` teardown leak between describes
+- test(i18n): added an `@axe-core/playwright` accessibility check to the language-selector e2e spec and restructured the `lang-selector.html` fixture to wrap its scenario in a `<section>` (per the fixture rule)
+
 ## [1.16.0](https://github.com/no-js-dev/nojs/compare/v1.15.6...v1.16.0) — 2026-07-01
 
 ### Added

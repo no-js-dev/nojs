@@ -208,7 +208,7 @@
           </div>
           <!-- Language Selector (desktop) — NoJS-Elements dropdown -->
           <div class="lang-select" dropdown dropdown-position="bottom" dropdown-align="end">
-            <button class="lang-select-toggle" dropdown-toggle aria-label="Select language">
+            <button class="lang-select-toggle" dropdown-toggle bind-aria-label="$i18n.t('shell.header.selectLanguage')">
               <span bind="$i18n.locale.toUpperCase()">EN</span>
               <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
@@ -221,7 +221,7 @@
             </div>
           </div>
           <!-- Language pills (mobile drawer only) — kept in sync with the desktop dropdown above -->
-          <div class="lang-pills" aria-label="Select language">
+          <div class="lang-pills" bind-aria-label="$i18n.t('shell.header.selectLanguage')">
             <button class="lang-pill" on:click="$i18n.locale = 'en'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'en'">EN</button>
             <button class="lang-pill" on:click="$i18n.locale = 'es'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'es'">ES</button>
             <button class="lang-pill" on:click="$i18n.locale = 'pt'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'pt'">PT</button>

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 // Docs-site language selector + Tools "More" menu, rebuilt on the
 // NoJS-Elements dropdown family (NOJS-199 / PR #208).
@@ -206,5 +207,22 @@ test.describe('Language selector — mobile', () => {
       'href',
       'https://github.com/no-js-dev/nojs-lsp'
     );
+  });
+});
+
+// ─── Accessibility ────────────────────────────────────────────────────
+test.describe('Language selector — accessibility', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('17 — no accessibility violations (axe)', async ({ page }) => {
+    await page.goto(FIXTURE);
+    // Wait for i18n hydration so translated content is present before scanning.
+    await expect(page.getByTestId('lang-current')).toHaveText('EN');
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });

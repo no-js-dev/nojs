@@ -1,5 +1,5 @@
 <div>
-  <header class="subpage-hero" use="subpage-hero" state="{ title: $i18n.t('docs.gettingStarted.hero.title') || 'Documentation', subtitle: $i18n.t('docs.gettingStarted.hero.subtitle') || 'Everything you need to build reactive web apps with NoJS.' }"></header>
+  <header class="subpage-hero" use="subpage-hero" state="{ titleKey: 'docs.gettingStarted.hero.title', subtitleKey: 'docs.gettingStarted.hero.subtitle' }"></header>
 
   <div class="docs-layout" state="{ sidebarOpen: false }">
     <div class="sidebar-mobile-wrapper">

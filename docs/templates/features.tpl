@@ -1,4 +1,4 @@
-<header class="subpage-hero" use="subpage-hero" state="{ title: $i18n.t('features.hero.title'), subtitle: $i18n.t('features.hero.subtitle') }"></header>
+<header class="subpage-hero" use="subpage-hero" state="{ titleKey: 'features.hero.title', subtitleKey: 'features.hero.subtitle' }"></header>
 
 <main class="page-body">
   <!-- Showcase 1 — Reactive State -->

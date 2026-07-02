@@ -1,5 +1,5 @@
 <div>
-  <header class="subpage-hero" use="subpage-hero" state="{ title: $i18n.t('faq.hero.title'), subtitle: $i18n.t('faq.hero.subtitle') }"></header>
+  <header class="subpage-hero" use="subpage-hero" state="{ titleKey: 'faq.hero.title', subtitleKey: 'faq.hero.subtitle' }"></header>
 
   <div class="docs-layout" state="{ sidebarOpen: false }">
     <div class="sidebar-mobile-wrapper">

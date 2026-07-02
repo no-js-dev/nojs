@@ -374,7 +374,7 @@
 }
 </style>
 
-  <header class="subpage-hero" use="subpage-hero" state="{ title: $i18n.t('playground.hero.title'), subtitle: $i18n.t('playground.hero.subtitle') }"></header>
+  <header class="subpage-hero" use="subpage-hero" state="{ titleKey: 'playground.hero.title', subtitleKey: 'playground.hero.subtitle' }"></header>
 
   <main class="page-body">
 

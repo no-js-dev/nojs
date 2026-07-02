@@ -344,8 +344,8 @@
   <!-- Reusable Component Templates -->
   <template id="subpage-hero">
     <div class="hero-header">
-      <h1 class="section-title" bind="title"></h1>
-      <p class="section-subtitle" bind="subtitle"></p>
+      <h1 class="section-title" bind="titleKey ? $i18n.t(titleKey) : title"></h1>
+      <p class="section-subtitle" bind="subtitleKey ? $i18n.t(subtitleKey) : subtitle"></p>
     </div>
     <div class="section-divider">
       <span class="section-divider-symbol"><span class="section-divider-bracket">&lt;</span><svg class="section-divider-bolt" width="14" height="14" viewBox="0 0 150 150" fill="currentColor" aria-hidden="true"><path d="m119.5 16h-54l-26 51h18l-27 67 73-67h-18z"/></svg><span class="section-divider-bracket">&gt;</span></span>

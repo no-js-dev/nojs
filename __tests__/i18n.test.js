@@ -1433,3 +1433,145 @@ describe('_watchExpr auto-subscribes $i18n expressions', () => {
     document.body.innerHTML = '';
   });
 });
+
+// ─── F5 (NOJS-233): locale path-traversal / translation poisoning ─────────
+// Untrusted input flowing into setLocale (e.g. $route.params.lang) must not be
+// able to load an attacker-chosen same-origin path. Two layers of defense:
+//   1. set locale rejects values not in supportedLocales (when configured).
+//   2. _loadLocale percent-encodes the {locale}/{ns} placeholders so traversal
+//      ("../../../account/settings") cannot escape the configured loadPath even
+//      when supportedLocales is unset.
+describe('i18n — F5 locale path traversal (NOJS-233)', () => {
+  const originalFetch = global.fetch;
+  let fetchMock;
+
+  beforeEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _config.i18n.loadPath = '/locales/{locale}.json';
+    _config.i18n.cache = false;
+    _config.i18n.ns = [];
+    _config.i18n.supportedLocales = [];
+
+    fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ greeting: 'Hello' }),
+    });
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _config.i18n.loadPath = null;
+    _config.i18n.cache = true;
+    _config.i18n.ns = [];
+    _config.i18n.supportedLocales = [];
+    global.fetch = originalFetch;
+  });
+
+  // ── ENCODE (defense-in-depth, supportedLocales unset) ──────────────────
+  test('encodes traversal locale so the traversed path is NOT fetched', async () => {
+    await _loadI18nForLocale('../../../../account/settings');
+    const encoded =
+      '/locales/' + encodeURIComponent('../../../../account/settings') + '.json';
+    expect(fetchMock).toHaveBeenCalledWith(encoded);
+    // The raw traversed path must never reach fetch.
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/locales/../../../../account/settings.json',
+    );
+    // Encoded form contains no literal "../" segment.
+    expect(encoded).not.toContain('../');
+    expect(encoded).toContain('%2F');
+  });
+
+  test('encodes "../admin?" so query/traversal characters are neutralized', async () => {
+    await _loadI18nForLocale('../admin?');
+    const encoded = '/locales/' + encodeURIComponent('../admin?') + '.json';
+    expect(fetchMock).toHaveBeenCalledWith(encoded);
+    expect(encoded).not.toContain('../');
+    expect(encoded).not.toContain('?');
+  });
+
+  test.each(['a/b', 'a\\b', 'a?b', 'a#b'])(
+    'neutralizes reserved char in locale "%s"',
+    async (loc) => {
+      await _loadI18nForLocale(loc);
+      const encoded = '/locales/' + encodeURIComponent(loc) + '.json';
+      expect(fetchMock).toHaveBeenCalledWith(encoded);
+      // None of / \ ? # survive verbatim in the fetched URL path segment.
+      const seg = encodeURIComponent(loc);
+      expect(seg).not.toMatch(/[/\\?#]/);
+    },
+  );
+
+  test('encodes the {ns} placeholder as well', async () => {
+    _config.i18n.loadPath = '/locales/{locale}/{ns}.json';
+    _config.i18n.ns = ['../secret'];
+    await _loadI18nForLocale('en');
+    const encoded = '/locales/en/' + encodeURIComponent('../secret') + '.json';
+    expect(fetchMock).toHaveBeenCalledWith(encoded);
+    expect(fetchMock).not.toHaveBeenCalledWith('/locales/en/../secret.json');
+  });
+
+  test('a normal locale still loads with the exact same URL as before', async () => {
+    await _loadI18nForLocale('en');
+    // encodeURIComponent('en') === 'en' — no behavior change for valid locales.
+    expect(fetchMock).toHaveBeenCalledWith('/locales/en.json');
+    expect(_i18n.locales.en).toEqual({ greeting: 'Hello' });
+  });
+
+  // ── REJECT (supportedLocales configured) ───────────────────────────────
+  test('setter rejects a traversal locale when supportedLocales is configured', async () => {
+    _config.i18n.supportedLocales = ['en', 'pt'];
+    _config.i18n.loadPath = '/locales/{locale}/{ns}.json';
+    _config.i18n.ns = ['dashboard'];
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+    _i18n.locale = '../../../../account/settings';
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(warnSpy).toHaveBeenCalled();
+    // Locale unchanged and nothing fetched.
+    expect(_i18n.locale).toBe('en');
+    expect(fetchMock).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  test.each(['../admin?', 'a/b', 'a\\b', 'a?b', 'a#b'])(
+    'setter rejects reserved-char locale "%s" when supportedLocales is configured',
+    async (loc) => {
+      _config.i18n.supportedLocales = ['en', 'pt'];
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      _i18n.locale = loc;
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(warnSpy).toHaveBeenCalled();
+      expect(_i18n.locale).toBe('en');
+      expect(fetchMock).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    },
+  );
+
+  // ── ACCEPT (allowed locales still work) ────────────────────────────────
+  test('setter accepts an allowed locale and loads its namespaces', async () => {
+    _config.i18n.supportedLocales = ['en', 'pt'];
+    _config.i18n.loadPath = '/locales/{locale}/{ns}.json';
+    _config.i18n.ns = ['dashboard'];
+
+    _i18n.locale = 'pt';
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(_i18n.locale).toBe('pt');
+    expect(fetchMock).toHaveBeenCalledWith('/locales/pt/dashboard.json');
+  });
+
+  test('flat-mode load for an allowed locale is unchanged with supportedLocales set', async () => {
+    _config.i18n.supportedLocales = ['en', 'pt'];
+    await _loadI18nForLocale('pt');
+    await _loadI18nForLocale('en');
+    expect(fetchMock).toHaveBeenCalledWith('/locales/pt.json');
+    expect(fetchMock).toHaveBeenCalledWith('/locales/en.json');
+  });
+});

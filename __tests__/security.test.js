@@ -2,7 +2,7 @@ import { createContext } from '../src/context.js';
 import { evaluate, resolve, _execStatement } from '../src/evaluate.js';
 import { _sanitizeHtml } from '../src/dom.js';
 import { _doFetch } from '../src/fetch.js';
-import { _config, _warn, _stores, _SENSITIVE_KEYS } from '../src/globals.js';
+import { _config, _warn, _stores, _SENSITIVE_KEYS, _refs } from '../src/globals.js';
 import { _i18n } from '../src/i18n.js';
 import { processTree } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
@@ -845,5 +845,140 @@ describe('Security: F1 — SVG data URI scheme bypass (bind-src / _sanitizeAttrV
   // MUST-PASS: benign fragment link preserved through the SVG sanitizer.
   test('preserves a benign fragment xlink:href="#foo"', () => {
     expect(cleanSvgViaBindSrc('xlink:href', '#foo')).toContain('#foo');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F3 — evaluator escape to the real Function constructor via raw Object
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F3: Object shim blocks Function-constructor escape', () => {
+  test('PoC — getOwnPropertyDescriptor(getPrototypeOf(...)).value chain yields no Function', () => {
+    const ctx = createContext({});
+    // The full published PoC. Every reflection static is absent from the shim,
+    // so the chain collapses to undefined long before reaching `.value`.
+    const result = evaluate(
+      "Object.getOwnPropertyDescriptor(Object.getPrototypeOf(parseInt),'constructor').value('return document.cookie')()",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('getOwnPropertyDescriptor is not exposed on the Object shim', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.getOwnPropertyDescriptor', ctx)).toBeUndefined();
+  });
+
+  test('getPrototypeOf is not exposed on the Object shim', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.getPrototypeOf', ctx)).toBeUndefined();
+  });
+
+  test('getOwnPropertyDescriptors(...).constructor stays undefined', () => {
+    const ctx = createContext({});
+    const result = evaluate(
+      "Object.getOwnPropertyDescriptors(parseInt).constructor",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('create / defineProperty / setPrototypeOf are not exposed', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.create', ctx)).toBeUndefined();
+    expect(evaluate('Object.defineProperty', ctx)).toBeUndefined();
+    expect(evaluate('Object.setPrototypeOf', ctx)).toBeUndefined();
+    expect(evaluate('Object.getOwnPropertyNames', ctx)).toBeUndefined();
+  });
+
+  test('direct parseInt.constructor is still undefined', () => {
+    const ctx = createContext({});
+    expect(evaluate('parseInt.constructor', ctx)).toBeUndefined();
+  });
+
+  test('no expression path returns the real Function constructor', () => {
+    const ctx = createContext({ fn: () => 1 });
+    // Even reaching a function value, its constructor is forbidden and the
+    // return-site guard neutralizes Function/eval identity.
+    expect(evaluate('fn.constructor', ctx)).toBeUndefined();
+    expect(evaluate("fn.constructor('return 1')", ctx)).toBeUndefined();
+  });
+
+  test('legit Object.keys / values / entries / assign / freeze / fromEntries still work', () => {
+    const ctx = createContext({ obj: { a: 1, b: 2 } });
+    expect(evaluate('Object.keys(obj)', ctx)).toEqual(['a', 'b']);
+    expect(evaluate('Object.values(obj)', ctx)).toEqual([1, 2]);
+    expect(evaluate('Object.entries(obj)', ctx)).toEqual([['a', 1], ['b', 2]]);
+    expect(evaluate('Object.assign({}, obj)', ctx)).toEqual({ a: 1, b: 2 });
+    const frozen = evaluate('Object.freeze(obj)', ctx);
+    expect(frozen).toEqual({ a: 1, b: 2 });
+    expect(evaluate("Object.fromEntries([['x', 9]])", ctx)).toEqual({ x: 9 });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F4 — evaluator escape to a cross-realm Window via iframe contentWindow
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F4: iframe contentWindow is re-wrapped to a safe proxy', () => {
+  let iframe;
+
+  beforeEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    _refs.frame = iframe;
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    iframe = null;
+  });
+
+  test('$refs.frame.contentWindow does not expose the raw Window', () => {
+    const ctx = createContext({});
+    const cw = evaluate('$refs.frame.contentWindow', ctx);
+    // Must not be the raw contentWindow; either the safe proxy or undefined.
+    if (iframe.contentWindow) {
+      expect(cw).not.toBe(iframe.contentWindow);
+    }
+  });
+
+  test('PoC — $refs.frame.contentWindow.eval(...) is blocked', () => {
+    const ctx = createContext({});
+    const result = evaluate(
+      "$refs.frame.contentWindow.eval(\"fetch('/x?c='+parent.document.cookie)\")",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('contentWindow.fetch (not eval-gated) is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentWindow.fetch', ctx)).toBeUndefined();
+  });
+
+  test('contentWindow.localStorage is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentWindow.localStorage', ctx)).toBeUndefined();
+  });
+
+  test('contentWindow.document is re-wrapped so cookie is blocked', () => {
+    const ctx = createContext({});
+    // .cookie is a blocked document prop → undefined via _safeDocument.
+    expect(evaluate('$refs.frame.contentWindow.document.cookie', ctx)).toBeUndefined();
+  });
+
+  test('a normal (non-iframe) element ref still resolves allowed member reads', () => {
+    const div = document.createElement('div');
+    div.id = 'plain-ref';
+    div.setAttribute('data-role', 'ok');
+    document.body.appendChild(div);
+    _refs.plain = div;
+    const ctx = createContext({});
+    expect(evaluate('$refs.plain.id', ctx)).toBe('plain-ref');
+    expect(evaluate("$refs.plain.getAttribute('data-role')", ctx)).toBe('ok');
+    div.remove();
   });
 });

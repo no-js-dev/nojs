@@ -45,8 +45,12 @@ async function _loadLocale(locale, ns) {
   const cacheKey = ns ? `${locale}:${ns}` : locale;
   if (_config.i18n.cache && _i18nCache.has(cacheKey)) return;
 
-  let url = _config.i18n.loadPath.replace("{locale}", locale);
-  if (ns) url = url.replace("{ns}", ns);
+  // Percent-encode placeholder values before substituting into the loadPath,
+  // mirroring _interpolate() which encodes every {placeholder}. This neutralizes
+  // path traversal (e.g. "../../../account/settings") even when supportedLocales
+  // is unset — "/" becomes "%2F", so the "../" cannot escape the configured path.
+  let url = _config.i18n.loadPath.replace("{locale}", encodeURIComponent(locale));
+  if (ns) url = url.replace("{ns}", encodeURIComponent(ns));
   else if (url.includes("{ns}")) return; // no namespace to substitute
 
 
@@ -95,6 +99,15 @@ export const _i18n = {
     return this._locale;
   },
   set locale(v) {
+    // Reject unsupported locales when supportedLocales is configured (a non-empty
+    // array). Untrusted input (e.g. $route.params.lang) flowing into setLocale must
+    // not load an attacker-chosen path. When supportedLocales is unset, the
+    // encodeURIComponent in _loadLocale is the defense-in-depth fallback.
+    const supported = _config.i18n.supportedLocales;
+    if (Array.isArray(supported) && supported.length && !supported.includes(v)) {
+      _warn(`i18n: locale "${v}" is not in supportedLocales; ignoring`);
+      return;
+    }
     if (this._locale !== v) {
       this._locale = v;
       _i18nTranslationCache.clear();

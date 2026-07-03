@@ -588,6 +588,267 @@ describe('Security: ObjectExpr — forbidden keys in spread', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
+//  F1 — javascript:/vbscript: sanitizer bypass via embedded control chars
+//  (NOJS-230). DOMParser decodes entities like `java&#9;script:` to a
+//  literal TAB inside the value; the browser ignores interior control chars
+//  and resolves it to `javascript:`. A leading-only trim let those survive
+//  the scheme check — the fix strips ALL U+0000–U+0020 chars first.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security: F1 — control-char scheme bypass (bind-html sink)', () => {
+  // Re-parse the sanitized HTML string so we can inspect the resulting
+  // attribute robustly (a raw substring check would be fooled by the
+  // interior control char, e.g. "java\tscript:" not containing "javascript:").
+  function attrAfter(html, sel, attr) {
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const el = div.querySelector(sel);
+    return el ? el.getAttribute(attr) : null;
+  }
+
+  // MUST-BLOCK: interior control-char entities collapse back to a live scheme.
+  const controlEntities = [
+    ['tab', '&#9;'],
+    ['newline', '&#10;'],
+    ['carriage return', '&#13;'],
+  ];
+  for (const [label, entity] of controlEntities) {
+    test(`neutralizes javascript: split by a ${label} (java${entity}script:)`, () => {
+      const html = `<a href="java${entity}script:alert(1)">x</a>`;
+      expect(attrAfter(html, 'a', 'href')).toBeNull();
+      expect(_sanitizeHtml(html)).not.toContain('alert');
+    });
+
+    test(`neutralizes vbscript: split by a ${label} (vb${entity}script:)`, () => {
+      const html = `<a href="vb${entity}script:msgbox(1)">x</a>`;
+      expect(attrAfter(html, 'a', 'href')).toBeNull();
+      expect(_sanitizeHtml(html)).not.toContain('msgbox');
+    });
+  }
+
+  // MUST-STILL-BLOCK: no regression on the already-caught vectors.
+  test('still blocks plain javascript:', () => {
+    expect(attrAfter('<a href="javascript:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('still blocks leading-tab-entity (&#9;javascript:)', () => {
+    expect(attrAfter('<a href="&#9;javascript:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('still blocks mixed-case JaVaScRiPt:', () => {
+    expect(attrAfter('<a href="JaVaScRiPt:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('NUL entity (&#0; → U+FFFD) is NOT collapsed into a live scheme', () => {
+    // U+FFFD is outside the stripped U+0000–U+0020 range, so it is preserved
+    // and the value stays an inert non-scheme — matching pre-fix behaviour and
+    // proving the strip does not over-reach.
+    const href = attrAfter('<a href="java&#0;script:alert(1)">x</a>', 'a', 'href');
+    expect(href).toContain('�');
+    expect(/^javascript:/i.test(href)).toBe(false);
+  });
+
+  // MUST-PASS: no over-blocking of legitimate values.
+  test.each([
+    ['absolute https', '<a href="https://example.com/a">x</a>', 'a', 'href', 'https://example.com/a'],
+    ['relative path', '<a href="/products/widget">x</a>', 'a', 'href', '/products/widget'],
+    ['mailto', '<a href="mailto:hi@example.com">x</a>', 'a', 'href', 'mailto:hi@example.com'],
+    ['fragment anchor', '<a href="#section">x</a>', 'a', 'href', '#section'],
+    ['data image png', '<img src="data:image/png;base64,iVBORw0KGgo=">', 'img', 'src', 'data:image/png;base64,iVBORw0KGgo='],
+  ])('allows %s', (_label, html, sel, attr, expected) => {
+    expect(attrAfter(html, sel, attr)).toBe(expected);
+  });
+});
+
+describe('Security: F1 — control-char scheme bypass (bind-href / attr path)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // Build the tainted value at runtime via String.fromCharCode so a literal
+  // control char reaches _sanitizeAttrValue without embedding raw bytes in the
+  // HTML fixture. `valueExpr` is a NoJS expression producing the string.
+  function hrefViaBind(valueExpr) {
+    document.body.innerHTML =
+      `<div state="{ u: ${valueExpr} }"><a bind-href="u">x</a></div>`;
+    processTree(document.body);
+    return document.querySelector('a').getAttribute('href');
+  }
+
+  const controlCodes = [
+    ['tab', 9],
+    ['newline', 10],
+    ['carriage return', 13],
+  ];
+  for (const [label, code] of controlCodes) {
+    test(`neutralizes javascript: split by a ${label}`, () => {
+      expect(
+        hrefViaBind(`'java' + String.fromCharCode(${code}) + 'script:alert(1)'`),
+      ).toBe('#');
+    });
+
+    test(`neutralizes vbscript: split by a ${label}`, () => {
+      expect(
+        hrefViaBind(`'vb' + String.fromCharCode(${code}) + 'script:msgbox(1)'`),
+      ).toBe('#');
+    });
+  }
+
+  // MUST-STILL-BLOCK
+  test('still blocks plain javascript:', () => {
+    expect(hrefViaBind(`'javascript:alert(1)'`)).toBe('#');
+  });
+
+  test('still blocks mixed-case JaVaScRiPt:', () => {
+    expect(hrefViaBind(`'JaVaScRiPt:alert(1)'`)).toBe('#');
+  });
+
+  // MUST-PASS: legitimate URLs pass through unchanged.
+  test.each([
+    ['absolute https', `'https://example.com/a'`, 'https://example.com/a'],
+    ['relative path', `'/products/widget'`, '/products/widget'],
+    ['mailto', `'mailto:hi@example.com'`, 'mailto:hi@example.com'],
+    ['fragment anchor', `'#section'`, '#section'],
+    ['data image png', `'data:image/png;base64,iVBORw0KGgo='`, 'data:image/png;base64,iVBORw0KGgo='],
+  ])('allows %s', (_label, valueExpr, expected) => {
+    expect(hrefViaBind(valueExpr)).toBe(expected);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F1 (NOJS-230) — control-char scheme bypass inside SVG data URIs.
+//  A data:image/svg+xml payload is deep-sanitized (_sanitizeSvgContent):
+//  <script> is removed and href/xlink:href schemes are checked. The same
+//  leading-only-trim bug lived here — an entity like `java&#9;script:` inside
+//  an <a xlink:href> decodes (via DOMParser) to a live scheme the browser
+//  runs. Reached two ways: bind-html → _sanitizeHtml → _sanitizeSvgDataUri,
+//  and bind-href/bind-src → _sanitizeAttrValue → _sanitizeSvgDataUri.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security: F1 — SVG data URI scheme bypass (bind-html / _sanitizeHtml sink)', () => {
+  // Wrap the given <a> attributes in a valid namespaced SVG document.
+  function svgWith(aAttrs) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" ' +
+      'xmlns:xlink="http://www.w3.org/1999/xlink">' +
+      `<a ${aAttrs}><text>x</text></a></svg>`;
+  }
+
+  // URL-encoded form: <img src="data:image/svg+xml,<encoded>">. Returns the
+  // sanitized, decoded SVG markup so we can assert on the surviving attributes.
+  function cleanSvgUrlEncoded(svg) {
+    const html = `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const src = div.querySelector('img').getAttribute('src');
+    return decodeURIComponent(src.slice(src.indexOf(',') + 1));
+  }
+
+  // MUST-BLOCK: interior control-char entity in xlink:href / href collapses to a
+  // live scheme and must be stripped from the sanitized SVG.
+  const entities = [['tab', '&#9;'], ['newline', '&#10;'], ['carriage return', '&#13;']];
+  for (const [label, ent] of entities) {
+    test(`strips javascript: split by a ${label} in xlink:href`, () => {
+      const out = cleanSvgUrlEncoded(svgWith(`xlink:href="java${ent}script:alert(1)"`));
+      expect(out.toLowerCase()).not.toContain('javascript');
+      expect(out).not.toContain('alert');
+    });
+
+    test(`strips vbscript: split by a ${label} in element href`, () => {
+      const out = cleanSvgUrlEncoded(svgWith(`href="vb${ent}script:msgbox(1)"`));
+      expect(out.toLowerCase()).not.toContain('vbscript');
+      expect(out).not.toContain('msgbox');
+    });
+  }
+
+  // MUST-STILL-BLOCK: plain javascript: (no control char) — no regression.
+  test('strips plain javascript: in xlink:href', () => {
+    const out = cleanSvgUrlEncoded(svgWith('xlink:href="javascript:alert(1)"'));
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  // base64 form is deep-sanitized too.
+  test('strips tab-split javascript: in a base64 SVG data URI', () => {
+    const svg = svgWith('xlink:href="java&#9;script:alert(1)"');
+    const html = `<img src="data:image/svg+xml;base64,${btoa(svg)}">`;
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const src = div.querySelector('img').getAttribute('src');
+    const decoded = atob(src.slice(src.indexOf(',') + 1));
+    expect(decoded.toLowerCase()).not.toContain('javascript');
+    expect(decoded).not.toContain('alert');
+  });
+
+  // MUST-PASS: benign hrefs inside the SVG survive sanitization.
+  test('preserves a fragment xlink:href="#foo"', () => {
+    expect(cleanSvgUrlEncoded(svgWith('xlink:href="#foo"'))).toContain('#foo');
+  });
+
+  test('preserves an https element href', () => {
+    expect(cleanSvgUrlEncoded(svgWith('href="https://example.com/x"')))
+      .toContain('https://example.com/x');
+  });
+});
+
+describe('Security: F1 — SVG data URI scheme bypass (bind-src / _sanitizeAttrValue path)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // NoJS expression yielding a double-quote char, used to quote the SVG's inner
+  // attributes without colliding with the fixture's own quoting.
+  const DQ = 'String.fromCharCode(34)';
+
+  // Build a NoJS expression that evaluates to a data:image/svg+xml URI whose
+  // <a> carries `aAttr` (e.g. `xlink:href=java&#9;script:alert(1)` — the value
+  // is inserted verbatim, so pass entities like &#9; already escaped as needed).
+  function svgUriExpr(aName, aValue) {
+    return [
+      `'data:image/svg+xml,<svg xmlns='`, DQ, `'http://www.w3.org/2000/svg'`, DQ,
+      `' xmlns:xlink='`, DQ, `'http://www.w3.org/1999/xlink'`, DQ,
+      `'><a ${aName}='`, DQ, `'${aValue}'`, DQ, `'>x</a></svg>'`,
+    ].join(' + ');
+  }
+
+  // Drive the value through bind-src, then decode the sanitized data URI back to
+  // SVG markup. `&amp;#9;` in the fixture survives HTML parsing as literal
+  // `&#9;`, which DOMParser (inside _sanitizeSvgContent) decodes to a real tab.
+  function cleanSvgViaBindSrc(aName, aValue) {
+    document.body.innerHTML =
+      `<div state="{ u: ${svgUriExpr(aName, aValue)} }"><img bind-src="u"></div>`;
+    processTree(document.body);
+    const src = document.querySelector('img').getAttribute('src');
+    if (src === '#' || !src.includes(',')) return src;
+    return decodeURIComponent(src.slice(src.indexOf(',') + 1));
+  }
+
+  // MUST-BLOCK: tab-entity split scheme in xlink:href, reached via _sanitizeAttrValue.
+  test('strips tab-split javascript: in xlink:href', () => {
+    const out = cleanSvgViaBindSrc('xlink:href', 'java&amp;#9;script:alert(1)');
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  test('strips tab-split vbscript: in element href', () => {
+    const out = cleanSvgViaBindSrc('href', 'vb&amp;#9;script:msgbox(1)');
+    expect(out.toLowerCase()).not.toContain('vbscript');
+    expect(out).not.toContain('msgbox');
+  });
+
+  // MUST-STILL-BLOCK: plain javascript: still stripped through this path.
+  test('strips plain javascript: in xlink:href', () => {
+    const out = cleanSvgViaBindSrc('xlink:href', 'javascript:alert(1)');
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  // MUST-PASS: benign fragment link preserved through the SVG sanitizer.
+  test('preserves a benign fragment xlink:href="#foo"', () => {
+    expect(cleanSvgViaBindSrc('xlink:href', '#foo')).toContain('#foo');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
 //  F3 — evaluator escape to the real Function constructor via raw Object
 // ═══════════════════════════════════════════════════════════════════════
 

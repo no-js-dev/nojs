@@ -117,21 +117,21 @@
     <p class="section-subtitle" t="home.directives.subtitle"></p>
 
     <div class="directives-container">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('home.directives.s1Badge'), name: $i18n.t('home.directives.s1Name'), desc: $i18n.t('home.directives.s1Desc'), filename: 'form-binding.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'home.directives.s1Badge', nameKey: 'home.directives.s1Name', descKey: 'home.directives.s1Desc', filename: 'form-binding.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ email: '' }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Sending login link to <span class="tok-mustache">{{ email }}</span><span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
 
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('home.directives.s2Badge'), name: $i18n.t('home.directives.s2Name'), desc: $i18n.t('home.directives.s2Desc'), filename: 'conditional.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'home.directives.s2Badge', nameKey: 'home.directives.s2Name', descKey: 'home.directives.s2Desc', filename: 'conditional.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"expanded = !expanded"</span><span class="tok-punc">&gt;</span>Toggle Details<span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">show</span><span class="tok-punc">=</span><span class="tok-str">"expanded"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Interactive details layer loaded reactively.<span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
 
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('home.directives.s3Badge'), name: $i18n.t('home.directives.s3Name'), desc: $i18n.t('home.directives.s3Desc'), filename: 'list-rendering.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'home.directives.s3Badge', nameKey: 'home.directives.s3Name', descKey: 'home.directives.s3Desc', filename: 'list-rendering.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">li</span> <span class="tok-attr">foreach</span><span class="tok-punc">=</span><span class="tok-str">"user in users"</span><span class="tok-punc">&gt;</span>
     <span class="tok-mustache">{{ $index + 1 }}</span>. <span class="tok-mustache">{{ user.name }}</span>

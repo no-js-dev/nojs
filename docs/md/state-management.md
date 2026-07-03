@@ -220,11 +220,11 @@ The `$i18n` reactive proxy is available in all expression contexts, including `s
 <input bind-placeholder="$store.ui.searchPlaceholder">
 ```
 
-For interpolation or pluralization, use `$i18n.t()` instead of dot-notation:
+For interpolation or pluralization, use `$i18n.t()` instead of dot-notation. Call it directly in a `bind=` expression so it re-runs on locale change — putting `$i18n.t()` in a `state` initializer snapshots the result once at init and is **not** locale-reactive:
 
 ```html
-<div state="{ greeting: $i18n.t('welcome', { name: user.name }) }">
-  <p bind="greeting"></p>
+<div state="{ user: { name: 'Ada' } }">
+  <p bind="$i18n.t('welcome', { name: user.name })"></p>
 </div>
 ```
 

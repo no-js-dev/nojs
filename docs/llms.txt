@@ -103,7 +103,8 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Metadata
 
-- `NoJS.version: string` — The framework version string (e.g. `"1.14.1"`).
+- `NoJS.version: string` — The framework version string (e.g. `"1.16.1"`).
+- Latest release: **v1.16.1** — a security patch hardening URL-scheme sanitization, the expression-evaluator sandbox, CSRF same-origin scoping, and i18n `loadPath` validation (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
 
 ## Reference
 

@@ -63,10 +63,15 @@ function _sanitizeSvgContent(svg) {
       const name = attr.name.toLowerCase();
       // Remove on* event handlers
       if (name.startsWith("on")) { node.removeAttribute(attr.name); continue; }
-      // Remove javascript: in href/xlink:href
-      if ((name === "href" || name === "xlink:href") &&
-          attr.value.trim().toLowerCase().startsWith("javascript:")) {
-        node.removeAttribute(attr.name);
+      // Remove javascript:/vbscript: in href/xlink:href. Collapse EVERY ASCII
+      // control + whitespace char (U+0000–U+0020) before the scheme test — an
+      // embedded tab/newline/NUL (e.g. "java\tscript:") is ignored by browsers
+      // but slips past a leading-only trim, so we strip globally to catch it.
+      if (name === "href" || name === "xlink:href") {
+        const scheme = attr.value.toLowerCase().replace(/[\u0000-\u0020]/g, "");
+        if (/^(javascript|vbscript):/.test(scheme)) {
+          node.removeAttribute(attr.name);
+        }
       }
     }
   }
@@ -99,10 +104,18 @@ function _sanitizeSvgDataUri(str) {
 function _sanitizeAttrValue(attrName, value) {
   if (_SAFE_URL_ATTRS.has(attrName)) {
     const str = String(value).trimStart();
-    if (/^(javascript|vbscript):/i.test(str)) return "#";
-    if (/^data:/i.test(str)) {
-      if (/^data:image\/svg\+xml/i.test(str)) return _sanitizeSvgDataUri(str);
-      if (!/^data:image\//i.test(str)) return "#";
+    // Collapse EVERY ASCII control + whitespace char (U+0000–U+0020) before the
+    // scheme check. DOMParser/entity decoding can embed a literal tab/newline/NUL
+    // inside a scheme (e.g. "java\tscript:"); browsers ignore those interior chars
+    // and resolve it to "javascript:". A leading-only trim let such values slip past
+    // /^(javascript|vbscript):/, so we strip globally to catch them.
+    const scheme = str.toLowerCase().replace(/[\u0000-\u0020]/g, "");
+    if (/^(javascript|vbscript):/.test(scheme)) return "#";
+    if (/^data:/.test(scheme)) {
+      // Feed _sanitizeSvgDataUri the original (trimmed) value, not the stripped one,
+      // so the SVG payload is preserved intact.
+      if (/^data:image\/svg\+xml/.test(scheme)) return _sanitizeSvgDataUri(str);
+      if (!/^data:image\//.test(scheme)) return "#";
     }
   }
   return value;

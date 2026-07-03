@@ -724,9 +724,36 @@ function _parseExpr(tokens) {
 // ---------------------------------------------------------------------------
 export const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };
 
+/* Curated `Object` shim exposed to template expressions.
+ *
+ * The raw `Object` global exposes reflection / prototype-manipulation statics
+ * (getOwnPropertyDescriptor, getOwnPropertyDescriptors, getPrototypeOf,
+ * setPrototypeOf, defineProperty, defineProperties, create, getOwnPropertyNames,
+ * getOwnPropertySymbols). Those let a template expression walk out of the sandbox
+ * to the real `Function` constructor and execute arbitrary JS in the real global
+ * scope, e.g.:
+ *   Object.getOwnPropertyDescriptor(Object.getPrototypeOf(parseInt),'constructor').value('return document.cookie')()
+ * The `_FORBIDDEN_PROPS` guard only blocks `constructor` on member reads, not the
+ * descriptor `.value`, so this bypassed it. We therefore expose ONLY the safe
+ * enumerable / data statics NoJS legitimately relies on (keys, values, entries,
+ * assign, freeze, fromEntries, plus is/hasOwn) and OMIT every reflection and
+ * prototype method. See VULNERABILITY F3. */
+const _safeObject = Object.freeze({
+  keys: Object.keys,
+  values: Object.values,
+  entries: Object.entries,
+  fromEntries: Object.fromEntries,
+  assign: Object.assign,
+  freeze: Object.freeze,
+  is: Object.is,
+  hasOwn: typeof Object.hasOwn === 'function'
+    ? Object.hasOwn
+    : (o, k) => Object.prototype.hasOwnProperty.call(o, k),
+});
+
 /* Safe subset of JS globals available in expressions (no eval/Function/process) */
 const _SAFE_GLOBALS = {
-  Array, Object, String, Number, Boolean, Math, Date, RegExp, Map, Set,
+  Array, Object: _safeObject, String, Number, Boolean, Math, Date, RegExp, Map, Set,
   JSON, parseInt, parseFloat, isNaN, isFinite, Infinity, NaN, undefined,
   Error, Symbol, console,
 };
@@ -918,6 +945,28 @@ function _wrapTimer(name) {
 const _safeTimers = {};
 for (const t of _TIMER_WRAPPERS) _safeTimers[t] = _wrapTimer(t);
 
+// Re-wrap sensitive values returned from member reads and call results before
+// they re-enter template scope. Centralizes three sandbox-escape defenses:
+//   • F3 (defense-in-depth): the real `Function` constructor or `eval` — reached
+//     by any path — is neutralized to `undefined`, so a template can never obtain
+//     a code-execution primitive even if a future reflection hole reappears.
+//   • Any Document → `_safeDocument` (blocks cookie/write/etc.).
+//   • Any-realm Window → `_safeWindow`. Same-realm is caught by identity; an
+//     iframe's cross-realm `contentWindow` is caught by the `val.window === val`
+//     duck-type (VULNERABILITY F4), so its un-proxied eval/fetch/localStorage are
+//     never exposed.
+function _rewrapResult(val) {
+  if (val === Function || val === eval) return undefined;
+  if (val instanceof Document || val === globalThis.document) return _safeDocument;
+  if (val === globalThis.window || val === globalThis) return _safeWindow;
+  if (val && typeof val === 'object') {
+    let self;
+    try { self = val.window; } catch { self = undefined; }
+    if (self === val) return _safeWindow;
+  }
+  return val;
+}
+
 // Evaluate call arguments at module level to avoid per-call closure allocation.
 // Handles SpreadElement by iterating the spread result.
 function _evalArgs(args, scope) {
@@ -1049,9 +1098,7 @@ function _evalNode(node, scope) {
           : node.property.name || node.property.value;
         if (_FORBIDDEN_PROPS[prop]) return undefined;
         const val = obj[prop];
-        if (val instanceof Document || val === globalThis.document) return _safeDocument;
-        if (val === globalThis.window || val === globalThis) return _safeWindow;
-        return val;
+        return _rewrapResult(val);
       }
 
       case 'CallExpr':
@@ -1069,18 +1116,14 @@ function _evalNode(node, scope) {
           const fn = thisObj[prop];
           if (typeof fn !== 'function') return undefined;
           const callResult = fn.apply(thisObj, _evalArgs(node.args, scope));
-          if (callResult instanceof Document || callResult === globalThis.document) return _safeDocument;
-          if (callResult === globalThis.window || callResult === globalThis) return _safeWindow;
-          return callResult;
+          return _rewrapResult(callResult);
         }
 
         const fn = _evalNode(node.callee, scope);
         if (fn == null && node.type === 'OptionalCallExpr') return undefined;
         if (typeof fn !== 'function') return undefined;
         const standaloneResult = fn.apply(undefined, _evalArgs(node.args, scope));
-        if (standaloneResult instanceof Document || standaloneResult === globalThis.document) return _safeDocument;
-        if (standaloneResult === globalThis.window || standaloneResult === globalThis) return _safeWindow;
-        return standaloneResult;
+        return _rewrapResult(standaloneResult);
       }
 
       case 'ArrayExpr': {

@@ -724,6 +724,22 @@ function _parseExpr(tokens) {
 // ---------------------------------------------------------------------------
 export const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };
 
+// Foreign-realm accessor names (VULNERABILITY F4 / NOJS-239). Reading any of
+// these off a raw DOM element (e.g. an <iframe> resolved via `$refs`) hands back
+// an object from ANOTHER realm: an iframe's `contentDocument` / `contentWindow` /
+// `frames`, or a Window's `parent` / `top` / `self`. Cross-realm, those objects
+// are instances of the CHILD realm's constructors, so the parent-realm
+// `instanceof` checks in `_rewrapResult` are FALSE and the raw object would
+// escape — exposing un-proxied `.cookie` / `.location` / `.write` / `fetch`. We
+// refuse these names outright on element member reads, as defense-in-depth
+// alongside the `_rewrapResult` duck-types, so an element ref can never surface a
+// foreign-realm object at all. The safe window / document proxies are exempt (see
+// `_SAFE_PROXIES`) so legitimate `window.parent`-style reads still resolve and are
+// re-wrapped by `_rewrapResult`.
+const _FORBIDDEN_REALM_ACCESSORS = new Set([
+  'contentDocument', 'contentWindow', 'frames', 'parent', 'top', 'self',
+]);
+
 /* Curated `Object` shim exposed to template expressions.
  *
  * The raw `Object` global exposes reflection / prototype-manipulation statics
@@ -914,6 +930,14 @@ if (_safeDocument) _WINDOW_PROXY_OVERRIDES.document = _safeDocument;
 if (_safeHistory) _WINDOW_PROXY_OVERRIDES.history = _safeHistory;
 if (_safeNavigator) _WINDOW_PROXY_OVERRIDES.navigator = _safeNavigator;
 
+// Safe wrapper proxies that are EXEMPT from the `_FORBIDDEN_REALM_ACCESSORS`
+// block. Reads like `window.parent` off these still resolve (and are re-wrapped
+// by `_rewrapResult`), so we don't over-block legitimate window/document member
+// reads. Only raw DOM elements (e.g. an <iframe> ref) are refused those names.
+const _SAFE_PROXIES = new Set(
+  [_safeWindow, _safeDocument, _safeLocation, _safeNavigator, _safeHistory].filter(Boolean)
+);
+
 const _BROWSER_GLOBALS = new Set([
   'window', 'document', 'console', 'location', 'history',
   'navigator', 'screen', 'performance', 'crypto',
@@ -950,7 +974,10 @@ for (const t of _TIMER_WRAPPERS) _safeTimers[t] = _wrapTimer(t);
 //   • F3 (defense-in-depth): the real `Function` constructor or `eval` — reached
 //     by any path — is neutralized to `undefined`, so a template can never obtain
 //     a code-execution primitive even if a future reflection hole reappears.
-//   • Any Document → `_safeDocument` (blocks cookie/write/etc.).
+//   • Any Document → `_safeDocument` (blocks cookie/write/etc.). Same-realm is
+//     caught by identity / `instanceof`; an iframe's cross-realm `contentDocument`
+//     is caught by the `nodeType === 9` duck-type (VULNERABILITY F4 / NOJS-239),
+//     since parent-realm `instanceof Document` is FALSE for a child-realm Document.
 //   • Any-realm Window → `_safeWindow`. Same-realm is caught by identity; an
 //     iframe's cross-realm `contentWindow` is caught by the `val.window === val`
 //     duck-type (VULNERABILITY F4), so its un-proxied eval/fetch/localStorage are
@@ -960,6 +987,17 @@ function _rewrapResult(val) {
   if (val instanceof Document || val === globalThis.document) return _safeDocument;
   if (val === globalThis.window || val === globalThis) return _safeWindow;
   if (val && typeof val === 'object') {
+    // Cross-realm Document duck-type: Document.nodeType === 9 is stable across
+    // realms, so this catches an iframe's `contentDocument` (a CHILD-realm
+    // Document instance that the parent-realm `instanceof Document` above misses)
+    // before its raw `.cookie` / `.write` / `.location` can escape. The top-realm
+    // document is already handled above; matching it here is harmless. Element
+    // nodes are nodeType 1, and `_safeDocument`'s own members (querySelector →
+    // Element, defaultView → _safeWindow) are not nodeType 9, so this does not
+    // interfere with normal `_safeDocument` reads.
+    let nodeType;
+    try { nodeType = val.nodeType; } catch { nodeType = undefined; }
+    if (nodeType === 9) return _safeDocument;
     let self;
     try { self = val.window; } catch { self = undefined; }
     if (self === val) return _safeWindow;
@@ -1097,6 +1135,11 @@ function _evalNode(node, scope) {
           ? _evalNode(node.property, scope)
           : node.property.name || node.property.value;
         if (_FORBIDDEN_PROPS[prop]) return undefined;
+        // F4 / NOJS-239: refuse foreign-realm accessors (contentDocument,
+        // contentWindow, frames, parent, top, self) on raw DOM elements so an
+        // <iframe> ref can never hand back a cross-realm object. Safe window /
+        // document proxies are exempt (their reads re-wrap via _rewrapResult).
+        if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(obj)) return undefined;
         const val = obj[prop];
         return _rewrapResult(val);
       }
@@ -1113,6 +1156,10 @@ function _evalNode(node, scope) {
             ? _evalNode(node.callee.property, scope)
             : node.callee.property.name;
           if (_FORBIDDEN_PROPS[prop]) return undefined;
+          // F4 / NOJS-239: same foreign-realm accessor block as MemberExpr, so a
+          // call like `$refs.frame.contentDocument.querySelector(...)` cannot
+          // reach a cross-realm object via the callee's object chain.
+          if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(thisObj)) return undefined;
           const fn = thisObj[prop];
           if (typeof fn !== 'function') return undefined;
           const callResult = fn.apply(thisObj, _evalArgs(node.args, scope));

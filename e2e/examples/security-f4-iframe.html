@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security F4 — iframe contentWindow realm escape — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+
+  <!-- F4: an expression must not reach an iframe's real cross-realm Window through
+       $refs.frame.contentWindow. eval / fetch / document.cookie on the child window
+       must be neutralized (return undefined), while benign ref reads still work. -->
+
+  <section state="{}">
+    <iframe ref="frame" src="about:blank" data-test="f4-frame" style="width:1px;height:1px;border:0"></iframe>
+
+    <p class="test-label">Probes: child-window primitives must be neutralized</p>
+    <div>eval:   <span class="value" data-test="f4-eval-type" bind="typeof $refs.frame.contentWindow.eval"></span></div>
+    <div>fetch:  <span class="value" data-test="f4-fetch-type" bind="typeof $refs.frame.contentWindow.fetch"></span></div>
+    <div>cookie: <span class="value" data-test="f4-cookie" bind="String($refs.frame.contentWindow.document.cookie)"></span></div>
+
+    <p class="test-label">Control: benign ref read still works</p>
+    <div>tagName: <span class="value" data-test="f4-tag" bind="$refs.frame.tagName"></span></div>
+
+    <p class="test-label">Active exfil attempts (must fire no network request carrying the secret)</p>
+    <button data-test="f4-eval-attack"
+            on:click="$refs.frame.contentWindow.eval('parent.fetch(String.fromCharCode(47,101,120,102,105,108,63,99,61)+document.cookie)')">
+      eval exfil
+    </button>
+    <button data-test="f4-fetch-attack"
+            on:click="$refs.frame.contentWindow.fetch('/exfil?c=' + String($refs.frame.contentWindow.document.cookie))">
+      fetch exfil
+    </button>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    document.cookie = 'session=SECRET_TOKEN_42';
+    NoJS.init();
+  </script>
+</body>
+</html>

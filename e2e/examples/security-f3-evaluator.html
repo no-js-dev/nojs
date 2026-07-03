@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security F3 — evaluator Function-constructor escape — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+
+  <!-- F3: an expression must not be able to reach the real Function constructor
+       via Object.getOwnPropertyDescriptor(getPrototypeOf(parseInt),'constructor').value
+       to read document.cookie. The curated Object shim removes reflection methods. -->
+
+  <section state="{ out: 'INIT', keys: '', vals: '', entries: '', assigned: '' }">
+    <p class="test-label">Attack: escape to Function() and read document.cookie</p>
+    <button data-test="f3-attack"
+            on:click="out = String(Object.getOwnPropertyDescriptor(Object.getPrototypeOf(parseInt),'constructor').value('window.__f3_ran=1;return document.cookie')())">
+      run attack
+    </button>
+    <div>result: <span class="value" data-test="f3-out" bind="out"></span></div>
+
+    <p class="test-label">Controls: benign Object methods must still work</p>
+    <button data-test="f3-keys" on:click="keys = JSON.stringify(Object.keys({ a: 1, b: 2 }))">keys</button>
+    <button data-test="f3-vals" on:click="vals = JSON.stringify(Object.values({ a: 1, b: 2 }))">values</button>
+    <button data-test="f3-entries" on:click="entries = JSON.stringify(Object.entries({ a: 1 }))">entries</button>
+    <button data-test="f3-assign" on:click="assigned = JSON.stringify(Object.assign({}, { x: 9 }))">assign</button>
+    <div>keys: <span class="value" data-test="f3-keys-out" bind="keys"></span></div>
+    <div>values: <span class="value" data-test="f3-vals-out" bind="vals"></span></div>
+    <div>entries: <span class="value" data-test="f3-entries-out" bind="entries"></span></div>
+    <div>assign: <span class="value" data-test="f3-assign-out" bind="assigned"></span></div>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    // Sentinels: a real secret cookie + a flag that flips only if injected code runs.
+    document.cookie = 'session=SECRET_TOKEN_42';
+    window.__f3_ran = 0;
+    NoJS.init();
+  </script>
+</body>
+</html>

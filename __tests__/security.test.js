@@ -2,7 +2,7 @@ import { createContext } from '../src/context.js';
 import { evaluate, resolve, _execStatement } from '../src/evaluate.js';
 import { _sanitizeHtml } from '../src/dom.js';
 import { _doFetch } from '../src/fetch.js';
-import { _config, _warn, _stores, _SENSITIVE_KEYS } from '../src/globals.js';
+import { _config, _warn, _stores, _SENSITIVE_KEYS, _refs } from '../src/globals.js';
 import { _i18n } from '../src/i18n.js';
 import { processTree } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
@@ -584,5 +584,535 @@ describe('Security: ObjectExpr — forbidden keys in spread', () => {
     const ctx = createContext({});
     const result = evaluate('({safe: "ok"})', ctx);
     expect(result.safe).toBe('ok');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F1 — javascript:/vbscript: sanitizer bypass via embedded control chars
+//  (NOJS-230). DOMParser decodes entities like `java&#9;script:` to a
+//  literal TAB inside the value; the browser ignores interior control chars
+//  and resolves it to `javascript:`. A leading-only trim let those survive
+//  the scheme check — the fix strips ALL U+0000–U+0020 chars first.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security: F1 — control-char scheme bypass (bind-html sink)', () => {
+  // Re-parse the sanitized HTML string so we can inspect the resulting
+  // attribute robustly (a raw substring check would be fooled by the
+  // interior control char, e.g. "java\tscript:" not containing "javascript:").
+  function attrAfter(html, sel, attr) {
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const el = div.querySelector(sel);
+    return el ? el.getAttribute(attr) : null;
+  }
+
+  // MUST-BLOCK: interior control-char entities collapse back to a live scheme.
+  const controlEntities = [
+    ['tab', '&#9;'],
+    ['newline', '&#10;'],
+    ['carriage return', '&#13;'],
+  ];
+  for (const [label, entity] of controlEntities) {
+    test(`neutralizes javascript: split by a ${label} (java${entity}script:)`, () => {
+      const html = `<a href="java${entity}script:alert(1)">x</a>`;
+      expect(attrAfter(html, 'a', 'href')).toBeNull();
+      expect(_sanitizeHtml(html)).not.toContain('alert');
+    });
+
+    test(`neutralizes vbscript: split by a ${label} (vb${entity}script:)`, () => {
+      const html = `<a href="vb${entity}script:msgbox(1)">x</a>`;
+      expect(attrAfter(html, 'a', 'href')).toBeNull();
+      expect(_sanitizeHtml(html)).not.toContain('msgbox');
+    });
+  }
+
+  // MUST-STILL-BLOCK: no regression on the already-caught vectors.
+  test('still blocks plain javascript:', () => {
+    expect(attrAfter('<a href="javascript:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('still blocks leading-tab-entity (&#9;javascript:)', () => {
+    expect(attrAfter('<a href="&#9;javascript:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('still blocks mixed-case JaVaScRiPt:', () => {
+    expect(attrAfter('<a href="JaVaScRiPt:alert(1)">x</a>', 'a', 'href')).toBeNull();
+  });
+
+  test('NUL entity (&#0; → U+FFFD) is NOT collapsed into a live scheme', () => {
+    // U+FFFD is outside the stripped U+0000–U+0020 range, so it is preserved
+    // and the value stays an inert non-scheme — matching pre-fix behaviour and
+    // proving the strip does not over-reach.
+    const href = attrAfter('<a href="java&#0;script:alert(1)">x</a>', 'a', 'href');
+    expect(href).toContain('�');
+    expect(/^javascript:/i.test(href)).toBe(false);
+  });
+
+  // MUST-PASS: no over-blocking of legitimate values.
+  test.each([
+    ['absolute https', '<a href="https://example.com/a">x</a>', 'a', 'href', 'https://example.com/a'],
+    ['relative path', '<a href="/products/widget">x</a>', 'a', 'href', '/products/widget'],
+    ['mailto', '<a href="mailto:hi@example.com">x</a>', 'a', 'href', 'mailto:hi@example.com'],
+    ['fragment anchor', '<a href="#section">x</a>', 'a', 'href', '#section'],
+    ['data image png', '<img src="data:image/png;base64,iVBORw0KGgo=">', 'img', 'src', 'data:image/png;base64,iVBORw0KGgo='],
+  ])('allows %s', (_label, html, sel, attr, expected) => {
+    expect(attrAfter(html, sel, attr)).toBe(expected);
+  });
+});
+
+describe('Security: F1 — control-char scheme bypass (bind-href / attr path)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // Build the tainted value at runtime via String.fromCharCode so a literal
+  // control char reaches _sanitizeAttrValue without embedding raw bytes in the
+  // HTML fixture. `valueExpr` is a NoJS expression producing the string.
+  function hrefViaBind(valueExpr) {
+    document.body.innerHTML =
+      `<div state="{ u: ${valueExpr} }"><a bind-href="u">x</a></div>`;
+    processTree(document.body);
+    return document.querySelector('a').getAttribute('href');
+  }
+
+  const controlCodes = [
+    ['tab', 9],
+    ['newline', 10],
+    ['carriage return', 13],
+  ];
+  for (const [label, code] of controlCodes) {
+    test(`neutralizes javascript: split by a ${label}`, () => {
+      expect(
+        hrefViaBind(`'java' + String.fromCharCode(${code}) + 'script:alert(1)'`),
+      ).toBe('#');
+    });
+
+    test(`neutralizes vbscript: split by a ${label}`, () => {
+      expect(
+        hrefViaBind(`'vb' + String.fromCharCode(${code}) + 'script:msgbox(1)'`),
+      ).toBe('#');
+    });
+  }
+
+  // MUST-STILL-BLOCK
+  test('still blocks plain javascript:', () => {
+    expect(hrefViaBind(`'javascript:alert(1)'`)).toBe('#');
+  });
+
+  test('still blocks mixed-case JaVaScRiPt:', () => {
+    expect(hrefViaBind(`'JaVaScRiPt:alert(1)'`)).toBe('#');
+  });
+
+  // MUST-PASS: legitimate URLs pass through unchanged.
+  test.each([
+    ['absolute https', `'https://example.com/a'`, 'https://example.com/a'],
+    ['relative path', `'/products/widget'`, '/products/widget'],
+    ['mailto', `'mailto:hi@example.com'`, 'mailto:hi@example.com'],
+    ['fragment anchor', `'#section'`, '#section'],
+    ['data image png', `'data:image/png;base64,iVBORw0KGgo='`, 'data:image/png;base64,iVBORw0KGgo='],
+  ])('allows %s', (_label, valueExpr, expected) => {
+    expect(hrefViaBind(valueExpr)).toBe(expected);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F1 (NOJS-230) — control-char scheme bypass inside SVG data URIs.
+//  A data:image/svg+xml payload is deep-sanitized (_sanitizeSvgContent):
+//  <script> is removed and href/xlink:href schemes are checked. The same
+//  leading-only-trim bug lived here — an entity like `java&#9;script:` inside
+//  an <a xlink:href> decodes (via DOMParser) to a live scheme the browser
+//  runs. Reached two ways: bind-html → _sanitizeHtml → _sanitizeSvgDataUri,
+//  and bind-href/bind-src → _sanitizeAttrValue → _sanitizeSvgDataUri.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security: F1 — SVG data URI scheme bypass (bind-html / _sanitizeHtml sink)', () => {
+  // Wrap the given <a> attributes in a valid namespaced SVG document.
+  function svgWith(aAttrs) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" ' +
+      'xmlns:xlink="http://www.w3.org/1999/xlink">' +
+      `<a ${aAttrs}><text>x</text></a></svg>`;
+  }
+
+  // URL-encoded form: <img src="data:image/svg+xml,<encoded>">. Returns the
+  // sanitized, decoded SVG markup so we can assert on the surviving attributes.
+  function cleanSvgUrlEncoded(svg) {
+    const html = `<img src="data:image/svg+xml,${encodeURIComponent(svg)}">`;
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const src = div.querySelector('img').getAttribute('src');
+    return decodeURIComponent(src.slice(src.indexOf(',') + 1));
+  }
+
+  // MUST-BLOCK: interior control-char entity in xlink:href / href collapses to a
+  // live scheme and must be stripped from the sanitized SVG.
+  const entities = [['tab', '&#9;'], ['newline', '&#10;'], ['carriage return', '&#13;']];
+  for (const [label, ent] of entities) {
+    test(`strips javascript: split by a ${label} in xlink:href`, () => {
+      const out = cleanSvgUrlEncoded(svgWith(`xlink:href="java${ent}script:alert(1)"`));
+      expect(out.toLowerCase()).not.toContain('javascript');
+      expect(out).not.toContain('alert');
+    });
+
+    test(`strips vbscript: split by a ${label} in element href`, () => {
+      const out = cleanSvgUrlEncoded(svgWith(`href="vb${ent}script:msgbox(1)"`));
+      expect(out.toLowerCase()).not.toContain('vbscript');
+      expect(out).not.toContain('msgbox');
+    });
+  }
+
+  // MUST-STILL-BLOCK: plain javascript: (no control char) — no regression.
+  test('strips plain javascript: in xlink:href', () => {
+    const out = cleanSvgUrlEncoded(svgWith('xlink:href="javascript:alert(1)"'));
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  // base64 form is deep-sanitized too.
+  test('strips tab-split javascript: in a base64 SVG data URI', () => {
+    const svg = svgWith('xlink:href="java&#9;script:alert(1)"');
+    const html = `<img src="data:image/svg+xml;base64,${btoa(svg)}">`;
+    const div = document.createElement('div');
+    div.innerHTML = _sanitizeHtml(html);
+    const src = div.querySelector('img').getAttribute('src');
+    const decoded = atob(src.slice(src.indexOf(',') + 1));
+    expect(decoded.toLowerCase()).not.toContain('javascript');
+    expect(decoded).not.toContain('alert');
+  });
+
+  // MUST-PASS: benign hrefs inside the SVG survive sanitization.
+  test('preserves a fragment xlink:href="#foo"', () => {
+    expect(cleanSvgUrlEncoded(svgWith('xlink:href="#foo"'))).toContain('#foo');
+  });
+
+  test('preserves an https element href', () => {
+    expect(cleanSvgUrlEncoded(svgWith('href="https://example.com/x"')))
+      .toContain('https://example.com/x');
+  });
+});
+
+describe('Security: F1 — SVG data URI scheme bypass (bind-src / _sanitizeAttrValue path)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  // NoJS expression yielding a double-quote char, used to quote the SVG's inner
+  // attributes without colliding with the fixture's own quoting.
+  const DQ = 'String.fromCharCode(34)';
+
+  // Build a NoJS expression that evaluates to a data:image/svg+xml URI whose
+  // <a> carries `aAttr` (e.g. `xlink:href=java&#9;script:alert(1)` — the value
+  // is inserted verbatim, so pass entities like &#9; already escaped as needed).
+  function svgUriExpr(aName, aValue) {
+    return [
+      `'data:image/svg+xml,<svg xmlns='`, DQ, `'http://www.w3.org/2000/svg'`, DQ,
+      `' xmlns:xlink='`, DQ, `'http://www.w3.org/1999/xlink'`, DQ,
+      `'><a ${aName}='`, DQ, `'${aValue}'`, DQ, `'>x</a></svg>'`,
+    ].join(' + ');
+  }
+
+  // Drive the value through bind-src, then decode the sanitized data URI back to
+  // SVG markup. `&amp;#9;` in the fixture survives HTML parsing as literal
+  // `&#9;`, which DOMParser (inside _sanitizeSvgContent) decodes to a real tab.
+  function cleanSvgViaBindSrc(aName, aValue) {
+    document.body.innerHTML =
+      `<div state="{ u: ${svgUriExpr(aName, aValue)} }"><img bind-src="u"></div>`;
+    processTree(document.body);
+    const src = document.querySelector('img').getAttribute('src');
+    if (src === '#' || !src.includes(',')) return src;
+    return decodeURIComponent(src.slice(src.indexOf(',') + 1));
+  }
+
+  // MUST-BLOCK: tab-entity split scheme in xlink:href, reached via _sanitizeAttrValue.
+  test('strips tab-split javascript: in xlink:href', () => {
+    const out = cleanSvgViaBindSrc('xlink:href', 'java&amp;#9;script:alert(1)');
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  test('strips tab-split vbscript: in element href', () => {
+    const out = cleanSvgViaBindSrc('href', 'vb&amp;#9;script:msgbox(1)');
+    expect(out.toLowerCase()).not.toContain('vbscript');
+    expect(out).not.toContain('msgbox');
+  });
+
+  // MUST-STILL-BLOCK: plain javascript: still stripped through this path.
+  test('strips plain javascript: in xlink:href', () => {
+    const out = cleanSvgViaBindSrc('xlink:href', 'javascript:alert(1)');
+    expect(out.toLowerCase()).not.toContain('javascript');
+    expect(out).not.toContain('alert');
+  });
+
+  // MUST-PASS: benign fragment link preserved through the SVG sanitizer.
+  test('preserves a benign fragment xlink:href="#foo"', () => {
+    expect(cleanSvgViaBindSrc('xlink:href', '#foo')).toContain('#foo');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F3 — evaluator escape to the real Function constructor via raw Object
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F3: Object shim blocks Function-constructor escape', () => {
+  test('PoC — getOwnPropertyDescriptor(getPrototypeOf(...)).value chain yields no Function', () => {
+    const ctx = createContext({});
+    // The full published PoC. Every reflection static is absent from the shim,
+    // so the chain collapses to undefined long before reaching `.value`.
+    const result = evaluate(
+      "Object.getOwnPropertyDescriptor(Object.getPrototypeOf(parseInt),'constructor').value('return document.cookie')()",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('getOwnPropertyDescriptor is not exposed on the Object shim', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.getOwnPropertyDescriptor', ctx)).toBeUndefined();
+  });
+
+  test('getPrototypeOf is not exposed on the Object shim', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.getPrototypeOf', ctx)).toBeUndefined();
+  });
+
+  test('getOwnPropertyDescriptors(...).constructor stays undefined', () => {
+    const ctx = createContext({});
+    const result = evaluate(
+      "Object.getOwnPropertyDescriptors(parseInt).constructor",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('create / defineProperty / setPrototypeOf are not exposed', () => {
+    const ctx = createContext({});
+    expect(evaluate('Object.create', ctx)).toBeUndefined();
+    expect(evaluate('Object.defineProperty', ctx)).toBeUndefined();
+    expect(evaluate('Object.setPrototypeOf', ctx)).toBeUndefined();
+    expect(evaluate('Object.getOwnPropertyNames', ctx)).toBeUndefined();
+  });
+
+  test('direct parseInt.constructor is still undefined', () => {
+    const ctx = createContext({});
+    expect(evaluate('parseInt.constructor', ctx)).toBeUndefined();
+  });
+
+  test('no expression path returns the real Function constructor', () => {
+    const ctx = createContext({ fn: () => 1 });
+    // Even reaching a function value, its constructor is forbidden and the
+    // return-site guard neutralizes Function/eval identity.
+    expect(evaluate('fn.constructor', ctx)).toBeUndefined();
+    expect(evaluate("fn.constructor('return 1')", ctx)).toBeUndefined();
+  });
+
+  test('legit Object.keys / values / entries / assign / freeze / fromEntries still work', () => {
+    const ctx = createContext({ obj: { a: 1, b: 2 } });
+    expect(evaluate('Object.keys(obj)', ctx)).toEqual(['a', 'b']);
+    expect(evaluate('Object.values(obj)', ctx)).toEqual([1, 2]);
+    expect(evaluate('Object.entries(obj)', ctx)).toEqual([['a', 1], ['b', 2]]);
+    expect(evaluate('Object.assign({}, obj)', ctx)).toEqual({ a: 1, b: 2 });
+    const frozen = evaluate('Object.freeze(obj)', ctx);
+    expect(frozen).toEqual({ a: 1, b: 2 });
+    expect(evaluate("Object.fromEntries([['x', 9]])", ctx)).toEqual({ x: 9 });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F4 — evaluator escape to a cross-realm Window via iframe contentWindow
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F4: iframe contentWindow is re-wrapped to a safe proxy', () => {
+  let iframe;
+
+  beforeEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    _refs.frame = iframe;
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    iframe = null;
+  });
+
+  test('$refs.frame.contentWindow does not expose the raw Window', () => {
+    const ctx = createContext({});
+    const cw = evaluate('$refs.frame.contentWindow', ctx);
+    // Must not be the raw contentWindow; either the safe proxy or undefined.
+    if (iframe.contentWindow) {
+      expect(cw).not.toBe(iframe.contentWindow);
+    }
+  });
+
+  test('PoC — $refs.frame.contentWindow.eval(...) is blocked', () => {
+    const ctx = createContext({});
+    const result = evaluate(
+      "$refs.frame.contentWindow.eval(\"fetch('/x?c='+parent.document.cookie)\")",
+      ctx,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  test('contentWindow.fetch (not eval-gated) is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentWindow.fetch', ctx)).toBeUndefined();
+  });
+
+  test('contentWindow.localStorage is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentWindow.localStorage', ctx)).toBeUndefined();
+  });
+
+  test('contentWindow.document is re-wrapped so cookie is blocked', () => {
+    const ctx = createContext({});
+    // .cookie is a blocked document prop → undefined via _safeDocument.
+    expect(evaluate('$refs.frame.contentWindow.document.cookie', ctx)).toBeUndefined();
+  });
+
+  test('a normal (non-iframe) element ref still resolves allowed member reads', () => {
+    const div = document.createElement('div');
+    div.id = 'plain-ref';
+    div.setAttribute('data-role', 'ok');
+    document.body.appendChild(div);
+    _refs.plain = div;
+    const ctx = createContext({});
+    expect(evaluate('$refs.plain.id', ctx)).toBe('plain-ref');
+    expect(evaluate("$refs.plain.getAttribute('data-role')", ctx)).toBe('ok');
+    div.remove();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F4 (NOJS-239) — cross-realm Document escape via iframe.contentDocument
+//  The contentWindow family was already closed; contentDocument still handed
+//  back a RAW cross-realm Document (parent-realm `instanceof Document` is FALSE
+//  cross-realm), exposing real .cookie / .location / .write / .querySelector
+//  with no eval and no fetch. Fixed by (1) a `nodeType === 9` duck-type in
+//  _rewrapResult and (2) blocking foreign-realm accessor names on element reads.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F4: iframe contentDocument is neutralized (NOJS-239)', () => {
+  let iframe;
+
+  beforeEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    _refs.frame = iframe;
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    iframe = null;
+  });
+
+  test('$refs.frame.contentDocument does not expose the raw cross-realm Document', () => {
+    const ctx = createContext({});
+    const cd = evaluate('$refs.frame.contentDocument', ctx);
+    // Never the raw child-realm Document object.
+    if (iframe.contentDocument) {
+      expect(cd).not.toBe(iframe.contentDocument);
+    }
+    // Blocked at the element member read → undefined (defense-in-depth #2).
+    expect(cd).toBeUndefined();
+  });
+
+  test('PoC — contentDocument.cookie never yields the real cookie', () => {
+    const ctx = createContext({});
+    // The demonstrated navigation-exfil primitive. Must not surface a cookie.
+    expect(evaluate('$refs.frame.contentDocument.cookie', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.location is blocked (no navigation sink)', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentDocument.location', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentDocument.location.href', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.write is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentDocument.write', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.querySelector cannot reach the raw child document', () => {
+    const ctx = createContext({});
+    expect(evaluate("$refs.frame.contentDocument.querySelector('*')", ctx)).toBeUndefined();
+  });
+
+  test('PoC — the on:click navigation-exfil statement leaks nothing and no-ops the write', () => {
+    const ctx = createContext({ out: '' });
+    // Read side: cookie resolves to undefined, so the exfil URL carries the
+    // literal 'undefined' string — never a real cookie value.
+    _execStatement("out = '/exfil?nav=' + $refs.frame.contentDocument.cookie", ctx);
+    expect(ctx.out).toBe('/exfil?nav=undefined');
+    expect(ctx.out).not.toContain('=session');
+    // Write side: assigning through the blocked chain must not throw and must
+    // not navigate (the target object resolves to undefined → no-op assign).
+    expect(() => {
+      _execStatement("$refs.frame.contentDocument.location.href = '/exfil'", ctx);
+    }).not.toThrow();
+  });
+
+  test('fix #1 — a cross-realm Document reached via ownerDocument is re-wrapped', () => {
+    // ownerDocument is NOT in the accessor block, so this value flows through
+    // _rewrapResult. For an element created inside the child frame, its
+    // ownerDocument is the child-realm Document — the nodeType===9 duck-type
+    // must neutralize it even though parent-realm `instanceof Document` may miss.
+    const childDoc = iframe.contentDocument;
+    if (!childDoc) return; // environment without a child document — skip
+    const host = childDoc.body || childDoc.documentElement;
+    const childEl = childDoc.createElement('span');
+    host.appendChild(childEl);
+    _refs.child = childEl;
+    const ctx = createContext({});
+    const od = evaluate('$refs.child.ownerDocument', ctx);
+    // Never the raw child Document; either the safe proxy or undefined.
+    expect(od).not.toBe(childDoc);
+    // Whatever it is, its cookie/write/location must be neutralized.
+    expect(od === undefined || od.cookie === undefined).toBe(true);
+    expect(evaluate('$refs.child.ownerDocument.cookie', ctx)).toBeUndefined();
+    expect(evaluate('$refs.child.ownerDocument.write', ctx)).toBeUndefined();
+  });
+
+  test('regression — the contentWindow family stays blocked', () => {
+    const ctx = createContext({});
+    const cw = evaluate('$refs.frame.contentWindow', ctx);
+    if (iframe.contentWindow) {
+      expect(cw).not.toBe(iframe.contentWindow);
+    }
+    expect(evaluate('$refs.frame.contentWindow.fetch', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentWindow.localStorage', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentWindow.document.cookie', ctx)).toBeUndefined();
+    // frames / parent / top / self off a raw element are blocked too.
+    expect(evaluate('$refs.frame.frames', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.parent', ctx)).toBeUndefined();
+  });
+
+  test('a normal element ref still resolves allowed member reads', () => {
+    const div = document.createElement('div');
+    div.id = 'plain-cd';
+    div.className = 'card';
+    div.setAttribute('data-role', 'ok');
+    div.dataset.kind = 'x';
+    document.body.appendChild(div);
+    _refs.plain = div;
+    const ctx = createContext({});
+    expect(evaluate('$refs.plain.id', ctx)).toBe('plain-cd');
+    expect(evaluate('$refs.plain.className', ctx)).toBe('card');
+    expect(evaluate("$refs.plain.getAttribute('data-role')", ctx)).toBe('ok');
+    expect(evaluate('$refs.plain.dataset.kind', ctx)).toBe('x');
+    div.remove();
+  });
+
+  test("_safeDocument's own allowed members still work", () => {
+    const ctx = createContext({});
+    // Normal document reads are unaffected by the duck-type / accessor block.
+    expect(typeof evaluate('document.title', ctx)).toBe('string');
+    expect(evaluate("document.querySelector('body')", ctx)).toBe(document.body);
+    // ...while its blocked members remain blocked.
+    expect(evaluate('document.cookie', ctx)).toBeUndefined();
+    expect(evaluate('document.write', ctx)).toBeUndefined();
   });
 });

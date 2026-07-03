@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security F1 — sanitizer control-char bypass — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- F1: javascript: sanitizer bypass via embedded control characters (tab / LF / CR)
+       through bind-html (HTML sink) and bind-href (attribute sink). Payloads are held
+       in a store so bind-html renders them at init. The &amp;#9; / &amp;#10; / &amp;#13;
+       entities decode to the literal &#9; entity in the stored string, which reaches the
+       sanitizer verbatim, exactly as an untrusted data value would. -->
+
+  <div store="f1" value="{ htmlTab: '<a href=&quot;java&amp;#9;script:void(window.__f1_tab=1)&quot; data-test=&quot;f1-a-tab&quot;>tab</a>', htmlLf: '<a href=&quot;java&amp;#10;script:void(window.__f1_lf=1)&quot; data-test=&quot;f1-a-lf&quot;>lf</a>', htmlCr: '<a href=&quot;java&amp;#13;script:void(window.__f1_cr=1)&quot; data-test=&quot;f1-a-cr&quot;>cr</a>', hrefTab: 'java&#9;script:void(window.__f1_bindhref=1)', okHttps: '<a href=&quot;https://example.com/ok&quot; data-test=&quot;f1-a-https&quot;>https</a>', okRel: '<a href=&quot;/relative/ok&quot; data-test=&quot;f1-a-rel&quot;>rel</a>', okAnchor: '<a href=&quot;#frag&quot; data-test=&quot;f1-a-anchor&quot;>anchor</a>', okMailto: '<a href=&quot;mailto:hi@example.com&quot; data-test=&quot;f1-a-mailto&quot;>mailto</a>', okHref: 'https://example.com/control' }"></div>
+
+  <section>
+    <p class="test-label">bind-html: tab inside scheme</p>
+    <div data-test="f1-html-tab" bind-html="$store.f1.htmlTab"></div>
+  </section>
+
+  <section>
+    <p class="test-label">bind-html: LF inside scheme</p>
+    <div data-test="f1-html-lf" bind-html="$store.f1.htmlLf"></div>
+  </section>
+
+  <section>
+    <p class="test-label">bind-html: CR inside scheme</p>
+    <div data-test="f1-html-cr" bind-html="$store.f1.htmlCr"></div>
+  </section>
+
+  <section>
+    <p class="test-label">bind-href: literal tab inside scheme</p>
+    <a data-test="f1-bindhref" bind-href="$store.f1.hrefTab">bindhref</a>
+  </section>
+
+  <!-- Controls: benign URLs that MUST survive sanitization unchanged (no over-blocking) -->
+  <section>
+    <p class="test-label">Controls (bind-html)</p>
+    <div data-test="f1-ctrl-https" bind-html="$store.f1.okHttps"></div>
+    <div data-test="f1-ctrl-rel" bind-html="$store.f1.okRel"></div>
+    <div data-test="f1-ctrl-anchor" bind-html="$store.f1.okAnchor"></div>
+    <div data-test="f1-ctrl-mailto" bind-html="$store.f1.okMailto"></div>
+  </section>
+  <section>
+    <p class="test-label">Control (bind-href)</p>
+    <a data-test="f1-ctrl-bindhref" bind-href="$store.f1.okHref">ok</a>
+  </section>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    window.__f1_tab = 0;
+    window.__f1_lf = 0;
+    window.__f1_cr = 0;
+    window.__f1_bindhref = 0;
+    NoJS.init();
+  </script>
+</body>
+</html>

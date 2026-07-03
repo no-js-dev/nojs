@@ -117,10 +117,22 @@ export async function _doFetch(
     }
   }
 
-  // CSRF — only inject for same-origin requests to prevent token leakage
+  // CSRF — only inject for same-origin requests to prevent token leakage.
+  // Always resolve and compare origins (normalizing backslashes to forward
+  // slashes first) so protocol-relative (//evil.com), backslash (\\evil.com),
+  // and uppercase-scheme (HTTP://evil.com) URLs cannot be misclassified as
+  // same-origin. A parse failure is treated as NOT same-origin.
   if (_config.csrf && upperMethod !== "GET") {
-    const isSameOrigin = !fullUrl.startsWith("http") ||
-      (typeof window !== "undefined" && new URL(fullUrl, window.location.href).origin === window.location.origin);
+    let isSameOrigin = false;
+    if (typeof window !== "undefined") {
+      try {
+        isSameOrigin =
+          new URL(fullUrl.replace(/\\/g, "/"), window.location.href).origin ===
+          window.location.origin;
+      } catch {
+        isSameOrigin = false;
+      }
+    }
     if (isSameOrigin) {
       opts.headers[_config.csrf.header || "X-CSRF-Token"] =
         _config.csrf.token || "";

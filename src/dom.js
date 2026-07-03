@@ -85,9 +85,15 @@ function _sanitizeSvgContent(svg) {
     for (const attr of [...node.attributes]) {
       const name = attr.name.toLowerCase();
       if (name.startsWith("on")) { node.removeAttribute(attr.name); continue; }
-      if ((name === "href" || name === "xlink:href") &&
-          attr.value.trim().toLowerCase().startsWith("javascript:")) {
-        node.removeAttribute(attr.name);
+      // Strip javascript:/vbscript: in href/xlink:href. Collapse EVERY ASCII
+      // control + whitespace char (U+0000–U+0020) before the scheme test — an
+      // embedded tab/newline/NUL (e.g. "java\tscript:") is ignored by browsers
+      // but slips past a leading-only trim, so we strip globally to catch it.
+      if (name === "href" || name === "xlink:href") {
+        const scheme = attr.value.toLowerCase().replace(/[\u0000-\u0020]/g, "");
+        if (/^(javascript|vbscript):/.test(scheme)) {
+          node.removeAttribute(attr.name);
+        }
       }
     }
   }
@@ -178,7 +184,14 @@ export function _sanitizeHtml(html) {
       }
       for (const attr of [...child.attributes]) {
         const n = attr.name.toLowerCase();
-        const v = attr.value.toLowerCase().trimStart();
+        // Strip EVERY leading/interior ASCII control + whitespace char (U+0000–U+0020)
+        // before the scheme check. Browsers ignore embedded tabs/newlines/NULs inside a
+        // URL scheme, so an entity-decoded value like "java\tscript:" resolves to
+        // "javascript:" at click time. A leading-only trim (.trimStart) let those interior
+        // chars survive startsWith('javascript:'); a global strip collapses them back so
+        // the scheme test catches them. Note: _sanitizeSvgDataUri below is fed attr.value
+        // (the original), so this strip only affects scheme detection, never the SVG payload.
+        const v = attr.value.toLowerCase().replace(/[\u0000-\u0020]/g, '');
         const isUrlAttr = n === 'href' || n === 'src' || n === 'action' || n === 'xlink:href'
           || n === 'formaction' || n === 'poster' || n === 'data';
         const isDangerousScheme = v.startsWith('javascript:') || v.startsWith('vbscript:') || (isUrlAttr && v.startsWith('blob:'));

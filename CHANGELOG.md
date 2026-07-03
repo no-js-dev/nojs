@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.16.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.16.1...HEAD)
+
+## [1.16.1](https://github.com/no-js-dev/nojs/compare/v1.16.0...v1.16.1) — 2026-07-03
+
+Security release resolving five findings from internal audit run-1 (no CVEs assigned).
+
+### Security
+
+- **[F1 · High]** Fixed a `javascript:`/`vbscript:` sanitizer bypass where interior ASCII control characters (tab/LF/CR) split the scheme token in `bind-html`/`t-html`/`bind-href`/`bind-src` and SVG data-URI paths.
+- **[F3 · Medium]** Closed an evaluator sandbox escape that reached the real `Function` constructor via `Object` reflection methods.
+- **[F4 · Medium]** Closed an evaluator escape to a cross-realm `Window` via an iframe's `$refs.…contentWindow`.
+- **[F2 · Low]** Stopped the CSRF token from being attached to cross-origin requests expressed as `//`, `\\`, or uppercase-scheme URLs.
+- **[F5 · Low]** Validated and encoded the i18n `locale` before building the `loadPath` fetch URL (path-traversal / translation-poisoning).
 
 ### Fixed
 

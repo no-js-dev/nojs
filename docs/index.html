@@ -354,9 +354,9 @@
 
   <template id="directive-card">
     <div class="directive-info">
-      <span class="directive-badge" bind="badge"></span>
-      <h3 class="directive-name" bind="name"></h3>
-      <p class="directive-desc" bind-html="desc"></p>
+      <span class="directive-badge" bind="badgeKey ? $i18n.t(badgeKey) : badge"></span>
+      <h3 class="directive-name" bind="nameKey ? $i18n.t(nameKey) : name"></h3>
+      <p class="directive-desc" bind-html="descKey ? $i18n.t(descKey) : desc"></p>
     </div>
     <div class="directive-editor">
       <div class="directive-editor-header"><span bind="filename"></span></div>

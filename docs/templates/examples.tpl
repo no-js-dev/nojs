@@ -8,7 +8,7 @@
     <p class="section-subtitle" t="examples.cat1.subtitle"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.counter.badge'), name: $i18n.t('examples.counter.name'), desc: $i18n.t('examples.counter.desc'), filename: 'counter.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.counter.badge', nameKey: 'examples.counter.name', descKey: 'examples.counter.desc', filename: 'counter.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ count: 0 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"count++"</span><span class="tok-punc">&gt;</span>
     Count: <span class="tok-mustache">{{ count }}</span>
@@ -21,7 +21,7 @@
     </div>
 
     <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.binding.badge'), name: $i18n.t('examples.binding.name'), desc: $i18n.t('examples.binding.desc'), filename: 'binding.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.binding.badge', nameKey: 'examples.binding.name', descKey: 'examples.binding.desc', filename: 'binding.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ user: 'World' }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"user"</span>
          <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"Enter name..."</span> <span class="tok-punc">/&gt;</span>
@@ -31,7 +31,7 @@
     </div>
 
     <div class="directives-container" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.computed.badge'), name: $i18n.t('examples.computed.name'), desc: $i18n.t('examples.computed.desc'), filename: 'computed.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.computed.badge', nameKey: 'examples.computed.name', descKey: 'examples.computed.desc', filename: 'computed.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ price: 100, qty: 2 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"number"</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"qty"</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">computed</span><span class="tok-punc">=</span><span class="tok-str">"total"</span>
@@ -50,7 +50,7 @@
     <p class="section-subtitle" t="examples.cat2.subtitle"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.search.badge'), name: $i18n.t('examples.search.name'), desc: $i18n.t('examples.search.desc'), filename: 'search.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.search.badge', nameKey: 'examples.search.name', descKey: 'examples.search.desc', filename: 'search.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ q: '', items: ['HTML', 'CSS', 'NoJS'] }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"q"</span> <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"Search..."</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
@@ -63,7 +63,7 @@
     </div>
 
     <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.todo.badge'), name: $i18n.t('examples.todo.name'), desc: $i18n.t('examples.todo.desc'), filename: 'todo.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.todo.badge', nameKey: 'examples.todo.name', descKey: 'examples.todo.desc', filename: 'todo.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ task: '', todos: [] }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"task"</span>
          <span class="tok-attr">on:keydown.enter</span><span class="tok-punc">=</span><span class="tok-str">"todos.push(task); task = ''"</span> <span class="tok-punc">/&gt;</span>
@@ -78,7 +78,7 @@
     </div>
 
     <div class="directives-container" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.switchCase.badge'), name: $i18n.t('examples.switchCase.name'), desc: $i18n.t('examples.switchCase.desc'), filename: 'switch.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.switchCase.badge', nameKey: 'examples.switchCase.name', descKey: 'examples.switchCase.desc', filename: 'switch.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ role: 'viewer' }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">select</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"role"</span><span class="tok-punc">&gt;</span>
     <span class="tok-punc">&lt;</span><span class="tok-tag">option</span> <span class="tok-attr">value</span><span class="tok-punc">=</span><span class="tok-str">"admin"</span><span class="tok-punc">&gt;</span>Admin<span class="tok-punc">&lt;/</span><span class="tok-tag">option</span><span class="tok-punc">&gt;</span>
@@ -103,7 +103,7 @@
     <p class="section-subtitle" t="examples.cat3.subtitle"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.fetch.badge'), name: $i18n.t('examples.fetch.name'), desc: $i18n.t('examples.fetch.desc'), filename: 'fetch.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.fetch.badge', nameKey: 'examples.fetch.name', descKey: 'examples.fetch.desc', filename: 'fetch.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">id</span><span class="tok-punc">=</span><span class="tok-str">"sk"</span> <span class="tok-attr">class</span><span class="tok-punc">=</span><span class="tok-str">"skeleton"</span><span class="tok-punc">&gt;</span>Loading...<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">get</span><span class="tok-punc">=</span><span class="tok-str">"/api/user"</span> <span class="tok-attr">as</span><span class="tok-punc">=</span><span class="tok-str">"user"</span> <span class="tok-attr">skeleton</span><span class="tok-punc">=</span><span class="tok-str">"sk"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">h2</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"user.name"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">h2</span><span class="tok-punc">&gt;</span>
@@ -113,7 +113,7 @@
     </div>
 
     <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.formPost.badge'), name: $i18n.t('examples.formPost.name'), desc: $i18n.t('examples.formPost.desc'), filename: 'form-post.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.formPost.badge', nameKey: 'examples.formPost.name', descKey: 'examples.formPost.desc', filename: 'form-post.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">form</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ email: '' }"</span>
       <span class="tok-attr">on:submit.prevent</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"email"</span>
@@ -128,7 +128,7 @@
     </div>
 
     <div class="directives-container" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.pagination.badge'), name: $i18n.t('examples.pagination.name'), desc: $i18n.t('examples.pagination.desc'), filename: 'pagination.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.pagination.badge', nameKey: 'examples.pagination.name', descKey: 'examples.pagination.desc', filename: 'pagination.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">get</span><span class="tok-punc">=</span><span class="tok-str">"/posts?page={page}"</span>
      <span class="tok-attr">as</span><span class="tok-punc">=</span><span class="tok-str">"posts"</span>
      <span class="tok-attr">get-trigger</span><span class="tok-punc">=</span><span class="tok-str">"button"</span>
@@ -150,7 +150,7 @@
     <p class="section-subtitle" t="examples.cat4.subtitle"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.router.badge'), name: $i18n.t('examples.router.name'), desc: $i18n.t('examples.router.desc'), filename: 'router.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.router.badge', nameKey: 'examples.router.name', descKey: 'examples.router.desc', filename: 'router.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">nav</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">a</span> <span class="tok-attr">route</span><span class="tok-punc">=</span><span class="tok-str">"/"</span> <span class="tok-attr">route-active</span><span class="tok-punc">=</span><span class="tok-str">"active"</span><span class="tok-punc">&gt;</span>Home<span class="tok-punc">&lt;/</span><span class="tok-tag">a</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">a</span> <span class="tok-attr">route</span><span class="tok-punc">=</span><span class="tok-str">"/about"</span> <span class="tok-attr">route-active</span><span class="tok-punc">=</span><span class="tok-str">"active"</span><span class="tok-punc">&gt;</span>About<span class="tok-punc">&lt;/</span><span class="tok-tag">a</span><span class="tok-punc">&gt;</span>
@@ -166,7 +166,7 @@
     </div>
 
     <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.templates.badge'), name: $i18n.t('examples.templates.name'), desc: $i18n.t('examples.templates.desc'), filename: 'templates.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.templates.badge', nameKey: 'examples.templates.name', descKey: 'examples.templates.desc', filename: 'templates.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">template</span> <span class="tok-attr">id</span><span class="tok-punc">=</span><span class="tok-str">"card"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">class</span><span class="tok-punc">=</span><span class="tok-str">"card"</span><span class="tok-punc">&gt;</span>
     <span class="tok-punc">&lt;</span><span class="tok-tag">h3</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"title"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">h3</span><span class="tok-punc">&gt;</span>
@@ -182,7 +182,7 @@
     </div>
 
     <div class="directives-container" style="margin-top: 2rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('examples.dynamicStyles.badge'), name: $i18n.t('examples.dynamicStyles.name'), desc: $i18n.t('examples.dynamicStyles.desc'), filename: 'styles.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.dynamicStyles.badge', nameKey: 'examples.dynamicStyles.name', descKey: 'examples.dynamicStyles.desc', filename: 'styles.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ dark: false, size: 16 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"dark = !dark"</span><span class="tok-punc">&gt;</span>
     Toggle Theme

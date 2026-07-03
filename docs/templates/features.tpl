@@ -7,7 +7,7 @@
     <p class="section-subtitle" t="features.showcase1.desc"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('features.showcase1.badge'), name: $i18n.t('features.showcase1.title'), desc: $i18n.t('features.showcase1.highlights'), filename: 'reactive-state.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'features.showcase1.badge', nameKey: 'features.showcase1.title', descKey: 'features.showcase1.highlights', filename: 'reactive-state.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ user: 'World' }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"user"</span> <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"Enter name..."</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">h1</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"'Hello, ' + user"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">h1</span><span class="tok-punc">&gt;</span>
@@ -24,7 +24,7 @@
     <p class="section-subtitle" t="features.showcase2.desc"></p>
 
     <div class="directives-container showcase-reverse" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('features.showcase2.badge'), name: $i18n.t('features.showcase2.title'), desc: $i18n.t('features.showcase2.highlights'), filename: 'list-rendering.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'features.showcase2.badge', nameKey: 'features.showcase2.title', descKey: 'features.showcase2.highlights', filename: 'list-rendering.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">li</span> <span class="tok-attr">foreach</span><span class="tok-punc">=</span><span class="tok-str">"item in items"</span>
       <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"item.name"</span>
@@ -43,7 +43,7 @@
     <p class="section-subtitle" t="features.showcase3.desc"></p>
 
     <div class="directives-container" style="margin-top: 3.5rem;">
-      <div class="directive-showcase" use="directive-card" state="{ badge: $i18n.t('features.showcase3.badge'), name: $i18n.t('features.showcase3.title'), desc: $i18n.t('features.showcase3.highlights'), filename: 'event-handling.html' }">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'features.showcase3.badge', nameKey: 'features.showcase3.title', descKey: 'features.showcase3.highlights', filename: 'event-handling.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ count: 0 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"count++"</span><span class="tok-punc">&gt;</span>
     Clicked: <span class="tok-mustache">{{ count }}</span>

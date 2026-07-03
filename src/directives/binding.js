@@ -63,10 +63,15 @@ function _sanitizeSvgContent(svg) {
       const name = attr.name.toLowerCase();
       // Remove on* event handlers
       if (name.startsWith("on")) { node.removeAttribute(attr.name); continue; }
-      // Remove javascript: in href/xlink:href
-      if ((name === "href" || name === "xlink:href") &&
-          attr.value.trim().toLowerCase().startsWith("javascript:")) {
-        node.removeAttribute(attr.name);
+      // Remove javascript:/vbscript: in href/xlink:href. Collapse EVERY ASCII
+      // control + whitespace char (U+0000–U+0020) before the scheme test — an
+      // embedded tab/newline/NUL (e.g. "java\tscript:") is ignored by browsers
+      // but slips past a leading-only trim, so we strip globally to catch it.
+      if (name === "href" || name === "xlink:href") {
+        const scheme = attr.value.toLowerCase().replace(/[\u0000-\u0020]/g, "");
+        if (/^(javascript|vbscript):/.test(scheme)) {
+          node.removeAttribute(attr.name);
+        }
       }
     }
   }

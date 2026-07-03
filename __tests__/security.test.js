@@ -982,3 +982,137 @@ describe('Security F4: iframe contentWindow is re-wrapped to a safe proxy', () =
     div.remove();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  F4 (NOJS-239) — cross-realm Document escape via iframe.contentDocument
+//  The contentWindow family was already closed; contentDocument still handed
+//  back a RAW cross-realm Document (parent-realm `instanceof Document` is FALSE
+//  cross-realm), exposing real .cookie / .location / .write / .querySelector
+//  with no eval and no fetch. Fixed by (1) a `nodeType === 9` duck-type in
+//  _rewrapResult and (2) blocking foreign-realm accessor names on element reads.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Security F4: iframe contentDocument is neutralized (NOJS-239)', () => {
+  let iframe;
+
+  beforeEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    _refs.frame = iframe;
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(_refs)) delete _refs[k];
+    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    iframe = null;
+  });
+
+  test('$refs.frame.contentDocument does not expose the raw cross-realm Document', () => {
+    const ctx = createContext({});
+    const cd = evaluate('$refs.frame.contentDocument', ctx);
+    // Never the raw child-realm Document object.
+    if (iframe.contentDocument) {
+      expect(cd).not.toBe(iframe.contentDocument);
+    }
+    // Blocked at the element member read → undefined (defense-in-depth #2).
+    expect(cd).toBeUndefined();
+  });
+
+  test('PoC — contentDocument.cookie never yields the real cookie', () => {
+    const ctx = createContext({});
+    // The demonstrated navigation-exfil primitive. Must not surface a cookie.
+    expect(evaluate('$refs.frame.contentDocument.cookie', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.location is blocked (no navigation sink)', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentDocument.location', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentDocument.location.href', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.write is blocked', () => {
+    const ctx = createContext({});
+    expect(evaluate('$refs.frame.contentDocument.write', ctx)).toBeUndefined();
+  });
+
+  test('contentDocument.querySelector cannot reach the raw child document', () => {
+    const ctx = createContext({});
+    expect(evaluate("$refs.frame.contentDocument.querySelector('*')", ctx)).toBeUndefined();
+  });
+
+  test('PoC — the on:click navigation-exfil statement leaks nothing and no-ops the write', () => {
+    const ctx = createContext({ out: '' });
+    // Read side: cookie resolves to undefined, so the exfil URL carries the
+    // literal 'undefined' string — never a real cookie value.
+    _execStatement("out = '/exfil?nav=' + $refs.frame.contentDocument.cookie", ctx);
+    expect(ctx.out).toBe('/exfil?nav=undefined');
+    expect(ctx.out).not.toContain('=session');
+    // Write side: assigning through the blocked chain must not throw and must
+    // not navigate (the target object resolves to undefined → no-op assign).
+    expect(() => {
+      _execStatement("$refs.frame.contentDocument.location.href = '/exfil'", ctx);
+    }).not.toThrow();
+  });
+
+  test('fix #1 — a cross-realm Document reached via ownerDocument is re-wrapped', () => {
+    // ownerDocument is NOT in the accessor block, so this value flows through
+    // _rewrapResult. For an element created inside the child frame, its
+    // ownerDocument is the child-realm Document — the nodeType===9 duck-type
+    // must neutralize it even though parent-realm `instanceof Document` may miss.
+    const childDoc = iframe.contentDocument;
+    if (!childDoc) return; // environment without a child document — skip
+    const host = childDoc.body || childDoc.documentElement;
+    const childEl = childDoc.createElement('span');
+    host.appendChild(childEl);
+    _refs.child = childEl;
+    const ctx = createContext({});
+    const od = evaluate('$refs.child.ownerDocument', ctx);
+    // Never the raw child Document; either the safe proxy or undefined.
+    expect(od).not.toBe(childDoc);
+    // Whatever it is, its cookie/write/location must be neutralized.
+    expect(od === undefined || od.cookie === undefined).toBe(true);
+    expect(evaluate('$refs.child.ownerDocument.cookie', ctx)).toBeUndefined();
+    expect(evaluate('$refs.child.ownerDocument.write', ctx)).toBeUndefined();
+  });
+
+  test('regression — the contentWindow family stays blocked', () => {
+    const ctx = createContext({});
+    const cw = evaluate('$refs.frame.contentWindow', ctx);
+    if (iframe.contentWindow) {
+      expect(cw).not.toBe(iframe.contentWindow);
+    }
+    expect(evaluate('$refs.frame.contentWindow.fetch', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentWindow.localStorage', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.contentWindow.document.cookie', ctx)).toBeUndefined();
+    // frames / parent / top / self off a raw element are blocked too.
+    expect(evaluate('$refs.frame.frames', ctx)).toBeUndefined();
+    expect(evaluate('$refs.frame.parent', ctx)).toBeUndefined();
+  });
+
+  test('a normal element ref still resolves allowed member reads', () => {
+    const div = document.createElement('div');
+    div.id = 'plain-cd';
+    div.className = 'card';
+    div.setAttribute('data-role', 'ok');
+    div.dataset.kind = 'x';
+    document.body.appendChild(div);
+    _refs.plain = div;
+    const ctx = createContext({});
+    expect(evaluate('$refs.plain.id', ctx)).toBe('plain-cd');
+    expect(evaluate('$refs.plain.className', ctx)).toBe('card');
+    expect(evaluate("$refs.plain.getAttribute('data-role')", ctx)).toBe('ok');
+    expect(evaluate('$refs.plain.dataset.kind', ctx)).toBe('x');
+    div.remove();
+  });
+
+  test("_safeDocument's own allowed members still work", () => {
+    const ctx = createContext({});
+    // Normal document reads are unaffected by the duck-type / accessor block.
+    expect(typeof evaluate('document.title', ctx)).toBe('string');
+    expect(evaluate("document.querySelector('body')", ctx)).toBe(document.body);
+    // ...while its blocked members remain blocked.
+    expect(evaluate('document.cookie', ctx)).toBeUndefined();
+    expect(evaluate('document.write', ctx)).toBeUndefined();
+  });
+});

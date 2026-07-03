@@ -4365,6 +4365,18 @@ When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed ent
 
 The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 
+> **Scheme-token normalization (v1.16.1):** URL-attribute sanitization strips interior ASCII control characters (tab, LF, CR) before matching the scheme token, so a `javascript:`/`vbscript:` payload can no longer be smuggled past `bind-html`, `t-html`, `bind-href`, `bind-src`, or SVG data-URI paths by splitting the scheme with control characters.
+
+### Security fixes in v1.16.1
+
+Release v1.16.1 resolves five findings from internal audit run-1 (no CVEs assigned):
+
+- **[F1 · High]** Fixed a `javascript:`/`vbscript:` sanitizer bypass where interior ASCII control characters (tab/LF/CR) split the scheme token in `bind-html`/`t-html`/`bind-href`/`bind-src` and SVG data-URI paths.
+- **[F3 · Medium]** Closed an evaluator sandbox escape that reached the real `Function` constructor via `Object` reflection methods.
+- **[F4 · Medium]** Closed an evaluator escape to a cross-realm `Window` via an iframe's `$refs.…contentWindow`.
+- **[F2 · Low]** Stopped the CSRF token from being attached to cross-origin requests expressed as `//`, `\\`, or uppercase-scheme URLs.
+- **[F5 · Low]** Validated and encoded the i18n `locale` before building the `loadPath` fetch URL (path-traversal / translation-poisoning).
+
 ### CSRF Protection
 
 ```html

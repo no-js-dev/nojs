@@ -2731,3 +2731,128 @@ describe('NOJS-194 — GET defers initial fetch to microtask so computed values 
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('HTTP QUERY directive (RFC 10008)', () => {
+  beforeEach(httpSetup);
+  afterEach(() => {
+    httpTeardown();
+    delete _config.csrf;
+  });
+
+  test('form query fires QUERY with serialized body on submit', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ results: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const form = document.createElement('form');
+    form.setAttribute('query', '/api/search');
+    form.setAttribute('as', 'result');
+    form.innerHTML =
+      '<input name="q" value="admin" /><button type="submit">Go</button>';
+    parent.appendChild(form);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    // A form waits for submit — it must NOT auto-fire on mount.
+    await flush();
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    form.dispatchEvent(new Event('submit', { bubbles: true }));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/search',
+      expect.objectContaining({ method: 'QUERY' }),
+    );
+    // Body is serialized from the form fields, like POST/PUT/PATCH.
+    const sentBody = global.fetch.mock.calls[0][1].body;
+    expect(JSON.parse(sentBody)).toEqual({ q: 'admin' });
+  });
+
+  test('non-form query auto-fires on mount and re-fetches reactively on state change', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ results: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ term: "x" }');
+    const el = document.createElement('div');
+    el.setAttribute('query', '/api/search/{term}');
+    el.setAttribute('as', 'result');
+    el.innerHTML = '<p>results</p>';
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush(100);
+
+    // Auto-fired on mount (identical to GET).
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls[0][1].method).toBe('QUERY');
+    expect(global.fetch.mock.calls[0][0]).toContain('/api/search/x');
+
+    // Reactive re-fetch when a referenced state value changes.
+    const ctx = findContext(parent);
+    ctx.term = 'y';
+    await flush(100);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[1][0]).toContain('/api/search/y');
+  });
+
+  test('body-aware caching: distinct bodies fetch separately, identical body hits cache', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ results: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ payload: "alpha" }');
+    const el = document.createElement('div');
+    el.setAttribute('query', '/api/search');
+    el.setAttribute('as', 'result');
+    el.setAttribute('cached', 'memory');
+    // Single-token body so it interpolates to a distinct value per state.
+    el.setAttribute('body', '{payload}');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush();
+
+    // First request with body "alpha" — populates the cache.
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls[0][1].body).toBe('alpha');
+
+    const ctx = findContext(parent);
+
+    // Different body "beta" → different cache key → real fetch.
+    ctx.payload = 'beta';
+    el.refresh();
+    await flush();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[1][1].body).toBe('beta');
+
+    // Identical body "alpha" again → same cache key → cache hit, no new fetch.
+    ctx.payload = 'alpha';
+    el.refresh();
+    await flush();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not inject a CSRF token for QUERY (safe read method)', async () => {
+    _config.csrf = { header: 'X-CSRF-Token', token: 'secret' };
+    global.fetch.mockResolvedValue(mockJsonResponse({ results: [] }));
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('div');
+    el.setAttribute('query', '/api/search');
+    el.setAttribute('as', 'result');
+    el.setAttribute('body', '{"q":"test"}');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush();
+
+    const headers = global.fetch.mock.calls[0][1].headers;
+    expect(headers['X-CSRF-Token']).toBeUndefined();
+  });
+});

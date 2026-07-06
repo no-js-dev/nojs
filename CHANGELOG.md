@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.16.1...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.17.0...HEAD)
+
+## [1.17.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.17.0) — 2026-07-06
+
+### Added
+
+- feat(http): `query` directive — issues an HTTP **QUERY** request ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)), a safe, idempotent, cacheable read that carries a request body. Behaves like `get` for auto-firing, reactive re-fetch, rendering (`as`/`loading`/`error`/`empty`), and caching, but sends a body like `post` (via `body=` or, on a `<form>`, serialized fields).
+- feat(http): body-aware caching for `query` — the cache key incorporates the request body, so two QUERY requests to the same URL with different bodies are cached separately while identical URL + body hit the cache. GET cache keys are unchanged.
+- feat(http): `query-trigger`, `query-trigger-label`, and `query-threshold` companions — lazy-load triggers (`visible`/`scroll`/`hover`/`button`/`none`) for non-form `query` elements, mirroring the `get-trigger*` family.
+- feat(http): QUERY is treated as a safe method — no CSRF token is injected on QUERY requests. Pagination (`get-cursor`/`get-page`/`get-insert`) remains GET-only.
 
 ## [1.16.1](https://github.com/no-js-dev/nojs/compare/v1.16.0...v1.16.1) — 2026-07-03
 

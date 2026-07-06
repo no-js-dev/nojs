@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  DIRECTIVES: get, post, put, patch, delete
+//  DIRECTIVES: get, post, put, patch, delete, query
 // ═══════════════════════════════════════════════════════════════════════
 
 import {
@@ -27,7 +27,7 @@ import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
 
-const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
+const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "query"];
 
 // ─── Sentinel helpers ──────────────────────────────────────────────────────
 // Sentinel: a zero-height div used as a positional anchor for append/prepend
@@ -87,8 +87,21 @@ for (const method of HTTP_METHODS) {
         parseInt(el.getAttribute("retry-delay")) || _config.retryDelay || 1000;
       const paramsAttr = el.getAttribute("params");
       const skeletonId = el.getAttribute("skeleton");
-      const trigger = el.getAttribute("get-trigger");
-      const triggerLabel = el.getAttribute("get-trigger-label") || "Load More";
+      // Trigger companions are read by method prefix: get-trigger* for GET,
+      // query-trigger* for QUERY. Only the read-fire path (auto-fire on mount)
+      // consults these — forms fire on submit regardless of trigger.
+      const triggerPrefix = method === "query" ? "query" : "get";
+      const trigger = el.getAttribute(`${triggerPrefix}-trigger`);
+      const triggerLabel =
+        el.getAttribute(`${triggerPrefix}-trigger-label`) || "Load More";
+      // Read-fire: GET always, plus QUERY on a non-form element. These
+      // auto-fire on mount and re-fetch reactively (identical to GET). QUERY
+      // on a form fires on submit instead (identical to POST); real mutations
+      // (post/put/patch/delete) on a non-form fire on click.
+      const isReadFire =
+        method === "get" || (method === "query" && el.tagName !== "FORM");
+      // Caching applies to the safe read methods: GET and QUERY.
+      const isCacheableMethod = method === "get" || method === "query";
 
       // ── get-cursor: cursor-based pagination ──
       const hasGetCursor = method === "get" && el.hasAttribute("get-cursor");
@@ -109,7 +122,7 @@ for (const method of HTTP_METHODS) {
 
       // ── get-threshold: rootMargin for IntersectionObserver ──
       // Default differs by trigger type: 200px for scroll, 0px for visible.
-      const thresholdRaw = el.getAttribute("get-threshold");
+      const thresholdRaw = el.getAttribute(`${triggerPrefix}-threshold`);
       const threshold = thresholdRaw
         || (trigger === "scroll" ? "200px" : "0px");
 
@@ -356,10 +369,26 @@ for (const method of HTTP_METHODS) {
           }
         }
 
-        const cacheKey = method + ":" + resolvedUrl;
+        // Body-aware cache key. GET carries no body, so its key stays
+        // method+URL (behavior unchanged). QUERY carries a request body, so
+        // the body is folded into the key: different bodies map to different
+        // cache entries and identical bodies hit the same entry. The method
+        // prefix keeps GET and QUERY from colliding on the same URL.
+        let _cacheBodyPart = "";
+        if (method === "query") {
+          if (el.tagName === "FORM") {
+            _cacheBodyPart = JSON.stringify(
+              Object.fromEntries(new FormData(el).entries()),
+            );
+          } else if (bodyAttr) {
+            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+          }
+        }
+        const cacheKey =
+          method + ":" + resolvedUrl + (_cacheBodyPart ? ":" + _cacheBodyPart : "");
 
         // Check cache
-        if (method === "get") {
+        if (isCacheableMethod) {
           const cached = _cacheGet(cacheKey, cacheStrategy);
           if (cached != null) {
             _hideSkeleton();
@@ -439,8 +468,8 @@ for (const method of HTTP_METHODS) {
             }
           }
 
-          // Cache response (use renderData for cursor mode)
-          if (method === "get") _cacheSet(cacheKey, hasGetCursor ? renderData : data, cacheStrategy);
+          // Cache response (use renderData for cursor mode; QUERY has no cursor)
+          if (isCacheableMethod) _cacheSet(cacheKey, hasGetCursor ? renderData : data, cacheStrategy);
 
           // ── End-of-data detection for pagination ──
           const _effectiveData = hasGetCursor ? renderData : data;
@@ -859,8 +888,8 @@ for (const method of HTTP_METHODS) {
         };
         el.addEventListener("submit", submitHandler);
         _onDispose(() => el.removeEventListener("submit", submitHandler));
-      } else if (method === "get") {
-        // ── get-trigger dispatch ──────────────────────────────────────
+      } else if (isReadFire) {
+        // ── read-fire trigger dispatch (GET, and QUERY on non-form) ────
         if (trigger === "none") {
           // Manual only — no auto-fire, no observer, no listener.
           // el.refresh() (exposed below) is the only way to trigger.
@@ -936,7 +965,8 @@ for (const method of HTTP_METHODS) {
           queueMicrotask(() => { if (el.isConnected) doRequest(); });
         }
       } else {
-        // Non-GET on non-FORM: attach click listener
+        // Mutation (post/put/patch/delete) on a non-FORM: fire on click.
+        // QUERY is excluded here — it read-fires via the branch above.
         const clickHandler = (e) => {
           e.preventDefault();
           doRequest();

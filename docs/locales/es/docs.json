@@ -64,6 +64,7 @@
         "put": "Actualizar datos (PUT)",
         "patch": "Actualización parcial (PATCH)",
         "delete": "Eliminar datos (DELETE)",
+        "query": "Lectura con cuerpo (QUERY, RFC 10008)",
         "as": "Nombre para los datos obtenidos en el contexto",
         "body": "Cuerpo de la solicitud",
         "headers": "Encabezados de la solicitud",
@@ -680,6 +681,12 @@
       },
       "lifecycle": {
         "title": "Ciclo de Vida de Solicitud"
+      },
+      "query": {
+        "title": "query — Solicitudes de Lectura con Cuerpo (RFC 10008)",
+        "text": "La directiva <code>query</code> emite una solicitud HTTP QUERY — una lectura segura, idempotente y cacheable que lleva un cuerpo de solicitud. Renderiza, cachea y se dispara automáticamente como <code>get</code>, pero envía un cuerpo como <code>post</code>. Úsala cuando una búsqueda o filtro es demasiado complejo para una cadena de consulta en la URL pero sigue siendo una lectura, no una mutación. No se inyecta token CSRF, ya que QUERY es un método seguro.",
+        "formTitle": "Query desde Formulario",
+        "cacheNote": "Cuando se cachea, la clave de caché incluye el cuerpo de la solicitud — así que dos solicitudes QUERY a la misma URL con cuerpos diferentes se cachean por separado. La paginación (get-cursor / get-page / get-insert) permanece solo para GET."
       },
       "liveDemo": {
         "title": "Demo en Vivo — Obtención de API",

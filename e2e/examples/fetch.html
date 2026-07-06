@@ -72,6 +72,26 @@
     <template id="post-success-tpl"><div data-test="post-result">User created!</div></template>
   </section>
 
+  <!-- 7. QUERY (non-form, auto-fire + reactive URL, sends body) -->
+  <section state="{ term: 'red' }">
+    <p class="test-label">Test 7: QUERY request (RFC 10008)</p>
+    <input type="text" model="term" data-test="query-term" />
+    <div query="/api/search/{term}" as="hits" body='{term}'>
+      <ul data-test="query-list" each="hit in hits" template="hit-tpl"></ul>
+    </div>
+    <template id="hit-tpl"><li data-test="query-item" bind="hit.name"></li></template>
+  </section>
+
+  <!-- 8. Form QUERY -->
+  <section>
+    <p class="test-label">Test 8: Form QUERY</p>
+    <form query="/api/search-form" success="query-form-tpl">
+      <input type="text" name="q" data-test="query-form-input" placeholder="Search" />
+      <button type="submit" data-test="query-form-submit">Search</button>
+    </form>
+    <template id="query-form-tpl"><div data-test="query-form-result">Search ran!</div></template>
+  </section>
+
   <script src="../../dist/iife/no.js"></script>
   <script>NoJS.init();</script>
 </body>

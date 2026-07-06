@@ -64,6 +64,7 @@
         "put": "Aggiorna i dati (PUT)",
         "patch": "Aggiornamento parziale (PATCH)",
         "delete": "Elimina i dati (DELETE)",
+        "query": "Lettura con corpo (QUERY, RFC 10008)",
         "as": "Nome per i dati recuperati nel contesto",
         "body": "Corpo della richiesta",
         "headers": "Header della richiesta",
@@ -680,6 +681,12 @@
       },
       "lifecycle": {
         "title": "Ciclo di Vita della Richiesta"
+      },
+      "query": {
+        "title": "query — Richieste di Lettura con Corpo (RFC 10008)",
+        "text": "La direttiva <code>query</code> emette una richiesta HTTP QUERY — una lettura sicura, idempotente e cacheable che trasporta un corpo di richiesta. Rende, mette in cache e si attiva automaticamente come <code>get</code>, ma invia un corpo come <code>post</code>. Usala quando una ricerca o un filtro è troppo complesso per una query string dell'URL ma resta una lettura, non una mutazione. Nessun token CSRF viene iniettato, poiché QUERY è un metodo sicuro.",
+        "formTitle": "Query da Form",
+        "cacheNote": "Quando è in cache, la chiave di cache include il corpo della richiesta — quindi due richieste QUERY allo stesso URL con corpi diversi vengono memorizzate separatamente. La paginazione (get-cursor / get-page / get-insert) resta riservata a GET."
       },
       "liveDemo": {
         "title": "Demo Live — Fetch API",

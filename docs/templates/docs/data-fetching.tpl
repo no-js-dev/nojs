@@ -185,6 +185,25 @@
 <span class="hl-cmt">                   `redirect`</span></pre></div>
   </div>
 
+  <!-- QUERY (RFC 10008) -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="data-fetching-query" t="docs.dataFetching.query.title"></h2>
+    <p class="doc-text" t="docs.dataFetching.query.text"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- A read whose criteria are too large for the URL --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">query</span>=<span class="hl-str">"/search"</span>
+     <span class="hl-attr">body</span>=<span class="hl-str">'{"filters": {"status": "active"}}'</span>
+     <span class="hl-attr">as</span>=<span class="hl-str">"results"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"hit in results"</span> <span class="hl-attr">template</span>=<span class="hl-str">"hitCard"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span></pre></div>
+
+    <h3 class="doc-title" id="data-fetching-query-form" t="docs.dataFetching.query.formTitle"></h3>
+    <div class="code-block"><pre><span class="hl-tag">&lt;form</span> <span class="hl-attr">query</span>=<span class="hl-str">"/products/search"</span> <span class="hl-attr">success</span>=<span class="hl-str">"#resultsTpl"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;input</span> <span class="hl-attr">name</span>=<span class="hl-str">"q"</span> <span class="hl-attr">type</span>=<span class="hl-str">"text"</span> <span class="hl-tag">/&gt;</span>
+  <span class="hl-tag">&lt;button</span> <span class="hl-attr">type</span>=<span class="hl-str">"submit"</span><span class="hl-tag">&gt;</span>Search<span class="hl-tag">&lt;/button&gt;</span>
+<span class="hl-tag">&lt;/form&gt;</span></pre></div>
+    <p class="doc-text" t="docs.dataFetching.query.cacheNote"></p>
+  </div>
+
   <!-- Live Demo -->
   <div class="doc-section">
     <h2 class="doc-title" id="data-fetching-live-demo" t="docs.dataFetching.liveDemo.title"></h2>

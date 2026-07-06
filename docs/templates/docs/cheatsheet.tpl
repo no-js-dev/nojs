@@ -14,6 +14,7 @@
         <tr><td><a route="/docs/data-fetching"><code>put</code></a></td><td><code>put="/users/1"</code></td><td t="docs.cheatsheet.data.put"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>patch</code></a></td><td><code>patch="/users/1"</code></td><td t="docs.cheatsheet.data.patch"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>delete</code></a></td><td><code>delete="/users/1"</code></td><td t="docs.cheatsheet.data.delete"></td></tr>
+        <tr><td><a route="/docs/data-fetching"><code>query</code></a></td><td><code>query="/search"</code></td><td t="docs.cheatsheet.data.query"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>as</code></a></td><td><code>as="users"</code></td><td t="docs.cheatsheet.data.as"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>body</code></a></td><td><code>body='{"key":"val"}'</code></td><td t="docs.cheatsheet.data.body"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>headers</code></a></td><td><code>headers='{"Auth":"Bearer x"}'</code></td><td t="docs.cheatsheet.data.headers"></td></tr>

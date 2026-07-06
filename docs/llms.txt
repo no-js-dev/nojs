@@ -10,7 +10,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Core Guides
 
-- [Data Fetching](https://no-js.dev/#/data-fetching): Declarative HTTP via `get`, `post`, `put`, `patch`, `delete` attributes; base URL, caching, polling, reactive URLs, loading/error/empty templates
+- [Data Fetching](https://no-js.dev/#/data-fetching): Declarative HTTP via `get`, `post`, `put`, `patch`, `delete`, `query` (QUERY, RFC 10008) attributes; base URL, caching, polling, reactive URLs, loading/error/empty templates
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute), `model` (two-way input binding)
 - [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
@@ -103,8 +103,8 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Metadata
 
-- `NoJS.version: string` — The framework version string (e.g. `"1.16.1"`).
-- Latest release: **v1.16.1** — a security patch hardening URL-scheme sanitization, the expression-evaluator sandbox, CSRF same-origin scoping, and i18n `loadPath` validation (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
+- `NoJS.version: string` — The framework version string (e.g. `"1.17.0"`).
+- Latest release: **v1.17.0** — adds the `query` directive (HTTP QUERY, RFC 10008): a safe, idempotent, cacheable read that carries a request body, with body-aware caching and `query-trigger*` companions (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
 
 ## Reference
 

@@ -64,6 +64,7 @@
         "put": "Update data (PUT)",
         "patch": "Partial update (PATCH)",
         "delete": "Delete data (DELETE)",
+        "query": "Read with a body (QUERY, RFC 10008)",
         "as": "Name for fetched data in context",
         "body": "Request body",
         "headers": "Request headers",
@@ -680,6 +681,12 @@
       },
       "lifecycle": {
         "title": "Request Lifecycle"
+      },
+      "query": {
+        "title": "query — Read Requests with a Body (RFC 10008)",
+        "text": "The <code>query</code> directive issues an HTTP QUERY request — a safe, idempotent, cacheable read that carries a request body. It renders, caches, and auto-fires like <code>get</code>, but sends a body like <code>post</code>. Use it when a search or filter is too complex for a URL query string but is still a read, not a mutation. No CSRF token is injected, since QUERY is a safe method.",
+        "formTitle": "Form-Driven Query",
+        "cacheNote": "When cached, the cache key includes the request body — so two QUERY requests to the same URL with different bodies are cached separately. Pagination (get-cursor / get-page / get-insert) remains GET-only."
       },
       "liveDemo": {
         "title": "Live Demo — API Fetch",

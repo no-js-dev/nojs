@@ -206,6 +206,57 @@ A server-status dashboard that refreshes automatically every 5 seconds using the
 
 ---
 
+## 6. Advanced Search with QUERY
+
+Live Search (Example 3) works great when the filter fits in a query string. But
+complex search — nested facets, arrays of filters, geo bounds — outgrows the URL.
+The **QUERY** method ([RFC 10008](https://datatracker.ietf.org/doc/rfc10008/))
+solves this: it's a *safe, idempotent, cacheable* read like `GET`, but it carries
+a request **body**. On a `<form>`, `query` fires on submit and sends the fields as
+the body; responses are cached with a body-aware key, and no CSRF token is added
+(it's a read).
+
+```html
+<form query="/search" as="results">
+  <input name="q" placeholder="Search products...">
+
+  <select name="sort">
+    <option value="new">Newest</option>
+    <option value="top">Top rated</option>
+  </select>
+
+  <!-- Multi-value facets serialize into the request body, not the URL -->
+  <label><input type="checkbox" name="tags" value="sale"> On sale</label>
+  <label><input type="checkbox" name="tags" value="new"> New arrivals</label>
+
+  <button type="submit">Search</button>
+
+  <p show="!results.length">No matches</p>
+  <article each="item in results" key="item.id">
+    <h3 bind="item.name"></h3>
+    <span bind="item.price | currency"></span>
+  </article>
+</form>
+```
+
+On a **non-form** element, `query` behaves like `get` — it auto-fires on mount and
+re-fetches reactively — but sends the interpolated `body`, with `query-trigger`,
+`query-trigger-label`, and `query-threshold` mirroring their `get-*` counterparts:
+
+```html
+<div query="/reports" body='{"range":"{range}"}'
+     query-trigger="visible" as="report">
+  <h2 bind="report.title"></h2>
+</div>
+```
+
+**Key concepts:** `query` (RFC 10008) · body-aware caching · CSRF-exempt safe read · `query-trigger*` companions · form submit vs. reactive auto-fire
+
+> **Note:** pagination companions (`get-cursor`, `get-page`, `get-insert`) remain
+> GET-only in this release.
+
+---
+
 ## Full SPA
 
 All five patterns combined into a single production-grade SPA:

@@ -53,6 +53,11 @@
       "name": "Load More List",
       "desc": "Paginate API results with <code>get-trigger</code>, <code>get-page</code>, and <code>get-insert</code>. Append new items on button click."
     },
+    "query": {
+      "badge": "HTTP / QUERY",
+      "name": "Search with QUERY",
+      "desc": "Submit complex search filters with <code>query</code> — a safe, cacheable HTTP read that carries a request body (RFC 10008). Form fields become the body and results render reactively; no CSRF token is added."
+    },
     "router": {
       "badge": "SPA",
       "name": "Basic Router",

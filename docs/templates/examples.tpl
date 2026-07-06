@@ -140,6 +140,20 @@
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
     </div>
+
+    <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
+      <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.query.badge', nameKey: 'examples.query.name', descKey: 'examples.query.desc', filename: 'query.html' }">
+        <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">form</span> <span class="tok-attr">query</span><span class="tok-punc">=</span><span class="tok-str">"/search"</span> <span class="tok-attr">as</span><span class="tok-punc">=</span><span class="tok-str">"results"</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">name</span><span class="tok-punc">=</span><span class="tok-str">"q"</span> <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"Search..."</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">select</span> <span class="tok-attr">name</span><span class="tok-punc">=</span><span class="tok-str">"sort"</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">option</span> <span class="tok-attr">value</span><span class="tok-punc">=</span><span class="tok-str">"new"</span><span class="tok-punc">&gt;</span>Newest<span class="tok-punc">&lt;/</span><span class="tok-tag">option</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">option</span> <span class="tok-attr">value</span><span class="tok-punc">=</span><span class="tok-str">"top"</span><span class="tok-punc">&gt;</span>Top<span class="tok-punc">&lt;/</span><span class="tok-tag">option</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">select</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"submit"</span><span class="tok-punc">&gt;</span>Search<span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">p</span> <span class="tok-attr">each</span><span class="tok-punc">=</span><span class="tok-str">"r in results"</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"r.title"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">form</span><span class="tok-punc">&gt;</span></code></pre>
+      </div>
+    </div>
   </section>
 
   <div class="section-divider" use="section-divider"></div>

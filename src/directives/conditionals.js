@@ -5,7 +5,7 @@
 import { _watchExpr, _warn, _onDispose } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { registerDirective, processTree, _disposeChildren, _activateGated, _deactivateGated } from "../registry.js";
 import { _animateIn, _animateOut } from "../animations.js";
 import { _isLoopElement } from "./loops.js";
 
@@ -62,6 +62,13 @@ registerDirective("if", {
     }
 
     function render(result) {
+      el.__ifState = result;
+
+      // Deactivate gated directives before content swap on falsy
+      if (!result) {
+        _deactivateGated(el);
+      }
+
       _disposeChildren(el);
       if (result) {
         if (thenId) {
@@ -91,6 +98,11 @@ registerDirective("if", {
 
       _clearDeclared(el);
       processTree(el);
+
+      // Activate gated directives after content is processed on truthy
+      if (result) {
+        _activateGated(el);
+      }
 
       // Animation enter
       if (animEnter || transition) {

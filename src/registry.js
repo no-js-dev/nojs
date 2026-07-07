@@ -4,6 +4,8 @@
 
 import { _currentEl, _setCurrentEl, _deleteStoreWatcher, _i18nListeners, _warn } from "./globals.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
+import { findContext } from "./dom.js";
+import { evaluate } from "./evaluate.js";
 
 const _directives = new Map();
 let _frozen = false;
@@ -17,6 +19,7 @@ export function registerDirective(name, handler) {
   _directives.set(name, {
     priority: handler.priority ?? 50,
     init: handler.init,
+    gated: !!handler.gated,
   });
   _coreDirectives.add(name);
 }
@@ -74,17 +77,41 @@ export function processElement(el) {
         value: attr.value,
         priority: m.directive.priority,
         init: m.directive.init,
+        gated: m.directive.gated,
       });
     }
   }
 
   matched.sort((a, b) => a.priority - b.priority);
+
+  // ─── If-gate: evaluate the if expression once per element pass ────────
+  // Gated directives (e.g. get, page-*) that run BEFORE if (priority 10)
+  // are deferred when the element's if condition is falsy.  The gate reads
+  // the attribute directly so it works regardless of directive priority.
+  let ifGateFalsy = false;
+  const hasGated = matched.some((m) => m.gated);
+  if (hasGated && el.hasAttribute("if")) {
+    const ifExpr = el.getAttribute("if");
+    const ctx = findContext(el);
+    ifGateFalsy = !evaluate(ifExpr, ctx);
+  }
+
   const prev = _currentEl;
   for (const m of matched) {
+    if (m.gated && ifGateFalsy) {
+      el.__gatedDirs = el.__gatedDirs || [];
+      el.__gatedDirs.push({ name: m.name, value: m.value, init: m.init });
+      continue;
+    }
     _setCurrentEl(el);
     m.init(el, m.name, m.value);
   }
   _setCurrentEl(prev);
+
+  // Save a persistent copy so deactivation can re-gate for the next cycle
+  if (el.__gatedDirs && el.__gatedDirs.length > 0) {
+    el.__gatedDirsMeta = el.__gatedDirs.map((d) => ({ ...d }));
+  }
 
   if (matched.length > 0) {
     _devtoolsEmit("directive:init", {
@@ -110,6 +137,53 @@ export function processTree(root) {
   }
 }
 
+// ─── If-gate: activate / deactivate gated directives ────────────────────
+// Called from the `if` directive's render function to run or tear down
+// directives registered with `gated: true`.  Disposers are kept in a
+// separate bucket (`__gateDisposers`) so deactivation never touches the
+// `if` directive's own watcher stored in `__disposers`.
+
+export function _activateGated(el) {
+  if (!el.__gatedDirs || el.__gatedDirs.length === 0) return;
+  const prev = _currentEl;
+  const dirs = el.__gatedDirs;
+  el.__gatedDirs = [];
+  el.__gateDisposers = el.__gateDisposers || [];
+
+  for (const desc of dirs) {
+    _setCurrentEl(el);
+    // Snapshot the disposers array length before init so we can redirect
+    // any newly-registered disposers into __gateDisposers.
+    el.__disposers = el.__disposers || [];
+    const before = el.__disposers.length;
+    try {
+      desc.init(el, desc.name, desc.value);
+    } catch (err) {
+      _warn(`gated directive "${desc.name}" activation error:`, err);
+    }
+    // Move newly-added disposers to the gate bucket
+    if (el.__disposers.length > before) {
+      const newDisposers = el.__disposers.splice(before);
+      el.__gateDisposers.push(...newDisposers);
+    }
+  }
+  _setCurrentEl(prev);
+}
+
+export function _deactivateGated(el) {
+  // Run + clear gate disposers
+  if (el.__gateDisposers) {
+    for (const fn of el.__gateDisposers) {
+      try { fn(); } catch (err) { _warn("gate disposer error:", err); }
+    }
+    el.__gateDisposers = [];
+  }
+  // Re-capture descriptors for the next truthy flip
+  if (el.__gatedDirsMeta) {
+    el.__gatedDirs = el.__gatedDirsMeta.map((d) => ({ ...d }));
+  }
+}
+
 // ─── Disposal: proactive cleanup of watchers/listeners/disposers ────────
 
 function _disposeElement(node) {
@@ -125,6 +199,11 @@ function _disposeElement(node) {
   if (node.__disposers) {
     node.__disposers.forEach((fn) => fn());
     node.__disposers = null;
+  }
+  // Also clean up gated directive disposers on full teardown
+  if (node.__gateDisposers) {
+    node.__gateDisposers.forEach((fn) => fn());
+    node.__gateDisposers = null;
   }
   node.__declared = false;
 

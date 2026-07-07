@@ -321,4 +321,135 @@ describe('Ancestor-chain watcher registration (NOJS-246)', () => {
     btn.click();
     expect(display.textContent).toBe('2');
   });
+
+  // ── if/else conditional across nested state boundary ─────────────────
+  test('if directive toggles content across nested state boundary', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <div state="{ showPanel: true }">
+        <button data-toggle on:click="showPanel = !showPanel">Toggle</button>
+        <div state="{ inner: 1 }">
+          <div data-panel if="showPanel">Panel content</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    processTree(root);
+
+    const btn = root.querySelector('[data-toggle]');
+    const panel = root.querySelector('[data-panel]');
+
+    // if=true: element has content
+    expect(panel.textContent).toBe('Panel content');
+
+    // Toggle to false: content is cleared
+    btn.click();
+    expect(panel.innerHTML).toBe('');
+
+    // Toggle back to true: content is restored
+    btn.click();
+    expect(panel.textContent).toBe('Panel content');
+  });
+
+  // ── Loop re-renders when ancestor array changes ──────────────────────
+  test('loop re-renders when ancestor pushes item', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <div state="{ items: ['a', 'b'] }">
+        <button data-add on:click="items = [...items, 'c']">Add</button>
+        <div state="{ local: true }">
+          <ul>
+            <li each="item in items" bind="item"></li>
+          </ul>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    processTree(root);
+
+    const btn = root.querySelector('[data-add]');
+    const getItems = () => root.querySelectorAll('li');
+
+    expect(getItems().length).toBe(2);
+    expect(getItems()[0].textContent).toBe('a');
+    expect(getItems()[1].textContent).toBe('b');
+
+    btn.click();
+    expect(getItems().length).toBe(3);
+    expect(getItems()[2].textContent).toBe('c');
+  });
+
+  // ── Multiple directives on one element across boundary ───────────────
+  test('element with bind + class-* + show reacts to ancestor changes', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <div state="{ label: 'hello', active: false, vis: true }">
+        <button data-act on:click="active = !active">Activate</button>
+        <button data-vis on:click="vis = !vis">Toggle Vis</button>
+        <button data-lbl on:click="label = 'world'">Relabel</button>
+        <div state="{ local: 0 }">
+          <span data-multi bind="label" class-active="active" show="vis">text</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    processTree(root);
+
+    const actBtn = root.querySelector('[data-act]');
+    const visBtn = root.querySelector('[data-vis]');
+    const lblBtn = root.querySelector('[data-lbl]');
+    const target = root.querySelector('[data-multi]');
+
+    // Initial state
+    expect(target.textContent).toBe('hello');
+    expect(target.classList.contains('active')).toBe(false);
+    expect(target.style.display).not.toBe('none');
+
+    // Toggle active from ancestor
+    actBtn.click();
+    expect(target.classList.contains('active')).toBe(true);
+
+    // Toggle visibility from ancestor
+    visBtn.click();
+    expect(target.style.display).toBe('none');
+
+    // Change label from ancestor
+    lblBtn.click();
+    expect(target.textContent).toBe('world');
+  });
+
+  // ── Disposal of deeply nested tree does not leak ancestor listeners ──
+  test('disposing deeply nested tree cleans up all ancestor listeners', () => {
+    const DEPTH = 4;
+    const contexts = [];
+    for (let i = 0; i < DEPTH; i++) {
+      const parent = i > 0 ? contexts[i - 1] : null;
+      contexts.push(createContext({ [`level${i}`]: i }, parent));
+    }
+
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    _setCurrentEl(el);
+
+    const fn1 = jest.fn();
+    const fn2 = jest.fn();
+    _watchExpr('level0', contexts[DEPTH - 1], fn1);
+    _watchExpr('level1', contexts[DEPTH - 1], fn2);
+    _setCurrentEl(null);
+
+    // Both fns registered on all contexts
+    for (let i = 0; i < DEPTH; i++) {
+      expect(contexts[i].__listeners.has(fn1)).toBe(true);
+      expect(contexts[i].__listeners.has(fn2)).toBe(true);
+    }
+
+    // Dispose
+    _disposeTree(el);
+
+    // All ancestor listeners must be cleaned up
+    for (let i = 0; i < DEPTH; i++) {
+      expect(contexts[i].__listeners.has(fn1)).toBe(false);
+      expect(contexts[i].__listeners.has(fn2)).toBe(false);
+    }
+  });
 });

@@ -186,8 +186,24 @@ export function _watchI18n(fn) {
 
 export function _watchExpr(expr, ctx, fn) {
   const unwatch = ctx.$watch(fn);
+
+  // Walk the ancestor chain: register fn on every parent context so that
+  // changes to inherited variables (e.g. outer state modified from an outer
+  // button) fire fn even when ctx is a nested child context.  This generalises
+  // the per-directive ancestor-walk proven in http.js and fixes the
+  // nested-state one-behind / dead-reactivity gap (audit finding 1).
+  // Set.add is a no-op for duplicates, so the same fn registered twice on
+  // the same context (e.g. via two _watchExpr calls) is harmless.
+  const ancestorUnwatches = [];
+  let ancestor = ctx.$parent;
+  while (ancestor && ancestor.__isProxy) {
+    ancestorUnwatches.push(ancestor.$watch(fn));
+    ancestor = ancestor.$parent;
+  }
+
   _onDispose(() => {
     unwatch();
+    for (let i = 0; i < ancestorUnwatches.length; i++) ancestorUnwatches[i]();
     _deleteStoreWatcher(fn);
     _deleteRouteWatcher(fn);
     _i18nListeners.delete(fn);

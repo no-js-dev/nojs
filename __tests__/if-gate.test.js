@@ -259,4 +259,166 @@ describe('If-Gate Infrastructure', () => {
     // Gate disposer callback fired
     expect(gatedDisposeCalls).toHaveLength(1);
   });
+
+  // ── Additional coverage ───────────────────────────────────────────────
+
+  test('9 — initially-true if: gated directive runs immediately (no deferral)', () => {
+    const { wrapper, el } = buildFixture({ show: true });
+
+    processTree(wrapper);
+
+    // if starts truthy → gate check passes → gated directive runs in the
+    // normal priority loop, not deferred.
+    expect(gatedInitCalls).toHaveLength(1);
+    expect(gatedInitCalls[0].el).toBe(el);
+    expect(gatedInitCalls[0].value).toBe('data');
+    // No __gatedDirs recorded (directive ran, not deferred)
+    expect(el.__gatedDirs || []).toEqual([]);
+    // __gatedDirsMeta not set because nothing was deferred
+    expect(el.__gatedDirsMeta).toBeUndefined();
+    // __ifState set by if render
+    expect(el.__ifState).toBe(true);
+    // Disposer went into __disposers (normal path), not __gateDisposers
+    expect(el.__gateDisposers).toBeUndefined();
+  });
+
+  test('10 — multiple gated directives: all deferred, activated, and deactivated together', () => {
+    const gated2InitCalls = [];
+    const gated2DisposeCalls = [];
+    registerDirective('test-gated2', {
+      priority: 2,
+      gated: true,
+      init(el, name, value) {
+        gated2InitCalls.push({ el, name, value });
+        const cleanup = () => gated2DisposeCalls.push({ el, name, value });
+        _onDispose(cleanup);
+      },
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('state', '{ ok: false }');
+    const el = document.createElement('span');
+    el.setAttribute('if', 'ok');
+    el.setAttribute('test-gated', 'g1');
+    el.setAttribute('test-gated2', 'g2');
+    el.textContent = 'content';
+    wrapper.appendChild(el);
+    document.body.appendChild(wrapper);
+
+    processTree(wrapper);
+
+    // Both gated directives deferred
+    expect(gatedInitCalls).toHaveLength(0);
+    expect(gated2InitCalls).toHaveLength(0);
+    expect(el.__gatedDirs).toHaveLength(2);
+
+    // Activate
+    wrapper.__ctx.ok = true;
+    expect(gatedInitCalls).toHaveLength(1);
+    expect(gated2InitCalls).toHaveLength(1);
+    expect(el.__gateDisposers.length).toBe(2);
+
+    // Deactivate
+    wrapper.__ctx.ok = false;
+    expect(gatedDisposeCalls).toHaveLength(1);
+    expect(gated2DisposeCalls).toHaveLength(1);
+    expect(el.__gatedDirs).toHaveLength(2);
+
+    // Re-activate: both fire again
+    wrapper.__ctx.ok = true;
+    expect(gatedInitCalls).toHaveLength(2);
+    expect(gated2InitCalls).toHaveLength(2);
+  });
+
+  test('11 — gate disposer count is stable across cycles (no leak)', () => {
+    const { wrapper, el } = buildFixture({ show: false });
+
+    processTree(wrapper);
+    const ifDisposerCount = (el.__disposers || []).length;
+
+    for (let cycle = 1; cycle <= 5; cycle++) {
+      // Activate
+      wrapper.__ctx.show = true;
+      expect(el.__gateDisposers.length).toBe(1);
+      // if's own disposers unchanged
+      expect(el.__disposers.length).toBe(ifDisposerCount);
+
+      // Deactivate
+      wrapper.__ctx.show = false;
+      expect(el.__gateDisposers).toEqual([]);
+      expect(el.__disposers.length).toBe(ifDisposerCount);
+    }
+
+    // Exactly 5 inits and 5 disposes — no double-init or leaked disposers
+    expect(gatedInitCalls).toHaveLength(5);
+    expect(gatedDisposeCalls).toHaveLength(5);
+  });
+
+  test('12 — nested elements: parent and child each gate independently', () => {
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('state', '{ outer: false, inner: false }');
+
+    const parent = document.createElement('div');
+    parent.setAttribute('if', 'outer');
+    parent.setAttribute('test-gated', 'parent-val');
+    parent.textContent = 'parent';
+
+    const child = document.createElement('span');
+    child.setAttribute('if', 'inner');
+    child.setAttribute('test-gated', 'child-val');
+    child.textContent = 'child';
+    parent.appendChild(child);
+
+    wrapper.appendChild(parent);
+    document.body.appendChild(wrapper);
+
+    processTree(wrapper);
+
+    // Both deferred
+    expect(gatedInitCalls).toHaveLength(0);
+
+    // Activate outer — parent's gated dir runs, child's does not (inner is false)
+    wrapper.__ctx.outer = true;
+    expect(gatedInitCalls).toHaveLength(1);
+    expect(gatedInitCalls[0].value).toBe('parent-val');
+
+    // Activate inner — child's gated dir now runs
+    wrapper.__ctx.inner = true;
+    expect(gatedInitCalls).toHaveLength(2);
+    expect(gatedInitCalls[1].value).toBe('child-val');
+
+    // Deactivate inner — only child's gate disposer fires
+    wrapper.__ctx.inner = false;
+    // parent dispose: 0, child dispose: 1
+    const childDisposes = gatedDisposeCalls.filter(d => d.value === 'child-val');
+    expect(childDisposes).toHaveLength(1);
+    const parentDisposes = gatedDisposeCalls.filter(d => d.value === 'parent-val');
+    expect(parentDisposes).toHaveLength(0);
+  });
+
+  test('13 — element with if but no gated directives: normal if behavior unchanged', () => {
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('state', '{ visible: false }');
+    const el = document.createElement('p');
+    el.setAttribute('if', 'visible');
+    el.textContent = 'Hello';
+    wrapper.appendChild(el);
+    document.body.appendChild(wrapper);
+
+    processTree(wrapper);
+
+    // No gated dirs → __gatedDirs not set
+    expect(el.__gatedDirs).toBeUndefined();
+    // if still works normally
+    expect(el.__ifState).toBe(false);
+    expect(el.innerHTML).toBe('');
+
+    wrapper.__ctx.visible = true;
+    expect(el.__ifState).toBe(true);
+    expect(el.textContent).toBe('Hello');
+
+    wrapper.__ctx.visible = false;
+    expect(el.__ifState).toBe(false);
+    expect(el.innerHTML).toBe('');
+  });
 });

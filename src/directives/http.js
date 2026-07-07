@@ -58,6 +58,7 @@ function _findScrollContainer(el) {
 for (const method of HTTP_METHODS) {
   registerDirective(method, {
     priority: 1,
+    gated: true,
     init(el, name, url) {
       const asKey = el.getAttribute("as") || "data";
       const loadingTpl = el.getAttribute("loading");

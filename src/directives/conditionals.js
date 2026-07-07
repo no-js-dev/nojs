@@ -9,6 +9,25 @@ import { registerDirective, processTree, _disposeChildren } from "../registry.js
 import { _animateIn, _animateOut } from "../animations.js";
 import { _isLoopElement } from "./loops.js";
 
+// Walk previousElementSibling to collect every if/else-if expression in the
+// chain.  The result is joined with spaces so _watchExpr can string-sniff for
+// $store/$route/$i18n globals even from an else/else-if that does not mention
+// them directly.  This is the same walk that update() already performs — we
+// just extract the expression strings instead of evaluating them.
+function _collectChainExprs(el) {
+  const exprs = [];
+  let prev = el.previousElementSibling;
+  while (prev) {
+    const prevExpr =
+      prev.getAttribute("if") || prev.getAttribute("else-if");
+    if (prevExpr) {
+      exprs.push(prevExpr);
+    } else break;
+    prev = prev.previousElementSibling;
+  }
+  return exprs;
+}
+
 registerDirective("if", {
   priority: 10,
   init(el, name, expr) {
@@ -141,7 +160,11 @@ registerDirective("else-if", {
         el.innerHTML = "";
       }
     }
-    _watchExpr(expr, ctx, update);
+    // Include the chain's if/else-if expressions so _watchExpr can sniff for
+    // $store/$route/$i18n globals that this else-if doesn't mention directly.
+    const chainExprs = _collectChainExprs(el);
+    chainExprs.push(expr);
+    _watchExpr(chainExprs.join(" "), ctx, update);
     update();
   },
 });
@@ -216,7 +239,10 @@ registerDirective("else", {
       _clearDeclared(el);
       processTree(el);
     }
-    _watchExpr("", ctx, update);
+    // Include the chain's if/else-if expressions so _watchExpr can sniff for
+    // $store/$route/$i18n globals — an else with no expression of its own
+    // would otherwise register no global watchers and go stale.
+    _watchExpr(_collectChainExprs(el).join(" "), ctx, update);
     update();
   },
 });

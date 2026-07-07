@@ -1,7 +1,7 @@
 
 
 
-import { _stores, _config } from '../src/globals.js';
+import { _stores, _config, _notifyStoreWatchers, _notifyRouteWatchers, _routeWatchers, _storeWatchers, setRouterInstance } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { registerDirective, processTree, processElement, _disposeTree, _disposeChildren } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
@@ -4241,5 +4241,184 @@ describe('Error-boundary re-entrancy guard (NOJS-76)', () => {
     expect(warnCalls[0][2]).toBe('Secondary error inside fallback');
 
     warnSpy.mockRestore();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NOJS-247: else/else-if chain sniff expressions
+//  $store/$route-driven if → else/else-if must toggle correctly via
+//  global watcher notification (audit finding 6).
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NOJS-247 — else/else-if chain sniff expressions', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+    _storeWatchers.clear();
+    _routeWatchers.clear();
+  });
+
+  test('$store-driven if → else: else renders when store toggles to false', () => {
+    _stores.ui = createContext({ show: true });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    parent.innerHTML = `
+      <div if="$store.ui.show" id="ifEl"><p>YES</p></div>
+      <div else id="elseEl"><p>NO</p></div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial: if is true, else is hidden
+    expect(document.getElementById('ifEl').querySelector('p').textContent).toBe('YES');
+    expect(document.getElementById('elseEl').style.display).toBe('none');
+
+    // Toggle store to false
+    _stores.ui.show = false;
+    _notifyStoreWatchers('ui');
+
+    // else must render
+    expect(document.getElementById('ifEl').innerHTML).toBe('');
+    expect(document.getElementById('elseEl').style.display).toBe('');
+    expect(document.getElementById('elseEl').querySelector('p').textContent).toBe('NO');
+
+    // Toggle back to true
+    _stores.ui.show = true;
+    _notifyStoreWatchers('ui');
+
+    expect(document.getElementById('ifEl').querySelector('p').textContent).toBe('YES');
+    expect(document.getElementById('elseEl').style.display).toBe('none');
+  });
+
+  test('$store-driven if → else-if: else-if renders when store condition matches', () => {
+    _stores.app = createContext({ status: 'ok' });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    parent.innerHTML = `
+      <div if="$store.app.status === 'error'" id="err"><p>Error</p></div>
+      <div else-if="$store.app.status === 'warn'" id="warn"><p>Warning</p></div>
+      <div else id="fallback"><p>All good</p></div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial: status is 'ok' — neither if nor else-if matches, else shows
+    expect(document.getElementById('err').innerHTML).toBe('');
+    expect(document.getElementById('warn').innerHTML).toBe('');
+    expect(document.getElementById('fallback').querySelector('p').textContent).toBe('All good');
+
+    // Switch to 'warn' — else-if should match
+    _stores.app.status = 'warn';
+    _notifyStoreWatchers('app');
+
+    expect(document.getElementById('err').innerHTML).toBe('');
+    expect(document.getElementById('warn').querySelector('p').textContent).toBe('Warning');
+    expect(document.getElementById('fallback').style.display).toBe('none');
+
+    // Switch to 'error' — if should match
+    _stores.app.status = 'error';
+    _notifyStoreWatchers('app');
+
+    expect(document.getElementById('err').querySelector('p').textContent).toBe('Error');
+    expect(document.getElementById('warn').style.display).toBe('none');
+    expect(document.getElementById('fallback').style.display).toBe('none');
+  });
+
+  test('$store-driven if → else: toggling back and forth works multiple cycles', () => {
+    _stores.toggle = createContext({ on: true });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    parent.innerHTML = `
+      <div if="$store.toggle.on" id="on"><p>ON</p></div>
+      <div else id="off"><p>OFF</p></div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    for (let i = 0; i < 3; i++) {
+      _stores.toggle.on = false;
+      _notifyStoreWatchers('toggle');
+      expect(document.getElementById('off').querySelector('p').textContent).toBe('OFF');
+      expect(document.getElementById('on').innerHTML).toBe('');
+
+      _stores.toggle.on = true;
+      _notifyStoreWatchers('toggle');
+      expect(document.getElementById('on').querySelector('p').textContent).toBe('ON');
+      expect(document.getElementById('off').style.display).toBe('none');
+    }
+  });
+
+  test('$route-driven if → else: else renders on route watcher notification', () => {
+    // Set up a fake router instance so evaluate() resolves $route
+    const routeState = { path: '/admin', params: {}, query: {}, hash: '' };
+    setRouterInstance({ current: routeState });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    parent.innerHTML = `
+      <div if="$route.path === '/admin'" id="admin"><p>Admin</p></div>
+      <div else id="guest"><p>Guest</p></div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial: $route.path is '/admin' — if matches
+    expect(document.getElementById('admin').querySelector('p').textContent).toBe('Admin');
+    expect(document.getElementById('guest').style.display).toBe('none');
+
+    // Change the route path
+    routeState.path = '/home';
+    _notifyRouteWatchers();
+
+    // else must render
+    expect(document.getElementById('admin').innerHTML).toBe('');
+    expect(document.getElementById('guest').style.display).toBe('');
+    expect(document.getElementById('guest').querySelector('p').textContent).toBe('Guest');
+
+    // Cleanup
+    setRouterInstance(null);
+  });
+
+  test('$store-driven else-if inherits sniff from preceding if expression', () => {
+    // The else-if expression itself does NOT mention $store, but the
+    // preceding if does — the chain walk must propagate the sniff.
+    _stores.auth = createContext({ role: 'guest' });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ premium: false }');
+    parent.innerHTML = `
+      <div if="$store.auth.role === 'admin'" id="admin"><p>Admin</p></div>
+      <div else-if="premium" id="premium"><p>Premium</p></div>
+      <div else id="basic"><p>Basic</p></div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Initial: role is 'guest', premium is false — else shows
+    expect(document.getElementById('admin').innerHTML).toBe('');
+    expect(document.getElementById('premium').innerHTML).toBe('');
+    expect(document.getElementById('basic').querySelector('p').textContent).toBe('Basic');
+
+    // Set role to 'admin' via store — the else-if and else must
+    // re-evaluate because the chain sniff propagates $store from the if.
+    _stores.auth.role = 'admin';
+    _notifyStoreWatchers('auth');
+
+    expect(document.getElementById('admin').querySelector('p').textContent).toBe('Admin');
+    // else-if was already content-hidden (innerHTML="") so the early-return
+    // dedup keeps style.display="" — check content is still empty.
+    expect(document.getElementById('premium').innerHTML).toBe('');
+    expect(document.getElementById('basic').style.display).toBe('none');
+
+    // Revert role to 'guest' — else should show again
+    _stores.auth.role = 'guest';
+    _notifyStoreWatchers('auth');
+
+    expect(document.getElementById('admin').innerHTML).toBe('');
+    expect(document.getElementById('premium').innerHTML).toBe('');
+    expect(document.getElementById('basic').querySelector('p').textContent).toBe('Basic');
   });
 });

@@ -119,6 +119,7 @@ registerDirective("store", {
 
 registerDirective("computed", {
   priority: 2,
+  gated: true,
   init(el, name, computedName) {
     const expr = el.getAttribute("expr");
     if (!computedName || !expr) return;
@@ -134,6 +135,7 @@ registerDirective("computed", {
 
 registerDirective("watch", {
   priority: 2,
+  gated: true,
   init(el, name, watchExpr) {
     const ctx = findContext(el);
     const onChange = el.getAttribute("on:change");

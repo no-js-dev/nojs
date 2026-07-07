@@ -9,6 +9,7 @@ import { registerDirective, _disposeChildren } from "../registry.js";
 
 registerDirective("bind", {
   priority: 20,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     function update() {
@@ -22,6 +23,7 @@ registerDirective("bind", {
 
 registerDirective("bind-html", {
   priority: 20,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     if ((_config.debug || _config.devtools) && !/^['"`]/.test(expr.trim())) {
@@ -180,6 +182,7 @@ registerDirective("bind-*", {
 
 registerDirective("model", {
   priority: 20,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     const tag = el.tagName;

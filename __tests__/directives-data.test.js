@@ -14,6 +14,7 @@ import '../src/directives/binding.js';
 import '../src/directives/http.js';
 import '../src/directives/refs.js';
 import '../src/directives/events.js';
+import '../src/directives/conditionals.js';
 import '../src/directives/validate-stub.js';
 import '../src/directives/error-boundary.js';
 import '../src/directives/i18n.js';
@@ -2729,5 +2730,272 @@ describe('NOJS-194 — GET defers initial fetch to microtask so computed values 
 
     // Fetch should NOT have been called because el.isConnected was false
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOJS-249 — call restore path re-processes children (finding 7)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NOJS-249 — call loading-template round-trip keeps reactivity', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.baseApiUrl = '';
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('call success restore path re-processes bind directives', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: () => Promise.resolve(JSON.stringify({ ok: true })),
+    });
+
+    const tpl = document.createElement('template');
+    tpl.id = 'call-load';
+    tpl.innerHTML = '<span>Loading...</span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ n: 5 }');
+    const btn = document.createElement('button');
+    btn.setAttribute('call', '/api/action');
+    btn.setAttribute('loading', 'call-load');
+    const span = document.createElement('span');
+    span.setAttribute('bind', 'n');
+    btn.appendChild(span);
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    // Before click: bind is live
+    expect(span.textContent).toBe('5');
+
+    btn.click();
+    await new Promise((r) => setTimeout(r, 100));
+
+    // After success restore: the restored span should show the value
+    const restored = btn.querySelector('span');
+    expect(restored).not.toBeNull();
+    expect(restored.textContent).toBe('5');
+
+    // Bump the reactive value — the restored span must react
+    parent.__ctx.$set('n', 42);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(btn.querySelector('span').textContent).toBe('42');
+  });
+
+  test('call error restore path re-processes bind directives', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Server Error',
+      headers: { get: () => 'application/json' },
+      json: () => Promise.resolve({ message: 'fail' }),
+    });
+
+    const tpl = document.createElement('template');
+    tpl.id = 'call-load-err';
+    tpl.innerHTML = '<span>Loading...</span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ n: 10 }');
+    const btn = document.createElement('button');
+    btn.setAttribute('call', '/api/fail');
+    btn.setAttribute('loading', 'call-load-err');
+    const span = document.createElement('span');
+    span.setAttribute('bind', 'n');
+    btn.appendChild(span);
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    expect(span.textContent).toBe('10');
+
+    btn.click();
+    await new Promise((r) => setTimeout(r, 100));
+
+    // After error restore: the restored span should show the value
+    const restored = btn.querySelector('span');
+    expect(restored).not.toBeNull();
+    expect(restored.textContent).toBe('10');
+
+    // Bump the reactive value — the restored span must react
+    parent.__ctx.$set('n', 99);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(btn.querySelector('span').textContent).toBe('99');
+  });
+
+  test('call success restore re-processes model directives', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: () => Promise.resolve(JSON.stringify({ ok: true })),
+    });
+
+    const tpl = document.createElement('template');
+    tpl.id = 'call-load-model';
+    tpl.innerHTML = '<span>Loading...</span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ name: "Alice" }');
+    const btn = document.createElement('button');
+    btn.setAttribute('call', '/api/action');
+    btn.setAttribute('loading', 'call-load-model');
+    const input = document.createElement('input');
+    input.setAttribute('model', 'name');
+    btn.appendChild(input);
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    btn.click();
+    await new Promise((r) => setTimeout(r, 100));
+
+    // After restore, the input should have its value from context
+    const restoredInput = btn.querySelector('input');
+    expect(restoredInput).not.toBeNull();
+    expect(restoredInput.value).toBe('Alice');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOJS-249 — use priority 9: use+if works in both attribute orders
+//            (finding 22)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NOJS-249 — use+if: both attribute orders work correctly', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  // Helper: create a use+if element with the given attribute order and
+  // initial condition value, process, and return {parent, el}.
+  function setup(ifFirst, initialCondition) {
+    const tpl = document.createElement('template');
+    tpl.id = 'use-if-tpl';
+    tpl.innerHTML = '<p class="stamped">Template content</p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', `{ ok: ${initialCondition} }`);
+    const el = document.createElement('div');
+
+    if (ifFirst) {
+      el.setAttribute('if', 'ok');
+      el.setAttribute('use', 'use-if-tpl');
+    } else {
+      el.setAttribute('use', 'use-if-tpl');
+      el.setAttribute('if', 'ok');
+    }
+
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    return { parent, el };
+  }
+
+  // ── use-first × true initial ──
+  test('use-first, initially true: template stamps and is visible', () => {
+    const { el } = setup(false, true);
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
+  });
+
+  // ── use-first × false initial ──
+  test('use-first, initially false: no content visible', () => {
+    const { el } = setup(false, false);
+    // Either the element has no stamped content, or children are cleared
+    expect(el.querySelector('.stamped')).toBeNull();
+  });
+
+  // ── if-first × true initial ──
+  test('if-first, initially true: template stamps and is visible', () => {
+    const { el } = setup(true, true);
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
+  });
+
+  // ── if-first × false initial ──
+  test('if-first, initially false: no content visible', () => {
+    const { el } = setup(true, false);
+    expect(el.querySelector('.stamped')).toBeNull();
+  });
+
+  // ── use-first, toggle false → true → false ──
+  test('use-first, toggle cycle: content round-trips correctly', async () => {
+    const { parent, el } = setup(false, true);
+    expect(el.querySelector('.stamped')).not.toBeNull();
+
+    // Toggle off
+    parent.__ctx.$set('ok', false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).toBeNull();
+
+    // Toggle back on
+    parent.__ctx.$set('ok', true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
+  });
+
+  // ── if-first, toggle false → true → false ──
+  test('if-first, toggle cycle: content round-trips correctly', async () => {
+    const { parent, el } = setup(true, true);
+    expect(el.querySelector('.stamped')).not.toBeNull();
+
+    // Toggle off
+    parent.__ctx.$set('ok', false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).toBeNull();
+
+    // Toggle back on
+    parent.__ctx.$set('ok', true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
+  });
+
+  // ── if-first, initially false then toggle on — must not be permanently empty ──
+  test('if-first, false → true: template stamps on first toggle', async () => {
+    const { parent, el } = setup(true, false);
+    expect(el.querySelector('.stamped')).toBeNull();
+
+    parent.__ctx.$set('ok', true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
+  });
+
+  // ── use-first, initially false then toggle on ──
+  test('use-first, false → true: template stamps on first toggle', async () => {
+    const { parent, el } = setup(false, false);
+    expect(el.querySelector('.stamped')).toBeNull();
+
+    parent.__ctx.$set('ok', true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.querySelector('.stamped')).not.toBeNull();
+    expect(el.querySelector('.stamped').textContent).toBe('Template content');
   });
 });

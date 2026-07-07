@@ -43,6 +43,16 @@
     </div>
   </template>
 
+  <!-- 4. Call with loading template — restored children keep reactivity (NOJS-249) -->
+  <section state="{ count: 7 }">
+    <p class="test-label">Test 4: Call loading round-trip keeps reactivity</p>
+    <button call="/api/action" method="post" loading="call-spinner" data-test="call-reactive-btn">
+      <span data-test="call-reactive-val" bind="count"></span>
+    </button>
+    <button data-test="call-reactive-bump" on:click="count++">Bump</button>
+  </section>
+  <template id="call-spinner"><span>Loading...</span></template>
+
   <script src="../../dist/iife/no.js"></script>
   <script>NoJS.init();</script>
 </body>

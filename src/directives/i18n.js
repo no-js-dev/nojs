@@ -11,6 +11,7 @@ import { registerDirective, processTree, _disposeChildren } from "../registry.js
 
 registerDirective("t", {
   priority: 20,
+  gated: true,
   init(el, name, key) {
     const ctx = findContext(el);
     const useHtml = el.hasAttribute("t-html");

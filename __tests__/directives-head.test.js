@@ -215,6 +215,81 @@ describe('page-jsonld directive', () => {
     expect(parsed.name).toBe('Static');
   });
 
+  test('nested JSON objects in pretty-printed JSON-LD survive without corruption', () => {
+    document.body.innerHTML = `
+      <div state='{"productName":"Widget","productPrice":49.99}'>
+        <div hidden page-jsonld>
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{productName}",
+  "offers": {
+    "@type": "Offer",
+    "price": "{productPrice}",
+    "priceCurrency": "USD"
+  }
+}
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed['@context']).toBe('https://schema.org');
+    expect(parsed['@type']).toBe('Product');
+    expect(parsed.name).toBe('Widget');
+    expect(parsed.offers['@type']).toBe('Offer');
+    expect(parsed.offers.price).toBe('49.99');
+    expect(parsed.offers.priceCurrency).toBe('USD');
+  });
+
+  test('empty braces {} and whitespace-only braces {  } are not treated as interpolation', () => {
+    // Empty and whitespace-only braces should pass through verbatim
+    // so JSON like {"key": {}} remains valid.
+    document.body.innerHTML = `
+      <div hidden page-jsonld>{"@type":"Product","extras":{},"meta":{  }}</div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed['@type']).toBe('Product');
+    expect(parsed.extras).toEqual({});
+    expect(parsed.meta).toEqual({});
+  });
+
+  test('JSON-LD with array values and mixed structural/interpolated braces', () => {
+    document.body.innerHTML = `
+      <div state='{"brandName":"Acme","itemUrl":"https://example.com/item"}'>
+        <div hidden page-jsonld>
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "brand": {
+    "@type": "Brand",
+    "name": "{brandName}"
+  },
+  "url": "{itemUrl}",
+  "additionalProperty": [
+    {
+      "@type": "PropertyValue",
+      "name": "color",
+      "value": "red"
+    }
+  ]
+}
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed.brand['@type']).toBe('Brand');
+    expect(parsed.brand.name).toBe('Acme');
+    expect(parsed.url).toBe('https://example.com/item');
+    expect(parsed.additionalProperty[0]['@type']).toBe('PropertyValue');
+    expect(parsed.additionalProperty[0].value).toBe('red');
+  });
+
   test('does not affect hand-written JSON-LD without data-nojs attribute', () => {
     const manual = document.createElement('script');
     manual.type = 'application/ld+json';

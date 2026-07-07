@@ -15,6 +15,16 @@ registerDirective("t", {
     const ctx = findContext(el);
     const useHtml = el.hasAttribute("t-html");
 
+    // Collect t-* param expressions for the sniff string so $store/$route
+    // references in translation params register watchers (NOJS-248).
+    const paramExprs = [];
+    for (const attr of [...el.attributes]) {
+      if (attr.name.startsWith("t-") && attr.name !== "t" && attr.name !== "t-html") {
+        paramExprs.push(attr.value);
+      }
+    }
+    const sniff = paramExprs.length ? key + " " + paramExprs.join(" ") : key;
+
     function update() {
       const params = {};
       for (const attr of [...el.attributes]) {
@@ -32,7 +42,7 @@ registerDirective("t", {
       }
     }
 
-    _watchExpr(key, ctx, update);
+    _watchExpr(sniff, ctx, update);
     _watchI18n(update);
     update();
   },

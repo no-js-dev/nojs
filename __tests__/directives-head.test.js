@@ -165,6 +165,56 @@ describe('page-jsonld directive', () => {
     expect(scripts[0].textContent).toContain('Second');
   });
 
+  test('renders valid JSON-LD from pretty-printed template (documented example)', () => {
+    // This is the exact pattern from the head.js header comment (lines 15-17).
+    // Before the regex fix, pretty-printed JSON with { "key": ... } was
+    // corrupted because the interpolation regex treated { " as a placeholder.
+    document.body.innerHTML = `
+      <div state='{"product":{"name":"Sneaker X"}}'>
+        <div hidden page-jsonld>
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{product.name}"
+}
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    expect(script).not.toBeNull();
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed['@context']).toBe('https://schema.org');
+    expect(parsed['@type']).toBe('Product');
+    expect(parsed.name).toBe('Sneaker X');
+  });
+
+  test('{name} and { name } placeholders still interpolate correctly', () => {
+    document.body.innerHTML = `
+      <div state='{"title":"Widget","brand":"Acme"}'>
+        <div hidden page-jsonld>{"@type":"Product","name":"{title}","brand":"{ brand }"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed.name).toBe('Widget');
+    expect(parsed.brand).toBe('Acme');
+  });
+
+  test('compact JSON-LD {"@type":...} passes through unchanged', () => {
+    // No state context — static JSON should pass through verbatim.
+    document.body.innerHTML = `
+      <div hidden page-jsonld>{"@context":"https://schema.org","@type":"Product","name":"Static"}</div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    const parsed = JSON.parse(script.textContent);
+    expect(parsed['@context']).toBe('https://schema.org');
+    expect(parsed['@type']).toBe('Product');
+    expect(parsed.name).toBe('Static');
+  });
+
   test('does not affect hand-written JSON-LD without data-nojs attribute', () => {
     const manual = document.createElement('script');
     manual.type = 'application/ld+json';

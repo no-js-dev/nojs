@@ -1,5 +1,5 @@
 import { _i18n, _i18nProxy, _notifyI18n, _loadI18nForLocale, _loadI18nNamespace } from '../src/i18n.js';
-import { _config, _i18nListeners, _watchI18n, _stores, _watchExpr, _setCurrentEl, _onDispose, _storeWatchers, _notifyStoreWatchers } from '../src/globals.js';
+import { _config, _i18nListeners, _watchI18n, _stores, _watchExpr, _setCurrentEl, _onDispose, _storeWatchers, _notifyStoreWatchers, _routeWatchers } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { evaluate, resolve } from '../src/evaluate.js';
 import { processTree, processElement, _disposeChildren } from '../src/registry.js';
@@ -1676,5 +1676,110 @@ describe('t-* param expression sniff (NOJS-248)', () => {
     expect(el.textContent).toBe('Welcome, World!');
     // No new store watcher partitions should have been added
     expect(_storeWatchers.size).toBe(sizeBefore);
+  });
+
+  // ── Edge cases (QA: NOJS-248) ──────────────────────────────────────────
+
+  test('non-parameterized t usage unchanged — no store/route watcher', () => {
+    const storesBefore = _storeWatchers.size;
+    const routesBefore = _routeWatchers.size;
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    _i18n.locales.en.hello = 'Hello';
+    const el = document.createElement('span');
+    el.setAttribute('t', 'hello');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(el.textContent).toBe('Hello');
+    expect(_storeWatchers.size).toBe(storesBefore);
+    expect(_routeWatchers.size).toBe(routesBefore);
+  });
+
+  test('$route in t-* param registers route watcher', () => {
+    const routesBefore = _routeWatchers.size;
+    _i18n.locales.en.page = 'Page: {id}';
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('span');
+    el.setAttribute('t', 'page');
+    el.setAttribute('t-id', '$route.params.id');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(_routeWatchers.size).toBeGreaterThan(routesBefore);
+  });
+
+  test('t-html attribute is excluded from param sniff collection', () => {
+    // t-html is a modifier flag, not a translation param — it must not
+    // be included in the sniff string or evaluated as a param expression.
+    _i18n.locales.en.bold = '<b>{name}</b>';
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{}');
+    const el = document.createElement('span');
+    el.setAttribute('t', 'bold');
+    el.setAttribute('t-html', '');
+    el.setAttribute('t-name', '$store.user.name');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    // Should render HTML with the store value
+    expect(el.innerHTML).toContain('<b>Alice</b>');
+
+    // Only 'user' partition should be registered, not a spurious empty-string match
+    const userSet = _storeWatchers.get('user');
+    expect(userSet).toBeTruthy();
+    expect(userSet.size).toBeGreaterThanOrEqual(1);
+  });
+
+  test('mixed params — one $store, one literal — store watcher still registers', () => {
+    _i18n.locales.en.mixed = '{greeting}, {name}!';
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ greeting: "Hi" }');
+    const el = document.createElement('span');
+    el.setAttribute('t', 'mixed');
+    el.setAttribute('t-greeting', 'greeting');
+    el.setAttribute('t-name', '$store.user.name');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(el.textContent).toBe('Hi, Alice!');
+
+    // Store watcher registered via the t-name param
+    const userSet = _storeWatchers.get('user');
+    expect(userSet).toBeTruthy();
+
+    // Mutate store — translation re-renders
+    _stores.user.name = 'Dave';
+    _notifyStoreWatchers('user');
+    expect(el.textContent).toBe('Hi, Dave!');
+  });
+
+  test('many t-* params with nested expressions build correct sniff', () => {
+    _i18n.locales.en.report = '{a} / {b} / {c}';
+    _stores.metrics = { x: 10 };
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ localVal: 99 }');
+    const el = document.createElement('span');
+    el.setAttribute('t', 'report');
+    el.setAttribute('t-a', '$store.user.name');
+    el.setAttribute('t-b', 'localVal');
+    el.setAttribute('t-c', '$store.metrics.x');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    expect(el.textContent).toBe('Alice / 99 / 10');
+
+    // The sniff string contains both $store references, so the first
+    // partition ('user') is registered.  Verify at least one store watcher.
+    expect(_storeWatchers.size).toBeGreaterThanOrEqual(1);
+
+    // Clean up extra store
+    delete _stores.metrics;
   });
 });

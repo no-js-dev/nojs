@@ -9,7 +9,8 @@
            { route: '/docs/custom-directives', label: $i18n.shell.sidebar.customDirectives },
            { route: '/docs/plugins', label: $i18n.shell.sidebar.plugins },
            { route: '/docs/error-handling', label: $i18n.shell.sidebar.errorHandling },
-           { route: '/docs/configuration', label: $i18n.shell.sidebar.configuration }
+           { route: '/docs/configuration', label: $i18n.shell.sidebar.configuration },
+           { route: '/docs/directive-compatibility', label: $i18n.shell.sidebar.directiveCompatibility }
          ]},
          { heading: $i18n.shell.sidebar.guides, links: [
            { route: '/docs/state-management', label: $i18n.shell.sidebar.stateManagement },

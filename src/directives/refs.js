@@ -16,7 +16,7 @@ import { _devtoolsEmit } from "../devtools.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate } from "../evaluate.js";
 import { _doFetch } from "../fetch.js";
-import { findContext, _cloneTemplate } from "../dom.js";
+import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 
 registerDirective("ref", {
@@ -30,7 +30,7 @@ registerDirective("ref", {
 });
 
 registerDirective("use", {
-  priority: 10,
+  priority: 9,
   init(el, name, tplId) {
     const ctx = findContext(el);
     const clone = _cloneTemplate(tplId);
@@ -160,12 +160,14 @@ registerDirective("call", {
           _activeAbort.signal,
         );
 
-        // Restore original children
+        // Restore original children and re-process so directives are live
         if (loadingTpl) {
           _disposeChildren(el);
           el.innerHTML = "";
           for (const child of originalChildren)
             el.appendChild(child.cloneNode(true));
+          _clearDeclared(el);
+          processTree(el);
           el.disabled = false;
         }
 
@@ -208,12 +210,14 @@ registerDirective("call", {
 
         _warn(`call ${method.toUpperCase()} ${resolvedUrl} failed:`, err.message);
 
-        // Restore original children
+        // Restore original children and re-process so directives are live
         if (loadingTpl) {
           _disposeChildren(el);
           el.innerHTML = "";
           for (const child of originalChildren)
             el.appendChild(child.cloneNode(true));
+          _clearDeclared(el);
+          processTree(el);
           el.disabled = false;
         }
 

@@ -9,6 +9,7 @@ import { _onDispose } from "../globals.js";
 
 registerDirective("on:*", {
   priority: 20,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     const parts = name.replace("on:", "").split(".");

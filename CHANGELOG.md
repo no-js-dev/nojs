@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.17.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.18.0...HEAD)
+
+## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.17.0...v1.18.0) — 2026-07-08
+
+Directive Incompatibility Remediation — resolves 18 compatibility findings discovered during the NOJS-244 audit, adds directive gating semantics, and documents all known directive interactions.
+
+### Fixed
+
+- fix(router): normalize trailing slashes — `/about/` and `/about` now resolve to the same route, preventing duplicate route matches and inconsistent URL state
+- fix(directives): ancestor watcher race — watchers on ancestor elements now correctly observe state changes made by child directives during the same processing pass (finding 1)
+- fix(directives): `bind`/`model`/`event` + `if` gate — `bind`, `model`, and `on:*` directives now skip initialization while the element's `if` condition is falsy, preventing flicker and stale bindings on gated elements (finding 2, 15)
+- fix(directives): state clobber on `use` — `state` directive no longer overwrites context values that were already set by a `use` template stamp (finding 3)
+- fix(directives): HTTP auto-fire on loop clones — `get`/`post`/`put`/`patch`/`delete`/`query` directives on loop elements now warn and are stripped from clones to prevent N duplicate requests (finding 4)
+- fix(directives): `else-if` chain sniff — `else-if` no longer matches an `if` across a non-conditional sibling boundary (finding 6)
+- fix(directives): `call` context restore — `call` directive restores the caller's context after invoking the target, preventing context leakage (finding 7)
+- fix(directives): `else` ownership — `else` binds to its immediately preceding `if`/`else-if` sibling only; orphan `else` elements are now warned and ignored (finding 8)
+- fix(directives): `t-*` parameter sniff — `t-name`/`t-count` no longer leak interpolation params across sibling `t` elements (finding 11)
+- fix(directives): HTTP verb gates — HTTP verb directives on elements with a falsy `if` condition are not fired (finding 16)
+- fix(directives): `computed`/`watch` template guards — `computed` and `watch` directives inside `<template>` elements are deferred until the template is instantiated (finding 17, 18)
+- fix(directives): `i18n-ns` + `if` handoff — `i18n-ns` namespace loading completes before `if`-gated `t` elements attempt translation (finding 21)
+- fix(directives): `use` priority — `use` directive priority changed from 10 to 9 so template stamping always completes before `if` snapshots the element (finding 22)
+- fix(directives): `page-*` gates — `page-title`, `page-description`, `page-canonical`, `page-jsonld` skip evaluation while `if` is falsy (finding 23)
+- fix(directives): `computed`/`watch` gates — `computed` and `watch` skip initialization while `if` is falsy (finding 24)
+- fix(directives): `page-*` loop strip — `page-*` directives are stripped from loop clones to prevent duplicate head tags (finding 25)
+- fix(directives): `else-if` loop guard — `else-if` on a loop element is warned and treated as a plain conditional, not a loop empty-state (finding 26)
+- fix(http): JSON-LD regex — `page-jsonld` content extraction regex now correctly handles nested braces (finding B1)
+
+### Changed
+
+- `if` now gates the entire element — directives with `gated: true` skip initialization while the element's `if` condition is falsy, rather than only hiding children
+- `use` directive priority changed from 10 to 9 — `use` always stamps template content before `if` captures the element snapshot
+- Per-clone `computed`/`watch` is now the defined semantics — each loop clone gets its own reactive derivation rather than sharing one with the template
+- `each`+`if`+`else` on the same element is now treated as a conditional else (not a loop empty-state)
+- HTTP verbs on loop elements now warn and are stripped from clones
+
+### Removed
+
+- CJS and ESM build targets — NoJS is CDN-only (IIFE). `dist/cjs/` and `dist/esm/` directories, `main`/`module`/`exports` fields in `package.json` removed
+
+### Added
+
+- Directive compatibility documentation page (`docs/md/directive-compatibility.md`) with interaction matrix, 8 documented limitations with workarounds, and migration guide for v1.18.0 behavioral changes
+
+### Migration
+
+- **If-gate semantics**: elements with `if` + other directives now gate those directives. This is backward-compatible for well-formed usage but may affect edge cases where directives relied on initializing while `if` was falsy.
+- **`use` priority 9**: `use` always stamps before `if` snapshots. Both changes are backward-compatible for well-formed usage but may affect edge cases relying on old ordering.
 
 ## [1.17.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.17.0) — 2026-07-06
 

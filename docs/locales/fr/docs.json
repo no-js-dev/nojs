@@ -1848,6 +1848,91 @@
         "title": "Préservation de la Position de Scroll",
         "text": "Lors de l'utilisation de get-insert=\"prepend\", No.JS préserve automatiquement la position de scroll de l'utilisateur. Le nouveau contenu est inséré au-dessus du viewport actuel, et l'offset de scroll est ajusté pour que la vue de l'utilisateur ne saute pas."
       }
+    },
+    "directiveCompatibility": {
+      "overview": {
+        "title": "Directive Compatibility",
+        "text": "No.JS processes directives by priority order (state 0 > HTTP 1 > computed/watch 2 > ref 5 > structural 10 > rendering/events 20 > validation 30). Most directives compose freely, but certain same-element combinations require awareness of processing order and scope mechanics. This page documents every known interaction.",
+        "callout": "Combinations marked \"Defined semantics\" work correctly but follow specific rules you should understand. Combinations marked \"Use workaround\" have a known limitation with a documented alternative pattern."
+      },
+      "matrix": {
+        "title": "Compatibility Matrix",
+        "structuralTitle": "Structural + Structural (same element)",
+        "conditionalTitle": "Conditional + Other Directives (same element)",
+        "loopTitle": "Loop + Other Directives (same element)",
+        "bindingTitle": "Binding + Binding (same element)"
+      },
+      "semantics": {
+        "title": "Defined Semantics (v1.18.0)",
+        "ifGates": {
+          "title": "if gates the entire element",
+          "text": "As of v1.18.0, if gates the entire element, not just its children. This means all directives on the same element respect the if condition:",
+          "http": "HTTP directives (get, post, etc.) on the same element only fire when the condition is true. Zero network requests while false.",
+          "computed": "Computed values and watch side effects on the same element only run when the condition is true. No phantom computations.",
+          "head": "Head directives (page-title, page-description, page-canonical, page-jsonld) only apply when the condition is true.",
+          "binding": "Binding, model, and event directives on the same element are gated in the same way."
+        },
+        "perClone": {
+          "title": "Per-clone computed/watch in loops",
+          "text": "When computed or watch appears on a loop element, each clone gets its own independent instance. A computed creates a per-item derived value scoped to that clone's context. A watch fires independently per clone when the watched property changes."
+        },
+        "usePriority": {
+          "title": "use priority 9",
+          "text": "The use directive runs at priority 9 (just below structural directives at 10), ensuring templates are instantiated before if/each processing."
+        },
+        "httpPlacement": {
+          "title": "HTTP verb placement",
+          "text": "HTTP directives (get, post, put, patch, delete) should be placed on a parent element, not on the loop element itself. The loop element is used as a clone template — placing an HTTP directive on it would fire one request per clone."
+        }
+      },
+      "limitations": {
+        "title": "Known Limitations",
+        "switchLoop": {
+          "title": "switch + loop on case children",
+          "text": "Placing a loop directive (each/foreach/for) on a case child of a switch renders both branches; the switch logic goes inert. Workaround: wrap the loop in a container element inside the case."
+        },
+        "ifLoop": {
+          "title": "if + loop on the same element",
+          "text": "if and a loop directive on the same element cannot coordinate — the condition cannot remove items, and empty shells may render. Workaround: wrap the loop in a container element with the if."
+        },
+        "elseIfLoop": {
+          "title": "else-if + loop on the same element",
+          "text": "else-if combined with a loop on the same element breaks the conditional chain. Items render regardless of the preceding if condition. Additionally, a sibling else element is orphaned. Workaround: wrap the loop in a container element with the else-if."
+        },
+        "duplicateRef": {
+          "title": "Duplicate ref in loop",
+          "text": "Using ref on a loop element means each clone overwrites the same ref name. Only the last clone's element is accessible via $refs. Workaround: use bind-ref with a dynamic expression to create unique ref names per clone."
+        },
+        "bindValueModel": {
+          "title": "bind-value + model on the same input",
+          "text": "Both bind-value and model set up two-way binding pipelines with input listeners. The two handlers can fight over the value during typing, especially for number inputs. Workaround: use only model for two-way binding."
+        },
+        "watchOnChange": {
+          "title": "watch + on:change on the same element",
+          "text": "Both watch and on:change claim the change event, leading to duplicate handler execution. Workaround: use only one mechanism — watch for reactive side effects or on:change for DOM event handling."
+        },
+        "tBind": {
+          "title": "t + bind double writer",
+          "text": "Both t (i18n translation) and bind write to the element's textContent. The attribute processed last wins. Workaround: use t with interpolation parameters (t-name, t-count) or use bind alone."
+        },
+        "httpOnLoop": {
+          "title": "HTTP verb on loop element",
+          "text": "Placing an HTTP directive (get, post, etc.) directly on the loop element causes one network request per clone, since clones retain the HTTP attribute. Workaround: place the HTTP directive on a parent element."
+        }
+      },
+      "migration": {
+        "title": "Migration Notes (v1.18.0)",
+        "ifGates": {
+          "title": "if now gates the entire element",
+          "before": "Before v1.18.0, if only controlled children visibility. Directives with higher priority than if (such as HTTP at priority 1, computed/watch at priority 2, and head directives at priority 1) would still execute on the element even when the condition was false.",
+          "after": "After v1.18.0, if gates the entire element. All directives on the same element respect the if condition.",
+          "check": "If you relied on a falsy if branch to still compute values or fire HTTP requests, move those directives to a separate element without an if condition."
+        },
+        "usePriority": {
+          "title": "use priority changed to 9",
+          "text": "The use directive now has an explicit priority of 9, placing it just below structural directives (10). This ensures templates are instantiated before if/each processing. This change is backward-compatible for standard usage."
+        }
+      }
     }
   }
 }

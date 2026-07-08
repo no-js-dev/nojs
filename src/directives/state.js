@@ -8,12 +8,17 @@ import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
+import { _isLoopElement } from "./loops.js";
 
 registerDirective("state", {
   priority: 0,
   init(el, name, value) {
     const initialState = evaluate(value, createContext()) || {};
-    const parent = el.parentElement ? findContext(el.parentElement) : null;
+    // When a loop clone already carries a context (set by _makeClone),
+    // parent the new state context to it so item variables remain
+    // reachable through the prototype chain instead of being clobbered.
+    const pre = el.__ctx;
+    const parent = pre || (el.parentElement ? findContext(el.parentElement) : null);
     const ctx = createContext(initialState, parent);
     el.__ctx = ctx;
 
@@ -119,7 +124,11 @@ registerDirective("store", {
 
 registerDirective("computed", {
   priority: 2,
+  gated: true,
   init(el, name, computedName) {
+    // Skip loop template elements — computed runs on the clones, not the
+    // original template (which is removed from the DOM by the loop handler).
+    if (_isLoopElement(el)) return;
     const expr = el.getAttribute("expr");
     if (!computedName || !expr) return;
     const ctx = findContext(el);
@@ -134,7 +143,11 @@ registerDirective("computed", {
 
 registerDirective("watch", {
   priority: 2,
+  gated: true,
   init(el, name, watchExpr) {
+    // Skip loop template elements — watch runs on the clones, not the
+    // original template (which is removed from the DOM by the loop handler).
+    if (_isLoopElement(el)) return;
     const ctx = findContext(el);
     const onChange = el.getAttribute("on:change");
     let lastVal = evaluate(watchExpr, ctx);

@@ -5,9 +5,28 @@
 import { _watchExpr, _warn, _onDispose } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { registerDirective, processTree, _disposeChildren, _activateGated, _deactivateGated } from "../registry.js";
 import { _animateIn, _animateOut } from "../animations.js";
 import { _isLoopElement } from "./loops.js";
+
+// Walk previousElementSibling to collect every if/else-if expression in the
+// chain.  The result is joined with spaces so _watchExpr can string-sniff for
+// $store/$route/$i18n globals even from an else/else-if that does not mention
+// them directly.  This is the same walk that update() already performs — we
+// just extract the expression strings instead of evaluating them.
+function _collectChainExprs(el) {
+  const exprs = [];
+  let prev = el.previousElementSibling;
+  while (prev) {
+    const prevExpr =
+      prev.getAttribute("if") || prev.getAttribute("else-if");
+    if (prevExpr) {
+      exprs.push(prevExpr);
+    } else break;
+    prev = prev.previousElementSibling;
+  }
+  return exprs;
+}
 
 registerDirective("if", {
   priority: 10,
@@ -20,7 +39,11 @@ registerDirective("if", {
     const animLeave = el.getAttribute("animate-leave");
     const transition = el.getAttribute("transition");
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
-    const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+    // If i18n-ns (priority 1) already detached children, use its saved
+    // snapshot so the if snapshot captures the original content (NOJS-258).
+    const originalChildren = (el.__i18nSavedChildren || [...el.childNodes]).map(
+      (n) => n.cloneNode(true),
+    );
     let currentState = undefined;
     let _cancelAnim = null;
     _onDispose(() => { if (_cancelAnim) { _cancelAnim(); _cancelAnim = null; } });
@@ -43,6 +66,13 @@ registerDirective("if", {
     }
 
     function render(result) {
+      el.__ifState = result;
+
+      // Deactivate gated directives before content swap on falsy
+      if (!result) {
+        _deactivateGated(el);
+      }
+
       _disposeChildren(el);
       if (result) {
         if (thenId) {
@@ -73,6 +103,11 @@ registerDirective("if", {
       _clearDeclared(el);
       processTree(el);
 
+      // Activate gated directives after content is processed on truthy
+      if (result) {
+        _activateGated(el);
+      }
+
       // Animation enter
       if (animEnter || transition) {
         _animateIn(el, animEnter, transition, animDuration);
@@ -87,6 +122,9 @@ registerDirective("if", {
 registerDirective("else-if", {
   priority: 10,
   init(el, name, expr) {
+    // Skip if this element carries a loop directive — `else-if` on a loop
+    // element is not meaningful and the attribute is stripped from clones.
+    if (_isLoopElement(el)) return;
     // Works like `if` but checks previous sibling's condition
     const ctx = findContext(el);
     const thenId = el.getAttribute("then");
@@ -141,7 +179,11 @@ registerDirective("else-if", {
         el.innerHTML = "";
       }
     }
-    _watchExpr(expr, ctx, update);
+    // Include the chain's if/else-if expressions so _watchExpr can sniff for
+    // $store/$route/$i18n globals that this else-if doesn't mention directly.
+    const chainExprs = _collectChainExprs(el);
+    chainExprs.push(expr);
+    _watchExpr(chainExprs.join(" "), ctx, update);
     update();
   },
 });
@@ -216,7 +258,10 @@ registerDirective("else", {
       _clearDeclared(el);
       processTree(el);
     }
-    _watchExpr("", ctx, update);
+    // Include the chain's if/else-if expressions so _watchExpr can sniff for
+    // $store/$route/$i18n globals — an else with no expression of its own
+    // would otherwise register no global watchers and go stale.
+    _watchExpr(_collectChainExprs(el).join(" "), ctx, update);
     update();
   },
 });

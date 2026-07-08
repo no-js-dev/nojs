@@ -11,9 +11,20 @@ import { registerDirective, processTree, _disposeChildren } from "../registry.js
 
 registerDirective("t", {
   priority: 20,
+  gated: true,
   init(el, name, key) {
     const ctx = findContext(el);
     const useHtml = el.hasAttribute("t-html");
+
+    // Collect t-* param expressions for the sniff string so $store/$route
+    // references in translation params register watchers (NOJS-248).
+    const paramExprs = [];
+    for (const attr of [...el.attributes]) {
+      if (attr.name.startsWith("t-") && attr.name !== "t" && attr.name !== "t-html") {
+        paramExprs.push(attr.value);
+      }
+    }
+    const sniff = paramExprs.length ? key + " " + paramExprs.join(" ") : key;
 
     function update() {
       const params = {};
@@ -32,7 +43,7 @@ registerDirective("t", {
       }
     }
 
-    _watchExpr(key, ctx, update);
+    _watchExpr(sniff, ctx, update);
     _watchI18n(update);
     update();
   },
@@ -44,11 +55,24 @@ registerDirective("i18n-ns", {
     // Empty ns = marker attribute (e.g. route-view); skip loading
     if (!ns) return;
 
+    // Save cloned children before detaching so that if (priority 10) can
+    // snapshot the original content even though i18n-ns runs first (NOJS-258).
+    el.__i18nSavedChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+
     // Save children to prevent premature t resolution
     const saved = document.createDocumentFragment();
     while (el.firstChild) saved.appendChild(el.firstChild);
 
     _loadI18nNamespace(ns).then(() => {
+      // When `if` co-exists on this element (__ifState exposed by B1),
+      // let `if` manage children lifecycle via its snapshot.
+      // - false: children were cleared; if's snapshot restores on flip
+      // - true: if already restored from snapshot; don't duplicate
+      // The namespace is loaded; notify so active t directives re-render.
+      if (el.__ifState !== undefined) {
+        _notifyI18n();
+        return;
+      }
       el.appendChild(saved);
       processTree(el);
       _notifyI18n();

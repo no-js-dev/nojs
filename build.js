@@ -29,30 +29,8 @@ async function build() {
     sourcemap: true,
   });
 
-  // ── ESM ───────────────────────────────────────────────────────────
-  await esbuild.build({
-    ...shared,
-    entryPoints: ["src/index.js"],
-    outfile: "dist/esm/no.js",
-    format: "esm",
-    minify: true,
-    sourcemap: true,
-  });
-
-  // ── CJS ───────────────────────────────────────────────────────────
-  await esbuild.build({
-    ...shared,
-    entryPoints: ["src/index.js"],
-    outfile: "dist/cjs/no.js",
-    format: "cjs",
-    minify: true,
-    sourcemap: true,
-  });
-
   console.log("✓ Build complete!");
   console.log("  dist/iife/no.js — CDN / <script> tag");
-  console.log("  dist/esm/no.js  — ES module (import)");
-  console.log("  dist/cjs/no.js  — CommonJS (require)");
 }
 
 build().catch((err) => {

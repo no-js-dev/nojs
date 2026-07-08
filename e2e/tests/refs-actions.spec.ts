@@ -46,4 +46,24 @@ test.describe('Refs & Actions', () => {
     await expect(fallback).toBeVisible({ timeout: 3000 });
     await expect(fallback).toContainText('Something went wrong');
   });
+
+  test('4 — Call loading round-trip: restored children keep reactivity (NOJS-249)', async ({ page }) => {
+    const val = page.getByTestId('call-reactive-val');
+
+    // Before click: bind shows initial value
+    await expect(val).toHaveText('7');
+
+    // Click triggers call → loading template → success → restore
+    await page.getByTestId('call-reactive-btn').click();
+    await page.waitForTimeout(500);
+
+    // After restore: the restored span should show the value
+    const restoredVal = page.getByTestId('call-reactive-val');
+    await expect(restoredVal).toBeVisible();
+    await expect(restoredVal).toHaveText('7');
+
+    // Bump the reactive value — the restored span must react
+    await page.getByTestId('call-reactive-bump').click();
+    await expect(restoredVal).toHaveText('8');
+  });
 });

@@ -180,6 +180,7 @@ Full documentation is available in the [docs/](docs/) folder:
 | [Custom Directives](docs/md/custom-directives.md) | Extend No.JS |
 | [Error Handling](docs/md/error-handling.md) | Error boundaries, global handler |
 | [Configuration](docs/md/configuration.md) | Global settings, interceptors, template caching, security |
+| [Directive Compatibility](docs/md/directive-compatibility.md) | Same-element directive interactions, limitations, migration notes |
 | [Cheatsheet](docs/md/cheatsheet.md) | Every directive at a glance |
 | [Full SPA Example](docs/md/examples.md) | Complete app with routing, auth, i18n |
 

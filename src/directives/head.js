@@ -23,16 +23,18 @@
 //  whenever the reactive context changes.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _watchExpr, _onDispose } from "../globals.js";
+import { _watchExpr, _warn, _onDispose } from "../globals.js";
 import { evaluate, resolve } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
+import { _isLoopElement } from "./loops.js";
 
 // Interpolate {key} placeholders in a string without URL-encoding.
 // Used by page-jsonld where the template is a JSON string.
 function _interpolateRaw(str, ctx) {
-  // Match only {identifiers} — skip { starting with " or ' to avoid consuming JSON structure.
-  return str.replace(/\{([^}"'{][^}]*)\}/g, (_, expr) => {
+  // Match only {identifiers} — skip { starting with " or ' or whitespace-then-quote
+  // to avoid consuming JSON structure (both compact and pretty-printed).
+  return str.replace(/\{\s*([^}"'{\s][^}]*)\}/g, (_, expr) => {
     try {
       const val = evaluate(expr.trim(), ctx);
       return val != null ? String(val) : "";
@@ -47,7 +49,12 @@ function _interpolateRaw(str, ctx) {
 // Value is a No.JS expression: page-title="product.name + ' | Store'"
 registerDirective("page-title", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
+    if (_isLoopElement(el)) {
+      _warn(`${name}: head directive on a loop element is not supported — move it to a parent or child element`, el);
+      return;
+    }
     const ctx = findContext(el);
     function update() {
       const val = evaluate(expr, ctx);
@@ -63,7 +70,12 @@ registerDirective("page-title", {
 // Value is a No.JS expression: page-description="product.description"
 registerDirective("page-description", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
+    if (_isLoopElement(el)) {
+      _warn(`${name}: head directive on a loop element is not supported — move it to a parent or child element`, el);
+      return;
+    }
     const ctx = findContext(el);
     // Track whether THIS directive created the meta element so disposal can
     // remove it (and avoid stale meta leaking across SPA route changes). A
@@ -96,7 +108,12 @@ registerDirective("page-description", {
 // Value is a No.JS expression: page-canonical="'/products/' + product.slug"
 registerDirective("page-canonical", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
+    if (_isLoopElement(el)) {
+      _warn(`${name}: head directive on a loop element is not supported — move it to a parent or child element`, el);
+      return;
+    }
     const ctx = findContext(el);
     let created = false;
     let managed = null;
@@ -135,7 +152,12 @@ registerDirective("page-canonical", {
 // JSON-LD the developer may have added, so they can coexist.
 registerDirective("page-jsonld", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
+    if (_isLoopElement(el)) {
+      _warn(`${name}: head directive on a loop element is not supported — move it to a parent or child element`, el);
+      return;
+    }
     const ctx = findContext(el);
     // The JSON template lives in the element's text content (or innerHTML for
     // elements like <div hidden>). The attribute value (expr) is intentionally

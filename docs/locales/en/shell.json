@@ -52,7 +52,8 @@
       "animations": "Animations",
       "filters": "Filters",
       "i18n": "i18n",
-      "plugins": "Plugins"
+      "plugins": "Plugins",
+      "directiveCompatibility": "Directive Compatibility"
     },
     "demo": {
       "welcome": "Welcome to No.JS",

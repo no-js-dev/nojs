@@ -63,17 +63,6 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 Download `dist/iife/no.js` and include it with a `<script>` tag.
 
-### ESM / CJS (self-hosted)
-
-The `dist/esm/no.js` and `dist/cjs/no.js` builds are available for bundler-based setups. Download them from the [GitHub releases](https://github.com/no-js-dev/nojs/releases).
-
-```javascript
-import NoJS from './no.js';
-NoJS.init();
-```
-
-> When using ESM/CJS builds, you must call `NoJS.init()` manually after the DOM is ready. The CDN script handles this automatically.
-
 ---
 
 ## Minimal Example

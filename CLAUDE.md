@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run build              # esbuild → dist/{iife,esm,cjs}/no.js (minified + sourcemaps)
+npm run build              # esbuild → dist/iife/no.js (minified + sourcemaps)
 npm test                   # Jest (jsdom)
 npm run test:watch         # Jest watch mode
 npm run test:coverage      # Jest with coverage
@@ -31,8 +31,6 @@ No linter configured.
 | Format | Entry | Output | Use case |
 |--------|-------|--------|----------|
 | IIFE | `src/cdn.js` | `dist/iife/no.js` | CDN `<script>` tag |
-| ESM | `src/index.js` | `dist/esm/no.js` | `import` |
-| CJS | `src/index.js` | `dist/cjs/no.js` | `require` |
 
 `build.js` uses esbuild.
 
@@ -258,10 +256,10 @@ Sync branches: `chore/sync-<description>`. Validate LSP sync: `npx tsc --noEmit 
 NoJS/
 ├── src/                   # Framework source
 │   ├── directives/        # Built-in directives (one file per category)
-│   ├── index.js           # Public API entry (ESM/CJS)
+│   ├── index.js           # Public API entry
 │   ├── cdn.js             # IIFE entry (auto-init)
 │   └── globals.js         # Shared state
-├── dist/                  # Build outputs (iife, esm, cjs)
+├── dist/                  # Build output (iife)
 ├── docs/                  # Documentation site
 │   ├── templates/         # Page templates (.tpl)
 │   ├── locales/           # i18n JSON files (en, pt, es, fr, it)

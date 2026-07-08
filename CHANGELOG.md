@@ -7,15 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.18.0...HEAD)
 
-### Fixed
-
-- fix(router): normalize trailing slashes — `/about/` and `/about` now resolve to the same route, preventing duplicate route matches and inconsistent URL state
-
-## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.18.0) — 2026-07-07
+## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.18.0) — 2026-07-08
 
 Directive Incompatibility Remediation — resolves 18 compatibility findings discovered during the NOJS-244 audit, adds directive gating semantics, and documents all known directive interactions.
 
 ### Fixed
+
+- fix(router): normalize trailing slashes — `/about/` and `/about` now resolve to the same route, preventing duplicate route matches and inconsistent URL state
 
 - fix(directives): ancestor watcher race — watchers on ancestor elements now correctly observe state changes made by child directives during the same processing pass (finding 1)
 - fix(directives): `bind`/`model`/`event` + `if` gate — `bind`, `model`, and `on:*` directives now skip initialization while the element's `if` condition is falsy, preventing flicker and stale bindings on gated elements (finding 2, 15)
@@ -42,6 +40,10 @@ Directive Incompatibility Remediation — resolves 18 compatibility findings dis
 - Per-clone `computed`/`watch` is now the defined semantics — each loop clone gets its own reactive derivation rather than sharing one with the template
 - `each`+`if`+`else` on the same element is now treated as a conditional else (not a loop empty-state)
 - HTTP verbs on loop elements now warn and are stripped from clones
+
+### Removed
+
+- CJS and ESM build targets — NoJS is CDN-only (IIFE). `dist/cjs/` and `dist/esm/` directories, `main`/`module`/`exports` fields in `package.json` removed
 
 ### Added
 

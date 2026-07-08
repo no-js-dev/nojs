@@ -47,13 +47,18 @@ const _MATCH_PATTERNS = Object.freeze([
 ]);
 
 function _matchDirective(attrName) {
-  if (_directives.has(attrName))
-    return { directive: _directives.get(attrName), match: attrName };
-  // Pattern matches
+  // Single Map.get avoids has+get double lookup on every exact match
+  const exact = _directives.get(attrName);
+  if (exact) return { directive: exact, match: attrName };
+  // Wildcard prefixes all start with c(lass-), o(n:), s(tyle-), or b(ind-).
+  // Skip the pattern loop entirely for plain attrs (id, href, data-*, aria-*, etc.)
+  const c0 = attrName.charCodeAt(0);
+  if (c0 !== 99 /* c */ && c0 !== 111 /* o */ && c0 !== 115 /* s */ && c0 !== 98 /* b */) return null;
   for (let i = 0; i < _MATCH_PATTERNS.length; i++) {
     const { pattern, prefix } = _MATCH_PATTERNS[i];
-    if (attrName.startsWith(prefix) && _directives.has(pattern)) {
-      return { directive: _directives.get(pattern), match: pattern };
+    if (attrName.startsWith(prefix)) {
+      const d = _directives.get(pattern);
+      if (d) return { directive: d, match: pattern };
     }
   }
   return null;
@@ -78,20 +83,22 @@ export function processElement(el) {
     }
   }
 
-  matched.sort((a, b) => a.priority - b.priority);
+  // Fast path: skip sort/dispatch/emit for elements with no directives (the common case)
+  if (matched.length === 0) return;
+  // Sort only when multiple directives need priority ordering
+  if (matched.length > 1) matched.sort((a, b) => a.priority - b.priority);
+
   const prev = _currentEl;
-  for (const m of matched) {
+  for (let i = 0; i < matched.length; i++) {
     _setCurrentEl(el);
-    m.init(el, m.name, m.value);
+    matched[i].init(el, matched[i].name, matched[i].value);
   }
   _setCurrentEl(prev);
 
-  if (matched.length > 0) {
-    _devtoolsEmit("directive:init", {
-      element: el.tagName?.toLowerCase(),
-      directives: matched.map((m) => ({ name: m.name, value: m.value })),
-    });
-  }
+  _devtoolsEmit("directive:init", {
+    element: el.tagName?.toLowerCase(),
+    directives: matched.map((m) => ({ name: m.name, value: m.value })),
+  });
 }
 
 export function processTree(root) {
@@ -103,9 +110,15 @@ export function processTree(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
-  for (const node of nodes) {
+  // When root is in a live document, use the O(1) isConnected check instead
+  // of O(depth) root.contains(node) to detect nodes removed during processing.
+  // For DocumentFragment roots (not connected), skip the guard entirely —
+  // nothing can be removed from a document mid-walk in that case.
+  const checkConnected = root.isConnected;
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
     if (node.tagName === "TEMPLATE" || node.tagName === "SCRIPT") continue;
-    if (!root.contains(node)) continue; // Skip nodes removed during earlier processing
+    if (checkConnected && !node.isConnected) continue;
     if (!node.__declared) processElement(node);
   }
 }

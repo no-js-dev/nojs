@@ -44,6 +44,7 @@ Welcome to the No.JS documentation. Choose a topic to get started.
 
 ## Reference
 
+- [Directive Compatibility](directive-compatibility.md) — Same-element interactions, limitations, migration notes
 - [Directive Cheatsheet](cheatsheet.md) — Every directive at a glance
 - [Full SPA Example](examples.md) — Complete app with routing, auth, i18n & more
 - [Playground](playground.md) — Interactive code editor and live preview

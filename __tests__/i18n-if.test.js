@@ -288,3 +288,104 @@ describe('i18n-ns without if (regression)', () => {
     expect(el.querySelector('span').textContent).toBe('static');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  4. Mixed child nodes (text + elements) survive the handoff
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('i18n-ns + if with mixed child nodes', () => {
+  test('text nodes and elements are preserved through toggle cycle', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ mix: { label: 'Translated' } }),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ on: true }');
+
+    const el = document.createElement('div');
+    el.setAttribute('i18n-ns', 'mix');
+    el.setAttribute('if', 'on');
+    // Add a text node, an element, and another text node
+    el.appendChild(document.createTextNode('Before '));
+    const span = document.createElement('span');
+    span.setAttribute('t', 'mix.label');
+    el.appendChild(span);
+    el.appendChild(document.createTextNode(' After'));
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+    await flush();
+
+    // All three child nodes should be present
+    expect(el.childNodes.length).toBe(3);
+    expect(el.childNodes[0].textContent).toBe('Before ');
+    expect(el.querySelector('span[t]').textContent).toBe('Translated');
+    expect(el.childNodes[2].textContent).toBe(' After');
+
+    // Toggle off then on
+    const ctx = parent.__ctx;
+    ctx.on = false;
+    expect(el.innerHTML).toBe('');
+
+    ctx.on = true;
+    expect(el.childNodes.length).toBe(3);
+    expect(el.childNodes[0].textContent).toBe('Before ');
+    expect(el.querySelector('span[t]').textContent).toBe('Translated');
+    expect(el.childNodes[2].textContent).toBe(' After');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  5. Rapid toggle during async namespace load
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('i18n-ns + if rapid toggle during namespace load', () => {
+  test('if toggles true→false→true while namespace is in-flight', async () => {
+    let resolveNamespace;
+    global.fetch = jest.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveNamespace = () =>
+            resolve({
+              ok: true,
+              json: () => Promise.resolve({ rapid: { msg: 'Loaded' } }),
+            });
+        }),
+    );
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ vis: true }');
+
+    const el = document.createElement('div');
+    el.setAttribute('i18n-ns', 'rapid');
+    el.setAttribute('if', 'vis');
+    const span = document.createElement('span');
+    span.setAttribute('t', 'rapid.msg');
+    el.appendChild(span);
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    const ctx = parent.__ctx;
+
+    // if starts true — children cleared by i18n-ns, but if snapshot is correct
+    // Toggle rapidly: true → false → true before namespace loads
+    ctx.vis = false;
+    expect(el.innerHTML).toBe('');
+    ctx.vis = true;
+    // Content restored from snapshot (namespace not loaded yet, so t shows key)
+    expect(el.querySelector('span[t]')).toBeTruthy();
+
+    // Now resolve the namespace
+    resolveNamespace();
+    await flush();
+
+    // __ifState is true — i18n-ns callback should just call _notifyI18n()
+    // which re-renders the active t directives with the loaded translations
+    expect(el.__ifState).toBe(true);
+    expect(el.querySelector('span[t]').textContent).toBe('Loaded');
+  });
+});

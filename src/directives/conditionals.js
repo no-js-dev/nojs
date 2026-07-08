@@ -122,6 +122,9 @@ registerDirective("if", {
 registerDirective("else-if", {
   priority: 10,
   init(el, name, expr) {
+    // Skip if this element carries a loop directive — `else-if` on a loop
+    // element is not meaningful and the attribute is stripped from clones.
+    if (_isLoopElement(el)) return;
     // Works like `if` but checks previous sibling's condition
     const ctx = findContext(el);
     const thenId = el.getAttribute("then");

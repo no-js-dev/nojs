@@ -55,11 +55,24 @@ registerDirective("i18n-ns", {
     // Empty ns = marker attribute (e.g. route-view); skip loading
     if (!ns) return;
 
+    // Save cloned children before detaching so that if (priority 10) can
+    // snapshot the original content even though i18n-ns runs first (NOJS-258).
+    el.__i18nSavedChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+
     // Save children to prevent premature t resolution
     const saved = document.createDocumentFragment();
     while (el.firstChild) saved.appendChild(el.firstChild);
 
     _loadI18nNamespace(ns).then(() => {
+      // When `if` co-exists on this element (__ifState exposed by B1),
+      // let `if` manage children lifecycle via its snapshot.
+      // - false: children were cleared; if's snapshot restores on flip
+      // - true: if already restored from snapshot; don't duplicate
+      // The namespace is loaded; notify so active t directives re-render.
+      if (el.__ifState !== undefined) {
+        _notifyI18n();
+        return;
+      }
       el.appendChild(saved);
       processTree(el);
       _notifyI18n();

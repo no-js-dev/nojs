@@ -39,7 +39,11 @@ registerDirective("if", {
     const animLeave = el.getAttribute("animate-leave");
     const transition = el.getAttribute("transition");
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
-    const originalChildren = [...el.childNodes].map((n) => n.cloneNode(true));
+    // If i18n-ns (priority 1) already detached children, use its saved
+    // snapshot so the if snapshot captures the original content (NOJS-258).
+    const originalChildren = (el.__i18nSavedChildren || [...el.childNodes]).map(
+      (n) => n.cloneNode(true),
+    );
     let currentState = undefined;
     let _cancelAnim = null;
     _onDispose(() => { if (_cancelAnim) { _cancelAnim(); _cancelAnim = null; } });

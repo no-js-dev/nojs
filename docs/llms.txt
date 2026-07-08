@@ -108,6 +108,7 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ## Reference
 
+- [Directive Compatibility](https://no-js.dev/#/directive-compatibility): Same-element directive interactions, known limitations with workarounds, v1.18.0 migration notes (`if` gates the element, `use` priority 9, per-clone computed/watch)
 - [Directive Cheatsheet](https://no-js.dev/#/cheatsheet): Every directive with syntax, attributes, and usage at a glance
 - [Examples](https://no-js.dev/#/examples): Full SPA example with routing, authentication, i18n, and CRUD
 - [Playground](https://no-js.dev/#/playground): Interactive multi-file code editor with live preview

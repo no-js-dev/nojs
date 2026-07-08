@@ -42,6 +42,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Reference
 
+- [Directive Compatibility](#directive-compatibility) — Same-element interactions, limitations, migration notes
 - [Directive Cheatsheet](#directive-cheatsheet) — Every directive at a glance
 - [Full SPA Example](#examples) — Complete app with routing, auth, i18n & more
 - [Playground](#playground) — Interactive code editor
@@ -5619,6 +5620,107 @@ All five patterns combined into a single production-grade SPA:
 ---
 
 **Previous:** [Directive Cheatsheet ←](cheatsheet.md)
+
+# Directive Compatibility
+
+Reference for how No.JS directives interact when combined on the same element. Covers fixed issues, known limitations, defined semantics, and recommended patterns.
+
+No.JS processes directives by priority order (state 0 > HTTP 1 > computed/watch 2 > ref 5 > structural 10 > rendering/events 20 > validation 30). Most directives compose freely, but certain same-element combinations require awareness of processing order and scope mechanics.
+
+## Defined Semantics (v1.18.0)
+
+### `if` gates the entire element
+
+As of v1.18.0, `if` gates the **entire element**, not just its children:
+
+- **HTTP directives** (`get`, `post`, etc.) on the same element only fire when the condition is true.
+- **Computed values** and **watch side effects** on the same element only run when the condition is true.
+- **Head directives** (`page-title`, `page-description`, `page-canonical`, `page-jsonld`) on the same element only apply when the condition is true.
+- **Binding, model, and event directives** on the same element are gated in the same way.
+
+```html
+<!-- HTTP request only fires when loggedIn is true -->
+<div if="loggedIn" get="/api/private" as="data">
+  <p bind="data.name"></p>
+</div>
+
+<!-- Computed only runs when showStats is true -->
+<div if="showStats" computed="total" expr="price * qty">
+  Total: <span bind="total | currency"></span>
+</div>
+```
+
+### Per-clone `computed`/`watch` in loops
+
+When `computed` or `watch` appears on a loop element, each clone gets its own independent instance. A `computed` creates a per-item derived value scoped to that clone's context. A `watch` fires independently per clone.
+
+```html
+<div each="item in cart" key="item.id"
+     computed="total" expr="item.price * item.qty">
+  <span bind="item.name"></span>: <span bind="total | currency"></span>
+</div>
+```
+
+### `use` priority 9
+
+The `use` directive runs at priority 9 (just below structural directives at 10), ensuring templates are instantiated before `if`/`each` processing.
+
+### HTTP verb placement
+
+HTTP directives should be placed on a **parent element**, not on the loop element. Placing an HTTP directive on a loop element fires one request per clone.
+
+```html
+<!-- Correct: HTTP on parent, loop on child -->
+<ul get="/api/tasks" as="tasks">
+  <li each="task in tasks" key="task.id" bind="task.title"></li>
+</ul>
+```
+
+## Known Limitations
+
+Same-element combinations that do not work as expected. Each has a workaround.
+
+### `switch` + loop on case children
+
+Placing a loop on a `case` child renders both branches. **Workaround:** wrap the loop in a container inside the case.
+
+### `if` + loop on the same element
+
+`if` and a loop on the same element cannot coordinate. **Workaround:** wrap the loop in a container with the `if`.
+
+### `else-if` + loop on the same element
+
+`else-if` with a loop breaks the conditional chain; items render regardless. A sibling `else` is orphaned. **Workaround:** wrap the loop in a container with the `else-if`.
+
+### Duplicate `ref` in loop
+
+Each clone overwrites the same ref; only the last is accessible. **Workaround:** use `bind-ref="'item-' + $index"` for unique refs.
+
+### `bind-value` + `model` on the same input
+
+Both set up two-way pipelines and fight over the value. **Workaround:** use only `model` for two-way binding.
+
+### `watch` + `on:change` on the same element
+
+Both claim the change event. **Workaround:** use only one mechanism.
+
+### `t` + `bind` double writer
+
+Both write to `textContent`; last writer wins. **Workaround:** use `t` with interpolation params (`t-name="expr"`) or use `bind` alone.
+
+### HTTP verb on loop element
+
+HTTP directives on the loop element fire one request per clone. **Workaround:** place HTTP on a parent element.
+
+## Migration Notes (v1.18.0)
+
+**`if` now gates the entire element:** Before v1.18.0, `if` only controlled children. Higher-priority directives (HTTP, computed/watch, head) would execute regardless. After v1.18.0, all directives respect the `if` condition. If you relied on requests firing from a falsy `if` branch, move them to a separate unconditional element.
+
+**`use` priority changed to 9:** Ensures templates instantiate before structural directives. Backward-compatible for standard usage.
+
+---
+
+**Previous:** [Configuration ←](configuration.md) | **Next:** [Directive Cheatsheet →](cheatsheet.md)
 
 # Playground
 

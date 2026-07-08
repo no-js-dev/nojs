@@ -26,6 +26,7 @@ import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
+import { _isLoopElement } from "./loops.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 
@@ -60,6 +61,11 @@ for (const method of HTTP_METHODS) {
     priority: 1,
     gated: true,
     init(el, name, url) {
+      // Guard: HTTP verbs on loop elements fire one fetch per clone. Warn and bail.
+      if (_isLoopElement(el)) {
+        _warn(`${name}: HTTP verb directive on a loop element is not supported — move the fetch to a parent or child element`, el);
+        return;
+      }
       const asKey = el.getAttribute("as") || "data";
       const loadingTpl = el.getAttribute("loading");
       const errorTpl = el.getAttribute("error");

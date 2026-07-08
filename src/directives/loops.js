@@ -16,15 +16,24 @@ import { registerDirective, processTree, _disposeTree } from "../registry.js";
 const _LOOP_ATTRS = [
   "foreach", "each", "for", "from",
   "filter", "sort", "limit", "offset", "key", "index",
-  "else", "template",
+  "template",
   "animate-enter", "animate-leave", "animate-stagger", "animate-duration", "animate",
+  // HTTP verb attrs — prevent clones from firing one fetch per iteration.
+  "get", "post", "put", "patch", "delete",
+  // Head/SEO attrs — prevent clones from clobbering document.title etc.
+  "page-title", "page-description", "page-canonical", "page-jsonld",
+  // Conditional attr — prevent double-init on clones.
+  "else-if",
 ];
 
 // Strips all loop-related directive attributes from a cloned element.
-function _stripLoopAttrs(clone) {
+// When `stripElse` is true (default), the `else` attribute is also removed.
+// It is kept when `if` or `else-if` owns the `else` attribute (Finding 8).
+function _stripLoopAttrs(clone, stripElse) {
   for (let i = 0; i < _LOOP_ATTRS.length; i++) {
     clone.removeAttribute(_LOOP_ATTRS[i]);
   }
+  if (stripElse !== false) clone.removeAttribute("else");
 }
 
 // Collects managed clones between the start and end comment markers.
@@ -95,7 +104,10 @@ const _loopHandler = {
       );
     }
     const indexName = el.getAttribute("index") || "$index";
-    const elseTpl = el.getAttribute("else");
+    // When the loop element also carries `if` or `else-if`, the `else`
+    // attribute belongs to the conditional chain, not the loop's empty state.
+    const elseOwnedByIf = el.hasAttribute("if") || el.hasAttribute("else-if");
+    const elseTpl = elseOwnedByIf ? null : el.getAttribute("else");
     const filterExpr = el.getAttribute("filter");
     const sortProp = el.getAttribute("sort");
     const limit = parseInt(el.getAttribute("limit")) || Infinity;
@@ -138,7 +150,9 @@ const _loopHandler = {
     // external template's content (the element tag wraps the template).
     function _makeClone(childData) {
       const clone = el.cloneNode(true);
-      _stripLoopAttrs(clone);
+      // When `if` or `else-if` owns the `else` attr, keep it on clones
+      // so the conditional directive can use it as its false-branch template.
+      _stripLoopAttrs(clone, !elseOwnedByIf);
       // Reset __declared so processTree processes the clone fresh.
       clone.__declared = false;
 

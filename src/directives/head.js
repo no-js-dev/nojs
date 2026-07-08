@@ -48,6 +48,7 @@ function _interpolateRaw(str, ctx) {
 // Value is a No.JS expression: page-title="product.name + ' | Store'"
 registerDirective("page-title", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     function update() {
@@ -64,6 +65,7 @@ registerDirective("page-title", {
 // Value is a No.JS expression: page-description="product.description"
 registerDirective("page-description", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     // Track whether THIS directive created the meta element so disposal can
@@ -97,6 +99,7 @@ registerDirective("page-description", {
 // Value is a No.JS expression: page-canonical="'/products/' + product.slug"
 registerDirective("page-canonical", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     let created = false;
@@ -136,6 +139,7 @@ registerDirective("page-canonical", {
 // JSON-LD the developer may have added, so they can coexist.
 registerDirective("page-jsonld", {
   priority: 1,
+  gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
     // The JSON template lives in the element's text content (or innerHTML for

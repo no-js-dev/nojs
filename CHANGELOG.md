@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.18.0...HEAD)
 
+### Fixed
+
+- fix(router): normalize trailing slashes — `/about/` and `/about` now resolve to the same route, preventing duplicate route matches and inconsistent URL state
+
 ## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.18.0) — 2026-07-07
 
 Directive Incompatibility Remediation — resolves 18 compatibility findings discovered during the NOJS-244 audit, adds directive gating semantics, and documents all known directive interactions.

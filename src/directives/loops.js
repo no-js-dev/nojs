@@ -423,7 +423,13 @@ const _loopHandler = {
           processTree(clone);
           _applyEnterAnim(clone, animEnter, stagger, i);
         } else {
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
+          const cloneRaw = keyMap.get(key).__ctx.__raw;
+          Object.assign(cloneRaw, childData);
+          // Invalidate _collectKeys cache since we bypassed the proxy setter
+          // (same pattern as the filter/key eval contexts above) — otherwise
+          // bindings can evaluate against stale cached vals when reconcile
+          // runs without an accompanying _ctxGeneration bump.
+          delete cloneRaw.__collectKeysCache;
           keyMap.get(key).__ctx.$notify();
         }
       });

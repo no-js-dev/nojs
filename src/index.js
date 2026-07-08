@@ -30,6 +30,7 @@ import {
   _REPLACE,
   _onDispose,
   _stripBase,
+  _setHasGlobals,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale } from "./i18n.js";
 import { createContext } from "./context.js";
@@ -333,6 +334,7 @@ const NoJS = {
     }
 
     _globals[name] = value;
+    _setHasGlobals(true);
     if (_currentPluginName) _globalOwners[name] = _currentPluginName;
 
     // Notify all store watchers since globals are scope-wide
@@ -372,6 +374,7 @@ const NoJS = {
       }
       _plugins.clear();
       for (const k in _globals) delete _globals[k];
+      _setHasGlobals(false);
       for (const k in _globalOwners) delete _globalOwners[k];
 
       // Clear interceptors

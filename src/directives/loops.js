@@ -409,8 +409,11 @@ const _loopHandler = {
           processTree(clone);
           _applyEnterAnim(clone, animEnter, stagger, i);
         } else {
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
-          keyMap.get(key).__ctx.$notify();
+          const reused = keyMap.get(key);
+          Object.assign(reused.__ctx.__raw, childData);
+          // Invalidate _collectKeys cache since we bypassed the proxy setter
+          delete reused.__ctx.__raw.__collectKeysCache;
+          reused.__ctx.$notify();
         }
       });
 

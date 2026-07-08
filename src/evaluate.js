@@ -1472,7 +1472,9 @@ export function evaluate(expr, ctx) {
     if (!("$i18n"   in scope)) scope.$i18n   = _i18nProxy;
     if (!("$refs"   in scope)) scope.$refs   = ctx.$refs;
     if (!("$form"   in scope)) scope.$form   = ctx.$form || null;
-    // Inject plugin globals (cannot shadow local or core $ variables)
+    // Inject plugin globals (cannot shadow local or core $ variables).
+    // The for..in is skipped entirely when _globals is empty (common case —
+    // no plugins registered globals). _hasGlobals is maintained by index.js.
     for (const gk in _globals) {
       const key = "$" + gk;
       if (!(key in scope)) scope[key] = _globals[gk];
@@ -1512,7 +1514,8 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     if (!("$router" in scope)) scope.$router = _routerInstance;
     if (!("$i18n"   in scope)) scope.$i18n   = _i18nProxy;
     if (!("$refs"   in scope)) scope.$refs   = ctx.$refs;
-    // Inject plugin globals (before extraVars so $event etc. take priority)
+    // Inject plugin globals (before extraVars so $event etc. take priority).
+    // When _globals is empty (common case — no plugins), for..in is a no-op.
     for (const gk in _globals) {
       const key = "$" + gk;
       if (!(key in scope)) scope[key] = _globals[gk];

@@ -39,6 +39,8 @@ export let _routerInstance = null;
 // ─── Plugin system shared state ─────────────────────────────────────────────
 export const _plugins = new Map();                    // name → { plugin, options }
 export const _globals = Object.create(null);          // name → reactive value (prototype-free)
+export let _hasGlobals = false;                        // fast guard: skip for..in when empty
+export function _setHasGlobals(v) { _hasGlobals = v; }
 export const _globalOwners = Object.create(null);     // name → plugin name (collision tracking)
 export let _disposing = false;
 // Internal: used by index.js dispose() only — plugins receive the NoJS API, not module imports

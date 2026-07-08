@@ -166,9 +166,9 @@ describe('Benchmark: push(1 item) onto existing list', () => {
       test(`[${label}] n=${size}`, () => {
         const extra = { id: size + 1, name: `item-${size + 1}` };
 
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
-          list.parentElement.__ctx.items = [...list.parentElement.__ctx.items, extra];
+          state.__ctx.items = [...state.__ctx.items, extra];
         });
 
         const { avgTime, minTime, maxTime, avgHeap } = benchmark(() => {
@@ -182,7 +182,7 @@ describe('Benchmark: push(1 item) onto existing list', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size + 1);
+        expect(state.children.length).toBe(size + 1);
       });
     }
   }
@@ -206,9 +206,9 @@ describe('Benchmark: sort/reverse entire list', () => {
     for (const keyed of [false, true]) {
       const label = keyed ? 'keyed' : 'full';
       test(`[${label}] n=${size}`, () => {
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
-          list.parentElement.__ctx.items = [...list.parentElement.__ctx.items].reverse();
+          state.__ctx.items = [...state.__ctx.items].reverse();
         });
 
         const { avgTime, minTime, maxTime, avgHeap } = benchmark(() => {
@@ -222,7 +222,7 @@ describe('Benchmark: sort/reverse entire list', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size);
+        expect(state.children.length).toBe(size);
       });
     }
   }
@@ -249,11 +249,11 @@ describe('Benchmark: splice(mid, 1, newItem)', () => {
         const mid = Math.floor(size / 2);
         const newItem = { id: size + 999, name: 'spliced' };
 
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
-          const next = [...list.parentElement.__ctx.items];
+          const next = [...state.__ctx.items];
           next.splice(mid, 1, newItem);
-          list.parentElement.__ctx.items = next;
+          state.__ctx.items = next;
         });
 
         const { avgTime, minTime, maxTime, avgHeap } = benchmark(() => {
@@ -269,7 +269,7 @@ describe('Benchmark: splice(mid, 1, newItem)', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size);
+        expect(state.children.length).toBe(size);
       });
     }
   }
@@ -293,9 +293,9 @@ describe('Benchmark: in-place update — same keys, new name values', () => {
     for (const keyed of [false, true]) {
       const label = keyed ? 'keyed' : 'full';
       test(`[${label}] n=${size}`, () => {
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
-          list.parentElement.__ctx.items = list.parentElement.__ctx.items.map(
+          state.__ctx.items = state.__ctx.items.map(
             (it) => ({ ...it, name: it.name + '-v2' }),
           );
         });
@@ -311,7 +311,7 @@ describe('Benchmark: in-place update — same keys, new name values', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size);
+        expect(state.children.length).toBe(size);
       });
     }
   }
@@ -335,9 +335,9 @@ describe('Benchmark: full replacement — all-new IDs (worst case for keyed)', (
     for (const keyed of [false, true]) {
       const label = keyed ? 'keyed' : 'full';
       test(`[${label}] n=${size}`, () => {
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
-          list.parentElement.__ctx.items = makeItems(size, size * 100);
+          state.__ctx.items = makeItems(size, size * 100);
         });
 
         const { avgTime, minTime, maxTime, avgHeap } = benchmark(() => {
@@ -351,7 +351,7 @@ describe('Benchmark: full replacement — all-new IDs (worst case for keyed)', (
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size);
+        expect(state.children.length).toBe(size);
       });
     }
   }
@@ -375,9 +375,9 @@ describe('Benchmark: complex nested items — in-place update', () => {
     for (const keyed of [false, true]) {
       const label = keyed ? 'keyed' : 'full';
       test(`[${label}] n=${size}`, () => {
-        const { list } = setupDOM(makeComplexItems(size), keyed, true);
+        const { state } = setupDOM(makeComplexItems(size), keyed, true);
         const domOps = measureDOMOps(() => {
-          list.parentElement.__ctx.items = list.parentElement.__ctx.items.map(
+          state.__ctx.items = state.__ctx.items.map(
             (it) => ({ ...it, meta: { ...it.meta, score: it.meta.score + 1 } }),
           );
         });
@@ -393,7 +393,7 @@ describe('Benchmark: complex nested items — in-place update', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size);
+        expect(state.children.length).toBe(size);
       });
     }
   }
@@ -419,10 +419,10 @@ describe('Benchmark: 10 sequential push operations (cumulative cost)', () => {
       test(`[${label}] n=${size}`, () => {
         const PUSHES = 10;
 
-        const { list } = setupDOM(makeItems(size), keyed);
+        const { state } = setupDOM(makeItems(size), keyed);
         const domOps = measureDOMOps(() => {
           for (let p = 0; p < PUSHES; p++) {
-            const ctx = list.parentElement.__ctx;
+            const ctx = state.__ctx;
             ctx.items = [...ctx.items, { id: size + 1000 + p, name: `pushed-${p}` }];
           }
         });
@@ -440,7 +440,7 @@ describe('Benchmark: 10 sequential push operations (cumulative cost)', () => {
           heapDelta: fmt.kb(avgHeap),
           createElement: domOps.creates, insertBefore: domOps.inserts, remove: domOps.removes,
         });
-        expect(list.children.length).toBe(size + PUSHES);
+        expect(state.children.length).toBe(size + PUSHES);
       });
     }
   }

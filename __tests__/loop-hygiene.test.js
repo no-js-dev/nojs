@@ -302,3 +302,175 @@ describe('else-if on loop element', () => {
     }
   });
 });
+
+// ─── Regression: normal flows still work after guards ───────────────────────
+
+describe('Regression: normal loop + else empty state (no if/else-if)', () => {
+  test('else template renders when array is empty and no if is present', () => {
+    document.body.innerHTML = `
+      <div state='{"items": []}'>
+        <span each="item in items" else="emptyTpl">
+          <span bind="item"></span>
+        </span>
+        <template id="emptyTpl"><p class="empty">No items</p></template>
+      </div>
+    `;
+    processTree(document.body);
+
+    // The canonical loop empty-state must still work — elseOwnedByIf should
+    // be false here so the loop consumes the else attr as before.
+    const emptyNodes = document.querySelectorAll('.empty');
+    expect(emptyNodes.length).toBe(1);
+    expect(emptyNodes[0].textContent).toBe('No items');
+  });
+
+  test('else template hides when array becomes populated', () => {
+    document.body.innerHTML = `
+      <div state='{"items": ["a","b"]}'>
+        <span each="item in items" else="emptyTpl">
+          <span bind="item"></span>
+        </span>
+        <template id="emptyTpl"><p class="empty">No items</p></template>
+      </div>
+    `;
+    processTree(document.body);
+
+    // Array is populated — loop renders items, no empty state.
+    const emptyNodes = document.querySelectorAll('.empty');
+    expect(emptyNodes.length).toBe(0);
+    const binds = document.querySelectorAll('span[bind]');
+    expect(binds.length).toBe(2);
+  });
+});
+
+describe('Regression: for syntax with _isLoopElement', () => {
+  let warnSpy;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  test('for="item in items" is recognized as a loop element (HTTP guard fires)', () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true, status: 200,
+      headers: new Headers(),
+      json: () => Promise.resolve([]),
+    });
+
+    document.body.innerHTML = `
+      <div state='{"items": [{"id":1}]}'>
+        <div for="item in items" get="/api/data" as="result">
+          <span bind="item.id"></span>
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]',
+      expect.stringContaining('HTTP verb directive on a loop element'),
+      expect.anything(),
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('for on label (HTML native) is NOT treated as a loop element', () => {
+    // for="inputId" on <label> is a native HTML attribute, not a loop.
+    // _isLoopElement should return false, so the page-title guard should
+    // not fire on it.
+    document.title = 'Before';
+    document.body.innerHTML = `
+      <div state='{"name": "Test"}'>
+        <label for="myInput" page-title="name">Label</label>
+        <input id="myInput" type="text">
+      </div>
+    `;
+    processTree(document.body);
+
+    // page-title should work normally (no loop guard) — title should be set.
+    expect(document.title).toBe('Test');
+  });
+});
+
+describe('Regression: else-if owning else (not just if)', () => {
+  test('loop with else-if + else keeps else on clones for conditional use', () => {
+    document.body.innerHTML = `
+      <div state='{"mode": "list", "items": ["x","y"]}'>
+        <p if="mode === 'grid'">Grid</p>
+        <span else-if="mode === 'list'" each="item in items" else="fallTpl">
+          <span bind="item"></span>
+        </span>
+        <template id="fallTpl"><em class="fall">Fallback</em></template>
+      </div>
+    `;
+    // Suppress orphan-else warning from <p else> sibling
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    processTree(document.body);
+
+    // The else-if owns the else attr, so the loop should NOT consume it as
+    // empty state. Since items has elements, the loop renders clones.
+    const spans = document.querySelectorAll('span[bind]');
+    expect(spans.length).toBe(2);
+    // Clones should retain the else attr (stripElse=false because else-if is present)
+    for (const span of spans) {
+      const parent = span.parentElement;
+      if (parent && parent.tagName === 'SPAN') {
+        expect(parent.hasAttribute('else')).toBe(true);
+      }
+    }
+  });
+});
+
+describe('Regression: page-canonical and page-jsonld warn on loop element', () => {
+  let warnSpy;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  test('page-canonical warns and does not create link element on loop element', () => {
+    document.body.innerHTML = `
+      <div state='{"items": [{"slug":"a"},{"slug":"b"}]}'>
+        <div each="item in items" page-canonical="'/items/' + item.slug">
+          <span bind="item.slug"></span>
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]',
+      expect.stringContaining('head directive on a loop element'),
+      expect.anything(),
+    );
+    const links = document.querySelectorAll('link[rel="canonical"]');
+    expect(links.length).toBe(0);
+  });
+
+  test('page-jsonld warns and does not create script element on loop element', () => {
+    document.body.innerHTML = `
+      <div state='{"items": [{"name":"A"},{"name":"B"}]}'>
+        <div each="item in items" page-jsonld hidden>
+          {"@type":"Thing","name":"{item.name}"}
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]',
+      expect.stringContaining('head directive on a loop element'),
+      expect.anything(),
+    );
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    expect(scripts.length).toBe(0);
+  });
+});

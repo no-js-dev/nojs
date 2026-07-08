@@ -24,7 +24,7 @@ No build step. No virtual DOM. No transpiler. No JSX. Just HTML.
 
 ## Features
 
-- **Declarative HTTP** — `get`, `post`, `put`, `patch`, `delete` as HTML attributes
+- **Declarative HTTP** — `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008) as HTML attributes
 - **Reactive Binding** — `bind`, `bind-*`, `model` for one/two-way data binding
 - **Conditionals & Loops** — `if`, `else-if`, `show`, `hide`, `each`, `foreach`, `switch`
 - **State Management** — `state` (local), `store` (global), `computed`, `watch`, `notify()`
@@ -162,7 +162,7 @@ Full documentation is available in the [docs/](docs/) folder:
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/md/getting-started.md) | Installation, core concepts, how it works |
-| [Data Fetching](docs/md/data-fetching.md) | `get`, `post`, `put`, `patch`, `delete`, caching, polling |
+| [Data Fetching](docs/md/data-fetching.md) | `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008), caching, polling |
 | [Data Binding](docs/md/data-binding.md) | `bind`, `bind-html`, `bind-*`, `model` |
 | [Conditionals](docs/md/conditionals.md) | `if`, `else-if`, `show`, `hide`, `switch`/`case` |
 | [Loops](docs/md/loops.md) | `each`, `foreach`, loop variables, nested loops |

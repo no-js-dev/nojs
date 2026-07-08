@@ -64,6 +64,7 @@
         "put": "Atualizar dados (PUT)",
         "patch": "Atualização parcial (PATCH)",
         "delete": "Excluir dados (DELETE)",
+        "query": "Leitura com body (QUERY, RFC 10008)",
         "as": "Nome para os dados buscados no contexto",
         "body": "Corpo da requisição",
         "headers": "Cabeçalhos da requisição",
@@ -680,6 +681,12 @@
       },
       "lifecycle": {
         "title": "Ciclo de Vida da Requisição"
+      },
+      "query": {
+        "title": "query — Requisições de Leitura com Body (RFC 10008)",
+        "text": "A diretiva <code>query</code> emite uma requisição HTTP QUERY — uma leitura segura, idempotente e cacheável que carrega um body. Ela renderiza, faz cache e dispara automaticamente como o <code>get</code>, mas envia um body como o <code>post</code>. Use quando uma busca ou filtro for complexo demais para uma query string na URL, mas ainda for uma leitura, não uma mutação. Nenhum token CSRF é injetado, já que QUERY é um método seguro.",
+        "formTitle": "Query via Formulário",
+        "cacheNote": "Quando em cache, a chave de cache inclui o body da requisição — então duas requisições QUERY para a mesma URL com bodies diferentes são armazenadas separadamente. A paginação (get-cursor / get-page / get-insert) continua exclusiva do GET."
       },
       "liveDemo": {
         "title": "Demo ao Vivo — Fetch de API",

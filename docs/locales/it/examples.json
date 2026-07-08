@@ -53,6 +53,11 @@
       "name": "Lista Carica Altro",
       "desc": "Pagina i risultati API con <code>get-trigger</code>, <code>get-page</code> e <code>get-insert</code>. Aggiungi nuovi elementi al clic."
     },
+    "query": {
+      "badge": "HTTP / QUERY",
+      "name": "Ricerca con QUERY",
+      "desc": "Invia filtri di ricerca complessi con <code>query</code> — una lettura HTTP sicura e cacheable che trasporta un body di richiesta (RFC 10008). I campi del modulo diventano il body e i risultati si renderizzano in modo reattivo; nessun token CSRF viene aggiunto."
+    },
     "router": {
       "badge": "SPA",
       "name": "Router Base",

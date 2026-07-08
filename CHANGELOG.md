@@ -7,14 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.18.0...HEAD)
 
-## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.18.0) — 2026-07-08
+## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.17.0...v1.18.0) — 2026-07-08
 
 Directive Incompatibility Remediation — resolves 18 compatibility findings discovered during the NOJS-244 audit, adds directive gating semantics, and documents all known directive interactions.
 
 ### Fixed
 
 - fix(router): normalize trailing slashes — `/about/` and `/about` now resolve to the same route, preventing duplicate route matches and inconsistent URL state
-
 - fix(directives): ancestor watcher race — watchers on ancestor elements now correctly observe state changes made by child directives during the same processing pass (finding 1)
 - fix(directives): `bind`/`model`/`event` + `if` gate — `bind`, `model`, and `on:*` directives now skip initialization while the element's `if` condition is falsy, preventing flicker and stale bindings on gated elements (finding 2, 15)
 - fix(directives): state clobber on `use` — `state` directive no longer overwrites context values that were already set by a `use` template stamp (finding 3)
@@ -53,6 +52,15 @@ Directive Incompatibility Remediation — resolves 18 compatibility findings dis
 
 - **If-gate semantics**: elements with `if` + other directives now gate those directives. This is backward-compatible for well-formed usage but may affect edge cases where directives relied on initializing while `if` was falsy.
 - **`use` priority 9**: `use` always stamps before `if` snapshots. Both changes are backward-compatible for well-formed usage but may affect edge cases relying on old ordering.
+
+## [1.17.0](https://github.com/no-js-dev/nojs/compare/v1.16.1...v1.17.0) — 2026-07-06
+
+### Added
+
+- feat(http): `query` directive — issues an HTTP **QUERY** request ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)), a safe, idempotent, cacheable read that carries a request body. Behaves like `get` for auto-firing, reactive re-fetch, rendering (`as`/`loading`/`error`/`empty`), and caching, but sends a body like `post` (via `body=` or, on a `<form>`, serialized fields).
+- feat(http): body-aware caching for `query` — the cache key incorporates the request body, so two QUERY requests to the same URL with different bodies are cached separately while identical URL + body hit the cache. GET cache keys are unchanged.
+- feat(http): `query-trigger`, `query-trigger-label`, and `query-threshold` companions — lazy-load triggers (`visible`/`scroll`/`hover`/`button`/`none`) for non-form `query` elements, mirroring the `get-trigger*` family.
+- feat(http): QUERY is treated as a safe method — no CSRF token is injected on QUERY requests. Pagination (`get-cursor`/`get-page`/`get-insert`) remains GET-only.
 
 ## [1.16.1](https://github.com/no-js-dev/nojs/compare/v1.16.0...v1.16.1) — 2026-07-03
 

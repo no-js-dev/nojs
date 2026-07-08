@@ -217,6 +217,76 @@ Used on forms or triggered via `call`.
 
 ---
 
+## `query` — Read Requests with a Body (RFC 10008)
+
+`query` issues an HTTP **QUERY** request — a safe, idempotent, cacheable read that carries a request body, standardized in [RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html). Use it when a search or filter is too complex for a URL query string but is still a *read*, not a mutation.
+
+```html
+<!-- A search whose criteria are too large for the URL -->
+<div query="/search"
+     body='{"filters": {"status": "active", "tags": ["a", "b"]}}'
+     as="results">
+  <div each="hit in results" template="hitCard"></div>
+</div>
+```
+
+QUERY behaves like `get` for rendering, caching, and triggers, but sends a body like `post`:
+
+| Behavior | Same as |
+|----------|---------|
+| Auto-fires on mount (non-form) and re-fetches when the URL/params change | `get` |
+| Renders into scope via `as`, supports `loading`/`error`/`empty` | `get` |
+| Cacheable via `cached` (the cache key includes the body) | `get` |
+| Sends a request body (`body`, or serialized form fields) | `post` |
+| On a `<form>`, intercepts submit and serializes fields | `post` |
+| **No CSRF token injected** — QUERY is a safe read | `get` |
+
+### Form-Driven Query
+
+On a `<form>`, `query` intercepts the submit and serializes the fields into the body — identical to `post`, but semantically a read:
+
+```html
+<form query="/products/search" success="#resultsTpl">
+  <input name="q" type="text" />
+  <select name="category">...</select>
+  <button type="submit">Search</button>
+</form>
+```
+
+### Triggers
+
+Non-form `query` elements support the same lazy-load triggers as `get`, using a `query-` prefix:
+
+| Attribute | Description |
+|-----------|-------------|
+| `query-trigger` | `visible` \| `scroll` \| `hover` \| `button` \| `none` — when to fire |
+| `query-trigger-label` | Button label when `query-trigger="button"` (default `"Load More"`) |
+| `query-threshold` | Root-margin threshold (px) for `visible`/`scroll` triggers |
+
+```html
+<div query="/reports/generate"
+     body='{"range": "2026-Q1"}'
+     query-trigger="button"
+     query-trigger-label="Run Report"
+     as="report">
+  ...
+</div>
+```
+
+### Body-Aware Caching
+
+Because two QUERY requests to the same URL can differ only by body, the cache key incorporates the body. Identical URL **and** body hit the cache; a different body is a cache miss:
+
+```html
+<div query="/search" body='{"q": "{term}"}' cached="memory" as="hits">...</div>
+```
+
+Call `el.refresh()` (or use `refresh=`) to re-issue the request after changing body-only state.
+
+> **Note:** Pagination (`get-cursor`, `get-page`, `get-insert`) remains **GET-only**. All other method-agnostic companions (`as`, `loading`, `error`, `empty`, `into`, `debounce`, `headers`, `params`, `skeleton`, `refresh`, `cached`) work with `query` unchanged.
+
+---
+
 ## Skeleton Placeholders (`skeleton=`)
 
 The `skeleton` attribute keeps a pre-rendered placeholder element visible while

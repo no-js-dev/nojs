@@ -66,6 +66,25 @@ test.describe('Fetch', () => {
         body: JSON.stringify({ name: 'User Two' })
       });
     });
+
+    // QUERY /api/search/:term — echoes a result named after the term
+    await page.route('**/api/search/**', (route) => {
+      const term = decodeURIComponent(route.request().url().split('/api/search/')[1] || '');
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ name: `hit:${term}` }])
+      });
+    });
+
+    // QUERY /api/search-form
+    await page.route('**/api/search-form', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ name: 'form-hit' }])
+      });
+    });
   });
 
   test('1 — GET renders user list', async ({ page }) => {
@@ -198,5 +217,45 @@ test.describe('Fetch', () => {
     await page.getByTestId('form-name').fill('Dave');
     await page.getByTestId('form-submit').click();
     await expect(page.getByTestId('post-result')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('7 — QUERY auto-fires with body and re-fetches reactively', async ({ page }) => {
+    let firstMethod: string | undefined;
+    let firstBody: string | undefined;
+    page.on('request', (req) => {
+      if (req.url().includes('/api/search/') && firstMethod === undefined) {
+        firstMethod = req.method();
+        firstBody = req.postData() ?? undefined;
+      }
+    });
+
+    await page.goto('/e2e/examples/fetch.html');
+
+    // Auto-fires on mount → renders the initial term's hit.
+    await expect(page.getByTestId('query-item')).toHaveText('hit:red', { timeout: 5000 });
+    expect(firstMethod).toBe('QUERY');
+    expect(firstBody).toBe('red');
+
+    // Reactive URL → re-fetches when the model changes.
+    await page.getByTestId('query-term').fill('blue');
+    await expect(page.getByTestId('query-item')).toHaveText('hit:blue', { timeout: 5000 });
+  });
+
+  test('8 — Form QUERY submits and renders result', async ({ page }) => {
+    let method: string | undefined;
+    let body: string | undefined;
+    page.on('request', (req) => {
+      if (req.url().endsWith('/api/search-form')) {
+        method = req.method();
+        body = req.postData() ?? undefined;
+      }
+    });
+
+    await page.goto('/e2e/examples/fetch.html');
+    await page.getByTestId('query-form-input').fill('shoes');
+    await page.getByTestId('query-form-submit').click();
+    await expect(page.getByTestId('query-form-result')).toBeVisible({ timeout: 5000 });
+    expect(method).toBe('QUERY');
+    expect(body).toContain('shoes');
   });
 });

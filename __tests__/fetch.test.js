@@ -112,6 +112,35 @@ describe('Fetch (_doFetch)', () => {
     expect(global.fetch.mock.calls[0][1].method).toBe('DELETE');
   });
 
+  test('makes QUERY request with body (RFC 10008)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ results: [] })),
+    });
+
+    const body = { filter: { role: 'admin' }, sort: 'name' };
+    await _doFetch('/api/search', 'query', body);
+
+    const call = global.fetch.mock.calls[0];
+    // "query" uppercases to the QUERY fetch method (no mapping needed)
+    expect(call[1].method).toBe('QUERY');
+    // QUERY carries a request body, like POST
+    expect(call[1].body).toBe(JSON.stringify(body));
+    expect(call[1].headers['Content-Type']).toBe('application/json');
+  });
+
+  test('does not include CSRF token for QUERY (safe read method)', async () => {
+    _config.csrf = { header: 'X-CSRF-Token', token: 'abc123' };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    await _doFetch('/api/search', 'query', { q: 'test' });
+    const headers = global.fetch.mock.calls[0][1].headers;
+    expect(headers['X-CSRF-Token']).toBeUndefined();
+  });
+
   test('returns plain text when JSON parsing fails', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

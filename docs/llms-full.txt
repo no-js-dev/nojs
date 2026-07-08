@@ -10,7 +10,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Core Guides
 
-- [Data Fetching](#data-fetching) — `get`, `post`, `put`, `patch`, `delete`, base URL, caching, pagination
+- [Data Fetching](#data-fetching) — `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008), base URL, caching, pagination
 - [Data Binding](#data-binding) — `bind`, `bind-html`, `bind-*`, `model`
 - [Conditionals](#conditionals) — `if`, `else-if`, `show`, `hide`, `switch`/`case`
 - [Loops](#loops) — `foreach` (primary), `each`/`for` (aliases), loop variables, nesting
@@ -117,7 +117,7 @@ Directives run in a defined order:
 | Priority | Directives | Description |
 |----------|-----------|-------------|
 | 0 | `state`, `store` | Initialize local/global state |
-| 1 | `get`, `post`, `put`, `patch`, `delete`, `error-boundary`, `i18n-ns`, `page-title`, `page-description`, `page-canonical`, `page-jsonld` | Fetch data, error boundaries, i18n namespace, head management |
+| 1 | `get`, `post`, `put`, `patch`, `delete`, `query`, `error-boundary`, `i18n-ns`, `page-title`, `page-description`, `page-canonical`, `page-jsonld` | Fetch data, error boundaries, i18n namespace, head management |
 | 2 | `computed`, `watch` | Derived values and side-effect watchers |
 | 5 | `ref` | Element references |
 | 10 | `if`, `switch`, `foreach`, `each`, `for`, `use`, `drag-list` | Structural (add/remove DOM) |
@@ -373,6 +373,52 @@ Used on forms or triggered via `call`.
                     exec `then`  log to console
                     `redirect`
 ```
+
+---
+
+## `query` — Read Requests with a Body (RFC 10008)
+
+`query` issues an HTTP **QUERY** request ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)) — a safe, idempotent, cacheable read that carries a request body. It behaves like `get` for auto-firing, reactive re-fetch, rendering (`as`/`loading`/`error`/`empty`), triggers, and caching, but sends a body like `post`. Use it when a search or filter is too complex for a URL query string but is still a *read*, not a *mutation*.
+
+```html
+<!-- Non-form: auto-fires on mount, re-fetches when the URL/params change -->
+<div query="/search"
+     body='{"filters": {"status": "active", "tags": ["a", "b"]}}'
+     as="results">
+  <div each="hit in results" template="hitCard"></div>
+</div>
+
+<!-- Form: intercepts submit and serializes fields into the body -->
+<form query="/products/search" success="#resultsTpl">
+  <input name="q" type="text" />
+  <button type="submit">Search</button>
+</form>
+```
+
+### Behavior
+
+| Behavior | Same as |
+|----------|---------|
+| Auto-fires on mount (non-form) and re-fetches when the URL/params change | `get` |
+| Renders into scope via `as`, supports `loading`/`error`/`empty` | `get` |
+| Cacheable via `cached` — the cache key includes the request body | `get` |
+| Sends a request body (`body`, or serialized form fields) | `post` |
+| On a `<form>`, intercepts submit and serializes fields | `post` |
+| **No CSRF token injected** — QUERY is a safe read | `get` |
+
+### Query Triggers
+
+Non-form `query` elements support the same lazy-load triggers as `get`, using a `query-` prefix:
+
+| Attribute | Description |
+|-----------|-------------|
+| `query-trigger` | `visible` \| `scroll` \| `hover` \| `button` \| `none` — when to fire |
+| `query-trigger-label` | Button label when `query-trigger="button"` (default `"Load More"`) |
+| `query-threshold` | Root-margin threshold (px) for `visible`/`scroll` triggers |
+
+### Body-Aware Caching
+
+Because two QUERY requests to the same URL can differ only by body, the cache key incorporates the body. Identical URL **and** body hit the cache; a different body is a cache miss. GET cache keys are unchanged. Pagination (`get-cursor`, `get-page`, `get-insert`) remains **GET-only**.
 
 ---
 

@@ -40,10 +40,10 @@ src/
 ## Build
 
 ```sh
-node build.js        # → dist/{iife,esm,cjs}/no.js (esbuild, minified + sourcemaps)
+node build.js        # → dist/iife/no.js (esbuild, minified + sourcemaps)
 ```
 
-Build target is ES2020. Three output formats: IIFE (`src/cdn.js`), ESM and CJS (`src/index.js`). Version must be updated in **both** `package.json:3` and `src/index.js:493`.
+Build target is ES2020. Single output format: IIFE (`src/cdn.js`). Version must be updated in **both** `package.json:3` and `src/index.js:493`.
 
 ## Testing
 

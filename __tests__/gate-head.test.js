@@ -232,7 +232,66 @@ describe('Gate Flags — page-title, page-description, page-canonical, page-json
       }
     });
 
-    test('9 — page-title re-activates on second flip-true', () => {
+    test('9 — page-canonical stops updating after flip-false', () => {
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('state', '{ show: false, slug: "first" }');
+      const el = document.createElement('div');
+      el.setAttribute('hidden', '');
+      el.setAttribute('if', 'show');
+      el.setAttribute('page-canonical', "'/products/' + slug");
+      wrapper.appendChild(el);
+      document.body.appendChild(wrapper);
+
+      processTree(wrapper);
+
+      // Activate
+      wrapper.__ctx.show = true;
+      const link = document.querySelector('link[rel="canonical"]');
+      expect(link).not.toBeNull();
+      expect(link.href).toContain('/products/first');
+
+      // Deactivate
+      wrapper.__ctx.show = false;
+
+      // Mutate while gated — canonical should not update
+      wrapper.__ctx.slug = 'second';
+      const linkAfter = document.querySelector('link[rel="canonical"]');
+      if (linkAfter) {
+        expect(linkAfter.href).not.toContain('/products/second');
+      }
+    });
+
+    test('10 — page-jsonld stops updating after flip-false', () => {
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('state', '{ show: false, name: "Alpha" }');
+      const el = document.createElement('div');
+      el.setAttribute('hidden', '');
+      el.setAttribute('if', 'show');
+      el.setAttribute('page-jsonld', '');
+      el.textContent = '{"@context":"https://schema.org","@type":"Product","name":"{name}"}';
+      wrapper.appendChild(el);
+      document.body.appendChild(wrapper);
+
+      processTree(wrapper);
+
+      // Activate
+      wrapper.__ctx.show = true;
+      const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+      expect(script).not.toBeNull();
+      expect(script.textContent).toContain('"Alpha"');
+
+      // Deactivate
+      wrapper.__ctx.show = false;
+
+      // Mutate while gated — JSON-LD should not update
+      wrapper.__ctx.name = 'Beta';
+      const scriptAfter = document.querySelector('script[type="application/ld+json"][data-nojs]');
+      if (scriptAfter) {
+        expect(scriptAfter.textContent).not.toContain('"Beta"');
+      }
+    });
+
+    test('11 — page-title re-activates on second flip-true', () => {
       const wrapper = document.createElement('div');
       wrapper.setAttribute('state', '{ show: false, name: "V1" }');
       const el = document.createElement('div');
@@ -258,7 +317,7 @@ describe('Gate Flags — page-title, page-description, page-canonical, page-json
       expect(document.title).toBe('V2');
     });
 
-    test('10 — initially-true if: page-title runs immediately', () => {
+    test('12 — initially-true if: page-title runs immediately', () => {
       const wrapper = document.createElement('div');
       wrapper.setAttribute('state', '{ show: true, name: "Immediate" }');
       const el = document.createElement('div');

@@ -440,23 +440,44 @@ const _loopHandler = {
       }
     }
 
+    // Fast path for keys of the form "<itemName>.<prop>" (the common case):
+    // read the property directly — no proxy context, no evaluator round-trip.
+    // Dunder props fall back to the evaluator so its prototype-safety rules
+    // stay authoritative.
+    let keyProp = null;
+    if (keyExpr) {
+      const km = keyExpr.match(/^(\w+)\.(\w+)$/);
+      if (km && km[1] === itemName && !["__proto__", "constructor", "prototype"].includes(km[2])) {
+        keyProp = km[2];
+      }
+    }
+
     // Key-based reconciliation — applied to the final (filtered, sorted,
     // sliced) list so keys always correspond to what is actually rendered.
     function reconcileItems(list, count) {
       // On first render clear any residual content so only managed nodes appear.
       if (keyMap.size === 0) _clearManagedClones(startMarker, endMarker);
 
-      // Reuse a single proxy context for key evaluation (same pattern as filter)
-      const keyData = { [itemName]: undefined, [indexName]: 0 };
-      const keyCtx = createContext(keyData, ctx);
-      const keyRaw = keyCtx.__raw;
-      const newOrder = list.map((item, i) => {
-        keyRaw[itemName] = item;
-        keyRaw[indexName] = i;
-        // Invalidate _collectKeys cache since we bypassed the proxy setter
-        delete keyRaw.__collectKeysCache;
-        return { key: evaluate(keyExpr, keyCtx), item, i };
-      });
+      let newOrder;
+      if (keyProp) {
+        newOrder = new Array(list.length);
+        for (let i = 0; i < list.length; i++) {
+          const item = list[i];
+          newOrder[i] = { key: item == null ? undefined : item[keyProp], item, i };
+        }
+      } else {
+        // Reuse a single proxy context for key evaluation (same pattern as filter)
+        const keyData = { [itemName]: undefined, [indexName]: 0 };
+        const keyCtx = createContext(keyData, ctx);
+        const keyRaw = keyCtx.__raw;
+        newOrder = list.map((item, i) => {
+          keyRaw[itemName] = item;
+          keyRaw[indexName] = i;
+          // Invalidate _collectKeys cache since we bypassed the proxy setter
+          delete keyRaw.__collectKeysCache;
+          return { key: evaluate(keyExpr, keyCtx), item, i };
+        });
+      }
 
       const nextKeySet = new Set(newOrder.map((e) => e.key));
 
@@ -474,32 +495,46 @@ const _loopHandler = {
       let frag = null;
       let added = null;
       newOrder.forEach(({ key, item, i }) => {
-        const childData = {
-          [itemName]: item,
-          [indexName]: i,
-          $index: i,
-          $count: count,
-          $first: i === 0,
-          $last: i === count - 1,
-          $even: i % 2 === 0,
-          $odd: i % 2 !== 0,
-        };
-
-        if (!keyMap.has(key)) {
-          const clone = _makeClone(childData);
+        const existing = keyMap.get(key);
+        if (!existing) {
+          const clone = _makeClone({
+            [itemName]: item,
+            [indexName]: i,
+            $index: i,
+            $count: count,
+            $first: i === 0,
+            $last: i === count - 1,
+            $even: i % 2 === 0,
+            $odd: i % 2 !== 0,
+          });
           keyMap.set(key, clone);
           if (!frag) { frag = document.createDocumentFragment(); added = []; }
           frag.appendChild(clone);
           added.push({ clone, i });
         } else {
-          const cloneRaw = keyMap.get(key).__ctx.__raw;
-          Object.assign(cloneRaw, childData);
-          // Invalidate _collectKeys cache since we bypassed the proxy setter
-          // (same pattern as the filter/key eval contexts above) — otherwise
-          // bindings can evaluate against stale cached vals when reconcile
-          // runs without an accompanying _ctxGeneration bump.
-          delete cloneRaw.__collectKeysCache;
-          keyMap.get(key).__ctx.$notify();
+          const cloneRaw = existing.__ctx.__raw;
+          // Skip the re-assign when nothing the context exposes changed:
+          // $first/$last/$even/$odd derive from index and count, so comparing
+          // the item ref, index, and count covers every field. The notify
+          // below still fires unconditionally — the item may have been
+          // mutated in place (the pinned mutate-and-slice pattern) — and
+          // binding value memos turn unchanged rows into zero DOM writes.
+          if (cloneRaw[itemName] !== item || cloneRaw[indexName] !== i || cloneRaw.$count !== count) {
+            cloneRaw[itemName] = item;
+            cloneRaw[indexName] = i;
+            cloneRaw.$index = i;
+            cloneRaw.$count = count;
+            cloneRaw.$first = i === 0;
+            cloneRaw.$last = i === count - 1;
+            cloneRaw.$even = i % 2 === 0;
+            cloneRaw.$odd = i % 2 !== 0;
+            // Invalidate _collectKeys cache since we bypassed the proxy setter
+            // (same pattern as the filter/key eval contexts above) — otherwise
+            // bindings can evaluate against stale cached vals when reconcile
+            // runs without an accompanying _ctxGeneration bump.
+            delete cloneRaw.__collectKeysCache;
+          }
+          existing.__ctx.$notify();
         }
       });
       if (frag) {

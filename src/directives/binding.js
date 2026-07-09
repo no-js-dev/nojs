@@ -12,9 +12,15 @@ registerDirective("bind", {
   gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
+    // Value memo: identical evaluation result = no DOM touch. Rows notified
+    // as a group (loop reconcile) re-evaluate cheaply instead of re-writing.
+    let last;
     function update() {
       const val = evaluate(expr, ctx);
-      el.textContent = (val !== undefined && val !== null) ? String(val) : '';
+      const text = (val !== undefined && val !== null) ? String(val) : '';
+      if (text === last) return;
+      last = text;
+      el.textContent = text;
     }
     _watchExpr(expr, ctx, update);
     update();
@@ -33,11 +39,17 @@ registerDirective("bind-html", {
         el
       );
     }
+    // Memo on the raw string: skips disposal + sanitization + innerHTML when
+    // the evaluated markup is unchanged (sanitize is the expensive part).
+    let last;
     function update() {
       const val = evaluate(expr, ctx);
       if (val != null) {
+        const html = String(val);
+        if (html === last) return;
+        last = html;
         _disposeChildren(el);
-        el.innerHTML = _sanitizeHtml(String(val));
+        el.innerHTML = _sanitizeHtml(html);
       }
     }
     _watchExpr(expr, ctx, update);
@@ -123,6 +135,10 @@ function _sanitizeAttrValue(attrName, value) {
   return value;
 }
 
+const _BOOL_ATTRS = new Set([
+  "disabled", "readonly", "checked", "selected", "hidden", "required",
+]);
+
 registerDirective("bind-*", {
   priority: 20,
   init(el, name, expr) {
@@ -154,25 +170,25 @@ registerDirective("bind-*", {
       _onDispose(() => el.removeEventListener("input", inputHandler));
     }
 
+    // Value memo: attrName is fixed per instance, so `last` only ever holds
+    // one branch's shape (boolean for boolean attrs, string|null otherwise).
+    let last;
     function update() {
       const val = evaluate(expr, ctx);
       // Boolean attributes
-      if (
-        [
-          "disabled",
-          "readonly",
-          "checked",
-          "selected",
-          "hidden",
-          "required",
-        ].includes(attrName)
-      ) {
-        if (val) el.setAttribute(attrName, "");
+      if (_BOOL_ATTRS.has(attrName)) {
+        const on = !!val;
+        if (on === last) return;
+        last = on;
+        if (on) el.setAttribute(attrName, "");
         else el.removeAttribute(attrName);
-        if (attrName in el) el[attrName] = !!val;
+        if (attrName in el) el[attrName] = on;
         return;
       }
-      if (val != null) el.setAttribute(attrName, String(_sanitizeAttrValue(attrName, val)));
+      const str = val != null ? String(_sanitizeAttrValue(attrName, val)) : null;
+      if (str === last) return;
+      last = str;
+      if (str != null) el.setAttribute(attrName, str);
       else el.removeAttribute(attrName);
     }
     _watchExpr(expr, ctx, update);

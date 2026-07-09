@@ -70,6 +70,8 @@ The reconcile currently re-assigns every item context and lets bindings re-evalu
 
 *Tests: extend `reactive-perf-fixes.test.js` — in-place mutation + slice still updates (THE pinned benchmark pattern), ref-changed items re-render, index-binding loops still update on reorder, eval-count spy assertions (unchanged rows: 0 DOM writes). e2e: loops, drag-drop (reorder-sensitive), pagination.*
 
+**RESULT (2026-07-09, headed A/B vs WS1, idle machine):** Partial update 83.4→40.0 (2.08x), Swap 86.9→41.4 (2.10x), Remove 46.6→25.1 (1.86x), Select 29.2→21.7 (1.35x), Append 63.1→47.6 (1.33x bonus — memo absorbs the prefix `$count` re-notify); create paths and memory flat, zero CPU regressions, +0.2 KB gzip. Landed: value memos (bind/bind-html/bind-*/class-{name}/style-{prop}), keyed-reconcile skip-assign (notify still fires — pinned mutate+slice semantics kept), and an `item.prop` key fast path (no proxy/evaluator round-trip; dunder props fall back). The **index-free reorder fast path was rejected**: skipping row-keyed watchers on position-only changes breaks in-place mutation combined with reorder; memos already make those re-evals zero-DOM-write. Remaining gap to the table above is eval volume — WS3. Tests landed in `__tests__/skip-unchanged.test.js` (13 cases).
+
 ### WS3 — Expression evaluator: interpreted → precompiled closures (CSP-safe)
 
 The remaining eval fan-out (1000 `row.id === sel` on select; 1000 label memo-evals on partial update) is bounded by interpreter speed. Compile the AST **once** into a tree of plain JS closures (no eval — closure composition is CSP-safe):

@@ -74,6 +74,35 @@ export function _isLoopElement(el) {
   return el.hasAttribute("from") && /^\w+$/.test(v);
 }
 
+// Longest increasing subsequence over the non-negative values of `arr`.
+// Returns a Set of arr-indices that belong to the LIS. Entries with value
+// -1 (newly created nodes) are never part of the subsequence. O(n log n)
+// patience sorting with predecessor links.
+function _lisIndices(arr) {
+  const tails = []; // arr-indices of the smallest tail for each LIS length
+  const prev = new Array(arr.length).fill(-1);
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (v < 0) continue;
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (arr[tails[mid]] < v) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const result = new Set();
+  let k = tails.length ? tails[tails.length - 1] : -1;
+  while (k !== -1) {
+    result.add(k);
+    k = prev[k];
+  }
+  return result;
+}
+
 // Applies enter animation to a clone element.
 function _applyEnterAnim(clone, animEnter, stagger, i) {
   if (!animEnter) return;
@@ -423,24 +452,38 @@ const _loopHandler = {
           processTree(clone);
           _applyEnterAnim(clone, animEnter, stagger, i);
         } else {
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
+          const cloneRaw = keyMap.get(key).__ctx.__raw;
+          Object.assign(cloneRaw, childData);
+          // Invalidate _collectKeys cache since we bypassed the proxy setter
+          // (same pattern as the filter/key eval contexts above) — otherwise
+          // bindings can evaluate against stale cached vals when reconcile
+          // runs without an accompanying _ctxGeneration bump.
+          delete cloneRaw.__collectKeysCache;
           keyMap.get(key).__ctx.$notify();
         }
       });
 
       // Reorder: ensure DOM order matches the new list order.
-      // Work with a mutable snapshot so moves are tracked correctly.
+      // Nodes on the longest increasing subsequence of old positions stay
+      // put; only out-of-place nodes are moved. A swap of two rows costs two
+      // insertBefore calls instead of cascading a move for every row after
+      // the first mismatch.
       const managedClones = _getManagedClones(startMarker, endMarker);
+      const oldPos = new Map();
+      for (let i = 0; i < managedClones.length; i++) oldPos.set(managedClones[i], i);
+      const oldIndices = new Array(newOrder.length);
       for (let i = 0; i < newOrder.length; i++) {
-        const itemNode = keyMap.get(newOrder[i].key);
-        if (itemNode !== managedClones[i]) {
-          parent.insertBefore(itemNode, managedClones[i] ?? endMarker);
-          // Refresh the snapshot after a move so subsequent comparisons
-          // reference the current DOM order, not the stale snapshot.
-          const fromIdx = managedClones.indexOf(itemNode);
-          if (fromIdx !== -1) managedClones.splice(fromIdx, 1);
-          managedClones.splice(i, 0, itemNode);
+        const node = keyMap.get(newOrder[i].key);
+        oldIndices[i] = oldPos.has(node) ? oldPos.get(node) : -1;
+      }
+      const keep = _lisIndices(oldIndices);
+      let anchor = endMarker;
+      for (let i = newOrder.length - 1; i >= 0; i--) {
+        const node = keyMap.get(newOrder[i].key);
+        if (!keep.has(i) && node.nextSibling !== anchor) {
+          parent.insertBefore(node, anchor);
         }
+        anchor = node;
       }
     }
 

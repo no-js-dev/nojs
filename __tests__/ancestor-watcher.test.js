@@ -254,19 +254,26 @@ describe('Ancestor-chain watcher registration (NOJS-246)', () => {
     _watchExpr('x', child, fn);
     _setCurrentEl(null);
 
-    // Mutating grandparent should fire fn
+    // fn is registered on the whole chain…
+    expect(grandparent.__listeners.has(fn)).toBe(true);
+    expect(parent.__listeners.has(fn)).toBe(true);
+    expect(child.__listeners.has(fn)).toBe(true);
+
+    // …so mutating the ancestor that owns the watched key fires fn.
     fn.mockClear();
     grandparent.x = 10;
     expect(fn).toHaveBeenCalled();
 
-    // Mutating parent should also fire fn
+    // Key-scoped watchers: 'x' cannot depend on y or z, so those writes
+    // are skipped even though fn is registered on their contexts.
     fn.mockClear();
     parent.y = 20;
-    expect(fn).toHaveBeenCalled();
-
-    // Mutating child should also fire fn
-    fn.mockClear();
     child.z = 30;
+    expect(fn).not.toHaveBeenCalled();
+
+    // A keyless $notify still fires everything, keyed or not.
+    fn.mockClear();
+    parent.$notify();
     expect(fn).toHaveBeenCalled();
   });
 

@@ -184,7 +184,29 @@ export function _watchI18n(fn) {
   return () => _i18nListeners.delete(fn);
 }
 
+// Root-key extractor, injected by evaluate.js at load time (avoids a
+// globals ↔ evaluate import cycle). Returns Set<string> | null.
+let _exprRootKeysFn = null;
+export function _setExprRootKeysFn(f) { _exprRootKeysFn = f; }
+
 export function _watchExpr(expr, ctx, fn) {
+  // Key-scope the watcher: notify(key) skips fn when the changed key cannot
+  // appear in the expression. null roots (calls, filters, $-specials, parse
+  // failure) lock fn to unkeyed — it fires on every notification, exactly
+  // the pre-scoping behavior. A fn watched under several exprs unions their
+  // roots; one ambiguous expr makes it permanently unkeyed.
+  if (_exprRootKeysFn && !fn._unkeyed) {
+    const roots = _exprRootKeysFn(expr);
+    if (roots === null) {
+      fn._unkeyed = true;
+      fn._keys = undefined;
+    } else if (fn._keys) {
+      for (const k of roots) fn._keys.add(k);
+    } else {
+      fn._keys = roots;
+    }
+  }
+
   const unwatch = ctx.$watch(fn);
 
   // Walk the ancestor chain: register fn on every parent context so that

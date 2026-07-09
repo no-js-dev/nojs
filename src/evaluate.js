@@ -1970,6 +1970,39 @@ function _stmtRootKeys(expr) {
   return roots;
 }
 
+// True when a statement mentions a $-root that no registry notify covers:
+// plugin globals ($demo…), $refs, $router. $store/$route/$i18n have their
+// own watcher registries; $event/$el are per-invocation locals. Writes
+// through these roots mutate proxies that live OUTSIDE the context chain,
+// so _execStatement's per-key write-back can never see them — they need an
+// explicit keyless wake. Memoized per statement string.
+const _stmtGlobalRootCache = new Map();
+function _stmtHasGlobalRoot(expr) {
+  let hit = _stmtGlobalRootCache.get(expr);
+  if (hit !== undefined) return hit;
+  hit = false;
+  try {
+    const tokens = _tokenize(expr);
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type !== "Ident" || t.value.charCodeAt(0) !== 36 /* $ */) continue;
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      if (t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n" &&
+          t.value !== "$event" && t.value !== "$el") {
+        hit = true;
+        break;
+      }
+    }
+  } catch {
+    // Unparseable statements throw again in _parseStatements before any
+    // write happens — no wake needed.
+  }
+  if (_stmtGlobalRootCache.size >= _ROOT_KEYS_CACHE_MAX) _stmtGlobalRootCache.clear();
+  _stmtGlobalRootCache.set(expr, hit);
+  return hit;
+}
+
 export function evaluate(expr, ctx) {
   if (expr == null || expr === "") return undefined;
   try {
@@ -2133,6 +2166,24 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // Notify global store watchers when expression touches $store
     if (typeof expr === "string" && expr.includes("$store")) {
       _notifyStoreWatchers(_extractStoreName(expr));
+    }
+
+    // Statement wrote through a registry-less $-root (plugin global, $refs):
+    // the mutated proxy lives outside the context chain, so the per-key
+    // write-back above cannot observe it. Wake watchers with a keyless
+    // notify up the chain — the batch queue is a Set, so a listener
+    // registered on several ancestors still runs once. Historically this
+    // wake happened by ACCIDENT: the interpreted evaluate() planted a
+    // __collectKeysCache own key on the context, and the in-place-mutation
+    // safety net above notified it on every statement. The compiled
+    // evaluate() plants no such key, so the wake must be explicit
+    // (plugin-system e2e 2).
+    if (typeof expr === "string" && _stmtHasGlobalRoot(expr)) {
+      let c = ctx;
+      while (c && c.__isProxy) {
+        c.$notify();
+        c = c.$parent;
+      }
     }
   } catch (e) {
     _warn("Expression error:", expr, e.message);

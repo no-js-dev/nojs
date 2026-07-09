@@ -11,7 +11,7 @@
 import { _stores, _storeWatchers, _globals, _watchExpr } from '../src/globals.js';
 import { processTree, registerDirective } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
-import { createContext } from '../src/context.js';
+import { createContext, _collectKeys } from '../src/context.js';
 import { _execStatement } from '../src/evaluate.js';
 
 import '../src/directives/state.js';
@@ -45,9 +45,11 @@ describe('Stage 1 — keyed reconcile clone cache invalidation', () => {
     let clones = getManagedClones(host);
     expect(clones.map((c) => c.textContent)).toEqual(['old-A', 'old-B']);
 
-    // Warm each clone's _collectKeys cache at the CURRENT generation by
-    // touching a binding evaluation (already done during render above, but
-    // re-assert the cache exists to make the setup explicit).
+    // Warm each clone's _collectKeys cache at the CURRENT generation.
+    // Compiled expression bindings no longer read this cache (they resolve
+    // the raw context chain directly), but statements (_execStatement) still
+    // do — reconcile must keep invalidating it after raw writes.
+    _collectKeys(clones[0].__ctx);
     expect(clones[0].__ctx.__raw.__collectKeysCache).toBeDefined();
 
     // Replace the array via a raw write + manual $notify — no proxy set,

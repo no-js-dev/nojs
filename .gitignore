@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Benchmark artifacts / reports
+.github/benchmark-results/
+__benchmarks__/
+
 # OS files
 .DS_Store
 Thumbs.db

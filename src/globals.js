@@ -201,37 +201,63 @@ export function _watchExpr(expr, ctx, fn) {
       fn._unkeyed = true;
       fn._keys = undefined;
     } else if (fn._keys) {
+      // Union branch mutates — a fn still holding the shared memoized Set
+      // must take a private copy first (copy-on-write) so every other
+      // watcher of the same expression keeps its clean shared Set.
+      if (fn._keysShared) {
+        fn._keys = new Set(fn._keys);
+        fn._keysShared = false;
+      }
       for (const k of roots) fn._keys.add(k);
     } else {
-      // roots is a shared memoized Set — copy before the union branch above
-      // can mutate it for a fn watched under several expressions.
-      fn._keys = new Set(roots);
+      // roots is the shared memoized Set from evaluate.js — adopt it
+      // directly instead of copying. The common case (one expression per
+      // watcher, i.e. every loop-row binding) then shares one Set across
+      // all rows; the union branch above copies lazily if a second
+      // expression ever lands on this fn.
+      fn._keys = roots;
+      fn._keysShared = true;
     }
   }
 
-  const unwatch = ctx.$watch(fn);
-
-  // Walk the ancestor chain: register fn on every parent context so that
-  // changes to inherited variables (e.g. outer state modified from an outer
-  // button) fire fn even when ctx is a nested child context.  This generalises
-  // the per-directive ancestor-walk proven in http.js and fixes the
-  // nested-state one-behind / dead-reactivity gap (audit finding 1).
-  // Set.add is a no-op for duplicates, so the same fn registered twice on
-  // the same context (e.g. via two _watchExpr calls) is harmless.
-  const ancestorUnwatches = [];
-  let ancestor = ctx.$parent;
-  while (ancestor && ancestor.__isProxy) {
-    ancestorUnwatches.push(ancestor.$watch(fn));
-    ancestor = ancestor.$parent;
+  // Register fn on ctx and every parent context so that changes to inherited
+  // variables (e.g. outer state modified from an outer button) fire fn even
+  // when ctx is a nested child context. This generalises the per-directive
+  // ancestor-walk proven in http.js and fixes the nested-state one-behind /
+  // dead-reactivity gap (audit finding 1). Set.add is a no-op for duplicates,
+  // so the same fn registered twice on the same context is harmless.
+  //
+  // Registration goes through __listeners directly instead of $watch: the
+  // per-registration unwatch closures $watch returns (one per chain level per
+  // watcher) dominated per-row watcher memory; a single dispose closure that
+  // re-walks the same chain replaces them all.
+  if (_currentEl) fn._el = _currentEl;
+  let c = ctx;
+  while (c && c.__isProxy) {
+    c.__listeners.add(fn);
+    c = c.$parent;
   }
 
-  _onDispose(() => {
-    unwatch();
-    for (let i = 0; i < ancestorUnwatches.length; i++) ancestorUnwatches[i]();
-    _deleteStoreWatcher(fn);
-    _deleteRouteWatcher(fn);
-    _i18nListeners.delete(fn);
-  });
+  // Cleanup: registry's _disposeElement walks fn._wctx's chain deleting fn
+  // (plus the store/route/i18n registries) for every fn in el.__watcherFns —
+  // pure data instead of one dispose closure per watcher. Gated elements
+  // still need a real disposer: gate deactivation runs __gateDisposers, not
+  // element disposal.
+  if (_currentEl && !_currentEl.__gatedDirs) {
+    fn._wctx = ctx;
+    (_currentEl.__watcherFns || (_currentEl.__watcherFns = [])).push(fn);
+  } else {
+    _onDispose(() => {
+      let d = ctx;
+      while (d && d.__isProxy) {
+        d.__listeners.delete(fn);
+        d = d.$parent;
+      }
+      _deleteStoreWatcher(fn);
+      _deleteRouteWatcher(fn);
+      _i18nListeners.delete(fn);
+    });
+  }
   if (typeof expr === "string" && expr.includes("$store")) {
     const partition = _extractStoreName(expr) || "*";
     _addStoreWatcher(fn, partition);

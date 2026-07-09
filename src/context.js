@@ -60,147 +60,184 @@ export function _endBatch() {
   }
 }
 
+// Per-context bookkeeping lives in one meta record behind a Symbol key on the
+// raw object (invisible to Object.keys / _collectKeys). Everything a context
+// used to close over per instance — parent link, listeners Set, $watch/$set/
+// $notify closures — is either stored here or created lazily on first access,
+// so a context that is only ever read (the common loop-row case before its
+// bindings attach) costs raw + meta + Proxy and nothing else.
+const META = Symbol("no.js");
+
+// `key` is the changed property when the notification comes from a single
+// write (set trap / $set); undefined for manual $notify() and bulk changes,
+// which fire every listener. Key-scoped listeners (fn._keys, assigned in
+// _watchExpr) are skipped when the changed key cannot affect them.
+//
+// Every notify runs through the batch queue: outside an explicit batch it
+// opens its own, so listeners always execute from _endBatch's drain. A
+// notify fired by a running listener (e.g. computed's $set cascading into
+// a watch) queues for the next drain round instead of recursing — or being
+// dropped, as the old reentrancy guard did. Still fully synchronous: the
+// drain completes before the outermost notify/set returns.
+function _notifyMeta(meta, key) {
+  const listeners = meta.listeners;
+  if (!listeners || listeners.size === 0) return;
+  const ownBatch = _batchDepth === 0;
+  if (ownBatch) _startBatch();
+  for (const fn of listeners) {
+    if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
+    if (key !== undefined && fn._keys && !fn._keys.has(key)) continue;
+    _batchQueue.add(fn);
+  }
+  if (ownBatch) _endBatch();
+}
+
+// One handler object shared by every context Proxy. The old per-context
+// handler literal carried three trap closures per instance; here the traps
+// reach per-context state through target[META] instead.
+const _sharedHandler = {
+  get(target, key) {
+    // Fast path: non-string keys (Symbols) go straight to target
+    if (typeof key !== "string") return target[key];
+
+    const c0 = key.charCodeAt(0);
+
+    // Fast path: keys not starting with '$' (36) or '_' (95) are user properties.
+    // Skip all special-key checks entirely.
+    if (c0 !== 36 /* $ */ && c0 !== 95 /* _ */) {
+      if (key in target) return target[key];
+      const parent = target[META].parent;
+      if (parent && parent.__isProxy) return parent[key];
+      return undefined;
+    }
+
+    // Dunder keys (__isProxy, __raw, __listeners)
+    if (c0 === 95) {
+      if (key === "__isProxy") return true;
+      if (key === "__raw") return target;
+      if (key === "__listeners") {
+        // Materialize on access: devtools counting and disposal clearing see
+        // the same always-a-Set shape the eager version provided.
+        const meta = target[META];
+        return meta.listeners || (meta.listeners = new Set());
+      }
+      // Fall through to target/parent lookup for other _ keys
+      if (key in target) return target[key];
+      const parentU = target[META].parent;
+      if (parentU && parentU.__isProxy) return parentU[key];
+      return undefined;
+    }
+
+    // $ prefix: dispatch core context keys via switch for O(1) branching.
+    // The $watch/$notify/$set closures are created on first access and cached
+    // on meta — stable identity, zero cost for contexts that never use them.
+    switch (key) {
+      case "$watch": {
+        const meta = target[META];
+        return meta.watchFn || (meta.watchFn = (fn) => {
+          if (_currentEl) fn._el = _currentEl;
+          (meta.listeners || (meta.listeners = new Set())).add(fn);
+          return () => { if (meta.listeners) meta.listeners.delete(fn); };
+        });
+      }
+      case "$notify": {
+        const meta = target[META];
+        return meta.notifyFn || (meta.notifyFn = (k) => _notifyMeta(meta, k));
+      }
+      case "$set": {
+        const meta = target[META];
+        return meta.setFn || (meta.setFn = (k, v) => {
+          const parts = k.split(".");
+          if (parts.some(p => _FORBIDDEN_CTX_KEYS.has(p))) return;
+          if (parts.length === 1) {
+            meta.proxy[k] = v;
+          } else {
+            let obj = meta.proxy;
+            for (let i = 0; i < parts.length - 1; i++) {
+              obj = obj[parts[i]];
+              if (obj == null) return;
+            }
+            const lastKey = parts[parts.length - 1];
+            const old = obj[lastKey];
+            obj[lastKey] = v;
+            if (old !== v) {
+              // Bump the generation so _collectKeys' cache invalidates, mirroring the
+              // set trap. Otherwise a nested $set leaves stale vals cached.
+              _ctxGeneration++;
+              _notifyMeta(meta, parts[0]);
+            }
+          }
+        });
+      }
+      case "$parent": return target[META].parent;
+      case "$refs":   return _refs;
+      case "$store":  return _stores;
+      case "$route":  return _routerInstance ? _routerInstance.current : {};
+      case "$router": return _routerInstance;
+      case "$i18n":   return _i18nProxy;
+      case "$form":   return target.$form || null;
+    }
+
+    // Plugin globals fallback (after all core $ checks)
+    const globalKey = key.slice(1);
+    if (globalKey in _globals) return _globals[globalKey];
+
+    // Target / parent chain lookup
+    if (key in target) return target[key];
+    const parent = target[META].parent;
+    if (parent && parent.__isProxy) return parent[key];
+    return undefined;
+  },
+  set(target, key, value) {
+    if (typeof key === "string" && _FORBIDDEN_CTX_KEYS.has(key)) return true;
+    const old = target[key];
+    target[key] = value;
+    if (old !== value) {
+      _ctxGeneration++;
+      _notifyMeta(target[META], typeof key === "string" ? key : undefined);
+      if (_config.devtools) {
+        let isSensitive = false;
+        if (typeof key === "string") {
+          const lk = key.toLowerCase();
+          for (const s of _SENSITIVE_KEYS) {
+            if (lk.includes(s)) { isSensitive = true; break; }
+          }
+        }
+        _devtoolsEmit("ctx:updated", {
+          id: target.__devtoolsId,
+          key,
+          oldValue: isSensitive ? "[REDACTED]" : old,
+          newValue: isSensitive ? "[REDACTED]" : value,
+        });
+      }
+    }
+    return true;
+  },
+  has(target, key) {
+    if (key in target) return true;
+    if (typeof key === "string" && key.startsWith("$") && key.slice(1) in _globals) return true;
+    const parent = target[META].parent;
+    if (parent && parent.__isProxy) return key in parent;
+    return false;
+  },
+};
+
 export function createContext(data = {}, parent = null) {
-  const listeners = new Set();
   const raw = {};
   Object.assign(raw, data);
   if (_config.devtools) raw.__devtoolsId = ++_ctxId;
 
-  // `key` is the changed property when the notification comes from a single
-  // write (set trap / $set); undefined for manual $notify() and bulk changes,
-  // which fire every listener. Key-scoped listeners (fn._keys, assigned in
-  // _watchExpr) are skipped when the changed key cannot affect them.
-  //
-  // Every notify runs through the batch queue: outside an explicit batch it
-  // opens its own, so listeners always execute from _endBatch's drain. A
-  // notify fired by a running listener (e.g. computed's $set cascading into
-  // a watch) queues for the next drain round instead of recursing — or being
-  // dropped, as the old reentrancy guard did. Still fully synchronous: the
-  // drain completes before the outermost notify/set returns.
-  function notify(key) {
-    const ownBatch = _batchDepth === 0;
-    if (ownBatch) _startBatch();
-    for (const fn of listeners) {
-      if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
-      if (key !== undefined && fn._keys && !fn._keys.has(key)) continue;
-      _batchQueue.add(fn);
-    }
-    if (ownBatch) _endBatch();
-  }
-
-  // Pre-build $set closure outside the handler for reuse across all get() calls
-  const $setFn = (k, v) => {
-    const parts = k.split(".");
-    if (parts.some(p => _FORBIDDEN_CTX_KEYS.has(p))) return;
-    if (parts.length === 1) {
-      proxy[k] = v;
-    } else {
-      let obj = proxy;
-      for (let i = 0; i < parts.length - 1; i++) {
-        obj = obj[parts[i]];
-        if (obj == null) return;
-      }
-      const lastKey = parts[parts.length - 1];
-      const old = obj[lastKey];
-      obj[lastKey] = v;
-      if (old !== v) {
-        // Bump the generation so _collectKeys' cache invalidates, mirroring the
-        // set trap. Otherwise a nested $set leaves stale vals cached.
-        _ctxGeneration++;
-        notify(parts[0]);
-      }
-    }
+  const meta = {
+    parent,
+    proxy: null,
+    listeners: null,
+    watchFn: null,
+    notifyFn: null,
+    setFn: null,
   };
-
-  const $watchFn = (fn) => {
-    if (_currentEl) fn._el = _currentEl;
-    listeners.add(fn);
-    return () => listeners.delete(fn);
-  };
-
-  const handler = {
-    get(target, key) {
-      // Fast path: non-string keys (Symbols) go straight to target
-      if (typeof key !== "string") return target[key];
-
-      const c0 = key.charCodeAt(0);
-
-      // Fast path: keys not starting with '$' (36) or '_' (95) are user properties.
-      // Skip all special-key checks entirely.
-      if (c0 !== 36 /* $ */ && c0 !== 95 /* _ */) {
-        if (key in target) return target[key];
-        if (parent && parent.__isProxy) return parent[key];
-        return undefined;
-      }
-
-      // Dunder keys (__isProxy, __raw, __listeners)
-      if (c0 === 95) {
-        if (key === "__isProxy") return true;
-        if (key === "__raw") return target;
-        if (key === "__listeners") return listeners;
-        // Fall through to target/parent lookup for other _ keys
-        if (key in target) return target[key];
-        if (parent && parent.__isProxy) return parent[key];
-        return undefined;
-      }
-
-      // $ prefix: dispatch core context keys via switch for O(1) branching
-      switch (key) {
-        case "$watch":  return $watchFn;
-        case "$notify": return notify;
-        case "$set":    return $setFn;
-        case "$parent": return parent;
-        case "$refs":   return _refs;
-        case "$store":  return _stores;
-        case "$route":  return _routerInstance ? _routerInstance.current : {};
-        case "$router": return _routerInstance;
-        case "$i18n":   return _i18nProxy;
-        case "$form":   return target.$form || null;
-      }
-
-      // Plugin globals fallback (after all core $ checks)
-      const globalKey = key.slice(1);
-      if (globalKey in _globals) return _globals[globalKey];
-
-      // Target / parent chain lookup
-      if (key in target) return target[key];
-      if (parent && parent.__isProxy) return parent[key];
-      return undefined;
-    },
-    set(target, key, value) {
-      if (typeof key === "string" && _FORBIDDEN_CTX_KEYS.has(key)) return true;
-      const old = target[key];
-      target[key] = value;
-      if (old !== value) {
-        _ctxGeneration++;
-        notify(typeof key === "string" ? key : undefined);
-        if (_config.devtools) {
-          let isSensitive = false;
-          if (typeof key === "string") {
-            const lk = key.toLowerCase();
-            for (const s of _SENSITIVE_KEYS) {
-              if (lk.includes(s)) { isSensitive = true; break; }
-            }
-          }
-          _devtoolsEmit("ctx:updated", {
-            id: target.__devtoolsId,
-            key,
-            oldValue: isSensitive ? "[REDACTED]" : old,
-            newValue: isSensitive ? "[REDACTED]" : value,
-          });
-        }
-      }
-      return true;
-    },
-    has(target, key) {
-      if (key in target) return true;
-      if (typeof key === "string" && key.startsWith("$") && key.slice(1) in _globals) return true;
-      if (parent && parent.__isProxy) return key in parent;
-      return false;
-    },
-  };
-
-  const proxy = new Proxy(raw, handler);
+  raw[META] = meta;
+  const proxy = new Proxy(raw, _sharedHandler);
+  meta.proxy = proxy;
 
   if (_config.devtools && raw.__devtoolsId) {
     _ctxRegistry.set(raw.__devtoolsId, proxy);

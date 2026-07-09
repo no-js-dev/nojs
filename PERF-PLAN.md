@@ -126,6 +126,8 @@ The only way to beat Alpine's 14.7 KB is to stop shipping everything always:
 
 *Tests: plugin-split e2e matrix — each optional module loaded standalone + combinations; full build byte-diff test asserting identical public API; docs site runs on full build unchanged; new CI job builds and smoke-tests slim+router combo.*
 
+**DEFERRED (2026-07-09):** Floor measurement — a bundle of *only* core reactivity + core directives (evaluate/dom/registry/context/globals/filters + state/binding/conditionals/loops/styling/events/refs) is **25.5 KB gzip** (81,753 B minified). Alpine's ~14.7 KB is **unreachable**: `evaluate.js` alone is 27,890 B minified (~9 KB gzip), and it is the irreducible CSP-safe, no-`eval` expression parser — Alpine is smaller precisely because it evaluates expressions with `new Function`/`eval` (no CSP-safe parser to ship). A 25 KB slim would beat React (~45) and Vue (~35) on the size param but architecturally cannot beat Alpine. Per maintainer call, WS6 (the slim-split refactor) is **deferred** — the size param's #1 is an architectural ceiling, and the split's value (feeding WS7 first-paint) isn't required. Revisit only if first-paint work needs it. Module size map (minified, largest first): evaluate 27,890 · router 15,938 · http 11,993 · index 8,231 · dom 7,194 · animations 7,165 · loops 6,482 · devtools 4,975 · fetch 4,591 · conditionals 4,555 · registry 4,416.
+
 ### WS7 — First paint (187 → target < 76)
 
 - Slim bundle (WS6) cuts parse/compile time — largest single lever.
@@ -134,6 +136,10 @@ The only way to beat Alpine's 14.7 KB is to stop shipping everything always:
 - Expected: benchmark page first paint ~60–75.
 
 *Tests: e2e first-paint ordering pins (no FOUC, directives processed before visibility where required), existing 475 e2e as regression net, new lazy-init e2e fixture.*
+
+**FINDING (2026-07-09) — no independent lever; first paint is transfer-size-bound.** Profiling the real jfb `no-js` page (headed Chrome, CPU-throttled): NoJS top-level module-eval is **~3 ms** (V8 lazily compiles function bodies — bundle size barely affects eval), and `init()` → `processTree` is **~2 ms at 1× / ~8 ms at 4×** on the empty startup DOM. Init is already lean: styles inject lazily on first animation/VT use (`_injectBuiltInStyles` called from `_animateIn`/router, not at boot), no router/i18n/remote-template work when none are declared, and the empty-case `_loadRemoteTemplatesPhase1` awaits are microtask-only (drained within the first-paint task, no frame delay). So the plan's "init fast path / defer boots" levers would save **single-digit ms of an already-2 ms init** — nothing the benchmark can see.
+
+The jfb *first paint* metric tracks **gzip bundle size almost linearly** across all five frameworks (Alpine 14.7 KB → 76 ms · Vue 22.8 → 110 · NoJS 33.6 → 170 · Angular 45.1 → 194 · React 51.4 → 245), because the harness measures it under a simulated slow-network model where transfer time dominates. Confirmed directly: identical page, cache-disabled, **simulated 4G + 4× CPU**, FULL bundle (134 KB uncompressed) → FCP **992 ms** vs a core-only SLIM bundle (82 KB) → **740 ms** (−252 ms from −52 KB); at localhost bandwidth the same two are FCP-identical (80 ms). **First paint is therefore bounded by bundle size, whose only lever is WS6 (deferred).** And WS6's slim floor (25.5 KB gzip) maps to ~130 ms first paint — beats Angular/React, still behind Vue (110) and Alpine (76). Beating Alpine's 76 ms needs Alpine's 14.7 KB gzip, which the CSP-safe `evaluate.js` floor makes unreachable. **Root cause shared with WS6:** No.JS ships a no-`eval`, CSP-safe expression engine by design; that engine is the irreducible size floor, so the size and first-paint params have an architectural #1 ceiling. Not a bug — the framework's security identity. WS7 as a standalone optimization has no safe, measurable deliverable; deferred with WS6.
 
 ---
 

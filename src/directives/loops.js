@@ -9,7 +9,10 @@ import { createContext } from "../context.js";
 import { _watchExpr, _warn, _currentEl, _setCurrentEl } from "../globals.js";
 import { evaluate, resolve } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeTree } from "../registry.js";
+import {
+  registerDirective, processTree, _disposeTree,
+  _buildProcessPlan, _runProcessPlan,
+} from "../registry.js";
 
 // Directive and companion attribute names that must be stripped from clones
 // to prevent double-execution and re-initialization.
@@ -174,28 +177,46 @@ const _loopHandler = {
     // key → cloned element node.
     const keyMap = new Map();
 
-    // Creates a clone of `el` for one loop iteration. When a `template`
-    // attribute is set, the clone's children are replaced with the
-    // external template's content (the element tag wraps the template).
-    function _makeClone(childData) {
-      const clone = el.cloneNode(true);
+    // ── Master template + process plan ────────────────────────────────
+    // Every iteration clone shares one structure, so the expensive
+    // per-clone work is done once: attribute stripping and external
+    // template resolution happen on a cached master, and a process plan
+    // (directive matches + attribute values by child-index path) replaces
+    // the per-clone TreeWalker + attribute scans. The master is rebuilt
+    // when the external template element changes identity (e.g. appears
+    // after a remote template load).
+    let _master = null;
+    let _plan = null;
+    let _masterTplRef = null;
+
+    function _ensureMaster() {
+      const tplNow = tplId ? document.getElementById(tplId) : null;
+      if (_master && tplNow === _masterTplRef) return;
+      _masterTplRef = tplNow;
+      _master = el.cloneNode(true);
       // When `if` or `else-if` owns the `else` attr, keep it on clones
       // so the conditional directive can use it as its false-branch template.
-      _stripLoopAttrs(clone, !elseOwnedByIf);
-      // Reset __declared so processTree processes the clone fresh.
-      clone.__declared = false;
-
+      _stripLoopAttrs(_master, !elseOwnedByIf);
       // When template attribute is set, replace children with template content
-      if (tplId) {
-        const tplContent = document.getElementById(tplId)?.content.cloneNode(true);
-        if (tplContent) {
-          clone.innerHTML = "";
-          clone.appendChild(tplContent);
-        }
+      if (tplNow) {
+        _master.innerHTML = "";
+        _master.appendChild(tplNow.content.cloneNode(true));
       }
+      _plan = _buildProcessPlan(_master);
+    }
 
+    // Creates a clone for one loop iteration and pairs it with its item
+    // context. Directives are initialized later via _processClone — after
+    // the clone is inserted, matching processTree's connected-DOM timing.
+    function _makeClone(childData) {
+      _ensureMaster();
+      const clone = _master.cloneNode(true);
       clone.__ctx = createContext(childData, ctx);
       return clone;
+    }
+
+    function _processClone(clone) {
+      _runProcessPlan(clone, _plan);
     }
 
     function update() {
@@ -341,6 +362,8 @@ const _loopHandler = {
             childCtx.$notify();
           }
         }
+        const frag = document.createDocumentFragment();
+        const added = [];
         for (let i = oldLen; i < newLen; i++) {
           const childData = {
             [itemName]: list[i],
@@ -353,9 +376,15 @@ const _loopHandler = {
             $odd: i % 2 !== 0,
           };
           const clone = _makeClone(childData);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
+          frag.appendChild(clone);
+          added.push(clone);
+        }
+        // One DOM insertion for the whole delta, then init directives on
+        // connected clones (same timing processTree had).
+        parent.insertBefore(frag, endMarker);
+        for (let j = 0; j < added.length; j++) {
+          _processClone(added[j]);
+          _applyEnterAnim(added[j], animEnter, stagger, oldLen + j);
         }
         prevRendered = list.slice();
         return true;
@@ -364,9 +393,11 @@ const _loopHandler = {
       function renderItems() {
         const count = list.length;
         _clearManagedClones(startMarker, endMarker);
-        list.forEach((item, i) => {
+        const frag = document.createDocumentFragment();
+        const added = new Array(count);
+        for (let i = 0; i < count; i++) {
           const childData = {
-            [itemName]: item,
+            [itemName]: list[i],
             [indexName]: i,
             $index: i,
             $count: count,
@@ -376,10 +407,14 @@ const _loopHandler = {
             $odd: i % 2 !== 0,
           };
           const clone = _makeClone(childData);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
-        });
+          frag.appendChild(clone);
+          added[i] = clone;
+        }
+        parent.insertBefore(frag, endMarker);
+        for (let i = 0; i < count; i++) {
+          _processClone(added[i]);
+          _applyEnterAnim(added[i], animEnter, stagger, i);
+        }
         prevRendered = list.slice();
       }
 
@@ -433,6 +468,11 @@ const _loopHandler = {
         }
       }
 
+      // New clones collect into one fragment (single DOM insertion before
+      // the end marker — the reorder pass below puts them in place), then
+      // get their directives initialized while connected.
+      let frag = null;
+      let added = null;
       newOrder.forEach(({ key, item, i }) => {
         const childData = {
           [itemName]: item,
@@ -448,9 +488,9 @@ const _loopHandler = {
         if (!keyMap.has(key)) {
           const clone = _makeClone(childData);
           keyMap.set(key, clone);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
+          if (!frag) { frag = document.createDocumentFragment(); added = []; }
+          frag.appendChild(clone);
+          added.push({ clone, i });
         } else {
           const cloneRaw = keyMap.get(key).__ctx.__raw;
           Object.assign(cloneRaw, childData);
@@ -462,6 +502,13 @@ const _loopHandler = {
           keyMap.get(key).__ctx.$notify();
         }
       });
+      if (frag) {
+        parent.insertBefore(frag, endMarker);
+        for (let j = 0; j < added.length; j++) {
+          _processClone(added[j].clone);
+          _applyEnterAnim(added[j].clone, animEnter, stagger, added[j].i);
+        }
+      }
 
       // Reorder: ensure DOM order matches the new list order.
       // Nodes on the longest increasing subsequence of old positions stay

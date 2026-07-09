@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.18.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.19.0...HEAD)
+
+## [1.19.0](https://github.com/no-js-dev/nojs/compare/v1.18.0...v1.19.0) — 2026-07-09
+
+Reactive-core performance overhaul. A backward-compatible pass across expression evaluation, list reconciliation, disposal, and memory — no API changes, all directives behave identically. Largest wins on list-heavy and interaction workloads.
+
+### Performance
+
+- perf(evaluate): compile expressions to reusable closure trees instead of re-parsing on every evaluation — removes per-tick parse/scan overhead in hot binding paths
+- perf(loops): per-template process plans for loop clones — each `foreach`/`each` template is analyzed once and its clones follow a precomputed plan rather than re-resolving directives per item
+- perf(directives): skip-unchanged reconciliation — reconciler diffs against previous values and skips DOM writes when a bound value is unchanged
+- perf(reactive): keyed LIS (longest-increasing-subsequence) reordering — keyed lists move the minimum number of DOM nodes on reorder, with batched, key-scoped change notifications
+- perf(disposal): subtree-discard fast path — skips element-only disposers and bulk-clears DOM on teardown of large subtrees
+- perf(memory): shared Proxy handler, interned property keys, and event delegation reduce per-instance allocation and steady-state memory
+
+Representative js-framework-benchmark deltas vs v1.18.0: swap-rows ~15.9× faster, select-row ~23.4× faster, create-10k ~1.9× faster, run-memory ~1.7× lower.
+
+### Added
+
+- test(bench): A/B measurement harness — benchmark runner plus fixed loop benchmarks to guard against performance regressions
 
 ## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.17.0...v1.18.0) — 2026-07-08
 

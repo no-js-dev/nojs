@@ -7,11 +7,78 @@ import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _onDispose } from "../globals.js";
 
+const _LIFECYCLE_EVENTS = new Set(["mounted", "init", "updated", "error", "unmounted"]);
+
+// Events safe to delegate: they bubble reliably in every engine. Non-bubbling
+// events (focus, blur, mouseenter, scroll, …) and anything not listed fall
+// back to a direct per-element listener.
+const _DELEGATED_EVENTS = new Set([
+  "click", "dblclick", "contextmenu",
+  "mousedown", "mouseup",
+  "pointerdown", "pointerup",
+  "touchstart", "touchend",
+  "keydown", "keyup", "keypress",
+  "input", "change", "submit",
+]);
+
+// One document-level listener per event type dispatches to per-element
+// records (el.__on = { click: expr, … }). Replaces a handler closure, a
+// dispose closure and a browser listener registration per element with one
+// small plain object — the dominant per-row event cost in loops. The bound
+// context is identical for every event on an element (findContext(el)), so
+// it's hoisted once to el.__onCtx instead of stored per event, saving one
+// [expr, ctx] array allocation per handler. Records die with the element (or
+// are nulled by _disposeElement), so no disposal bookkeeping is needed.
+const _delegatedRoots = new Set();
+function _ensureDelegatedRoot(event) {
+  if (_delegatedRoots.has(event)) return;
+  _delegatedRoots.add(event);
+  document.addEventListener(event, (e) => {
+    let node = e.target instanceof Element ? e.target : e.target && e.target.parentElement;
+    while (node && node !== document) {
+      const expr = node.__on && node.__on[e.type];
+      if (expr != null) {
+        _execStatement(expr, node.__onCtx, { $event: e, $el: node });
+        // A handler that called stopPropagation() must stop outer delegated
+        // handlers too — native propagation already ended at document, so we
+        // honor the flag manually.
+        if (e.cancelBubble) return;
+      }
+      node = node.parentElement;
+    }
+  });
+}
+
 registerDirective("on:*", {
   priority: 20,
   gated: true,
   init(el, name, expr) {
     const ctx = findContext(el);
+
+    // Fast path: plain DOM event with no modifiers ("on:click"). Delegated
+    // through one document-level listener — skips the modifier machinery
+    // below AND the per-element listener + disposer, which together dominate
+    // event-directive cost in loops. Elements under a `gate` need real
+    // add/remove pairs for gate flips, so they use the direct path.
+    if (name.indexOf(".") === -1 && !el.__gatedDirs) {
+      const fastEvent = name.slice(3);
+      if (_DELEGATED_EVENTS.has(fastEvent)) {
+        _ensureDelegatedRoot(fastEvent);
+        el.__onCtx = ctx;
+        (el.__on || (el.__on = {}))[fastEvent] = expr;
+        return;
+      }
+      if (!_LIFECYCLE_EVENTS.has(fastEvent)) {
+        const fastHandler = (e) => _execStatement(expr, ctx, { $event: e, $el: el });
+        el.addEventListener(fastEvent, fastHandler);
+        const dispose = () => el.removeEventListener(fastEvent, fastHandler);
+        // Element-local listener: skippable when the subtree is discarded.
+        dispose._elOnly = true;
+        _onDispose(dispose);
+        return;
+      }
+    }
+
     const parts = name.replace("on:", "").split(".");
     const event = parts[0];
     const modifiers = new Set(parts.slice(1));

@@ -2137,15 +2137,14 @@ describe('Directive disposal cleanup', () => {
       btn.click();
       expect(parent.__ctx.count).toBe(1);
 
-      const removeSpy = jest.spyOn(btn, 'removeEventListener');
       _disposeTree(btn);
 
-      expect(removeSpy).toHaveBeenCalledWith(
-        'click',
-        expect.any(Function),
-        expect.any(Object)
-      );
-      removeSpy.mockRestore();
+      // Modifier-less events are delegated through a document-level
+      // dispatcher, so there is no per-element removeEventListener to spy
+      // on — assert the behavior: a disposed element's handler is dead
+      // even while the element is still connected.
+      btn.click();
+      expect(parent.__ctx.count).toBe(1);
     });
   });
 

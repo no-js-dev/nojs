@@ -9,7 +9,7 @@
  */
 
 import { _stores, _storeWatchers, _globals, _watchExpr } from '../src/globals.js';
-import { processTree } from '../src/registry.js';
+import { processTree, registerDirective } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
 import { createContext } from '../src/context.js';
 import { _execStatement } from '../src/evaluate.js';
@@ -408,5 +408,47 @@ describe('Stage 4 — key-scoped watchers', () => {
 
     ctx.q = 2;
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Stage 5 — memoized directive matching (attribute-name signature cache).
+ * Same-shaped elements share match descriptors; values stay per-element,
+ * and registry changes invalidate the cache.
+ */
+describe('Stage 5 — directive match cache', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+    _storeWatchers.clear();
+  });
+
+  test('same-shaped elements get their own attribute values', () => {
+    const host = document.createElement('div');
+    host.setAttribute('state', '{"a": "first", "b": "second"}');
+    host.innerHTML = '<span bind="a" class="x"></span><span bind="b" class="x"></span>';
+    document.body.appendChild(host);
+    processTree(host);
+
+    const spans = [...host.querySelectorAll('span')];
+    expect(spans[0].textContent).toBe('first');
+    expect(spans[1].textContent).toBe('second');
+  });
+
+  test('directive registered after a cache miss still matches same-shaped elements', () => {
+    const first = document.createElement('div');
+    first.setAttribute('zz-custom', 'x');
+    document.body.appendChild(first);
+    processTree(first); // caches the signature with zz-custom unmatched
+
+    const seen = [];
+    registerDirective('zz-custom', { priority: 20, init: (el, name, value) => seen.push(value) });
+
+    const second = document.createElement('div');
+    second.setAttribute('zz-custom', 'y');
+    document.body.appendChild(second);
+    processTree(second);
+
+    expect(seen).toEqual(['y']);
   });
 });

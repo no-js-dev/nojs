@@ -24,18 +24,39 @@ export function _endBatch() {
   _batchDepth--;
   if (_batchDepth === 0 && _batchQueue.size > 0) {
     _devtoolsEmit("batch:end", { depth: 0, queueSize: _batchQueue.size });
-    const fns = _batchQueue;
-    _batchQueue = new Set();
-    // Drain defensively: a throwing listener must not drop the rest of the
-    // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
-    fns.forEach((fn) => {
-      if (fn._el && !fn._el.isConnected) return;
-      try {
-        fn();
-      } catch (err) {
-        _warn("batched listener threw; continuing with remaining listeners:", err);
+    // Drain with the depth held above zero so notifies fired by running
+    // listeners re-queue into the live Set (deduped) instead of executing
+    // synchronously — each listener runs once per settled state instead of
+    // once per notification source.
+    let rounds = 0;
+    while (_batchQueue.size > 0) {
+      if (++rounds > 100) {
+        _warn("batch drain exceeded 100 rounds — possible update cycle; aborting drain");
+        _batchQueue = new Set();
+        break;
       }
-    });
+      const fns = _batchQueue;
+      _batchQueue = new Set();
+      _batchDepth++;
+      try {
+        // Drain defensively: a throwing listener must not drop the rest of the
+        // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
+        fns.forEach((fn) => {
+          if (fn._el && !fn._el.isConnected) return;
+          // Running now supersedes a re-queue made by an earlier listener
+          // in this same round; re-queues that happen after fn ran (or
+          // during it) stay for the next round.
+          _batchQueue.delete(fn);
+          try {
+            fn();
+          } catch (err) {
+            _warn("batched listener threw; continuing with remaining listeners:", err);
+          }
+        });
+      } finally {
+        _batchDepth--;
+      }
+    }
   }
 }
 

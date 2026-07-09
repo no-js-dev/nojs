@@ -4,7 +4,7 @@
 
 import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _collectKeys } from "./context.js";
+import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
 function _makeCache() {
   const map = new Map();
@@ -1502,6 +1502,11 @@ export function evaluate(expr, ctx) {
 
 // Execute a statement (for on:* handlers)
 export function _execStatement(expr, ctx, extraVars = {}) {
+  // Batch every notification produced by this statement (writes, write-backs,
+  // manual $notify) so each listener runs once per settled state. Without
+  // this, a listener registered on several contexts in the ancestor chain
+  // (see _watchExpr) runs once per notifying context.
+  _startBatch();
   try {
     const { vals } = _collectKeys(ctx);
 
@@ -1579,6 +1584,8 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         new CustomEvent("nojs:error", { bubbles: true, detail: { message: e.message, error: e } })
       );
     }
+  } finally {
+    _endBatch();
   }
 }
 

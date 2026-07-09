@@ -2139,9 +2139,7 @@ describe('Directive disposal cleanup', () => {
 
       _disposeTree(btn);
 
-      // Modifier-less events are delegated through a document-level
-      // dispatcher, so there is no per-element removeEventListener to spy
-      // on — assert the behavior: a disposed element's handler is dead
+      // Assert the behavior: a disposed element's handler is dead
       // even while the element is still connected.
       btn.click();
       expect(parent.__ctx.count).toBe(1);

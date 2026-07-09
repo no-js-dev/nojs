@@ -11,7 +11,7 @@ import { evaluate, resolve } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import {
   registerDirective, processTree, _disposeTree,
-  _buildProcessPlan, _runProcessPlan,
+  _buildProcessPlan, _runProcessPlan, _registryVersion,
 } from "../registry.js";
 
 // Directive and companion attribute names that must be stripped from clones
@@ -201,12 +201,29 @@ const _loopHandler = {
     // after a remote template load).
     let _master = null;
     let _plan = null;
-    let _masterTplRef = null;
+    // Update-pass counter: external-template masters are revalidated at most
+    // once per update() pass (see _ensureMaster).
+    let _passId = 0;
+    let _masterPassId = -1;
 
     function _ensureMaster() {
+      if (_master) {
+        // A directive (de)registered after this plan was built changes what
+        // the master's attributes match — rebuild the plan against the
+        // current registry.
+        if (_plan.registryVersion !== _registryVersion) {
+          _plan = _buildProcessPlan(_master);
+        }
+        // Inline masters derive solely from the detached original element,
+        // which nothing else owns — they can never go stale. External
+        // templates can be mutated in place (remote template loads fill the
+        // same element), which an identity check cannot see, so re-clone
+        // them once per update pass.
+        if (!tplId) return;
+        if (_masterPassId === _passId) return;
+      }
+      _masterPassId = _passId;
       const tplNow = tplId ? document.getElementById(tplId) : null;
-      if (_master && tplNow === _masterTplRef) return;
-      _masterTplRef = tplNow;
       _master = el.cloneNode(true);
       // When `if` or `else-if` owns the `else` attr, keep it on clones
       // so the conditional directive can use it as its false-branch template.
@@ -234,6 +251,7 @@ const _loopHandler = {
     }
 
     function update() {
+      _passId++;
       let list = /[\[\]()\s+\-*\/!?:&|]/.test(listPath)
         ? evaluate(listPath, ctx)
         : resolve(listPath, ctx);

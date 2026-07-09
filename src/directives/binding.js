@@ -172,13 +172,18 @@ registerDirective("bind-*", {
 
     // Value memo: attrName is fixed per instance, so `last` only ever holds
     // one branch's shape (boolean for boolean attrs, string|null otherwise).
+    // The memo alone can't authorize a skip: the DOM can drift externally
+    // (a user click flips `checked`, a script rewrites the attribute), and
+    // skipping then would leave the element out of sync with the model —
+    // so the skip also requires the live DOM to still agree.
     let last;
     function update() {
       const val = evaluate(expr, ctx);
       // Boolean attributes
       if (_BOOL_ATTRS.has(attrName)) {
         const on = !!val;
-        if (on === last) return;
+        const domOn = attrName in el ? !!el[attrName] : el.hasAttribute(attrName);
+        if (on === last && domOn === on) return;
         last = on;
         if (on) el.setAttribute(attrName, "");
         else el.removeAttribute(attrName);
@@ -186,7 +191,7 @@ registerDirective("bind-*", {
         return;
       }
       const str = val != null ? String(_sanitizeAttrValue(attrName, val)) : null;
-      if (str === last) return;
+      if (str === last && el.getAttribute(attrName) === str) return;
       last = str;
       if (str != null) el.setAttribute(attrName, str);
       else el.removeAttribute(attrName);

@@ -52,11 +52,13 @@ registerDirective("class-*", {
 
     // class-{name}="expr"
     // Boolean memo: unchanged condition = no classList touch (null ≠ any
-    // boolean, so the first run always writes).
+    // boolean, so the first run always writes). The skip also requires the
+    // live classList to agree — external code can add/remove the class
+    // between updates, and a memo-only skip would never resync it.
     let last = null;
     function update() {
       const on = !!evaluate(expr, ctx);
-      if (on === last) return;
+      if (on === last && el.classList.contains(suffix) === on) return;
       last = on;
       el.classList.toggle(suffix, on);
     }
@@ -105,12 +107,17 @@ registerDirective("style-*", {
     // Must use setProperty() — bracket assignment is an inert JS expando.
     const isCustomProp = suffix.startsWith("--");
     const cssProp = isCustomProp ? suffix : suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-    // String memo: unchanged value = no style write.
+    // String memo: unchanged value = no style write. The skip also requires
+    // the live inline style to agree — external code can overwrite it, and
+    // a memo-only skip would never resync. Compare via getPropertyValue on
+    // the hyphenated suffix (works for both custom and standard properties);
+    // CSSOM value normalization can make the compare fail spuriously, which
+    // only costs an idempotent re-write, never a stale skip.
     let last;
     function update() {
       const val = evaluate(expr, ctx);
       const v = val != null ? String(val) : "";
-      if (v === last) return;
+      if (v === last && el.style.getPropertyValue(suffix) === v) return;
       last = v;
       if (isCustomProp) el.style.setProperty(cssProp, v);
       else el.style[cssProp] = v;

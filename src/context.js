@@ -142,7 +142,12 @@ const _sharedHandler = {
       }
       case "$notify": {
         const meta = target[META];
-        return meta.notifyFn || (meta.notifyFn = (k) => _notifyMeta(meta, k));
+        // Only a string arg narrows to key-scoped listeners. $notify()
+        // historically took no argument, so userland calls passing anything
+        // else ($notify($event), $notify(0)) must keep firing every
+        // listener rather than silently matching nothing.
+        return meta.notifyFn || (meta.notifyFn =
+          (k) => _notifyMeta(meta, typeof k === "string" ? k : undefined));
       }
       case "$set": {
         const meta = target[META];

@@ -19,7 +19,9 @@
     "test:e2e:headed": "npx playwright test --config e2e/playwright.config.ts --headed",
     "test:e2e:report": "npx playwright show-report e2e/playwright-report",
     "test:all": "npm test && npm run test:e2e",
-    "bench": "jest --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='[]'",
+    "bench": "jest --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='/node_modules/'",
+    "bench:keyed": "jest --runTestsByPath __benchmarks__/keyed-scenarios-bench.test.js --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='/node_modules/'",
+    "bench:ab": "bench/run-ab.sh",
     "prepare": "husky"
   },
   "keywords": [

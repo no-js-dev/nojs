@@ -1148,3 +1148,73 @@ describe('Security', () => {
     warnSpy.mockRestore();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Plugin global reactivity through statements (plugin-system e2e 2)
+// ─────────────────────────────────────────────────────────────────────────
+// A statement writing through a registry-less $-root ($demo.count++) mutates
+// a proxy that lives OUTSIDE the context chain, so _execStatement's per-key
+// write-back never sees it. The wake must come from the explicit keyless
+// chain notify in _execStatement. Before the compiled evaluator this worked
+// by accident: interpreted evaluate() planted __collectKeysCache on the
+// context and the in-place-mutation safety net notified it.
+describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  test('click on on:click="$demo.count++" re-renders bind="$demo.count"', async () => {
+    document.body.innerHTML = `
+      <section state="{ x: 0 }">
+        <button id="inc" on:click="$demo.count++">Inc</button>
+        <span id="counter" bind="$demo.count"></span>
+      </section>`;
+
+    NoJS.use({
+      name: 'demo',
+      version: '1.0.0',
+      capabilities: ['globals'],
+      install(nojs) {
+        nojs.global('demo', { message: 'Plugin loaded!', count: 0 });
+      },
+    });
+    await NoJS.init();
+    await flush();
+
+    const counter = document.getElementById('counter');
+    expect(counter.textContent).toBe('0');
+
+    document.getElementById('inc').click();
+    await flush();
+    expect(_globals.demo.count).toBe(1);
+    expect(counter.textContent).toBe('1');
+
+    document.getElementById('inc').click();
+    await flush();
+    expect(counter.textContent).toBe('2');
+  });
+
+  test('statement without $-globals does not fire the keyless wake', async () => {
+    document.body.innerHTML = `
+      <section state="{ n: 0, other: 5 }">
+        <button id="inc" on:click="n = n + 1">Inc</button>
+        <span id="n" bind="n"></span>
+        <span id="other" bind="other"></span>
+      </section>`;
+
+    await NoJS.init();
+    await flush();
+
+    // Key-scoped watcher for "other" must stay quiet on an "n"-only statement.
+    const otherEl = document.getElementById('other');
+    let otherWrites = 0;
+    const origSet = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent').set;
+    Object.defineProperty(otherEl, 'textContent', {
+      set(v) { otherWrites++; origSet.call(this, v); },
+      configurable: true,
+    });
+
+    document.getElementById('inc').click();
+    await flush();
+    expect(document.getElementById('n').textContent).toBe('1');
+    expect(otherWrites).toBe(0);
+  });
+});

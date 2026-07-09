@@ -61,10 +61,15 @@ function setupDOM(items, keyed, complex = false) {
   state.setAttribute('state', JSON.stringify({ items }));
   document.body.appendChild(state);
 
+  // The element carrying the loop directive IS the template — the loop
+  // handler removes it from the DOM and inserts clones as siblings. Keep a
+  // stable container around it so clone counts and context lookups survive.
   const list = document.createElement('div');
-  list.setAttribute('each', 'item in items');
-  list.setAttribute('template', 'bench-tpl');
-  if (keyed) list.setAttribute('key', 'item.id');
+  const looper = document.createElement('span');
+  looper.setAttribute('each', 'item in items');
+  looper.setAttribute('template', 'bench-tpl');
+  if (keyed) looper.setAttribute('key', 'item.id');
+  list.appendChild(looper);
   state.appendChild(list);
 
   processTree(state);
@@ -138,12 +143,18 @@ const fmt = {
 // Large sizes (≥ 5 000) only run for operations that are meaningfully different
 // between strategies to keep CI time reasonable.
 
+// Every size tier is additionally capped by BENCH_MAX_N (default 1000) —
+// jsdom setup at the large sizes costs minutes per test, so the full sweep
+// is opt-in for deep dives: BENCH_MAX_N=50000 npm run bench
+const MAX_N = Number(process.env.BENCH_MAX_N) || 1000;
+const cap = (sizes) => sizes.filter((n) => n <= MAX_N);
+
 // push/update/splice: O(1) DOM ops for keyed — affordable at 50 000
-const SIZES_ALL    = [10, 50, 100, 500, 1000, 5000, 10000, 50000];
+const SIZES_ALL    = cap([10, 50, 100, 500, 1000, 5000, 10000, 50000]);
 // sort/replace/complex: O(n) DOM ops even for keyed — cap at 10 000 for CI
-const SIZES_HEAVY  = [10, 50, 100, 500, 1000, 5000, 10000];
+const SIZES_HEAVY  = cap([10, 50, 100, 500, 1000, 5000, 10000]);
 // full-replace + complex scenarios: capped further due to rebuild overhead
-const SIZES_MEDIUM = [10, 50, 100, 500, 1000, 5000];
+const SIZES_MEDIUM = cap([10, 50, 100, 500, 1000, 5000]);
 const RUNS = 6;
 
 // ═══════════════════════════════════════════════════════════════════════════

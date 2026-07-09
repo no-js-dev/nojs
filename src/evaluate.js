@@ -2,9 +2,9 @@
 //  EXPRESSION EVALUATOR
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals } from "./globals.js";
+import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _collectKeys } from "./context.js";
+import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
 function _makeCache() {
   const map = new Map();
@@ -1255,6 +1255,430 @@ function _evalNode(node, scope) {
 }
 
 // ---------------------------------------------------------------------------
+// AST → closure compiler (CSP-safe: closure composition, no eval/Function)
+// ---------------------------------------------------------------------------
+// Compiles each AST node ONCE into a plain closure `(ctx, locals) => value`.
+// Semantics must stay identical to the tree-walking interpreter above — the
+// interpreter remains the reference engine (statements still execute through
+// it, and the differential suite in __tests__/evaluate-compiled.test.js runs
+// every corpus expression through both). Two structural wins over
+// interpretation:
+//   • no per-eval scope object: identifiers resolve by walking the context
+//     chain's raw objects directly (one hasOwnProperty hit per level), with
+//     $-specials / plugin globals / allow-listed globals resolved lazily in
+//     the exact precedence the interpreter's scope build produced;
+//   • no per-node dispatch: the type switch runs at compile time, so a hot
+//     expression like `row.label` costs two closure calls per eval.
+
+const _MISS = Symbol("nojs.miss");
+
+// Walk arrow-function local scopes (a prototype chain of null-rooted plain
+// objects), then the context chain's raw objects. First own key wins — the
+// same precedence _collectKeys' first-occurrence collection produced for the
+// interpreter's scope prototype.
+function _lookupScopeChain(ctx, locals, name) {
+  let o = locals;
+  while (o) {
+    if (_hasOwn.call(o, name)) return o[name];
+    o = Object.getPrototypeOf(o);
+  }
+  let c = ctx;
+  while (c && c.__isProxy) {
+    const raw = c.__raw;
+    if (_hasOwn.call(raw, name)) return raw[name];
+    c = c.$parent;
+  }
+  return _MISS;
+}
+
+// Safety Rule 7: identifier resolution is allow-list only. Resolution order
+// mirrors the interpreter's scope build exactly: context chain (shadows
+// everything) → core $-specials → plugin globals (cannot shadow core) →
+// _SAFE_GLOBALS → _BROWSER_GLOBALS (with safe wrappers) → undefined.
+function _resolveIdentifier(name, ctx, locals) {
+  const v = _lookupScopeChain(ctx, locals, name);
+  if (v !== _MISS) return v;
+  if (name.charCodeAt(0) === 36 /* $ */) {
+    switch (name) {
+      case "$store":  return _stores;
+      case "$route":  return _routerInstance?.current;
+      case "$router": return _routerInstance;
+      case "$i18n":   return _i18nProxy;
+      case "$refs":   return ctx.$refs;
+      case "$form":   return ctx.$form || null;
+    }
+    const gk = name.slice(1);
+    if (gk in _globals) return _globals[gk];
+    return undefined;
+  }
+  if (_inSafeGlobals(name)) return _SAFE_GLOBALS[name];
+  if (_BROWSER_GLOBALS.has(name) && typeof globalThis !== "undefined") {
+    if (name === "window") return _safeWindow;
+    if (name === "document") return _safeDocument;
+    if (name === "location") return _safeLocation;
+    if (name === "history") return _safeHistory;
+    if (name === "navigator") return _safeNavigator;
+    if (_TIMER_WRAPPERS.has(name)) return _safeTimers[name];
+    return globalThis[name];
+  }
+  return undefined;
+}
+
+const _fnUndefined = () => undefined;
+
+// Per-node error isolation, matching the interpreter's per-node try/catch:
+// a throwing subexpression (getter, user function, coercion) yields undefined
+// with the same warning, and the rest of the expression keeps evaluating.
+function _guard(type, fn) {
+  return function (ctx, locals) {
+    try {
+      return fn(ctx, locals);
+    } catch (e) {
+      _warn("_evalNode error:", type, e?.message || e);
+      return undefined;
+    }
+  };
+}
+
+const _EMPTY_ARGS = [];
+
+function _compileArgs(args) {
+  const n = args.length;
+  if (n === 0) return () => _EMPTY_ARGS;
+  let hasSpread = false;
+  const fns = new Array(n);
+  const spread = new Array(n);
+  for (let i = 0; i < n; i++) {
+    if (args[i].type === "SpreadElement") {
+      hasSpread = true;
+      spread[i] = true;
+      fns[i] = _compileNode(args[i].argument);
+    } else {
+      fns[i] = _compileNode(args[i]);
+    }
+  }
+  if (!hasSpread) {
+    return (c, l) => {
+      const out = new Array(n);
+      for (let i = 0; i < n; i++) out[i] = fns[i](c, l);
+      return out;
+    };
+  }
+  return (c, l) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      if (spread[i]) {
+        const s = fns[i](c, l);
+        if (s && typeof s[Symbol.iterator] === "function") out.push(...s);
+      } else {
+        out.push(fns[i](c, l));
+      }
+    }
+    return out;
+  };
+}
+
+function _compileNode(node) {
+  if (!node) return _fnUndefined;
+
+  switch (node.type) {
+
+    case "Literal": {
+      const v = node.value;
+      return () => v;
+    }
+
+    case "Identifier": {
+      const name = node.name;
+      return (c, l) => _resolveIdentifier(name, c, l);
+    }
+
+    case "Forbidden":
+      return _fnUndefined;
+
+    case "BinaryExpr": {
+      const op = node.op;
+      const left = _compileNode(node.left);
+      // Short-circuit operators evaluate lazily; the branch logic itself
+      // cannot throw (children guard themselves), so no _guard.
+      if (op === "&&") {
+        const right = _compileNode(node.right);
+        return (c, l) => { const lv = left(c, l); return lv ? right(c, l) : lv; };
+      }
+      if (op === "||") {
+        const right = _compileNode(node.right);
+        return (c, l) => { const lv = left(c, l); return lv ? lv : right(c, l); };
+      }
+      if (op === "??") {
+        const right = _compileNode(node.right);
+        return (c, l) => { const lv = left(c, l); return (lv === null || lv === undefined) ? right(c, l) : lv; };
+      }
+      const right = _compileNode(node.right);
+      // Guarded: coercion can throw (Symbol/BigInt operands, instanceof with
+      // a non-callable RHS) and must degrade to undefined like the interpreter.
+      switch (op) {
+        case "+": return _guard(node.type, (c, l) => left(c, l) + right(c, l));
+        case "-": return _guard(node.type, (c, l) => left(c, l) - right(c, l));
+        case "*": return _guard(node.type, (c, l) => left(c, l) * right(c, l));
+        case "/": return _guard(node.type, (c, l) => left(c, l) / right(c, l));
+        case "%": return _guard(node.type, (c, l) => left(c, l) % right(c, l));
+        case "**": return _guard(node.type, (c, l) => left(c, l) ** right(c, l));
+        case "===": return (c, l) => left(c, l) === right(c, l);
+        case "!==": return (c, l) => left(c, l) !== right(c, l);
+        case "==": return _guard(node.type, (c, l) => left(c, l) == right(c, l));
+        case "!=": return _guard(node.type, (c, l) => left(c, l) != right(c, l));
+        case ">": return _guard(node.type, (c, l) => left(c, l) > right(c, l));
+        case "<": return _guard(node.type, (c, l) => left(c, l) < right(c, l));
+        case ">=": return _guard(node.type, (c, l) => left(c, l) >= right(c, l));
+        case "<=": return _guard(node.type, (c, l) => left(c, l) <= right(c, l));
+        case "in": return _guard(node.type, (c, l) => {
+          const lv = left(c, l);
+          const r = right(c, l);
+          return (r && typeof r === "object") ? (lv in r) : undefined;
+        });
+        case "instanceof": return _guard(node.type, (c, l) => left(c, l) instanceof right(c, l));
+        case "&": return _guard(node.type, (c, l) => left(c, l) & right(c, l));
+        case "|": return _guard(node.type, (c, l) => left(c, l) | right(c, l));
+        case "^": return _guard(node.type, (c, l) => left(c, l) ^ right(c, l));
+        case "<<": return _guard(node.type, (c, l) => left(c, l) << right(c, l));
+        case ">>": return _guard(node.type, (c, l) => left(c, l) >> right(c, l));
+        case ">>>": return _guard(node.type, (c, l) => left(c, l) >>> right(c, l));
+        default: return _fnUndefined;
+      }
+    }
+
+    case "UnaryExpr": {
+      const op = node.op;
+      if (op === "typeof") {
+        // Unknown identifiers resolve to undefined (allow-list), so a plain
+        // typeof over the compiled argument matches the interpreter's
+        // special-cased "undefined" for out-of-scope names.
+        const arg = _compileNode(node.argument);
+        return (c, l) => typeof arg(c, l);
+      }
+      if (op === "++" || op === "--") {
+        const arg = _compileNode(node.argument);
+        const inc = op === "++";
+        const prefix = !!node.prefix;
+        return _guard(node.type, (c, l) => {
+          const oldVal = arg(c, l);
+          const newVal = inc ? oldVal + 1 : oldVal - 1;
+          return prefix ? newVal : oldVal;
+        });
+      }
+      const arg = _compileNode(node.argument);
+      switch (op) {
+        case "!": return (c, l) => !arg(c, l);
+        case "-": return _guard(node.type, (c, l) => -arg(c, l));
+        case "+": return _guard(node.type, (c, l) => +arg(c, l));
+        case "~": return _guard(node.type, (c, l) => ~arg(c, l));
+        case "void": return (c, l) => { arg(c, l); return undefined; };
+        default: return (c, l) => { arg(c, l); return undefined; };
+      }
+    }
+
+    case "ConditionalExpr": {
+      const test = _compileNode(node.test);
+      const cons = _compileNode(node.consequent);
+      const alt = _compileNode(node.alternate);
+      return (c, l) => test(c, l) ? cons(c, l) : alt(c, l);
+    }
+
+    case "MemberExpr":
+    case "OptionalMemberExpr": {
+      const objFn = _compileNode(node.object);
+      if (!node.computed) {
+        const prop = node.property.name || node.property.value;
+        if (_FORBIDDEN_PROPS[prop]) return _fnUndefined;
+        // F4 / NOJS-239: foreign-realm accessors are only readable off the
+        // safe window/document proxies, never off raw DOM elements.
+        const realmBlocked = _FORBIDDEN_REALM_ACCESSORS.has(prop);
+        return _guard(node.type, (c, l) => {
+          const obj = objFn(c, l);
+          if (obj == null) return undefined;
+          if (realmBlocked && !_SAFE_PROXIES.has(obj)) return undefined;
+          return _rewrapResult(obj[prop]);
+        });
+      }
+      const propFn = _compileNode(node.property);
+      return _guard(node.type, (c, l) => {
+        const obj = objFn(c, l);
+        if (obj == null) return undefined;
+        const prop = propFn(c, l);
+        if (_FORBIDDEN_PROPS[prop]) return undefined;
+        if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(obj)) return undefined;
+        return _rewrapResult(obj[prop]);
+      });
+    }
+
+    case "CallExpr":
+    case "OptionalCallExpr": {
+      const argsFn = _compileArgs(node.args);
+      const callee = node.callee;
+      if (callee.type === "MemberExpr" || callee.type === "OptionalMemberExpr") {
+        const thisFn = _compileNode(callee.object);
+        if (!callee.computed) {
+          const prop = callee.property.name;
+          if (_FORBIDDEN_PROPS[prop]) return _fnUndefined;
+          const realmBlocked = _FORBIDDEN_REALM_ACCESSORS.has(prop);
+          return _guard(node.type, (c, l) => {
+            const thisObj = thisFn(c, l);
+            if (thisObj == null) return undefined;
+            if (realmBlocked && !_SAFE_PROXIES.has(thisObj)) return undefined;
+            const fn = thisObj[prop];
+            if (typeof fn !== "function") return undefined;
+            return _rewrapResult(fn.apply(thisObj, argsFn(c, l)));
+          });
+        }
+        const propFn = _compileNode(callee.property);
+        return _guard(node.type, (c, l) => {
+          const thisObj = thisFn(c, l);
+          if (thisObj == null) return undefined;
+          const prop = propFn(c, l);
+          if (_FORBIDDEN_PROPS[prop]) return undefined;
+          if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(thisObj)) return undefined;
+          const fn = thisObj[prop];
+          if (typeof fn !== "function") return undefined;
+          return _rewrapResult(fn.apply(thisObj, argsFn(c, l)));
+        });
+      }
+      const calleeFn = _compileNode(callee);
+      const optional = node.type === "OptionalCallExpr";
+      return _guard(node.type, (c, l) => {
+        const fn = calleeFn(c, l);
+        if (fn == null && optional) return undefined;
+        if (typeof fn !== "function") return undefined;
+        return _rewrapResult(fn.apply(undefined, argsFn(c, l)));
+      });
+    }
+
+    case "ArrayExpr": {
+      const n = node.elements.length;
+      const fns = new Array(n);
+      const spread = new Array(n);
+      for (let i = 0; i < n; i++) {
+        const el = node.elements[i];
+        if (el.type === "SpreadElement") {
+          spread[i] = true;
+          fns[i] = _compileNode(el.argument);
+        } else {
+          fns[i] = _compileNode(el);
+        }
+      }
+      return _guard(node.type, (c, l) => {
+        const arr = [];
+        for (let i = 0; i < n; i++) {
+          if (spread[i]) {
+            const s = fns[i](c, l);
+            if (s && typeof s[Symbol.iterator] === "function") arr.push(...s);
+          } else {
+            arr.push(fns[i](c, l));
+          }
+        }
+        return arr;
+      });
+    }
+
+    case "ObjectExpr": {
+      const props = node.properties.map((prop) => {
+        if (prop.spread) return { spread: true, valueFn: _compileNode(prop.value) };
+        if (prop.computed) return { computed: true, keyFn: _compileNode(prop.key), valueFn: _compileNode(prop.value) };
+        return { key: prop.key, valueFn: _compileNode(prop.value), forbidden: !!_FORBIDDEN_PROPS[prop.key] };
+      });
+      return _guard(node.type, (c, l) => {
+        const obj = {};
+        for (let i = 0; i < props.length; i++) {
+          const p = props[i];
+          if (p.spread) {
+            const src = p.valueFn(c, l);
+            if (src && typeof src === "object") {
+              for (const k of Object.keys(src)) {
+                if (!_FORBIDDEN_PROPS[k]) obj[k] = src[k];
+              }
+            }
+          } else if (p.computed) {
+            const key = p.keyFn(c, l);
+            if (_FORBIDDEN_PROPS[key]) continue;
+            obj[key] = p.valueFn(c, l);
+          } else {
+            if (p.forbidden) continue;
+            obj[p.key] = p.valueFn(c, l);
+          }
+        }
+        return obj;
+      });
+    }
+
+    case "SpreadElement":
+      return _compileNode(node.argument);
+
+    case "ArrowFunction": {
+      const bodyFn = _compileNode(node.body);
+      const params = node.params;
+      return (ctx, locals) => function (...callArgs) {
+        const child = Object.create(locals || null);
+        for (let i = 0; i < params.length; i++) {
+          const p = params[i];
+          if (typeof p === "string" && p.startsWith("...")) {
+            child[p.slice(3)] = callArgs.slice(i);
+            break;
+          }
+          child[p] = callArgs[i];
+        }
+        return bodyFn(ctx, child);
+      };
+    }
+
+    case "TemplateLiteral": {
+      const parts = node.parts;
+      const exprs = node.expressions.map(_compileNode);
+      return _guard(node.type, (c, l) => {
+        let result = parts[0];
+        for (let i = 0; i < exprs.length; i++) {
+          result += String(exprs[i](c, l));
+          result += parts[i + 1];
+        }
+        return result;
+      });
+    }
+
+    case "PostfixExpr":
+      // In expression context, return the current value (no mutation)
+      return _compileNode(node.argument);
+
+    case "AssignExpr":
+      // In expression context, evaluate and return the RHS
+      return _compileNode(node.right);
+
+    default:
+      return _fnUndefined;
+  }
+}
+
+function _compileFilterSpec(filterStr) {
+  const colonIdx = filterStr.indexOf(":");
+  let name, argStr;
+  if (colonIdx === -1) {
+    name = filterStr.trim();
+    argStr = null;
+  } else {
+    name = filterStr.substring(0, colonIdx).trim();
+    argStr = filterStr.substring(colonIdx + 1).trim();
+  }
+  // Filter fn looked up per apply (late binding — NoJS.filter() may register
+  // after the expression is first compiled), args parsed once here.
+  return { name, args: argStr ? _parseFilterArgs(argStr) : _EMPTY_ARGS };
+}
+
+function _compileProgram(expr) {
+  const pipes = _parsePipes(expr);
+  const ast = _parseExpr(_tokenize(pipes[0]));
+  const filters = [];
+  for (let i = 1; i < pipes.length; i++) filters.push(_compileFilterSpec(pipes[i]));
+  return { fn: _compileNode(ast), filters };
+}
+
+// ---------------------------------------------------------------------------
 // Statement parser & executor (for on:*, watch, etc.)
 // ---------------------------------------------------------------------------
 
@@ -1453,7 +1877,169 @@ function _parseFilterArgs(str) {
   });
 }
 
+// Static root-key extraction for key-scoped watchers (_watchExpr).
+// Token-level scan, deliberately over-approximate: every identifier that is
+// not a member-access property counts as a root (object-literal keys included
+// — extra keys mean extra fires, never missed ones). Returns null (= unkeyed,
+// fire on every notification) whenever precision is impossible:
+//  - piped expressions (filter args may read arbitrary scope keys)
+//  - any "(" (a called context function may read any key; grouping/arrows
+//    are sacrificed for simplicity)
+//  - assignments / increments / template literals
+//  - $-prefixed roots other than the registry-handled $store/$route/$i18n
+//    ($refs, $router, plugin globals historically refreshed by piggy-backing
+//    on unrelated notifications — keep that behavior)
+// Memoized per expression string: loop clones register the same handful of
+// expressions thousands of times, and tokenizing each registration dominates
+// watcher setup. Callers must treat the returned Set as immutable (see
+// _watchExpr, which copies before unioning).
+const _rootKeysCache = new Map();
+const _ROOT_KEYS_CACHE_MAX = 500;
+
+export function _exprRootKeys(expr) {
+  const hit = _rootKeysCache.get(expr);
+  if (hit !== undefined) return hit;
+  const roots = _computeExprRootKeys(expr);
+  if (_rootKeysCache.size >= _ROOT_KEYS_CACHE_MAX) _rootKeysCache.clear();
+  _rootKeysCache.set(expr, roots);
+  return roots;
+}
+
+function _computeExprRootKeys(expr) {
+  if (typeof expr !== "string" || expr.trim() === "") return null;
+  let tokens;
+  try {
+    const pipes = _parsePipes(expr);
+    if (pipes.length > 1) return null;
+    tokens = _tokenize(pipes[0]);
+  } catch {
+    return null;
+  }
+  if (!tokens || tokens.length === 0) return null;
+  const roots = new Set();
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === "Template") return null;
+    if (t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" ||
+        t.value === "*=" || t.value === "/=" || t.value === "%=" ||
+        t.value === "++" || t.value === "--" || t.value === "=>")) return null;
+    if (t.type === "Punc" && t.value === "(") return null;
+    if (t.type === "Ident") {
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      if (t.value.charCodeAt(0) === 36 /* $ */ &&
+          t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n") return null;
+      roots.add(t.value);
+    }
+  }
+  return roots.size > 0 ? roots : null;
+}
+_setExprRootKeysFn(_exprRootKeys);
+
+// Statement variant of _exprRootKeys for _execStatement's write-back:
+// assignments/increments are expected (that's what statements do), so only
+// calls (a called function may mutate any context object) and template
+// literals force the conservative null. Used to skip the in-place-mutation
+// safety notify for object keys the statement never mentions.
+function _stmtRootKeys(expr) {
+  if (typeof expr !== "string") return null;
+  let tokens;
+  try {
+    tokens = _tokenize(expr);
+  } catch {
+    return null;
+  }
+  if (!tokens || tokens.length === 0) return null;
+  const roots = new Set();
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === "Template") return null;
+    if (t.type === "Punc" && t.value === "(") return null;
+    if (t.type === "Ident") {
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      // A statement writing through a non-registry $-root (plugin globals,
+      // $refs) has always relied on the keyless safety-net notify to wake
+      // unkeyed watchers like bind="$demo.count" — same bail as
+      // _exprRootKeys (NOJS plugin-system e2e 2).
+      if (t.value.charCodeAt(0) === 36 /* $ */ &&
+          t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n") return null;
+      roots.add(t.value);
+    }
+  }
+  return roots;
+}
+
+// True when a statement mentions a $-root that no registry notify covers:
+// plugin globals ($demo…), $refs, $router. $store/$route/$i18n have their
+// own watcher registries; $event/$el are per-invocation locals. Writes
+// through these roots mutate proxies that live OUTSIDE the context chain,
+// so _execStatement's per-key write-back can never see them — they need an
+// explicit keyless wake. Memoized per statement string.
+const _stmtGlobalRootCache = new Map();
+function _stmtHasGlobalRoot(expr) {
+  let hit = _stmtGlobalRootCache.get(expr);
+  if (hit !== undefined) return hit;
+  hit = false;
+  try {
+    const tokens = _tokenize(expr);
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type !== "Ident" || t.value.charCodeAt(0) !== 36 /* $ */) continue;
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      if (t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n" &&
+          t.value !== "$event" && t.value !== "$el") {
+        hit = true;
+        break;
+      }
+    }
+  } catch {
+    // Unparseable statements throw again in _parseStatements before any
+    // write happens — no wake needed.
+  }
+  if (_stmtGlobalRootCache.size >= _ROOT_KEYS_CACHE_MAX) _stmtGlobalRootCache.clear();
+  _stmtGlobalRootCache.set(expr, hit);
+  return hit;
+}
+
 export function evaluate(expr, ctx) {
+  if (expr == null || expr === "") return undefined;
+  try {
+    let prog = _exprCache.get(expr);
+    if (prog === undefined) {
+      prog = _compileProgram(expr);
+      _exprCache.set(expr, prog);
+    }
+    if (!ctx || !ctx.__isProxy) {
+      // The interpreter's scope build threw on non-context objects (caught →
+      // warn + undefined); keep that contract without the throw.
+      _warn("Expression error:", expr, "requires a reactive context");
+      return undefined;
+    }
+    let result = prog.fn(ctx, null);
+    const filters = prog.filters;
+    for (let i = 0; i < filters.length; i++) {
+      const f = filters[i];
+      const fn = _filters[f.name];
+      if (!fn) {
+        _warn(`Unknown filter: ${f.name}`);
+        continue;
+      }
+      result = fn(result, ...f.args);
+    }
+    return result;
+  } catch (e) {
+    _warn("Expression error:", expr, e.message);
+    return undefined;
+  }
+}
+
+// Reference implementation: the pre-compiler tree-walking evaluate. Kept for
+// the differential suite (__tests__/evaluate-compiled.test.js), which runs
+// every corpus expression through both engines and asserts identical results.
+// Not used on any hot path.
+export function _evaluateInterpreted(expr, ctx) {
   if (expr == null || expr === "") return undefined;
   try {
     const pipes = _parsePipes(expr);
@@ -1478,12 +2064,10 @@ export function evaluate(expr, ctx) {
       if (!(key in scope)) scope[key] = _globals[gk];
     }
 
-    // Parse expression into AST (cached)
-    let ast = _exprCache.get(mainExpr);
-    if (!ast) {
-      ast = _parseExpr(_tokenize(mainExpr));
-      _exprCache.set(mainExpr, ast);
-    }
+    // Parse expression into AST. Deliberately NOT cached: _exprCache now
+    // holds compiled programs keyed by full expression string — mixing raw
+    // ASTs keyed by mainExpr into it would corrupt the compiled path.
+    const ast = _parseExpr(_tokenize(mainExpr));
 
     // Evaluate AST against scope
     let result = _evalNode(ast, scope);
@@ -1502,6 +2086,11 @@ export function evaluate(expr, ctx) {
 
 // Execute a statement (for on:* handlers)
 export function _execStatement(expr, ctx, extraVars = {}) {
+  // Batch every notification produced by this statement (writes, write-backs,
+  // manual $notify) so each listener runs once per settled state. Without
+  // this, a listener registered on several contexts in the ancestor chain
+  // (see _watchExpr) runs once per notifying context.
+  _startBatch();
   try {
     const { vals } = _collectKeys(ctx);
 
@@ -1536,6 +2125,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
 
     // Write back changed values to owning context
+    const stmtRoots = _stmtRootKeys(expr);
     for (const k of chainKeys) {
       if (k.startsWith("$")) continue;
       if (!(k in scope)) continue;
@@ -1548,9 +2138,15 @@ export function _execStatement(expr, ctx, extraVars = {}) {
           c = c.$parent;
         }
       } else if (typeof newVal === "object" && newVal !== null) {
+        // In-place mutation safety net: the statement may have mutated this
+        // object's internals without reassigning it. Only keys the statement
+        // actually references can have been touched (stmtRoots is null when
+        // that can't be determined — e.g. function calls), and the notify is
+        // keyed so unrelated key-scoped watchers stay quiet.
+        if (stmtRoots && !stmtRoots.has(k)) continue;
         let c = ctx;
         while (c && c.__isProxy) {
-          if (k in c.__raw) { c.$notify(); break; }
+          if (k in c.__raw) { c.$notify(k); break; }
           c = c.$parent;
         }
       }
@@ -1571,6 +2167,24 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     if (typeof expr === "string" && expr.includes("$store")) {
       _notifyStoreWatchers(_extractStoreName(expr));
     }
+
+    // Statement wrote through a registry-less $-root (plugin global, $refs):
+    // the mutated proxy lives outside the context chain, so the per-key
+    // write-back above cannot observe it. Wake watchers with a keyless
+    // notify up the chain — the batch queue is a Set, so a listener
+    // registered on several ancestors still runs once. Historically this
+    // wake happened by ACCIDENT: the interpreted evaluate() planted a
+    // __collectKeysCache own key on the context, and the in-place-mutation
+    // safety net above notified it on every statement. The compiled
+    // evaluate() plants no such key, so the wake must be explicit
+    // (plugin-system e2e 2).
+    if (typeof expr === "string" && _stmtHasGlobalRoot(expr)) {
+      let c = ctx;
+      while (c && c.__isProxy) {
+        c.$notify();
+        c = c.$parent;
+      }
+    }
   } catch (e) {
     _warn("Expression error:", expr, e.message);
     // Dispatch a custom DOM event so error-boundary directives can catch it
@@ -1579,6 +2193,8 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         new CustomEvent("nojs:error", { bubbles: true, detail: { message: e.message, error: e } })
       );
     }
+  } finally {
+    _endBatch();
   }
 }
 

@@ -9,7 +9,10 @@ import { createContext } from "../context.js";
 import { _watchExpr, _warn, _currentEl, _setCurrentEl } from "../globals.js";
 import { evaluate, resolve } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
-import { registerDirective, processTree, _disposeTree } from "../registry.js";
+import {
+  registerDirective, processTree, _disposeTree,
+  _buildProcessPlan, _runProcessPlan,
+} from "../registry.js";
 
 // Directive and companion attribute names that must be stripped from clones
 // to prevent double-execution and re-initialization.
@@ -50,13 +53,27 @@ function _getManagedClones(startMarker, endMarker) {
 
 // Removes all nodes between markers (including text/comment nodes),
 // disposing each element first (Safety Rule 1: dispose before removal).
+// Removal itself is a single Range.deleteContents() — per-node removeChild
+// dominates clear-1k profiles (native DOM bookkeeping per sibling).
 function _clearManagedClones(startMarker, endMarker) {
   let node = startMarker.nextSibling;
+  if (!node || node === endMarker) return;
   while (node && node !== endMarker) {
-    const next = node.nextSibling;
-    if (node.nodeType === 1) _disposeTree(node);
-    node.parentNode.removeChild(node);
-    node = next;
+    if (node.nodeType === 1) _disposeTree(node, true);
+    node = node.nextSibling;
+  }
+  const parent = startMarker.parentNode;
+  if (parent && parent.firstChild === startMarker && parent.lastChild === endMarker) {
+    // Markers span the whole parent: nuke all children in one native op
+    // (fastest bulk clear), then restore the markers.
+    parent.textContent = "";
+    parent.appendChild(startMarker);
+    parent.appendChild(endMarker);
+  } else {
+    const range = document.createRange();
+    range.setStartAfter(startMarker);
+    range.setEndBefore(endMarker);
+    range.deleteContents();
   }
 }
 
@@ -72,6 +89,35 @@ export function _isLoopElement(el) {
   const v = el.getAttribute("for") || "";
   if (/^\w+\s+in\s+\S+$/.test(v)) return true;
   return el.hasAttribute("from") && /^\w+$/.test(v);
+}
+
+// Longest increasing subsequence over the non-negative values of `arr`.
+// Returns a Set of arr-indices that belong to the LIS. Entries with value
+// -1 (newly created nodes) are never part of the subsequence. O(n log n)
+// patience sorting with predecessor links.
+function _lisIndices(arr) {
+  const tails = []; // arr-indices of the smallest tail for each LIS length
+  const prev = new Array(arr.length).fill(-1);
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (v < 0) continue;
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (arr[tails[mid]] < v) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const result = new Set();
+  let k = tails.length ? tails[tails.length - 1] : -1;
+  while (k !== -1) {
+    result.add(k);
+    k = prev[k];
+  }
+  return result;
 }
 
 // Applies enter animation to a clone element.
@@ -145,28 +191,46 @@ const _loopHandler = {
     // key → cloned element node.
     const keyMap = new Map();
 
-    // Creates a clone of `el` for one loop iteration. When a `template`
-    // attribute is set, the clone's children are replaced with the
-    // external template's content (the element tag wraps the template).
-    function _makeClone(childData) {
-      const clone = el.cloneNode(true);
+    // ── Master template + process plan ────────────────────────────────
+    // Every iteration clone shares one structure, so the expensive
+    // per-clone work is done once: attribute stripping and external
+    // template resolution happen on a cached master, and a process plan
+    // (directive matches + attribute values by child-index path) replaces
+    // the per-clone TreeWalker + attribute scans. The master is rebuilt
+    // when the external template element changes identity (e.g. appears
+    // after a remote template load).
+    let _master = null;
+    let _plan = null;
+    let _masterTplRef = null;
+
+    function _ensureMaster() {
+      const tplNow = tplId ? document.getElementById(tplId) : null;
+      if (_master && tplNow === _masterTplRef) return;
+      _masterTplRef = tplNow;
+      _master = el.cloneNode(true);
       // When `if` or `else-if` owns the `else` attr, keep it on clones
       // so the conditional directive can use it as its false-branch template.
-      _stripLoopAttrs(clone, !elseOwnedByIf);
-      // Reset __declared so processTree processes the clone fresh.
-      clone.__declared = false;
-
+      _stripLoopAttrs(_master, !elseOwnedByIf);
       // When template attribute is set, replace children with template content
-      if (tplId) {
-        const tplContent = document.getElementById(tplId)?.content.cloneNode(true);
-        if (tplContent) {
-          clone.innerHTML = "";
-          clone.appendChild(tplContent);
-        }
+      if (tplNow) {
+        _master.innerHTML = "";
+        _master.appendChild(tplNow.content.cloneNode(true));
       }
+      _plan = _buildProcessPlan(_master);
+    }
 
+    // Creates a clone for one loop iteration and pairs it with its item
+    // context. Directives are initialized later via _processClone — after
+    // the clone is inserted, matching processTree's connected-DOM timing.
+    function _makeClone(childData) {
+      _ensureMaster();
+      const clone = _master.cloneNode(true);
       clone.__ctx = createContext(childData, ctx);
       return clone;
+    }
+
+    function _processClone(clone) {
+      _runProcessPlan(clone, _plan);
     }
 
     function update() {
@@ -312,6 +376,8 @@ const _loopHandler = {
             childCtx.$notify();
           }
         }
+        const frag = document.createDocumentFragment();
+        const added = [];
         for (let i = oldLen; i < newLen; i++) {
           const childData = {
             [itemName]: list[i],
@@ -324,9 +390,15 @@ const _loopHandler = {
             $odd: i % 2 !== 0,
           };
           const clone = _makeClone(childData);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
+          frag.appendChild(clone);
+          added.push(clone);
+        }
+        // One DOM insertion for the whole delta, then init directives on
+        // connected clones (same timing processTree had).
+        parent.insertBefore(frag, endMarker);
+        for (let j = 0; j < added.length; j++) {
+          _processClone(added[j]);
+          _applyEnterAnim(added[j], animEnter, stagger, oldLen + j);
         }
         prevRendered = list.slice();
         return true;
@@ -335,9 +407,11 @@ const _loopHandler = {
       function renderItems() {
         const count = list.length;
         _clearManagedClones(startMarker, endMarker);
-        list.forEach((item, i) => {
+        const frag = document.createDocumentFragment();
+        const added = new Array(count);
+        for (let i = 0; i < count; i++) {
           const childData = {
-            [itemName]: item,
+            [itemName]: list[i],
             [indexName]: i,
             $index: i,
             $count: count,
@@ -347,10 +421,14 @@ const _loopHandler = {
             $odd: i % 2 !== 0,
           };
           const clone = _makeClone(childData);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
-        });
+          frag.appendChild(clone);
+          added[i] = clone;
+        }
+        parent.insertBefore(frag, endMarker);
+        for (let i = 0; i < count; i++) {
+          _processClone(added[i]);
+          _applyEnterAnim(added[i], animEnter, stagger, i);
+        }
         prevRendered = list.slice();
       }
 
@@ -376,71 +454,144 @@ const _loopHandler = {
       }
     }
 
+    // Fast path for keys of the form "<itemName>.<prop>" (the common case):
+    // read the property directly — no proxy context, no evaluator round-trip.
+    // Dunder props fall back to the evaluator so its prototype-safety rules
+    // stay authoritative.
+    let keyProp = null;
+    if (keyExpr) {
+      const km = keyExpr.match(/^(\w+)\.(\w+)$/);
+      if (km && km[1] === itemName && !["__proto__", "constructor", "prototype"].includes(km[2])) {
+        keyProp = km[2];
+      }
+    }
+
     // Key-based reconciliation — applied to the final (filtered, sorted,
     // sliced) list so keys always correspond to what is actually rendered.
     function reconcileItems(list, count) {
       // On first render clear any residual content so only managed nodes appear.
       if (keyMap.size === 0) _clearManagedClones(startMarker, endMarker);
 
-      // Reuse a single proxy context for key evaluation (same pattern as filter)
-      const keyData = { [itemName]: undefined, [indexName]: 0 };
-      const keyCtx = createContext(keyData, ctx);
-      const keyRaw = keyCtx.__raw;
-      const newOrder = list.map((item, i) => {
-        keyRaw[itemName] = item;
-        keyRaw[indexName] = i;
-        // Invalidate _collectKeys cache since we bypassed the proxy setter
-        delete keyRaw.__collectKeysCache;
-        return { key: evaluate(keyExpr, keyCtx), item, i };
-      });
+      let newOrder;
+      if (keyProp) {
+        newOrder = new Array(list.length);
+        for (let i = 0; i < list.length; i++) {
+          const item = list[i];
+          newOrder[i] = { key: item == null ? undefined : item[keyProp], item, i };
+        }
+      } else {
+        // Reuse a single proxy context for key evaluation (same pattern as filter)
+        const keyData = { [itemName]: undefined, [indexName]: 0 };
+        const keyCtx = createContext(keyData, ctx);
+        const keyRaw = keyCtx.__raw;
+        newOrder = list.map((item, i) => {
+          keyRaw[itemName] = item;
+          keyRaw[indexName] = i;
+          // Invalidate _collectKeys cache since we bypassed the proxy setter
+          delete keyRaw.__collectKeysCache;
+          return { key: evaluate(keyExpr, keyCtx), item, i };
+        });
+      }
 
       const nextKeySet = new Set(newOrder.map((e) => e.key));
 
-      for (const [key, wrapper] of keyMap) {
-        if (!nextKeySet.has(key)) {
-          _disposeTree(wrapper);
-          wrapper.remove();
-          keyMap.delete(key);
+      // Full-replacement fast path: when no existing key survives (replace
+      // rows), bulk-clear the whole managed range in one Range operation
+      // instead of removing wrappers one by one.
+      let anySurvives = false;
+      for (const key of keyMap.keys()) {
+        if (nextKeySet.has(key)) { anySurvives = true; break; }
+      }
+      if (!anySurvives && keyMap.size > 0) {
+        _clearManagedClones(startMarker, endMarker);
+        keyMap.clear();
+      } else {
+        for (const [key, wrapper] of keyMap) {
+          if (!nextKeySet.has(key)) {
+            _disposeTree(wrapper, true);
+            wrapper.remove();
+            keyMap.delete(key);
+          }
         }
       }
 
+      // New clones collect into one fragment (single DOM insertion before
+      // the end marker — the reorder pass below puts them in place), then
+      // get their directives initialized while connected.
+      let frag = null;
+      let added = null;
       newOrder.forEach(({ key, item, i }) => {
-        const childData = {
-          [itemName]: item,
-          [indexName]: i,
-          $index: i,
-          $count: count,
-          $first: i === 0,
-          $last: i === count - 1,
-          $even: i % 2 === 0,
-          $odd: i % 2 !== 0,
-        };
-
-        if (!keyMap.has(key)) {
-          const clone = _makeClone(childData);
+        const existing = keyMap.get(key);
+        if (!existing) {
+          const clone = _makeClone({
+            [itemName]: item,
+            [indexName]: i,
+            $index: i,
+            $count: count,
+            $first: i === 0,
+            $last: i === count - 1,
+            $even: i % 2 === 0,
+            $odd: i % 2 !== 0,
+          });
           keyMap.set(key, clone);
-          parent.insertBefore(clone, endMarker);
-          processTree(clone);
-          _applyEnterAnim(clone, animEnter, stagger, i);
+          if (!frag) { frag = document.createDocumentFragment(); added = []; }
+          frag.appendChild(clone);
+          added.push({ clone, i });
         } else {
-          Object.assign(keyMap.get(key).__ctx.__raw, childData);
-          keyMap.get(key).__ctx.$notify();
+          const cloneRaw = existing.__ctx.__raw;
+          // Skip the re-assign when nothing the context exposes changed:
+          // $first/$last/$even/$odd derive from index and count, so comparing
+          // the item ref, index, and count covers every field. The notify
+          // below still fires unconditionally — the item may have been
+          // mutated in place (the pinned mutate-and-slice pattern) — and
+          // binding value memos turn unchanged rows into zero DOM writes.
+          if (cloneRaw[itemName] !== item || cloneRaw[indexName] !== i || cloneRaw.$count !== count) {
+            cloneRaw[itemName] = item;
+            cloneRaw[indexName] = i;
+            cloneRaw.$index = i;
+            cloneRaw.$count = count;
+            cloneRaw.$first = i === 0;
+            cloneRaw.$last = i === count - 1;
+            cloneRaw.$even = i % 2 === 0;
+            cloneRaw.$odd = i % 2 !== 0;
+            // Invalidate _collectKeys cache since we bypassed the proxy setter
+            // (same pattern as the filter/key eval contexts above) — otherwise
+            // bindings can evaluate against stale cached vals when reconcile
+            // runs without an accompanying _ctxGeneration bump.
+            delete cloneRaw.__collectKeysCache;
+          }
+          existing.__ctx.$notify();
         }
       });
+      if (frag) {
+        parent.insertBefore(frag, endMarker);
+        for (let j = 0; j < added.length; j++) {
+          _processClone(added[j].clone);
+          _applyEnterAnim(added[j].clone, animEnter, stagger, added[j].i);
+        }
+      }
 
       // Reorder: ensure DOM order matches the new list order.
-      // Work with a mutable snapshot so moves are tracked correctly.
+      // Nodes on the longest increasing subsequence of old positions stay
+      // put; only out-of-place nodes are moved. A swap of two rows costs two
+      // insertBefore calls instead of cascading a move for every row after
+      // the first mismatch.
       const managedClones = _getManagedClones(startMarker, endMarker);
+      const oldPos = new Map();
+      for (let i = 0; i < managedClones.length; i++) oldPos.set(managedClones[i], i);
+      const oldIndices = new Array(newOrder.length);
       for (let i = 0; i < newOrder.length; i++) {
-        const itemNode = keyMap.get(newOrder[i].key);
-        if (itemNode !== managedClones[i]) {
-          parent.insertBefore(itemNode, managedClones[i] ?? endMarker);
-          // Refresh the snapshot after a move so subsequent comparisons
-          // reference the current DOM order, not the stale snapshot.
-          const fromIdx = managedClones.indexOf(itemNode);
-          if (fromIdx !== -1) managedClones.splice(fromIdx, 1);
-          managedClones.splice(i, 0, itemNode);
+        const node = keyMap.get(newOrder[i].key);
+        oldIndices[i] = oldPos.has(node) ? oldPos.get(node) : -1;
+      }
+      const keep = _lisIndices(oldIndices);
+      let anchor = endMarker;
+      for (let i = newOrder.length - 1; i >= 0; i--) {
+        const node = keyMap.get(newOrder[i].key);
+        if (!keep.has(i) && node.nextSibling !== anchor) {
+          parent.insertBefore(node, anchor);
         }
+        anchor = node;
       }
     }
 

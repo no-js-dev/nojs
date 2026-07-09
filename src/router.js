@@ -256,6 +256,14 @@ export function _createRouter() {
         }
       });
 
+      // `ready` rejects (InvalidStateError) when the browser skips the
+      // animation entirely — hidden/background tab, prerendering, duplicate
+      // view-transition-name. The DOM update still applies via
+      // updateCallbackDone, so this is benign; without a handler it surfaces
+      // as an unhandled-rejection console error on every navigation.
+      // Real failures still warn through `finished` above.
+      vt.ready?.catch(() => {});
+
       // Wait for the DOM update to complete before firing listeners
       await vt.updateCallbackDone;
     } else {

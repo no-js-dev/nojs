@@ -51,8 +51,14 @@ registerDirective("class-*", {
     }
 
     // class-{name}="expr"
+    // Boolean memo: unchanged condition = no classList touch (null ≠ any
+    // boolean, so the first run always writes).
+    let last = null;
     function update() {
-      el.classList.toggle(suffix, !!evaluate(expr, ctx));
+      const on = !!evaluate(expr, ctx);
+      if (on === last) return;
+      last = on;
+      el.classList.toggle(suffix, on);
     }
     _watchExpr(expr, ctx, update);
     if (expr.includes("NoJS.locale") || expr.includes("window.NoJS.locale")) _watchI18n(update);
@@ -99,9 +105,13 @@ registerDirective("style-*", {
     // Must use setProperty() — bracket assignment is an inert JS expando.
     const isCustomProp = suffix.startsWith("--");
     const cssProp = isCustomProp ? suffix : suffix.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    // String memo: unchanged value = no style write.
+    let last;
     function update() {
       const val = evaluate(expr, ctx);
       const v = val != null ? String(val) : "";
+      if (v === last) return;
+      last = v;
       if (isCustomProp) el.style.setProperty(cssProp, v);
       else el.style[cssProp] = v;
     }

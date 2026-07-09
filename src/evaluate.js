@@ -2,7 +2,7 @@
 //  EXPRESSION EVALUATOR
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals } from "./globals.js";
+import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
 import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
@@ -1453,6 +1453,77 @@ function _parseFilterArgs(str) {
   });
 }
 
+// Static root-key extraction for key-scoped watchers (_watchExpr).
+// Token-level scan, deliberately over-approximate: every identifier that is
+// not a member-access property counts as a root (object-literal keys included
+// — extra keys mean extra fires, never missed ones). Returns null (= unkeyed,
+// fire on every notification) whenever precision is impossible:
+//  - piped expressions (filter args may read arbitrary scope keys)
+//  - any "(" (a called context function may read any key; grouping/arrows
+//    are sacrificed for simplicity)
+//  - assignments / increments / template literals
+//  - $-prefixed roots other than the registry-handled $store/$route/$i18n
+//    ($refs, $router, plugin globals historically refreshed by piggy-backing
+//    on unrelated notifications — keep that behavior)
+export function _exprRootKeys(expr) {
+  if (typeof expr !== "string" || expr.trim() === "") return null;
+  let tokens;
+  try {
+    const pipes = _parsePipes(expr);
+    if (pipes.length > 1) return null;
+    tokens = _tokenize(pipes[0]);
+  } catch {
+    return null;
+  }
+  if (!tokens || tokens.length === 0) return null;
+  const roots = new Set();
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === "Template") return null;
+    if (t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" ||
+        t.value === "*=" || t.value === "/=" || t.value === "%=" ||
+        t.value === "++" || t.value === "--" || t.value === "=>")) return null;
+    if (t.type === "Punc" && t.value === "(") return null;
+    if (t.type === "Ident") {
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      if (t.value.charCodeAt(0) === 36 /* $ */ &&
+          t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n") return null;
+      roots.add(t.value);
+    }
+  }
+  return roots.size > 0 ? roots : null;
+}
+_setExprRootKeysFn(_exprRootKeys);
+
+// Statement variant of _exprRootKeys for _execStatement's write-back:
+// assignments/increments are expected (that's what statements do), so only
+// calls (a called function may mutate any context object) and template
+// literals force the conservative null. Used to skip the in-place-mutation
+// safety notify for object keys the statement never mentions.
+function _stmtRootKeys(expr) {
+  if (typeof expr !== "string") return null;
+  let tokens;
+  try {
+    tokens = _tokenize(expr);
+  } catch {
+    return null;
+  }
+  if (!tokens || tokens.length === 0) return null;
+  const roots = new Set();
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type === "Template") return null;
+    if (t.type === "Punc" && t.value === "(") return null;
+    if (t.type === "Ident") {
+      const prev = tokens[i - 1];
+      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      roots.add(t.value);
+    }
+  }
+  return roots;
+}
+
 export function evaluate(expr, ctx) {
   if (expr == null || expr === "") return undefined;
   try {
@@ -1541,6 +1612,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
 
     // Write back changed values to owning context
+    const stmtRoots = _stmtRootKeys(expr);
     for (const k of chainKeys) {
       if (k.startsWith("$")) continue;
       if (!(k in scope)) continue;
@@ -1553,9 +1625,15 @@ export function _execStatement(expr, ctx, extraVars = {}) {
           c = c.$parent;
         }
       } else if (typeof newVal === "object" && newVal !== null) {
+        // In-place mutation safety net: the statement may have mutated this
+        // object's internals without reassigning it. Only keys the statement
+        // actually references can have been touched (stmtRoots is null when
+        // that can't be determined — e.g. function calls), and the notify is
+        // keyed so unrelated key-scoped watchers stay quiet.
+        if (stmtRoots && !stmtRoots.has(k)) continue;
         let c = ctx;
         while (c && c.__isProxy) {
-          if (k in c.__raw) { c.$notify(); break; }
+          if (k in c.__raw) { c.$notify(k); break; }
           c = c.$parent;
         }
       }

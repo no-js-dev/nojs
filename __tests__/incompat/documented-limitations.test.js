@@ -409,7 +409,7 @@ describe('Finding 20: t + bind on the same element', () => {
     expect(span.textContent).toBe('updated');
   });
 
-  test('bind first, t second -- msg changes do not update the element', () => {
+  test('bind first, t second -- msg changes now win over the static translation', () => {
     document.body.innerHTML = `
       <div state="{ msg: 'initial' }">
         <span bind="msg" t="greet"></span>
@@ -420,12 +420,16 @@ describe('Finding 20: t + bind on the same element', () => {
     const ctx = document.body.firstElementChild.__ctx;
     const span = document.body.querySelector('span');
 
-    // t won initially
+    // t won initially (processed after bind)
     expect(span.textContent).toBe('Hello World');
 
-    // Changing msg: t still overwrites on each notify cycle
+    // Key-scoped watchers: t's watcher is keyed to $i18n and no longer
+    // re-runs on unrelated context changes, so it cannot overwrite bind's
+    // update anymore. bind is keyed to msg and wins. (Historically t
+    // re-fired on every notify and clobbered bind — the combination is
+    // still unsupported, but the last write now goes to the directive
+    // whose dependency actually changed.)
     ctx.msg = 'changed';
-    // t re-runs and writes over the bind update
-    expect(span.textContent).toBe('Hello World');
+    expect(span.textContent).toBe('changed');
   });
 });

@@ -8,7 +8,7 @@
  * clone's bindings can evaluate against stale cached vals.
  */
 
-import { _stores, _storeWatchers, _globals } from '../src/globals.js';
+import { _stores, _storeWatchers, _globals, _watchExpr } from '../src/globals.js';
 import { processTree } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
 import { createContext } from '../src/context.js';
@@ -266,5 +266,147 @@ describe('Stage 3 — batched statement notification', () => {
     // round 2 sees y=5. Final observation must be fresh.
     expect(seen[seen.length - 1]).toBe(5);
     expect(ctx.y).toBe(5);
+  });
+});
+
+/**
+ * Stage 4 — key-scoped watchers.
+ * _watchExpr statically extracts the root identifiers of the watched
+ * expression; notify(key) skips listeners whose expression cannot depend
+ * on the changed key. Anything ambiguous (calls, filters, templates,
+ * $-specials outside the store/route/i18n registries) stays unkeyed and
+ * fires on every notification, preserving old behavior.
+ */
+describe('Stage 4 — key-scoped watchers', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+    _storeWatchers.clear();
+  });
+
+  function withCounters(id) {
+    let nameReads = 0;
+    let idReads = 0;
+    const item = { name: 'n' + id };
+    Object.defineProperty(item, 'id', { get: () => { idReads++; return id; }, enumerable: true });
+    const orig = item.name;
+    let _name = orig;
+    Object.defineProperty(item, 'name', {
+      get: () => { nameReads++; return _name; },
+      set: (v) => { _name = v; },
+      enumerable: true, configurable: true,
+    });
+    return { item, counts: () => ({ nameReads, idReads }), reset: () => { nameReads = 0; idReads = 0; } };
+  }
+
+  function setupKeyedCounters(n) {
+    const host = document.createElement('div');
+    host.setAttribute('state', '{"items": [], "sel": 0}');
+    const el = document.createElement('div');
+    el.setAttribute('each', 'item in items');
+    el.setAttribute('key', 'item.id');
+    el.setAttribute('class-danger', 'item.id === sel');
+    el.innerHTML = '<span bind="item.name"></span>';
+    host.appendChild(el);
+    document.body.appendChild(host);
+    processTree(host);
+
+    const counters = Array.from({ length: n }, (_, i) => withCounters(i + 1));
+    const ctx = findContext(host);
+    ctx.items = counters.map((c) => c.item);
+    counters.forEach((c) => c.reset());
+    return { host, ctx, counters };
+  }
+
+  test('parent key change re-evaluates only expressions that reference it', () => {
+    const { host, ctx, counters } = setupKeyedCounters(10);
+
+    _execStatement('sel = 3', ctx, { $el: host });
+
+    const totals = counters.reduce(
+      (acc, c) => { const { nameReads, idReads } = c.counts(); acc.name += nameReads; acc.id += idReads; return acc; },
+      { name: 0, id: 0 },
+    );
+    // class-danger (item.id === sel) must re-run on every row…
+    expect(totals.id).toBeGreaterThanOrEqual(10);
+    // …but bind="item.name" does not mention sel and must not re-run.
+    expect(totals.name).toBe(0);
+
+    const danger = [...host.childNodes].filter((n) => n.nodeType === 1 && n.classList.contains('danger'));
+    expect(danger.length).toBe(1);
+    expect(danger[0].textContent).toBe('n3');
+  });
+
+  test('list replacement still refreshes every binding (keyless reconcile notify)', () => {
+    const { host, ctx } = setupKeyedCounters(5);
+
+    ctx.__raw.items.forEach((it) => { it.name = it.name + '!'; });
+    _execStatement('items = items.slice()', ctx, { $el: host });
+
+    const spans = [...host.querySelectorAll('span')];
+    expect(spans.map((s) => s.textContent)).toEqual(['n1!', 'n2!', 'n3!', 'n4!', 'n5!']);
+  });
+
+  test('keyed watcher skips unrelated keys and fires for its own (unit)', () => {
+    const parent = createContext({ a: 1, b: 1 });
+    const child = createContext({ c: 1 }, parent);
+    const fn = jest.fn();
+    _watchExpr('a + c', child, fn);
+
+    parent.b = 2;
+    expect(fn).not.toHaveBeenCalled();
+    parent.a = 2;
+    expect(fn).toHaveBeenCalledTimes(1);
+    child.c = 2;
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  test('call expressions stay unkeyed (context fn may read any key)', () => {
+    const ctx = createContext({ x: 1, y: 1 });
+    const fn = jest.fn();
+    _watchExpr('compute(x)', ctx, fn);
+
+    ctx.y = 2; // not mentioned in the expression — must still fire
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  test('piped (filter) expressions stay unkeyed', () => {
+    const ctx = createContext({ x: 1, y: 1 });
+    const fn = jest.fn();
+    _watchExpr('x | uppercase', ctx, fn);
+
+    ctx.y = 2;
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  test('manual keyless $notify fires keyed watchers too', () => {
+    const ctx = createContext({ a: 1 });
+    const fn = jest.fn();
+    _watchExpr('a', ctx, fn);
+
+    ctx.$notify();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  test('nested $set path notifies by its root key', () => {
+    const ctx = createContext({ obj: { deep: 1 }, other: 0 });
+    const objFn = jest.fn();
+    const otherFn = jest.fn();
+    _watchExpr('obj.deep', ctx, objFn);
+    _watchExpr('other', ctx, otherFn);
+
+    ctx.$set('obj.deep', 2);
+    expect(objFn).toHaveBeenCalledTimes(1);
+    expect(otherFn).not.toHaveBeenCalled();
+  });
+
+  test('same fn watched with keyed and unkeyed exprs stays unkeyed', () => {
+    const ctx = createContext({ p: 1, q: 1 });
+    const fn = jest.fn();
+    _watchExpr('p', ctx, fn);
+    _watchExpr('run()', ctx, fn); // ambiguous — locks fn to unkeyed
+
+    ctx.q = 2;
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 });

@@ -65,32 +65,27 @@ export function createContext(data = {}, parent = null) {
   const raw = {};
   Object.assign(raw, data);
   if (_config.devtools) raw.__devtoolsId = ++_ctxId;
-  let notifying = false;
 
-  function notify() {
-    if (notifying) return;
-    notifying = true;
-    try {
-      if (_batchDepth > 0) {
-        for (const fn of listeners) {
-          if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
-          _batchQueue.add(fn);
-        }
-      } else {
-        for (const fn of listeners) {
-          if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
-          // Isolate each listener: a single throwing listener must not abort
-          // the loop and skip every sibling (Safety Rule 8).
-          try {
-            fn();
-          } catch (err) {
-            _warn("reactive listener threw; continuing with remaining listeners:", err);
-          }
-        }
-      }
-    } finally {
-      notifying = false;
+  // `key` is the changed property when the notification comes from a single
+  // write (set trap / $set); undefined for manual $notify() and bulk changes,
+  // which fire every listener. Key-scoped listeners (fn._keys, assigned in
+  // _watchExpr) are skipped when the changed key cannot affect them.
+  //
+  // Every notify runs through the batch queue: outside an explicit batch it
+  // opens its own, so listeners always execute from _endBatch's drain. A
+  // notify fired by a running listener (e.g. computed's $set cascading into
+  // a watch) queues for the next drain round instead of recursing — or being
+  // dropped, as the old reentrancy guard did. Still fully synchronous: the
+  // drain completes before the outermost notify/set returns.
+  function notify(key) {
+    const ownBatch = _batchDepth === 0;
+    if (ownBatch) _startBatch();
+    for (const fn of listeners) {
+      if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
+      if (key !== undefined && fn._keys && !fn._keys.has(key)) continue;
+      _batchQueue.add(fn);
     }
+    if (ownBatch) _endBatch();
   }
 
   // Pre-build $set closure outside the handler for reuse across all get() calls
@@ -112,7 +107,7 @@ export function createContext(data = {}, parent = null) {
         // Bump the generation so _collectKeys' cache invalidates, mirroring the
         // set trap. Otherwise a nested $set leaves stale vals cached.
         _ctxGeneration++;
-        notify();
+        notify(parts[0]);
       }
     }
   };
@@ -178,7 +173,7 @@ export function createContext(data = {}, parent = null) {
       target[key] = value;
       if (old !== value) {
         _ctxGeneration++;
-        notify();
+        notify(typeof key === "string" ? key : undefined);
         if (_config.devtools) {
           let isSensitive = false;
           if (typeof key === "string") {

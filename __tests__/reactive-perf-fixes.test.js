@@ -452,3 +452,26 @@ describe('Stage 5 — directive match cache', () => {
     expect(seen).toEqual(['y']);
   });
 });
+
+describe('statement write-back — plugin global reactivity (plugin-system e2e 2)', () => {
+  test('statement mutating a plugin global wakes unkeyed watchers via the safety net', () => {
+    _globals.demo = { count: 0 };
+    const host = document.createElement('div');
+    host.setAttribute('state', '{"ui": {"open": false}}');
+    host.innerHTML = '<span bind="$demo.count"></span>';
+    document.body.appendChild(host);
+    processTree(host);
+
+    const span = host.querySelector('span');
+    expect(span.textContent).toBe('0');
+
+    const ctx = findContext(span);
+    _execStatement('$demo.count++', ctx, {});
+    expect(_globals.demo.count).toBe(1);
+    // $demo is outside the ctx graph: the bind survives only through the
+    // keyless-bail safety-net notify. A $-root statement must not be
+    // key-scoped away from it.
+    expect(span.textContent).toBe('1');
+    delete _globals.demo;
+  });
+});

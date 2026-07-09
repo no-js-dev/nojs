@@ -1518,6 +1518,12 @@ function _stmtRootKeys(expr) {
     if (t.type === "Ident") {
       const prev = tokens[i - 1];
       if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
+      // A statement writing through a non-registry $-root (plugin globals,
+      // $refs) has always relied on the keyless safety-net notify to wake
+      // unkeyed watchers like bind="$demo.count" — same bail as
+      // _exprRootKeys (NOJS plugin-system e2e 2).
+      if (t.value.charCodeAt(0) === 36 /* $ */ &&
+          t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n") return null;
       roots.add(t.value);
     }
   }

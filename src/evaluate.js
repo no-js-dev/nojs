@@ -1936,72 +1936,66 @@ function _computeExprRootKeys(expr) {
 }
 _setExprRootKeysFn(_exprRootKeys);
 
-// Statement variant of _exprRootKeys for _execStatement's write-back:
-// assignments/increments are expected (that's what statements do), so only
-// calls (a called function may mutate any context object) and template
-// literals force the conservative null. Used to skip the in-place-mutation
-// safety notify for object keys the statement never mentions.
-function _stmtRootKeys(expr) {
-  if (typeof expr !== "string") return null;
-  let tokens;
-  try {
-    tokens = _tokenize(expr);
-  } catch {
-    return null;
-  }
-  if (!tokens || tokens.length === 0) return null;
-  const roots = new Set();
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    if (t.type === "Template") return null;
-    if (t.type === "Punc" && t.value === "(") return null;
-    if (t.type === "Ident") {
-      const prev = tokens[i - 1];
-      if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
-      // A statement writing through a non-registry $-root (plugin globals,
-      // $refs) has always relied on the keyless safety-net notify to wake
-      // unkeyed watchers like bind="$demo.count" — same bail as
-      // _exprRootKeys (NOJS plugin-system e2e 2).
-      if (t.value.charCodeAt(0) === 36 /* $ */ &&
-          t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n") return null;
-      roots.add(t.value);
-    }
-  }
-  return roots;
-}
+// Statement variant of _exprRootKeys for _execStatement's write-back. One
+// memoized token scan per statement string answers both questions the
+// write-back asks:
+//
+//  roots — context keys the statement mentions, used to skip the in-place-
+//    mutation safety notify for object keys the statement never names.
+//    Assignments/increments are expected (that's what statements do); calls
+//    (a called function may mutate any context object) and template literals
+//    force the conservative null. $event/$el/$error are per-invocation
+//    locals — mentioning them costs no precision.
+//
+//  hasGlobalRoot — statement mentions a $-root no registry notify covers:
+//    plugin globals ($demo…), $refs, $router. $store/$route/$i18n have their
+//    own watcher registries. Writes through registry-less roots mutate
+//    proxies that live OUTSIDE the context chain, so the per-key write-back
+//    can never see them — they need an explicit keyless wake (NOJS
+//    plugin-system e2e 2). Such a root also forces roots = null.
+const _REGISTRY_ROOTS = new Set(["$store", "$route", "$i18n"]);
+const _STMT_LOCALS = new Set(["$event", "$el", "$error"]);
+const _stmtScanCache = new Map();
 
-// True when a statement mentions a $-root that no registry notify covers:
-// plugin globals ($demo…), $refs, $router. $store/$route/$i18n have their
-// own watcher registries; $event/$el are per-invocation locals. Writes
-// through these roots mutate proxies that live OUTSIDE the context chain,
-// so _execStatement's per-key write-back can never see them — they need an
-// explicit keyless wake. Memoized per statement string.
-const _stmtGlobalRootCache = new Map();
-function _stmtHasGlobalRoot(expr) {
-  let hit = _stmtGlobalRootCache.get(expr);
+function _stmtScan(expr) {
+  let hit = _stmtScanCache.get(expr);
   if (hit !== undefined) return hit;
-  hit = false;
+  hit = { roots: null, hasGlobalRoot: false };
+  const roots = new Set();
+  let precise = true;
   try {
     const tokens = _tokenize(expr);
-    for (let i = 0; i < tokens.length; i++) {
+    if (!tokens || tokens.length === 0) precise = false;
+    else for (let i = 0; i < tokens.length; i++) {
       const t = tokens[i];
-      if (t.type !== "Ident" || t.value.charCodeAt(0) !== 36 /* $ */) continue;
+      if (t.type === "Template" || (t.type === "Punc" && t.value === "(")) {
+        precise = false;
+        continue;
+      }
+      if (t.type !== "Ident") continue;
       const prev = tokens[i - 1];
       if (prev && prev.type === "Punc" && (prev.value === "." || prev.value === "?.")) continue;
-      if (t.value !== "$store" && t.value !== "$route" && t.value !== "$i18n" &&
-          t.value !== "$event" && t.value !== "$el") {
-        hit = true;
-        break;
+      if (t.value.charCodeAt(0) === 36 /* $ */) {
+        if (_STMT_LOCALS.has(t.value)) continue;
+        if (!_REGISTRY_ROOTS.has(t.value)) {
+          hit.hasGlobalRoot = true;
+          precise = false;
+          continue;
+        }
       }
+      roots.add(t.value);
     }
   } catch {
     // Unparseable statements throw again in _parseStatements before any
-    // write happens — no wake needed.
+    // write happens — no roots, no wake needed.
+    precise = false;
   }
-  if (_stmtGlobalRootCache.size >= _ROOT_KEYS_CACHE_MAX) _stmtGlobalRootCache.clear();
-  _stmtGlobalRootCache.set(expr, hit);
+  if (precise) hit.roots = roots;
+  if (_stmtScanCache.size >= _ROOT_KEYS_CACHE_MAX) _stmtScanCache.clear();
+  _stmtScanCache.set(expr, hit);
   return hit;
 }
+const _EMPTY_STMT_SCAN = { roots: null, hasGlobalRoot: false };
 
 export function evaluate(expr, ctx) {
   if (expr == null || expr === "") return undefined;
@@ -2125,7 +2119,24 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
 
     // Write back changed values to owning context
-    const stmtRoots = _stmtRootKeys(expr);
+    const stmtScan = typeof expr === "string" ? _stmtScan(expr) : _EMPTY_STMT_SCAN;
+    const stmtRoots = stmtScan.roots;
+    // The root-key filter below is only sound when the statement cannot have
+    // mutated a shared object: a write through an object-valued root can land
+    // in an object that OTHER chain keys alias without naming it (a loop
+    // clone's `item` aliases an element of the parent's `items` array, so
+    // `item.done = !item.done` must wake watchers keyed on `items`). When any
+    // root holds an object after execution, fall back to notifying every
+    // object-valued chain key — still keyed, so primitive-keyed watchers stay
+    // quiet. Statements over primitives only (count++, open = !open) keep the
+    // narrow filter.
+    let rootsCanAlias = stmtRoots === null;
+    if (stmtRoots) {
+      for (const r of stmtRoots) {
+        const v = scope[r];
+        if (typeof v === "object" && v !== null) { rootsCanAlias = true; break; }
+      }
+    }
     for (const k of chainKeys) {
       if (k.startsWith("$")) continue;
       if (!(k in scope)) continue;
@@ -2143,7 +2154,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         // actually references can have been touched (stmtRoots is null when
         // that can't be determined — e.g. function calls), and the notify is
         // keyed so unrelated key-scoped watchers stay quiet.
-        if (stmtRoots && !stmtRoots.has(k)) continue;
+        if (!rootsCanAlias && !stmtRoots.has(k)) continue;
         let c = ctx;
         while (c && c.__isProxy) {
           if (k in c.__raw) { c.$notify(k); break; }
@@ -2178,7 +2189,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // safety net above notified it on every statement. The compiled
     // evaluate() plants no such key, so the wake must be explicit
     // (plugin-system e2e 2).
-    if (typeof expr === "string" && _stmtHasGlobalRoot(expr)) {
+    if (stmtScan.hasGlobalRoot) {
       let c = ctx;
       while (c && c.__isProxy) {
         c.$notify();

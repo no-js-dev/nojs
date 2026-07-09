@@ -18,13 +18,26 @@ Reactive-core performance overhaul. A backward-compatible pass across expression
 - perf(directives): skip-unchanged reconciliation — reconciler diffs against previous values and skips DOM writes when a bound value is unchanged
 - perf(reactive): keyed LIS (longest-increasing-subsequence) reordering — keyed lists move the minimum number of DOM nodes on reorder, with batched, key-scoped change notifications
 - perf(disposal): subtree-discard fast path — skips element-only disposers and bulk-clears DOM on teardown of large subtrees
-- perf(memory): shared Proxy handler, interned property keys, and event delegation reduce per-instance allocation and steady-state memory
+- perf(memory): shared Proxy handler and interned property keys reduce per-instance allocation and steady-state memory
 
 Representative js-framework-benchmark deltas vs v1.18.0: swap-rows ~15.9× faster, select-row ~23.4× faster, create-10k ~1.9× faster, run-memory ~1.7× lower.
 
 ### Added
 
 - test(bench): A/B measurement harness — benchmark runner plus fixed loop benchmarks to guard against performance regressions
+
+### Fixed
+
+- fix(router): handle View Transition `ready` rejection on skipped animations
+- fix(events): revert document-level event delegation to per-element listeners — delegation inverted handler ordering, silently dropped handlers when any ancestor called `stopPropagation()`, and installed document-level listeners with no disposal
+- fix(evaluate): statement write-back notifies aliased parent objects — mutating a loop item in place (`item.done = !item.done`) now wakes watchers keyed on the parent list
+- fix(evaluate): statement root-key scanners consolidated into one memoized scan; `$event`/`$el`/`$error` are treated as per-invocation locals instead of forcing conservative re-notification
+- fix(loops): process plans rebuild when a directive is registered after first render, so later clones match it
+- fix(loops): external-template masters are refreshed once per update pass — in-place template content changes (remote template loads) now reach new clones
+- fix(registry): plan replay snapshots planned nodes up front — an init that mutates the tree mid-run (e.g. `bind-html`) can no longer apply planned directives to freshly created nodes
+- fix(registry): directive match cache evicts oldest-first at capacity instead of clearing wholesale
+- fix(binding): `bind-*`, `class-*`, `style-*` value memos verify the live DOM before skipping — externally flipped state (user click on `bind-checked`, script-modified classes/styles/attributes) is resynced
+- fix(context): `$notify(arg)` narrows to key-scoped listeners only for string arguments; non-string calls fire every listener
 
 ## [1.18.0](https://github.com/no-js-dev/nojs/compare/v1.17.0...v1.18.0) — 2026-07-08
 

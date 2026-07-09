@@ -180,7 +180,10 @@ registerDirective("on:*", {
 
     el.addEventListener(event, handler, opts);
     if (!opts.once) {
-      _onDispose(() => el.removeEventListener(event, handler, opts));
+      const dispose = () => el.removeEventListener(event, handler, opts);
+      // Element-local listener: skippable when the subtree is discarded.
+      dispose._elOnly = true;
+      _onDispose(dispose);
     }
   },
 });
@@ -195,6 +198,8 @@ registerDirective("trigger", {
       el.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
     };
     el.addEventListener("click", clickHandler);
-    _onDispose(() => el.removeEventListener("click", clickHandler));
+    const dispose = () => el.removeEventListener("click", clickHandler);
+    dispose._elOnly = true;
+    _onDispose(dispose);
   },
 });

@@ -43,6 +43,8 @@ Build the tooling that keeps every later stage honest:
 
 *Tests: the harness itself is test-adjacent; gate = reproducible numbers ±noise on two consecutive runs.*
 
+**RESULT (2026-07-08):** Shipped — `bench/run-ab.sh` (headed same-session A/B), `bench/compare-ab.py`, `bench/profile-create.mjs` (CDP CPU profiler for create-1k), loops-benchmark fix. PR #257.
+
 ### WS1 — Loop template compilation (biggest create/append/10K win)
 
 Today every cloned row runs: TreeWalker → per-element attribute scan → match-cache lookup → directive init. The loop body's *shape is identical for every clone* — compute it once.
@@ -54,6 +56,8 @@ Today every cloned row runs: TreeWalker → per-element attribute scan → match
 - Expected: Create 1K 48 → ~33, Create 10K 517 → ~360, Append 74 → ~45, Replace 55 → ~40.
 
 *Tests: new `__tests__/template-plan.test.js` — plan correctness vs generic path (render same fixture both ways, assert identical DOM), plan invalidation on template mutation, nested loops, loops with `if`/`use`/`include` inside, else-templates. Full e2e loops + examples suites. Pin: cloned-attribute stripping (Safety Rule 9) still enforced.*
+
+**RESULT (2026-07-09, headed A/B, idle machine):** Create 1K 47.1→39.0 (1.21x), Replace 55.2→46.8 (1.18x), Create 10K 498→441 (1.13x), Append 70.4→62.9 (1.12x), run-memory 7.7→6.5 MB; zero CPU regressions; +0.5 KB gzip. CPU profile (`bench/profile-create.mjs`) shows remaining create-1k JS self-time is `evaluate` (~6.4 ms/run) + watcher registration (~2.7 ms/run) — WS3/WS5 scope; WS1 machinery is down to ~2.3 ms/run over a ~2.8 ms native clone/insert floor. Gate accepted: the "~33 ms" figure above is cumulative (needs WS3 closures on top of the plan replay).
 
 ### WS2 — Skip-unchanged reconciliation (partial update / remove / append / swap residuals)
 

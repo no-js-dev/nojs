@@ -138,8 +138,9 @@ def main():
     print(f"\nRaw '{args.b}' stats (median / mean / min / max / stddev):")
     for bench in sorted(b):
         s = b[bench]
-        flag = "  ⚠ high stddev — machine not idle?" if s["std"] > max(5.0, s["median"] * 0.15) else ""
-        print(f"  {bench:<26} {s['median']:.1f} / {s['mean']:.2f} / {s['min']:.1f} / {s['max']:.1f} / {s['std']:.2f}{flag}")
+        std = s["std"] if s["std"] is not None else 0.0  # single-sample results have no stddev
+        flag = "  ⚠ high stddev — machine not idle?" if std > max(5.0, s["median"] * 0.15) else ""
+        print(f"  {bench:<26} {s['median']:.1f} / {s['mean']:.2f} / {s['min']:.1f} / {s['max']:.1f} / {std:.2f}{flag}")
 
 
 if __name__ == "__main__":

@@ -203,7 +203,9 @@ export function _watchExpr(expr, ctx, fn) {
     } else if (fn._keys) {
       for (const k of roots) fn._keys.add(k);
     } else {
-      fn._keys = roots;
+      // roots is a shared memoized Set — copy before the union branch above
+      // can mutate it for a fn watched under several expressions.
+      fn._keys = new Set(roots);
     }
   }
 

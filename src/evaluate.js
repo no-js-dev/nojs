@@ -1465,7 +1465,23 @@ function _parseFilterArgs(str) {
 //  - $-prefixed roots other than the registry-handled $store/$route/$i18n
 //    ($refs, $router, plugin globals historically refreshed by piggy-backing
 //    on unrelated notifications — keep that behavior)
+// Memoized per expression string: loop clones register the same handful of
+// expressions thousands of times, and tokenizing each registration dominates
+// watcher setup. Callers must treat the returned Set as immutable (see
+// _watchExpr, which copies before unioning).
+const _rootKeysCache = new Map();
+const _ROOT_KEYS_CACHE_MAX = 500;
+
 export function _exprRootKeys(expr) {
+  const hit = _rootKeysCache.get(expr);
+  if (hit !== undefined) return hit;
+  const roots = _computeExprRootKeys(expr);
+  if (_rootKeysCache.size >= _ROOT_KEYS_CACHE_MAX) _rootKeysCache.clear();
+  _rootKeysCache.set(expr, roots);
+  return roots;
+}
+
+function _computeExprRootKeys(expr) {
   if (typeof expr !== "string" || expr.trim() === "") return null;
   let tokens;
   try {

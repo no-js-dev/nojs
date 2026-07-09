@@ -204,6 +204,38 @@ describe('Router — View Transition API branches', () => {
     expect(capturedTypes).toContain('scale');
     expect(capturedTypes).toContain('forward');
   });
+
+  test('handles View Transition ready rejection (skipped animation) without unhandled rejection', async () => {
+    // `ready` rejects with InvalidStateError when the browser skips the
+    // animation (hidden tab, prerendering). The router must attach a handler
+    // or every such navigation logs an unhandled-rejection console error.
+    let readyHandled = false;
+    document.startViewTransition = jest.fn(({ update }) => {
+      const updatePromise = update();
+      const ready = Promise.reject(
+        new DOMException('Transition was aborted because of invalid state', 'InvalidStateError')
+      );
+      const origCatch = ready.catch.bind(ready);
+      ready.catch = (fn) => { readyHandled = true; return origCatch(fn); };
+      return {
+        updateCallbackDone: updatePromise,
+        finished: Promise.resolve(),
+        ready,
+      };
+    });
+
+    document.body.innerHTML = `
+      <div route-view transition="slide"></div>
+      <template route="/hidden-tab"><h1>Hidden Tab</h1></template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/hidden-tab');
+    await new Promise(r => setTimeout(r, 10));
+
+    expect(readyHandled).toBe(true);
+    expect(document.querySelector('[route-view]').textContent).toContain('Hidden Tab');
+  });
 });
 
 // ── File-based routing ────────────────────────────────────────────────────────

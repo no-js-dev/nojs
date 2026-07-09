@@ -53,13 +53,27 @@ function _getManagedClones(startMarker, endMarker) {
 
 // Removes all nodes between markers (including text/comment nodes),
 // disposing each element first (Safety Rule 1: dispose before removal).
+// Removal itself is a single Range.deleteContents() — per-node removeChild
+// dominates clear-1k profiles (native DOM bookkeeping per sibling).
 function _clearManagedClones(startMarker, endMarker) {
   let node = startMarker.nextSibling;
+  if (!node || node === endMarker) return;
   while (node && node !== endMarker) {
-    const next = node.nextSibling;
-    if (node.nodeType === 1) _disposeTree(node);
-    node.parentNode.removeChild(node);
-    node = next;
+    if (node.nodeType === 1) _disposeTree(node, true);
+    node = node.nextSibling;
+  }
+  const parent = startMarker.parentNode;
+  if (parent && parent.firstChild === startMarker && parent.lastChild === endMarker) {
+    // Markers span the whole parent: nuke all children in one native op
+    // (fastest bulk clear), then restore the markers.
+    parent.textContent = "";
+    parent.appendChild(startMarker);
+    parent.appendChild(endMarker);
+  } else {
+    const range = document.createRange();
+    range.setStartAfter(startMarker);
+    range.setEndBefore(endMarker);
+    range.deleteContents();
   }
 }
 
@@ -481,11 +495,23 @@ const _loopHandler = {
 
       const nextKeySet = new Set(newOrder.map((e) => e.key));
 
-      for (const [key, wrapper] of keyMap) {
-        if (!nextKeySet.has(key)) {
-          _disposeTree(wrapper);
-          wrapper.remove();
-          keyMap.delete(key);
+      // Full-replacement fast path: when no existing key survives (replace
+      // rows), bulk-clear the whole managed range in one Range operation
+      // instead of removing wrappers one by one.
+      let anySurvives = false;
+      for (const key of keyMap.keys()) {
+        if (nextKeySet.has(key)) { anySurvives = true; break; }
+      }
+      if (!anySurvives && keyMap.size > 0) {
+        _clearManagedClones(startMarker, endMarker);
+        keyMap.clear();
+      } else {
+        for (const [key, wrapper] of keyMap) {
+          if (!nextKeySet.has(key)) {
+            _disposeTree(wrapper, true);
+            wrapper.remove();
+            keyMap.delete(key);
+          }
         }
       }
 

@@ -142,14 +142,20 @@ test.describe('Pagination', () => {
     // Click load more for page 2 (last page via header)
     const loadMoreBtn = page.getByTestId('button-container').locator('[data-nojs-load-more]');
     await expect(loadMoreBtn).toBeVisible({ timeout: 5000 });
-    await loadMoreBtn.click();
+
+    // Synchronize click with response to avoid race between button
+    // removal (synchronous on X-NoJS-Last-Page) and item render (async)
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/items') && r.status() === 200),
+      loadMoreBtn.click(),
+    ]);
+
+    // Wait for items to render (insert mode + each re-render = 6 visible items).
+    // Auto-retrying assertion resolves the render race before checking button state.
+    await expect(page.getByTestId('btn-item')).toHaveCount(6, { timeout: 5000 });
 
     // Load more button should be gone after last-page header
     await expect(page.getByTestId('button-container').locator('[data-nojs-load-more]')).toBeHidden({ timeout: 5000 });
-
-    // Items should have increased
-    const totalCount = await page.getByTestId('btn-item').count();
-    expect(totalCount).toBeGreaterThan(2);
   });
 
   // ── Cursor pagination: cursor from body ──────────────────────────────

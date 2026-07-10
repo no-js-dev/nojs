@@ -43,8 +43,10 @@
   <!-- 3. Stagger on loop -->
   <section state="{ staggerItems: ['A', 'B', 'C', 'D'] }">
     <p class="test-label">Test 3: Stagger on loop</p>
-    <ul data-test="stagger-list" each="item in staggerItems" template="stagger-tpl" animate-stagger="100" animate="slideIn"></ul>
-    <template id="stagger-tpl"><li class="stagger-item" data-test="stagger-item" bind="item"></li></template>
+    <ul data-test="stagger-list">
+      <li each="item in staggerItems" template="stagger-tpl" animate="slideIn" animate-stagger="100" data-test="stagger-item"></li>
+    </ul>
+    <template id="stagger-tpl"><span bind="item"></span></template>
   </section>
 
   <!-- 4. Transition class sequence -->

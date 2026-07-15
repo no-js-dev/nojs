@@ -44,6 +44,60 @@ function serveFile(filePath, res) {
 }
 
 const server = http.createServer((req, res) => {
+  // ── SSE streaming endpoints ──
+  if (req.url.startsWith('/sse/')) {
+    const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
+    const pathname = parsedUrl.pathname;
+    const SSE_HEADERS = { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' };
+
+    if (pathname === '/sse/messages') {
+      const count = parseInt(parsedUrl.searchParams.get('count') || '3');
+      const delay = parseInt(parsedUrl.searchParams.get('delay') || '100');
+      const event = parsedUrl.searchParams.get('event') || null;
+      res.writeHead(200, SSE_HEADERS);
+      let i = 0;
+      const iv = setInterval(() => {
+        if (i >= count) { clearInterval(iv); res.end(); return; }
+        if (event) res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify({ text: `Message ${i + 1}`, index: i })}\n\n`);
+        i++;
+      }, delay);
+      req.on('close', () => clearInterval(iv));
+      return;
+    }
+
+    if (pathname === '/sse/error') {
+      if (req.headers['last-event-id']) { res.writeHead(204); res.end(); return; }
+      res.writeHead(200, SSE_HEADERS);
+      res.write(`id: 1\ndata: ${JSON.stringify({ text: 'First message', index: 0 })}\n\n`);
+      setTimeout(() => res.end(), 50);
+      return;
+    }
+
+    if (pathname === '/sse/infinite') {
+      res.writeHead(200, SSE_HEADERS);
+      let i = 0;
+      const iv = setInterval(() => {
+        res.write(`data: ${JSON.stringify({ text: `Tick ${i + 1}`, index: i })}\n\n`);
+        i++;
+      }, 500);
+      req.on('close', () => clearInterval(iv));
+      return;
+    }
+
+    if (pathname === '/sse/credentials') {
+      if (!(req.headers.cookie || '').includes('auth=')) {
+        res.writeHead(401); res.end('Unauthorized'); return;
+      }
+      res.writeHead(200, SSE_HEADERS);
+      res.write(`data: ${JSON.stringify({ text: 'Authenticated', index: 0 })}\n\n`);
+      setTimeout(() => res.end(), 50);
+      return;
+    }
+
+    res.writeHead(404); res.end('Not Found'); return;
+  }
+
   let url = req.url.split('?')[0];
 
   // ── Serve local build at /__local__/no.js ──

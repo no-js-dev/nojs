@@ -19,6 +19,9 @@ import {
   _emitEvent,
   _setCurrentEl,
   _onDispose,
+  _globals,
+  _routeWatchers,
+  _notifyRouteWatchers,
 } from '../src/globals.js';
 
 import { _disposeTree } from '../src/registry.js';
@@ -36,6 +39,7 @@ import {
   resolve,
   _interpolate,
   _exprCache,
+  _stmtCache,
 } from '../src/evaluate.js';
 
 describe('Globals', () => {
@@ -1963,5 +1967,203 @@ describe('evaluate.js — expression cache (LRU)', () => {
     // The recently-accessed entry must be retained
     expect(_exprCache.has(firstKey)).toBe(true);
     expect(_exprCache.size).toBeLessThanOrEqual(500);
+  });
+});
+
+describe('Context proxy and cache internals', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    _storeWatchers.clear();
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('store watcher partitions are isolated per store', () => {
+    _stores.a = { val: 1 };
+    _stores.b = { val: 2 };
+    const ctx = createContext({});
+
+    const fnA = jest.fn();
+    const fnB = jest.fn();
+
+    const elA = document.createElement('div');
+    const elB = document.createElement('div');
+    document.body.appendChild(elA);
+    document.body.appendChild(elB);
+
+    _setCurrentEl(elA);
+    _watchExpr('$store.a.val', ctx, fnA);
+    _setCurrentEl(elB);
+    _watchExpr('$store.b.val', ctx, fnB);
+    _setCurrentEl(null);
+
+    _notifyStoreWatchers('a');
+    expect(fnA).toHaveBeenCalledTimes(1);
+    expect(fnB).not.toHaveBeenCalled();
+
+    _disposeTree(elA);
+    _notifyStoreWatchers('a');
+    expect(fnA).toHaveBeenCalledTimes(1);
+
+    _notifyStoreWatchers('b');
+    expect(fnB).toHaveBeenCalledTimes(1);
+  });
+
+  test('statement cache is shared across executions', () => {
+    const ctx = createContext({ count: 0 });
+
+    _execStatement('count = count + 1', ctx, {});
+    const cacheSize1 = _stmtCache.size;
+
+    _execStatement('count = count + 1', ctx, {});
+    const cacheSize2 = _stmtCache.size;
+
+    expect(cacheSize2).toBe(cacheSize1);
+    expect(ctx.count).toBe(2);
+  });
+
+  test('Symbol keys pass through proxy get trap', () => {
+    const ctx = createContext({});
+    const sym = Symbol('test');
+    ctx.__raw[sym] = 'symbol-value';
+    expect(ctx[sym]).toBe('symbol-value');
+  });
+});
+
+describe('Plugin globals fallback in context proxy', () => {
+  afterEach(() => {
+    Object.keys(_globals).forEach((k) => delete _globals[k]);
+  });
+
+  test('plugin global accessible via $prefix', () => {
+    _globals.analytics = { track: () => 'tracked' };
+    const ctx = createContext({});
+    expect(ctx.$analytics).toBeDefined();
+    expect(ctx.$analytics.track()).toBe('tracked');
+  });
+
+  test('core $ keys take precedence over plugin globals', () => {
+    _globals.store = 'plugin-store';
+    const ctx = createContext({});
+    expect(ctx.$store).toBe(_stores);
+  });
+
+  test('plugin globals accessible in expressions', () => {
+    _globals.utils = { double: (n) => n * 2 };
+    const ctx = createContext({ x: 5 });
+    expect(evaluate('$utils.double(x)', ctx)).toBe(10);
+  });
+
+  test('unmatched $ key falls through to target, parent chain, then undefined', () => {
+    const parent = createContext({});
+    parent.__raw.$inherited = 'from-parent';
+    const child = createContext({}, parent);
+    child.__raw.$own = 'from-target';
+
+    expect(child.$own).toBe('from-target');
+    expect(child.$inherited).toBe('from-parent');
+    expect(child.$missing).toBeUndefined();
+    expect(parent.$missing).toBeUndefined();
+  });
+});
+
+describe('Watcher infrastructure resilience', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    _storeWatchers.clear();
+    _routeWatchers.clear();
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('a throwing store watcher does not abort remaining watchers', () => {
+    const throwing = jest.fn(() => { throw new Error('boom'); });
+    const healthy = jest.fn();
+    _addStoreWatcher(throwing, 'cart');
+    _addStoreWatcher(healthy, 'cart');
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _notifyStoreWatchers('cart');
+    warnSpy.mockRestore();
+
+    expect(throwing).toHaveBeenCalledTimes(1);
+    expect(healthy).toHaveBeenCalledTimes(1);
+  });
+
+  test('_deleteStoreWatcher falls back to scanning all partitions for legacy watchers', () => {
+    const fn = jest.fn();
+    _addStoreWatcher(fn, 'cart');
+    delete fn._storePartition; // simulate legacy watcher
+
+    expect(_storeWatchers.get('cart')?.has(fn)).toBe(true);
+
+    _deleteStoreWatcher(fn);
+
+    expect(_storeWatchers.get('cart')?.has(fn) ?? false).toBe(false);
+  });
+
+  test('route watchers prune disconnected elements and isolate throws', () => {
+    const disconnected = jest.fn();
+    disconnected._el = document.createElement('div'); // never attached
+    const throwing = jest.fn(() => { throw new Error('boom'); });
+    const healthy = jest.fn();
+
+    _routeWatchers.add(disconnected);
+    _routeWatchers.add(throwing);
+    _routeWatchers.add(healthy);
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _notifyRouteWatchers();
+    warnSpy.mockRestore();
+
+    expect(disconnected).not.toHaveBeenCalled();
+    expect(_routeWatchers.has(disconnected)).toBe(false);
+    expect(throwing).toHaveBeenCalledTimes(1);
+    expect(healthy).toHaveBeenCalledTimes(1);
+  });
+
+  test('second expression on a watcher copies the shared key set (copy-on-write)', () => {
+    const ctx = createContext({ a: 1, b: 2 });
+    const fnA = jest.fn();
+    const fnB = jest.fn();
+
+    _watchExpr('a + 1', ctx, fnA); // fnA adopts the shared memoized root set
+    _watchExpr('a + 1', ctx, fnB); // fnB shares that same set
+    _watchExpr('b + 1', ctx, fnA); // union must copy-on-write, not mutate the shared set
+
+    expect(fnA._keys.has('a')).toBe(true);
+    expect(fnA._keys.has('b')).toBe(true);
+    expect(fnB._keys.has('b')).toBe(false); // shared set stays unpolluted
+  });
+});
+
+describe('Batch drain safety', () => {
+  test('a throwing batched listener does not drop remaining queued listeners', () => {
+    const ctx = createContext({ x: 0 });
+    const calls = [];
+    ctx.$watch(() => { throw new Error('boom'); });
+    ctx.$watch(() => calls.push(ctx.x));
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _startBatch();
+    ctx.x = 1;
+    _endBatch();
+    warnSpy.mockRestore();
+
+    expect(calls).toContain(1);
+  });
+
+  test('self-perpetuating batched updates abort after bounded drain rounds', () => {
+    const ctx = createContext({ x: 0 });
+    ctx.$watch(() => { ctx.x = ctx.x + 1; }); // re-queues itself forever
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _startBatch();
+    ctx.x = 1;
+    _endBatch();
+    const warned = warnSpy.mock.calls.some((c) =>
+      c.some((arg) => String(arg).includes('batch drain exceeded'))
+    );
+    warnSpy.mockRestore();
+
+    expect(warned).toBe(true);
   });
 });

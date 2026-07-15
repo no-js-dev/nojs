@@ -76,7 +76,7 @@ describe('Finding 5: switch x loop on a case child', () => {
     // Documented behavior: both branches render simultaneously.
     // The loop clones (carrying case) AND the Y-BRANCH p are all present.
     // The switch cannot hide the non-matching branch.
-    expect(allPs.length).toBeGreaterThanOrEqual(3);
+    expect(allPs.length).toBe(3);
 
     // Y-BRANCH is visible even though mode is 'x'
     const yBranch = [...allPs].find((p) => p.textContent.trim() === 'Y-BRANCH');
@@ -134,7 +134,7 @@ describe('Finding 9: if + loop on the same element', () => {
     // Documented behavior: items render despite if="ok" being false.
     // The condition cannot remove items -- it only gates children.
     // The loop clones are siblings inserted by the loop, not children of the if.
-    expect(lis.length).toBeGreaterThan(0);
+    expect(lis.length).toBe(3);
   });
 
   test('if condition renders empty shells when items have no inner content to gate', () => {
@@ -151,12 +151,11 @@ describe('Finding 9: if + loop on the same element', () => {
 
     const lis = document.body.querySelectorAll('li');
     // Documented behavior: clones exist but their children are gated
-    // (if clears children when falsy). The shells remain.
-    expect(lis.length).toBeGreaterThan(0);
-
-    // The inner spans may be missing because if="ok" is false and
-    // clears children, but the li clones from the loop still exist.
-    // This is the "renders empty shells" behavior.
+    // (if clears children when falsy). The shells remain, emptied.
+    expect(lis.length).toBe(2);
+    for (const li of lis) {
+      expect(li.querySelector('span')).toBeNull();
+    }
   });
 });
 
@@ -272,9 +271,10 @@ describe('Finding 13: bind-value + model on the same input', () => {
     input.value = '10';
     input.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // Both pipelines ran -- value should reflect some coercion
-    // The exact result depends on execution order, but the value is set
-    expect(typeof ctx.num === 'number' || typeof ctx.num === 'string').toBe(true);
+    // Both pipelines ran -- the exact type depends on execution order
+    // (bind-value writes the string, model coerces to Number), but both
+    // must converge on the typed value.
+    expect(String(ctx.num)).toBe('10');
   });
 });
 

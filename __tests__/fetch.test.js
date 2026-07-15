@@ -821,3 +821,149 @@ describe('fetch.js — CSRF token cross-origin protection (NOJS-232)', () => {
     expect(sentHeaders()['X-CSRF-Token']).toBeUndefined();
   });
 });
+
+describe('Sensitive header handling around interceptors', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.headers = {};
+    _config.csrf = null;
+    _config.credentials = 'same-origin';
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+  });
+
+  test('sensitive headers preserved in fetch call when zero interceptors exist', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ ok: true })),
+    });
+
+    _config.headers = { Authorization: 'Bearer my-token' };
+    await _doFetch('/api/protected', 'GET');
+
+    const calledHeaders = global.fetch.mock.calls[0][1].headers;
+    expect(calledHeaders['Authorization']).toBe('Bearer my-token');
+  });
+
+  test('custom x-api-key header preserved with zero interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    _config.headers = { 'X-Api-Key': 'key-12345' };
+    await _doFetch('/api/data', 'GET');
+
+    const calledHeaders = global.fetch.mock.calls[0][1].headers;
+    expect(calledHeaders['X-Api-Key']).toBe('key-12345');
+  });
+
+  test('multiple sensitive headers preserved with zero interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    _config.headers = {
+      Authorization: 'Bearer token',
+      Cookie: 'session=abc',
+      'X-Api-Key': 'key-456',
+    };
+    await _doFetch('/api/multi', 'GET');
+
+    const calledHeaders = global.fetch.mock.calls[0][1].headers;
+    expect(calledHeaders['Authorization']).toBe('Bearer token');
+    expect(calledHeaders['Cookie']).toBe('session=abc');
+    expect(calledHeaders['X-Api-Key']).toBe('key-456');
+  });
+
+  test('sensitive headers stripped from untrusted interceptor view', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    _config.headers = { Authorization: 'Bearer secret-token' };
+
+    let interceptedHeaders = null;
+    _interceptors.request.push((url, opts) => {
+      interceptedHeaders = { ...opts.headers };
+      return opts;
+    });
+
+    await _doFetch('/api/test', 'GET');
+
+    // Interceptor should NOT see the sensitive header
+    expect(interceptedHeaders['Authorization']).toBeUndefined();
+  });
+
+  test('sensitive headers restored after interceptor chain', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    _config.headers = { Authorization: 'Bearer restored-token' };
+
+    _interceptors.request.push((url, opts) => {
+      // Interceptor adds a custom header
+      opts.headers['X-Custom'] = 'added';
+      return opts;
+    });
+
+    await _doFetch('/api/test', 'GET');
+
+    const calledHeaders = global.fetch.mock.calls[0][1].headers;
+    // Sensitive header should be restored after interceptor chain
+    expect(calledHeaders['Authorization']).toBe('Bearer restored-token');
+    // Custom header from interceptor should also be present
+    expect(calledHeaders['X-Custom']).toBe('added');
+  });
+
+  test('non-sensitive headers are visible to interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    _config.headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    let interceptedHeaders = null;
+    _interceptors.request.push((url, opts) => {
+      interceptedHeaders = { ...opts.headers };
+      return opts;
+    });
+
+    await _doFetch('/api/test', 'GET');
+
+    expect(interceptedHeaders['Content-Type']).toBe('application/json');
+    expect(interceptedHeaders['Accept']).toBe('application/json');
+  });
+
+  test('fetch works normally with non-sensitive headers and zero interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ data: 'result' })),
+    });
+
+    _config.headers = { 'Content-Type': 'application/json' };
+    const result = await _doFetch('/api/simple', 'GET');
+
+    expect(result).toEqual({ data: 'result' });
+    const calledHeaders = global.fetch.mock.calls[0][1].headers;
+    expect(calledHeaders['Content-Type']).toBe('application/json');
+  });
+});

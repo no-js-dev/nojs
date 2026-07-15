@@ -328,6 +328,9 @@ describe('NoJS.interceptor()', () => {
   test('ignores invalid type', () => {
     const fn = jest.fn();
     NoJS.interceptor('invalid', fn);
+    expect(_interceptors.invalid).toBeUndefined();
+    expect(_interceptors.request).not.toContain(fn);
+    expect(_interceptors.response).not.toContain(fn);
   });
 });
 

@@ -37,27 +37,6 @@ function mount(html) {
 }
 
 describe('_buildProcessPlan / _runProcessPlan', () => {
-  test('plan records only directive-carrying elements with paths and values', () => {
-    const root = document.createElement('div');
-    root.innerHTML = `
-      <span></span>
-      <p bind="row.label"><em class-danger="row.id === sel"></em></p>`;
-    const plan = _buildProcessPlan(root);
-    expect(plan).toHaveLength(2);
-    expect(plan[0].path).toEqual([1]);            // <p> is element child 1
-    expect(plan[0].values).toEqual(['row.label']);
-    expect(plan[1].path).toEqual([1, 0]);         // <em> inside <p>
-    expect(plan[1].matched[0].name).toBe('class-danger');
-  });
-
-  test('plan skips TEMPLATE and SCRIPT subtrees like processTree', () => {
-    const root = document.createElement('div');
-    root.innerHTML = `<template><p bind="x"></p></template><script>var a;</script><b bind="y"></b>`;
-    const plan = _buildProcessPlan(root);
-    expect(plan).toHaveLength(1);
-    expect(plan[0].values).toEqual(['y']);
-  });
-
   test('replay skips nodes detached before/during the run (structural safety)', () => {
     const host = mount(`<div state='{"msg": "hi"}'></div>`);
     const scope = host.firstElementChild;

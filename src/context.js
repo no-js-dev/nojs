@@ -181,6 +181,7 @@ const _sharedHandler = {
       case "$router": return _routerInstance;
       case "$i18n":   return _i18nProxy;
       case "$form":   return target.$form || null;
+      case "$sse":    return target.$sse || null;
     }
 
     // Plugin globals fallback (after all core $ checks)

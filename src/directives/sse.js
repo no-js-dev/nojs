@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import {
+  _log,
   _warn,
   _stores,
   _notifyStoreWatchers,
@@ -57,7 +58,11 @@ registerDirective("sse", {
     const insertMode = insertRaw === "append" || insertRaw === "prepend"
       ? insertRaw : "replace";
     const limitAttr = el.getAttribute("sse-limit");
-    const limit = limitAttr ? parseInt(limitAttr, 10) : 0;
+    const limitParsed = limitAttr ? parseInt(limitAttr, 10) : 0;
+    if (limitAttr && (isNaN(limitParsed) || limitParsed < 0)) {
+      _warn('sse-limit="' + limitAttr + '" is not a valid non-negative integer; ignoring.');
+    }
+    const limit = (isNaN(limitParsed) || limitParsed < 0) ? 0 : limitParsed;
     const withCredentials = el.hasAttribute("sse-credentials");
     const intoStore = el.getAttribute("into");
     const errorTpl = el.getAttribute("error");
@@ -95,6 +100,7 @@ registerDirective("sse", {
 
     function _closeConnection() {
       if (_es) {
+        _log("SSE: closing connection");
         _es.close();
         if (_origin) _untrackConnection(_origin, _es);
         _es = null;
@@ -130,6 +136,7 @@ registerDirective("sse", {
 
       _updateSseState(true, false, false);
       _lastResolvedUrl = resolvedUrl;
+      _log("SSE: connecting to", resolvedUrl);
 
       // Resolve origin for connection tracking
       try {
@@ -142,30 +149,37 @@ registerDirective("sse", {
       _es = es;
       _trackConnection(_origin, es);
 
-      // Safety Rule 2: register close on dispose immediately
-      _onDispose(() => {
-        es.close();
-        if (_origin) _untrackConnection(_origin, es);
-      });
+      // NOTE: disposal is registered ONCE during directive init via
+      // _onDispose(_closeConnection), not per-connection. This ensures
+      // cleanup works even when _openConnection is called from reactive
+      // watcher callbacks where _currentEl may be null (S1 fix).
 
       es.onopen = function () {
         if (!el.isConnected) { es.close(); return; }
+        _log("SSE: connection opened", resolvedUrl);
         _updateSseState(false, true, false);
       };
 
       es.onerror = function () {
         if (!el.isConnected) { es.close(); return; }
         if (es.readyState === EventSource.CLOSED) {
+          _log("SSE: connection closed by server", resolvedUrl);
           _updateSseState(false, false, true);
           _renderError();
         } else {
           // Auto-reconnecting (CONNECTING): not terminal
+          _log("SSE: auto-reconnecting", resolvedUrl);
           _updateSseState(true, false, false);
         }
       };
 
+      // Listen to named event or default "message"
+      const eventName = sseEvent || "message";
+
       function onMessage(e) {
         if (!el.isConnected) { es.close(); return; }
+
+        _log("SSE: message received on", eventName);
 
         // Parse data: JSON with raw-string fallback
         let parsed;
@@ -207,10 +221,16 @@ registerDirective("sse", {
         }
       }
 
-      // Listen to named event or default "message"
-      const eventName = sseEvent || "message";
       es.addEventListener(eventName, onMessage);
     }
+
+    // Safety Rule 2: register connection cleanup ONCE during init.
+    // _closeConnection uses closure variables (_es, _origin) so it always
+    // closes whatever the current connection is, including after reconnects.
+    // Registered here (synchronous init path) where _currentEl is guaranteed
+    // to be set — NOT inside _openConnection, which may be called from
+    // reactive watcher callbacks where _currentEl is null.
+    _onDispose(_closeConnection);
 
     // Initial connection
     const initialUrl = _interpolate(url, ctx);
@@ -222,6 +242,7 @@ registerDirective("sse", {
       function onAncestorChange() {
         const newUrl = _interpolate(url, ctx);
         if (newUrl !== _lastResolvedUrl) {
+          _log("SSE: URL changed, reconnecting", _lastResolvedUrl, "→", newUrl);
           _openConnection(newUrl);
         }
       }

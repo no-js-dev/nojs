@@ -17,7 +17,7 @@
       "f3Title": "SPA Routing",
       "f3Desc": "Full client-side router supporting path params, query parameters, route guards, nested layouts, and fluid native View Transitions.",
       "f4Title": "Zero Dependencies",
-      "f4Desc": "A single standalone script under 30KB gzipped. Includes state management, i18n translation, form validation, and drag-and-drop."
+      "f4Desc": "A single standalone script with zero dependencies. Includes state management, data fetching, SPA routing, i18n translation, and animations."
     },
     "directives": {
       "title": "Clean, Declarative Directives",

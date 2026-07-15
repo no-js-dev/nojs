@@ -17,7 +17,7 @@
       "f3Title": "Roteamento SPA",
       "f3Desc": "Router client-side completo com suporte a parâmetros de rota, query parameters, route guards, layouts aninhados e View Transitions nativas.",
       "f4Title": "Zero Dependências",
-      "f4Desc": "Um único script standalone com menos de 30KB gzipped. Inclui gerenciamento de estado, tradução i18n, validação de formulários e drag-and-drop."
+      "f4Desc": "Um único script standalone com zero dependências. Inclui gerenciamento de estado, fetch de dados, roteamento SPA, tradução i18n e animações."
     },
     "directives": {
       "title": "Diretivas Limpas e Declarativas",

@@ -17,7 +17,7 @@
       "f3Title": "Routage SPA",
       "f3Desc": "Router côté client complet avec paramètres de route, query parameters, guards de route, layouts imbriqués et View Transitions natives.",
       "f4Title": "Zéro Dépendance",
-      "f4Desc": "Un seul script autonome de moins de 30 Ko gzippé. Inclut la gestion d'état, la traduction i18n, la validation de formulaires et le drag-and-drop."
+      "f4Desc": "Un seul script autonome sans aucune dépendance. Inclut la gestion d'état, le fetch de données, le routage SPA, la traduction i18n et les animations."
     },
     "directives": {
       "title": "Directives Claires et Déclaratives",

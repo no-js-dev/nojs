@@ -80,7 +80,7 @@
       },
       "q14": {
         "question": "¿Qué tamaño tiene el bundle?",
-        "answer": "Incluye reactividad, enrutamiento, fetch de datos, i18n, animaciones y 40+ directivas. Drag-and-drop y form validation ahora en NoJS Elements. Cero dependencias."
+        "answer": "Un único archivo standalone pequeño, cero dependencias. Incluye reactividad, enrutamiento, fetch de datos, i18n, animaciones y 40+ directivas. Drag-and-drop y form validation ahora en NoJS Elements."
       },
       "q15": {
         "question": "¿Necesito un paso de build?",
@@ -88,7 +88,7 @@
       },
       "q16": {
         "question": "¿Está listo para producción?",
-        "answer": "Sí. 1.350+ tests unitarios, probado en navegadores modernos. Este sitio de documentación está construido enteramente con No.JS."
+        "answer": "Sí. 2.100+ tests unitarios, probado en navegadores modernos. Este sitio de documentación está construido enteramente con No.JS."
       }
     }
   }

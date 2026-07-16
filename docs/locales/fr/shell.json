@@ -43,6 +43,7 @@
       "loops": "Boucles",
       "templates": "Templates",
       "fetchApi": "Fetch & API",
+      "sse": "Server-Sent Events",
       "pagination": "Pagination et Déclencheurs",
       "routing": "Routage",
       "headManagement": "Gestion du head",

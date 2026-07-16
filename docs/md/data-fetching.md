@@ -559,4 +559,4 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ---
 
-**Previous:** [Head Management ←](head-management.md) | **Next:** [Data Binding →](data-binding.md)
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Server-Sent Events →](sse.md)

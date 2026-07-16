@@ -86,7 +86,7 @@ When `sse-event` is set, the default `message` event is **not** handled. To list
 </div>
 ```
 
-> **Warning:** Each element opens its own `EventSource` connection. Multiple elements pointing to the same URL share the same HTTP connection at the browser level, but you should be aware of the [connection limits](#http11-connection-limit) when using many SSE elements across different origins.
+> **Warning:** Each element opens its own `EventSource` connection — connections are **never** coalesced, even when multiple elements point to the same URL. Be aware of the [connection limits](#http11-connection-limit) when using many SSE elements.
 
 ---
 
@@ -109,7 +109,7 @@ Each message replaces the previous value. Ideal for "latest value" displays like
 Messages accumulate in an array, newest at the end. Ideal for chronological feeds and log viewers.
 
 ```html
-<div sse="/api/feed" as="messages" sse-insert="append">
+<div sse="/api/feed" as="messages" sse-insert="append" sse-limit="100">
   <ul role="log" aria-live="polite">
     <li each="msg in messages" bind="msg.text"></li>
   </ul>
@@ -121,7 +121,7 @@ Messages accumulate in an array, newest at the end. Ideal for chronological feed
 Messages accumulate in an array, newest at the beginning. Ideal for reverse-chronological feeds like notification lists.
 
 ```html
-<div sse="/api/notifications" as="alerts" sse-insert="prepend">
+<div sse="/api/notifications" as="alerts" sse-insert="prepend" sse-limit="50">
   <div each="alert in alerts">
     <strong bind="alert.title"></strong>
     <p bind="alert.body"></p>
@@ -150,7 +150,7 @@ When the array exceeds the limit:
 
 > **Warning:** Using `sse-insert` without `sse-limit` on a long-lived stream triggers a console warning about potential unbounded memory growth. Always set a limit for streams that run indefinitely.
 
-> **Note:** `sse-limit` has no effect in replace mode (no array to cap). Setting it in replace mode triggers a console warning.
+> **Note:** `sse-limit` has no effect in replace mode (no array to cap). Setting a non-zero `sse-limit` in replace mode triggers a console warning.
 
 ---
 
@@ -200,10 +200,10 @@ Execute an expression each time a message is received. The parsed message data i
 Write incoming data to a global store so multiple components across the page can consume the same live stream:
 
 ```html
-<div store="market" value="{ ticker: null }"></div>
+<div store="market" value="{ ticker: {} }"></div>
 
 <!-- One SSE source writes to the store -->
-<div sse="/api/ticker" as="ticker" into="market" hide>
+<div sse="/api/ticker" as="ticker" into="market" hide="true">
 </div>
 
 <!-- Multiple consumers read from the store -->
@@ -261,6 +261,8 @@ When `channel` changes from `"general"` to `"alerts"`:
 
 If the resolved URL is the same as the current one, no reconnection occurs.
 
+> **Note:** Interpolated values inside `{expr}` are encoded with `encodeURIComponent`. This means `/` is encoded as `%2F`. If a path segment intentionally contains `/`, pass it as a pre-encoded string or concatenate it outside the `{}` placeholder.
+
 The reactive URL watcher responds to changes in parent contexts, global stores (`$store`), the router (`$route`), and the i18n system (`$i18n`).
 
 ---
@@ -273,7 +275,7 @@ The reactive URL watcher responds to changes in parent contexts, global stores (
 | `as` | `string` | `"data"` | Context variable name for incoming data. |
 | `sse-event` | `string` | `"message"` | Named SSE event to listen for. Suppresses default `message` handling. |
 | `sse-insert` | `"replace"` \| `"append"` \| `"prepend"` | `"replace"` | How incoming messages update the context variable. |
-| `sse-limit` | `number` | (none) | Maximum array length in append/prepend mode. Oldest items are dropped. |
+| `sse-limit` | `non-negative integer` | (none) | Maximum array length in append/prepend mode. Oldest items are dropped. Invalid values (non-numeric, negative) trigger a console warning and are ignored (treated as uncapped). |
 | `sse-credentials` | `boolean` (presence) | `false` | Sets `withCredentials: true` on the EventSource for cross-origin cookies. |
 | `into` | `string` | (none) | Write data to a named global store (dual-write with local context). |
 | `error` | `string` | (none) | Template ID to display when the connection permanently closes (`readyState === CLOSED`). |
@@ -326,7 +328,7 @@ The browser's `EventSource` API provides **no mechanism to set custom HTTP heade
 ```html
 <!-- Alternative: query-string token (less secure) -->
 <div state="{ token: '' }"
-     computed="token = localStorage.getItem('sseToken')">
+     computed="token" expr="localStorage.getItem('sseToken')">
   <div sse="/api/stream?token={token}" as="data">
     <span bind="data.value"></span>
   </div>
@@ -427,4 +429,4 @@ A complete accessible live feed with connection state indicators:
 
 ---
 
-**Previous:** [Data Fetching <-](data-fetching.md) | **Next:** [Data Binding ->](data-binding.md)
+**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [Data Binding →](data-binding.md)

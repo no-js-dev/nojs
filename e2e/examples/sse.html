@@ -7,7 +7,9 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: sans-serif; margin: 2rem; color: #333; }
-    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    /* Fixed height prevents layout shift while streams fill in — clicks below
+       churning sections would otherwise land on stale coordinates (flaky). */
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; height: 11rem; overflow: hidden; }
     .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
     button { padding: 0.25rem 0.75rem; margin-right: 0.25rem; cursor: pointer; }
   </style>
@@ -44,7 +46,7 @@
   <!-- 4. $sse state transitions -->
   <section>
     <p class="test-label">Test 4: $sse state transitions</p>
-    <div sse="/sse/messages?count=3&amp;delay=300" as="stateData">
+    <div sse="/sse/messages?count=3&amp;delay=300&amp;start=800" as="stateData">
       <p data-test="sse-connecting" show="$sse.connecting">Connecting...</p>
       <p data-test="sse-open" show="$sse.open">Connected</p>
       <p data-test="sse-error-state" show="$sse.error">Error</p>
@@ -73,12 +75,34 @@
   </section>
 
   <!-- 7. Disposal on if-toggle -->
-  <section state="{ show: false }">
+  <section state="{ show: false, chan: Math.floor(Math.random() * 1000000000) }">
     <p class="test-label">Test 7: Disposal on if-toggle</p>
     <button data-test="toggle-btn" on:click="show = !show">Toggle</button>
+    <span data-test="tick-chan" bind="chan" hidden></span>
     <div if="show">
-      <div sse="/sse/infinite" as="tick" role="log" aria-live="polite">
+      <div sse="/sse/infinite?chan=tick-{chan}" as="tick" role="log" aria-live="polite">
         <p data-test="tick-msg" bind="tick.text"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Credentials (sse-credentials + cookie auth) -->
+  <section>
+    <p class="test-label">Test 8: Credentials</p>
+    <div sse="/sse/credentials" sse-credentials as="cred">
+      <p data-test="cred-msg" bind="cred.text"></p>
+    </div>
+  </section>
+
+  <!-- 9. Interpolated URL: reconnect + disposal (NOJS-282 regression) -->
+  <section state="{ live: false, user: 1, chan: Math.floor(Math.random() * 1000000000) }">
+    <p class="test-label">Test 9: Interpolated URL reconnect + disposal</p>
+    <button data-test="interp-toggle-btn" on:click="live = !live">Toggle</button>
+    <button data-test="interp-user-btn" on:click="user = user + 1">Next user</button>
+    <span data-test="interp-chan" bind="chan" hidden></span>
+    <div if="live">
+      <div sse="/sse/infinite?chan=interp-{chan}&amp;user={user}" as="tick" role="log" aria-live="polite">
+        <p data-test="interp-msg" bind="tick.text"></p>
       </div>
     </div>
   </section>

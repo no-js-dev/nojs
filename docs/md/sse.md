@@ -159,14 +159,13 @@ When the array exceeds the limit:
 Display a user-friendly message when the SSE connection permanently closes. The error template is rendered **only** when `readyState` reaches `CLOSED` — it is never shown during browser auto-reconnection.
 
 ```html
-<div sse="/api/stream" as="data" error="sseFailed">
+<div sse="/api/stream" as="data" error="#sseFailed">
   <p bind="data.value"></p>
 </div>
 
 <template id="sseFailed" var="err">
   <div class="error-banner">
     <p bind="err.message"></p>
-    <button on:click="location.reload()">Retry</button>
   </div>
 </template>
 ```
@@ -174,6 +173,8 @@ Display a user-friendly message when the SSE connection permanently closes. The 
 The template receives an error object with a `message` field (`"SSE connection closed"`). The `var` attribute on the template names the variable (defaults to `"err"`).
 
 When the error template is rendered, the element's previous content (data display) is replaced by the template content.
+
+> **Note:** `location.reload()` and other navigation methods are **not available** inside NoJS expressions — the CSP-safe evaluator wraps `location` in a read-only proxy with navigation methods replaced by no-ops. To add a reconnect button, use app-level JavaScript (e.g., a `<script>` block that defines a `window.reconnect` function).
 
 ---
 
@@ -327,11 +328,16 @@ The browser's `EventSource` API provides **no mechanism to set custom HTTP heade
 
 ```html
 <!-- Alternative: query-string token (less secure) -->
-<div state="{ token: '' }"
-     computed="token" expr="localStorage.getItem('sseToken')">
-  <div sse="/api/stream?token={token}" as="data">
-    <span bind="data.value"></span>
-  </div>
+<script>
+  // Seed the auth store before NoJS processes the page.
+  // localStorage is not accessible inside NoJS expressions
+  // (blocked by the CSP-safe evaluator).
+  NoJS.config({
+    stores: { auth: { token: localStorage.getItem('sseToken') || '' } }
+  });
+</script>
+<div sse="/api/stream?token={$store.auth.token}" as="data">
+  <span bind="data.value"></span>
 </div>
 ```
 
@@ -381,7 +387,7 @@ A complete accessible live feed with connection state indicators:
 <div sse="/api/activity" as="events"
      sse-insert="prepend"
      sse-limit="50"
-     error="feedError">
+     error="#feedError">
 
   <!-- Connection state indicators -->
   <div class="status-bar">
@@ -410,7 +416,6 @@ A complete accessible live feed with connection state indicators:
 <template id="feedError" var="err">
   <div class="error-panel" role="alert">
     <p>Live feed disconnected.</p>
-    <button on:click="location.reload()">Reconnect</button>
   </div>
 </template>
 ```

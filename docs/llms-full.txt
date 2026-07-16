@@ -722,7 +722,7 @@ The `sse` directive opens an EventSource connection to a server endpoint and exp
 | `as` | string | Name of the reactive context variable that receives each message's data. |
 | `sse-event` | string | Named SSE event type to listen for. Without this, only unnamed (default) messages are captured. |
 | `sse-insert` | string | How new messages update the variable: `replace` (default), `append` (oldest-first array), or `prepend` (newest-first array). |
-| `sse-limit` | number | Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. |
+| `sse-limit` | number | Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. Has no effect in replace mode (triggers a console warning). |
 | `sse-credentials` | boolean | When present, the EventSource is opened with `withCredentials: true`, sending cookies on cross-origin requests. |
 | `into` | string | Store name. When set, each message is also written to the named global store under the `as` key. |
 | `error` | string | ID of a `<template>` element to render when the connection permanently fails (`readyState === CLOSED`). |
@@ -733,8 +733,10 @@ The `sse` directive opens an EventSource connection to a server endpoint and exp
 The `sse-insert` attribute controls how successive messages update the context variable.
 
 - **replace** (default) — each message overwrites the previous value. Best for single-value streams like stock tickers.
-- **append** — messages accumulate into an array (oldest first), optionally capped by `sse-limit`.
-- **prepend** — messages accumulate into an array (newest first), optionally capped by `sse-limit`.
+- **append** — messages accumulate into an array (oldest first), capped by `sse-limit`. Using append without `sse-limit` triggers a console warning about potential unbounded memory growth.
+- **prepend** — messages accumulate into an array (newest first), capped by `sse-limit`. Using prepend without `sse-limit` triggers a console warning about potential unbounded memory growth.
+
+> **Note:** `sse-limit` has no effect in replace mode (no array to cap). Setting a non-zero `sse-limit` in replace mode triggers a console warning.
 
 ```html
 <!-- Replace (default) -->
@@ -795,7 +797,7 @@ Every `sse` element exposes a reactive `$sse` object on its context with three b
 
 ## Reactive URLs
 
-When the `sse` URL contains interpolated expressions, the directive watches for changes. If the resolved URL changes, the current EventSource is closed and a new one is opened to the updated endpoint. The `as` variable is reset.
+When the `sse` URL contains interpolated expressions, the directive watches for changes. If the resolved URL changes, the current EventSource is closed and a new one is opened to the updated endpoint. In append/prepend mode, accumulated data is reset to an empty array. In replace mode (the default), the previous value persists until the first message arrives on the new connection.
 
 ```html
 <div state="{ channel: 'general' }">
@@ -830,7 +832,7 @@ Add the `into` attribute to write each message into a global store alongside the
 
 ## Error Handling
 
-Point the `error` attribute to a `<template>` to render fallback content when the connection permanently fails. The template receives the error object. During auto-reconnect, the original content remains visible — the error template only renders when `readyState` is `CLOSED`.
+Point the `error` attribute to a `<template>` to render fallback content when the connection permanently closes. The template receives a synthetic object with a single `message` field (`"SSE connection closed"`) — not the browser error object. The error template only renders when `readyState` reaches `CLOSED` (terminal close); it is never shown during auto-reconnect.
 
 ```html
 <div sse="/api/stream" as="data" error="sseError">
@@ -882,7 +884,7 @@ NoJS fetch interceptors do not apply to SSE connections. EventSource is a separa
 
 ## Connection Limits
 
-Browsers enforce a per-origin limit of roughly 6 concurrent HTTP/1.1 connections. Each `sse` element opens one EventSource connection. NoJS logs a warning when a 6th connection to the same origin is opened. To stay within limits, consolidate related data into a single SSE endpoint with named events, or use HTTP/2 which multiplexes connections.
+Browsers enforce a per-origin limit of roughly 6 concurrent HTTP/1.1 connections. Each `sse` element opens its own EventSource connection — connections are never shared or coalesced, even when multiple elements point to the same URL. NoJS logs a warning when a 6th connection to the same origin is opened. To stay within limits, use HTTP/2 (which multiplexes streams over a single TCP connection), reduce the number of `sse` elements on the page, or close unused connections via conditional rendering (e.g. an `if` directive).
 
 ---
 
@@ -1037,7 +1039,7 @@ For form inputs, `model` creates automatic two-way data binding:
 
 ---
 
-**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [State Management →](state-management.md)
+**Previous:** [Server-Sent Events ←](sse.md) | **Next:** [State Management →](state-management.md)
 
 # Conditionals
 

@@ -1,4 +1,4 @@
-<!-- Server-Sent Events (SSE) -->
+<!-- Server-Sent Events (SSE) — from sse.md -->
 
 <div class="doc-content">
 
@@ -198,7 +198,7 @@
   <div class="doc-section">
     <h2 class="doc-title" id="sse-authentication" t="docs.sse.authTitle"></h2>
     <p class="doc-text" t="docs.sse.authText"></p>
-    <div class="doc-callout" t-html="docs.sse.authCallout"></div>
+    <div class="doc-callout" t="docs.sse.authCallout" t-html></div>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Query-string token --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">sse</span>=<span class="hl-str">"/api/stream?token={authToken}"</span> <span class="hl-attr">as</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
 

@@ -1951,13 +1951,13 @@
       "as": "Name of the reactive context variable that receives each message's data.",
       "sseEvent": "Named SSE event type to listen for. Without this, only unnamed (default) messages are captured.",
       "sseInsert": "How new messages update the variable: replace (default), append (oldest-first array), or prepend (newest-first array).",
-      "sseLimit": "Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded.",
+      "sseLimit": "Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. Has no effect in replace mode (triggers a console warning).",
       "sseCredentials": "Boolean attribute. When present, the EventSource is opened with withCredentials: true, sending cookies on cross-origin requests.",
       "into": "Store name. When set, each message is also written to the named global store under the as key.",
       "error": "ID of a <template> element to render when the connection permanently fails (readyState === CLOSED).",
       "then": "Expression executed after each message is processed. Receives $event (the parsed data).",
       "insertModesTitle": "Insert Modes",
-      "insertModesText": "The sse-insert attribute controls how successive messages update the context variable. Replace is the default and suits single-value streams like stock tickers. Append and prepend collect messages into an array, optionally capped by sse-limit.",
+      "insertModesText": "The sse-insert attribute controls how successive messages update the context variable. Replace is the default and suits single-value streams like stock tickers. Append and prepend collect messages into an array, capped by sse-limit. Using append or prepend without sse-limit triggers a console warning about potential unbounded memory growth. Setting sse-limit in replace mode has no effect and also triggers a warning.",
       "namedEventsTitle": "Named Events",
       "namedEventsText": "By default, the directive listens for unnamed SSE messages (the message event). Set sse-event to listen for a specific named event type instead. Multiple elements can subscribe to different event types on the same endpoint — each opens its own EventSource connection.",
       "connectionStateTitle": "Connection State ($sse)",
@@ -1972,11 +1972,11 @@
       "liveFeedTitle": "Live Feed Example",
       "liveFeedText": "Combine prepend insert mode, a limit, and connection-state indicators for a complete real-time activity feed with automatic reconnection status.",
       "reactiveUrlTitle": "Reactive URLs",
-      "reactiveUrlText": "When the sse URL contains interpolated expressions, the directive watches for changes. If the resolved URL changes, the current EventSource is closed and a new one is opened to the updated endpoint. The as variable is reset.",
+      "reactiveUrlText": "When the sse URL contains interpolated expressions, the directive watches for changes. If the resolved URL changes, the current EventSource is closed and a new one is opened to the updated endpoint. In append/prepend mode, accumulated data is reset to an empty array. In replace mode (the default), the previous value persists until the first message arrives on the new connection.",
       "storeTitle": "Store Integration",
       "storeText": "Add the into attribute to write each message into a global store alongside the local context variable. Other elements anywhere in the DOM can read the data via $store.storeName.",
       "errorHandlingTitle": "Error Handling",
-      "errorHandlingText": "Point the error attribute to a <template> to render fallback content when the connection permanently fails. The template receives the error object. During auto-reconnect, the original content remains visible — the error template only renders when readyState is CLOSED.",
+      "errorHandlingText": "Point the error attribute to a <template> to render fallback content when the connection permanently closes. The template receives a synthetic object with a single message field (\"SSE connection closed\") — not the browser error object. The error template only renders when readyState reaches CLOSED (terminal close); it is never shown during auto-reconnect.",
       "thenTitle": "Per-Message Callback",
       "thenText": "The then attribute accepts an expression that runs after each message is processed and the context variable is updated. The parsed message data is available as $event. Use it for side effects like incrementing counters or triggering actions.",
       "noLoadingTitle": "No Loading Template",
@@ -1986,7 +1986,7 @@
       "authCallout": "The <code>sse-credentials</code> attribute sets <code>withCredentials: true</code> on the EventSource, which sends cookies on cross-origin requests. The server must respond with the appropriate CORS headers (<code>Access-Control-Allow-Credentials: true</code>, explicit <code>Access-Control-Allow-Origin</code>).",
       "interceptorsNote": "NoJS fetch interceptors do not apply to SSE connections. EventSource is a separate browser API — header injection, caching, and retry logic from the fetch pipeline are not available.",
       "connectionLimitTitle": "Connection Limits",
-      "connectionLimitText": "Browsers enforce a per-origin limit of roughly 6 concurrent HTTP/1.1 connections. Each sse element opens one EventSource connection. NoJS logs a warning when a 6th connection to the same origin is opened. To stay within limits, consolidate related data into a single SSE endpoint with named events, or use HTTP/2 which multiplexes connections."
+      "connectionLimitText": "Browsers enforce a per-origin limit of roughly 6 concurrent HTTP/1.1 connections. Each sse element opens its own EventSource connection — connections are never shared or coalesced, even when multiple elements point to the same URL. NoJS logs a warning when a 6th connection to the same origin is opened. To stay within limits, use HTTP/2 (which multiplexes streams over a single TCP connection), reduce the number of sse elements on the page, or close unused connections via conditional rendering (e.g. an if directive)."
     }
   }
 }

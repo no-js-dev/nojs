@@ -30,6 +30,11 @@
         <tr><td><a route="/docs/data-fetching"><code>confirm</code></a></td><td><code>confirm="Are you sure?"</code></td><td t="docs.cheatsheet.data.confirm"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>skeleton</code></a></td><td><code>skeleton="cardSkel"</code></td><td t="docs.cheatsheet.data.skeleton"></td></tr>
         <tr><td><a route="/docs/data-fetching"><code>retry-delay</code></a></td><td><code>retry-delay="1000"</code></td><td t="docs.cheatsheet.data.retryDelay"></td></tr>
+        <tr><td><a route="/docs/sse"><code>sse</code></a></td><td><code>sse="/api/stream"</code></td><td t="docs.cheatsheet.data.sse"></td></tr>
+        <tr><td><a route="/docs/sse"><code>sse-event</code></a></td><td><code>sse-event="price-update"</code></td><td t="docs.cheatsheet.data.sseEvent"></td></tr>
+        <tr><td><a route="/docs/sse"><code>sse-insert</code></a></td><td><code>sse-insert="append"</code></td><td t="docs.cheatsheet.data.sseInsert"></td></tr>
+        <tr><td><a route="/docs/sse"><code>sse-limit</code></a></td><td><code>sse-limit="100"</code></td><td t="docs.cheatsheet.data.sseLimit"></td></tr>
+        <tr><td><a route="/docs/sse"><code>sse-credentials</code></a></td><td><code>sse-credentials</code></td><td t="docs.cheatsheet.data.sseCredentials"></td></tr>
       </tbody>
     </table>
   </div>

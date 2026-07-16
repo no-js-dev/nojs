@@ -1951,13 +1951,13 @@
       "as": "Nombre de la variable de contexto reactiva que recibe los datos de cada mensaje.",
       "sseEvent": "Tipo de evento SSE con nombre a escuchar. Sin este atributo, solo se capturan mensajes sin nombre (default).",
       "sseInsert": "Cómo las nuevas mensajes actualizan la variable: replace (por defecto), append (array del más antiguo al más reciente) o prepend (array del más reciente al más antiguo).",
-      "sseLimit": "Longitud máxima del array al usar el modo append o prepend. Las entradas más antiguas se descartan cuando se excede el límite.",
+      "sseLimit": "Longitud máxima del array al usar el modo append o prepend. Las entradas más antiguas se descartan cuando se excede el límite. No tiene efecto en modo replace (emite una advertencia en consola).",
       "sseCredentials": "Atributo booleano. Cuando está presente, el EventSource se abre con withCredentials: true, enviando cookies en solicitudes cross-origin.",
       "into": "Nombre del store. Cuando se define, cada mensaje también se escribe en el store global nombrado bajo la clave as.",
       "error": "ID de un elemento <template> para renderizar cuando la conexión falla permanentemente (readyState === CLOSED).",
       "then": "Expresión ejecutada después de que cada mensaje es procesado. Recibe $event (los datos parseados).",
       "insertModesTitle": "Modos de Inserción",
-      "insertModesText": "El atributo sse-insert controla cómo los mensajes sucesivos actualizan la variable de contexto. Replace es el valor por defecto e ideal para streams de valor único como cotizaciones. Append y prepend recopilan mensajes en un array, opcionalmente limitado por sse-limit.",
+      "insertModesText": "El atributo sse-insert controla cómo los mensajes sucesivos actualizan la variable de contexto. Replace es el valor por defecto e ideal para streams de valor único como cotizaciones. Append y prepend recopilan mensajes en un array, limitado por sse-limit. Usar append o prepend sin sse-limit emite una advertencia en consola sobre potencial crecimiento ilimitado de memoria. Establecer sse-limit en modo replace no tiene efecto y también emite una advertencia.",
       "namedEventsTitle": "Eventos con Nombre",
       "namedEventsText": "Por defecto, la directiva escucha mensajes SSE sin nombre (el evento message). Define sse-event para escuchar un tipo de evento con nombre específico. Múltiples elementos pueden suscribirse a diferentes tipos de evento en el mismo endpoint — cada uno abre su propia conexión EventSource.",
       "connectionStateTitle": "Estado de Conexión ($sse)",
@@ -1972,11 +1972,11 @@
       "liveFeedTitle": "Ejemplo de Feed en Tiempo Real",
       "liveFeedText": "Combina el modo de inserción prepend, un límite e indicadores de estado de conexión para un feed de actividad en tiempo real completo con estado de reconexión automática.",
       "reactiveUrlTitle": "URLs Reactivas",
-      "reactiveUrlText": "Cuando la URL del sse contiene expresiones interpoladas, la directiva observa los cambios. Si la URL resuelta cambia, el EventSource actual se cierra y se abre uno nuevo al endpoint actualizado. La variable as se reinicia.",
+      "reactiveUrlText": "Cuando la URL del sse contiene expresiones interpoladas, la directiva observa los cambios. Si la URL resuelta cambia, el EventSource actual se cierra y se abre uno nuevo al endpoint actualizado. En modo append/prepend, los datos acumulados se reinician a un array vacío. En modo replace (por defecto), el valor anterior persiste hasta que llega el primer mensaje en la nueva conexión.",
       "storeTitle": "Integración con Store",
       "storeText": "Agrega el atributo into para escribir cada mensaje en un store global junto con la variable de contexto local. Otros elementos en cualquier parte del DOM pueden leer los datos mediante $store.nombreDelStore.",
       "errorHandlingTitle": "Manejo de Errores",
-      "errorHandlingText": "Apunta el atributo error a un <template> para renderizar contenido de respaldo cuando la conexión falla permanentemente. El template recibe el objeto de error. Durante la reconexión automática, el contenido original permanece visible — el template de error solo se renderiza cuando readyState es CLOSED.",
+      "errorHandlingText": "Apunta el atributo error a un <template> para renderizar contenido de respaldo cuando la conexión se cierra permanentemente. El template recibe un objeto sintético con un único campo message (\"SSE connection closed\") — no el objeto de error del navegador. El template de error solo se renderiza cuando readyState alcanza CLOSED (cierre terminal); nunca se muestra durante la reconexión automática.",
       "thenTitle": "Callback por Mensaje",
       "thenText": "El atributo then acepta una expresión que se ejecuta después de que cada mensaje es procesado y la variable de contexto es actualizada. Los datos parseados del mensaje están disponibles como $event. Úsalo para efectos secundarios como incrementar contadores o disparar acciones.",
       "noLoadingTitle": "Sin Template de Carga",
@@ -1986,7 +1986,7 @@
       "authCallout": "El atributo <code>sse-credentials</code> establece <code>withCredentials: true</code> en el EventSource, enviando cookies en solicitudes cross-origin. El servidor debe responder con los headers CORS apropiados (<code>Access-Control-Allow-Credentials: true</code>, <code>Access-Control-Allow-Origin</code> explícito).",
       "interceptorsNote": "Los interceptors de fetch de NoJS no se aplican a conexiones SSE. EventSource es una API del navegador separada — la inyección de headers, el cache y la lógica de reintentos del pipeline de fetch no están disponibles.",
       "connectionLimitTitle": "Límites de Conexión",
-      "connectionLimitText": "Los navegadores imponen un límite de aproximadamente 6 conexiones HTTP/1.1 concurrentes por origen. Cada elemento sse abre una conexión EventSource. NoJS emite una advertencia cuando se abre una 6ª conexión al mismo origen. Para mantenerse dentro de los límites, consolida datos relacionados en un único endpoint SSE con eventos con nombre, o usa HTTP/2 que multiplexa conexiones."
+      "connectionLimitText": "Los navegadores imponen un límite de aproximadamente 6 conexiones HTTP/1.1 concurrentes por origen. Cada elemento sse abre su propia conexión EventSource — las conexiones nunca se comparten ni se fusionan, incluso cuando múltiples elementos apuntan a la misma URL. NoJS emite una advertencia cuando se abre una 6ª conexión al mismo origen. Para mantenerse dentro de los límites, usa HTTP/2 (que multiplexa streams sobre una única conexión TCP), reduce el número de elementos sse en la página, o cierra conexiones no utilizadas mediante renderizado condicional (ej: una directiva if)."
     }
   }
 }

@@ -15,6 +15,7 @@ import { processTree, _disposeTree } from '../src/registry.js';
 import '../src/directives/state.js';
 import '../src/directives/binding.js';
 import '../src/directives/conditionals.js';
+import '../src/directives/loops.js';
 import '../src/directives/sse.js';
 
 
@@ -116,6 +117,87 @@ describe('SSE Directive', () => {
     _routeWatchers.clear();
     _i18nListeners.clear();
     _config.debug = false;
+  });
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  US-0: Loop element guard
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('US-0 — loop element guard', () => {
+
+    test('0.1 — sse on a foreach element warns and bails without opening a connection', () => {
+      const { parent } = buildDom({
+        sse: '/api/stream',
+        foreach: 'item in items',
+      });
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
+
+    test('0.2 — sse on an each element warns and bails', () => {
+      const { parent } = buildDom({
+        sse: '/api/stream',
+        each: 'item in items',
+      });
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
+
+    test('0.3 — sse on a for loop element warns and bails', () => {
+      const { parent } = buildDom({
+        sse: '/api/stream',
+        for: 'item in items',
+      });
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
+
+    test('0.4 — sse on a non-loop element proceeds normally', () => {
+      const { parent } = buildDom({ sse: '/api/stream' });
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(1);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(false);
+    });
+
+    test('0.5 — populated loop with sse does NOT open EventSource per clone (regression)', () => {
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{ items: ["a", "b", "c"] }');
+      const el = document.createElement('div');
+      el.setAttribute('each', 'item in items');
+      el.setAttribute('sse', '/api/stream');
+      el.setAttribute('as', 'data');
+      parent.appendChild(el);
+      document.body.appendChild(parent);
+      processTree(parent);
+
+      // The original element's SSE bails via _isLoopElement guard, and
+      // _LOOP_ATTRS strips `sse` from every clone — zero connections total.
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
+
+    test('0.6 — populated loop with sse + foreach variant produces zero connections', () => {
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{ users: [{ name: "A" }, { name: "B" }] }');
+      const el = document.createElement('div');
+      el.setAttribute('foreach', 'user in users');
+      el.setAttribute('sse', '/api/live');
+      el.setAttribute('as', 'ticker');
+      parent.appendChild(el);
+      document.body.appendChild(parent);
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
   });
 
 
@@ -314,7 +396,7 @@ describe('SSE Directive', () => {
       });
       processTree(parent);
 
-      expect(warnedWith(warnSpy, 'not a valid non-negative integer')).toBe(true);
+      expect(warnedWith(warnSpy, 'not a valid positive integer')).toBe(true);
 
       MockEventSource._last._simulateMessage('A');
       MockEventSource._last._simulateMessage('B');
@@ -332,7 +414,7 @@ describe('SSE Directive', () => {
       });
       processTree(parent);
 
-      expect(warnedWith(warnSpy, 'not a valid non-negative integer')).toBe(true);
+      expect(warnedWith(warnSpy, 'not a valid positive integer')).toBe(true);
 
       MockEventSource._last._simulateMessage('A');
       MockEventSource._last._simulateMessage('B');
@@ -340,19 +422,37 @@ describe('SSE Directive', () => {
       expect(el.__ctx.messages).toEqual(['A', 'B']);
     });
 
-    test('empty-string sse-limit is silently treated as no limit (documented LOW gap)', () => {
+    test('empty-string sse-limit warns and is treated as no limit', () => {
       const { parent, el } = buildDom({
-        sse: '/api/ticker',
-        as: 'quote',
+        sse: '/api/feed',
+        as: 'items',
+        'sse-insert': 'append',
         'sse-limit': '',
       });
       processTree(parent);
 
-      // Known LOW gap: empty string skips the validity warn and defaults to 0.
-      expect(warnedWith(warnSpy, 'sse-limit')).toBe(false);
+      expect(warnedWith(warnSpy, 'not a valid positive integer')).toBe(true);
+      expect(warnedWith(warnSpy, 'unbounded memory growth')).toBe(true);
 
       MockEventSource._last._simulateMessage('A');
-      expect(el.__ctx.quote).toBe('A');
+      MockEventSource._last._simulateMessage('B');
+      expect(el.__ctx.items).toEqual(['A', 'B']);
+    });
+
+    test('sse-limit="0" warns and is treated as no limit', () => {
+      const { parent, el } = buildDom({
+        sse: '/api/feed',
+        as: 'items',
+        'sse-insert': 'append',
+        'sse-limit': '0',
+      });
+      processTree(parent);
+
+      expect(warnedWith(warnSpy, 'not a valid positive integer')).toBe(true);
+
+      MockEventSource._last._simulateMessage('A');
+      MockEventSource._last._simulateMessage('B');
+      expect(el.__ctx.items).toEqual(['A', 'B']);
     });
   });
 
@@ -633,7 +733,7 @@ describe('SSE Directive', () => {
       expect(el.__ctx.last).toBe(42);
     });
 
-    test('then expression errors are caught and warned, not thrown', () => {
+    test('then expression errors are caught by _execStatement internally (no redundant outer catch)', () => {
       const { parent, el } = buildDom({
         sse: '/api/stream',
         as: 'data',
@@ -649,6 +749,8 @@ describe('SSE Directive', () => {
       // warns "Expression error: ..."; the stream keeps working.
       expect(warnedWith(warnSpy, 'Expression error')).toBe(true);
       expect(warnedWith(warnSpy, 'notAllowedFn')).toBe(true);
+      // The removed dead-code catch block would have warned "sse then expression error:"
+      expect(warnedWith(warnSpy, 'sse then expression error')).toBe(false);
       // Data binding still happened despite the broken then expression
       expect(el.__ctx.data).toEqual({ ok: 1 });
     });
@@ -775,6 +877,31 @@ describe('SSE Directive', () => {
 
       expect(warnedWith(warnSpy, 'connections to')).toBe(true);
       expect(warnedWith(warnSpy, 'HTTP/1.1')).toBe(true);
+    });
+
+    test('terminal server close removes dead EventSource from tracking (no false-positive warning)', () => {
+      const roots = [];
+      for (let i = 1; i <= 5; i++) {
+        const { parent } = buildDom({ sse: `/api/stream-${i}`, error: 'errTpl' });
+        processTree(parent);
+        roots.push(parent);
+      }
+      expect(warnedWith(warnSpy, 'HTTP/1.1')).toBe(false);
+
+      // Server closes connections 1-3 (terminal error, readyState CLOSED)
+      for (let i = 0; i < 3; i++) {
+        MockEventSource._instances[i]._simulateError(MockEventSource.CLOSED);
+      }
+
+      // Open 3 new connections — total live should be 5, not 8
+      for (let i = 1; i <= 3; i++) {
+        const { parent } = buildDom({ sse: `/api/new-${i}` });
+        processTree(parent);
+        roots.push(parent);
+      }
+
+      // Should NOT warn — 5 live connections, not 8
+      expect(warnedWith(warnSpy, 'HTTP/1.1')).toBe(false);
     });
 
     test('disposed connections are untracked (no warning after closing)', () => {

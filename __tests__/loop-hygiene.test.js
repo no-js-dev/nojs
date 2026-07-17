@@ -125,6 +125,83 @@ describe('HTTP verb on loop element guard', () => {
       expect(clone.hasAttribute('delete')).toBe(false);
     }
   });
+
+  test('populated loop with query does NOT fire fetch per clone (regression)', () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true, status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve([]),
+    });
+
+    document.body.innerHTML = `
+      <div state='{"users": [{"name":"A"},{"name":"B"},{"name":"C"}]}'>
+        <div each="user in users" query="/api/search" as="results">
+          <span bind="user.name"></span>
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+
+    // The template element's query bails via _isLoopElement guard, and
+    // _LOOP_ATTRS strips `query` from every clone — zero fetches total.
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]',
+      expect.stringContaining('HTTP verb directive on a loop element'),
+      expect.anything(),
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('populated loop with query + foreach variant fires zero fetches', () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true, status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve({ results: [] }),
+    });
+
+    document.body.innerHTML = `
+      <div state='{"items": [{"id":1},{"id":2}]}'>
+        <div foreach="item in items" query="/api/lookup" as="data">
+          <span bind="item.id"></span>
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]',
+      expect.stringContaining('HTTP verb directive on a loop element'),
+      expect.anything(),
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('query attr is stripped from loop clones', () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true, status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve([]),
+    });
+
+    document.body.innerHTML = `
+      <div state='{"items": [{"id":1},{"id":2}]}'>
+        <span each="item in items" query="/api/search" as="results">
+          <span bind="item.id"></span>
+        </span>
+      </div>
+    `;
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    processTree(document.body);
+
+    // Verify clones do not carry the query attr
+    const clones = document.querySelectorAll('span[bind]');
+    const parents = new Set();
+    clones.forEach((c) => parents.add(c.parentElement));
+    for (const clone of parents) {
+      expect(clone.hasAttribute('query')).toBe(false);
+    }
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Finding 8: else ownership when loop + if coexist ────────────────────────

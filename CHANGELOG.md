@@ -31,7 +31,7 @@ Declarative Server-Sent Events. The new `sse` directive opens a persistent Event
 
 ### Fixed
 
-- fix(sse): register disposal once during init, add debug logging, validate `sse-limit` is a positive integer
+- fix(sse): register disposal once during init, add debug logging, validate `sse-limit` is a non-negative integer
 - fix(e2e): rewrite insert-modes specs to JSON data-mode contract
 - fix(e2e): deflake pagination spec 4 with request-settled sync
 - fix(e2e): move loop+animation attrs from ul container to li element in stagger fixture

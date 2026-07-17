@@ -1957,7 +1957,7 @@
       "error": "ID di un elemento <template> da renderizzare quando la connessione fallisce permanentemente (readyState === CLOSED).",
       "then": "Espressione eseguita dopo l'elaborazione di ogni messaggio. Riceve $event (i dati parsati).",
       "insertModesTitle": "Modalità di inserimento",
-      "insertModesText": "L'attributo sse-insert controlla come i messaggi successivi aggiornano la variabile di contesto. Replace è il valore predefinito ed è ideale per stream a valore singolo come le quotazioni. Append e prepend raccolgono i messaggi in un array, limitato da sse-limit. Usare append o prepend senza sse-limit emette un avviso in console riguardo alla potenziale crescita illimitata della memoria. Impostare sse-limit in modalità replace non ha effetto e emette anch'esso un avviso.",
+      "insertModesText": "L'attributo sse-insert controlla come i messaggi successivi aggiornano la variabile di contesto. Replace è il valore predefinito ed è ideale per stream a valore singolo come le quotazioni. Append e prepend raccolgono i messaggi in un array, limitato da sse-limit. Usare append o prepend senza sse-limit emette un avviso in console riguardo alla potenziale crescita illimitata della memoria. Impostare sse-limit in modalità replace non ha effetto ed emette anch'esso un avviso.",
       "namedEventsTitle": "Eventi con nome",
       "namedEventsText": "Per impostazione predefinita, la direttiva ascolta i messaggi SSE senza nome (l'evento message). Imposta sse-event per ascoltare un tipo di evento con nome specifico. Più elementi possono sottoscrivere diversi tipi di evento sullo stesso endpoint — ognuno apre la propria connessione EventSource.",
       "connectionStateTitle": "Stato della connessione ($sse)",
@@ -1971,8 +1971,8 @@
       "statesCallout": "Durante la riconnessione automatica, l'EventSource del browser passa allo stato CONNECTING. NoJS rispecchia questo comportamento: $sse.connecting diventa true, $sse.open diventa false e $sse.error rimane false. Il flag di errore si attiva solo quando la connessione non può essere ripristinata (CLOSED).",
       "liveFeedTitle": "Esempio di feed in tempo reale",
       "liveFeedText": "Combina la modalità di inserimento prepend, un limite e indicatori di stato della connessione per un feed di attività in tempo reale completo con stato di riconnessione automatica.",
-      "reactiveUrlTitle": "URL reattive",
-      "reactiveUrlText": "Quando l'URL del sse contiene espressioni interpolate, la direttiva monitora i cambiamenti. Se l'URL risolta cambia, l'EventSource corrente viene chiuso e ne viene aperto uno nuovo verso l'endpoint aggiornato. In modalità append/prepend, i dati accumulati vengono reimpostati a un array vuoto. In modalità replace (predefinita), il valore precedente persiste fino all'arrivo del primo messaggio sulla nuova connessione.",
+      "reactiveUrlTitle": "URL reattivi",
+      "reactiveUrlText": "Quando l'URL del sse contiene espressioni interpolate, la direttiva monitora i cambiamenti. Se l'URL risolto cambia, l'EventSource corrente viene chiuso e ne viene aperto uno nuovo verso l'endpoint aggiornato. In modalità append/prepend, i dati accumulati vengono reimpostati a un array vuoto. In modalità replace (predefinita), il valore precedente persiste fino all'arrivo del primo messaggio sulla nuova connessione.",
       "storeTitle": "Integrazione con lo Store",
       "storeText": "Aggiungi l'attributo into per scrivere ogni messaggio in uno store globale oltre alla variabile di contesto locale. Altri elementi ovunque nel DOM possono leggere i dati tramite $store.nomeDelloStore.",
       "errorHandlingTitle": "Gestione degli errori",
@@ -1986,7 +1986,7 @@
       "authCallout": "L'attributo <code>sse-credentials</code> imposta <code>withCredentials: true</code> sull'EventSource, inviando cookie nelle richieste cross-origin. Il server deve rispondere con gli header CORS appropriati (<code>Access-Control-Allow-Credentials: true</code>, <code>Access-Control-Allow-Origin</code> esplicito).",
       "interceptorsNote": "Gli interceptor fetch di NoJS non si applicano alle connessioni SSE. EventSource è un'API del browser separata — l'iniezione di header, la cache e la logica di retry della pipeline fetch non sono disponibili.",
       "connectionLimitTitle": "Limiti di connessione",
-      "connectionLimitText": "I browser impongono un limite di circa 6 connessioni HTTP/1.1 concorrenti per origine. Ogni elemento sse apre la propria connessione EventSource — le connessioni non vengono mai condivise o coalizzate, anche quando più elementi puntano allo stesso URL. NoJS emette un avviso quando viene aperta una 6ª connessione verso la stessa origine. Per rispettare i limiti, usa HTTP/2 (che multiplexa i flussi su una singola connessione TCP), riduci il numero di elementi sse nella pagina, o chiudi le connessioni non utilizzate tramite rendering condizionale (es: una direttiva if)."
+      "connectionLimitText": "I browser impongono un limite di circa 6 connessioni HTTP/1.1 concorrenti per origine. Ogni elemento sse apre la propria connessione EventSource — le connessioni non vengono mai condivise né accorpate, anche quando più elementi puntano allo stesso URL. NoJS emette un avviso quando viene aperta una 6ª connessione verso la stessa origine. Per rispettare i limiti, usa HTTP/2 (che multiplexa i flussi su una singola connessione TCP), riduci il numero di elementi sse nella pagina, o chiudi le connessioni non utilizzate tramite rendering condizionale (es: una direttiva if)."
     }
   }
 }

@@ -1982,7 +1982,7 @@
       "noLoadingTitle": "Pas de template de chargement",
       "noLoadingText": "Contrairement aux directives HTTP (get, post), la directive sse ne supporte pas d'attribut de template de chargement. Les connexions SSE sont de longue durée — il n'y a pas de cycle unique requête/réponse. Utilisez $sse.connecting pour afficher un indicateur de statut pendant l'établissement de la connexion.",
       "authTitle": "Authentification",
-      "authText": "L'API EventSource ne supporte pas les headers personnalisés. Deux stratégies d'authentification sont disponibles : les tokens via query string et les credentials basées sur les cookies.",
+      "authText": "L'API EventSource ne supporte pas les headers personnalisés. Deux stratégies d'authentification sont disponibles : les tokens via query string et l'authentification basée sur les cookies.",
       "authCallout": "L'attribut <code>sse-credentials</code> définit <code>withCredentials: true</code> sur l'EventSource, envoyant les cookies sur les requêtes cross-origin. Le serveur doit répondre avec les headers CORS appropriés (<code>Access-Control-Allow-Credentials: true</code>, <code>Access-Control-Allow-Origin</code> explicite).",
       "interceptorsNote": "Les intercepteurs fetch de NoJS ne s'appliquent pas aux connexions SSE. EventSource est une API navigateur distincte — l'injection de headers, le cache et la logique de retry du pipeline fetch ne sont pas disponibles.",
       "connectionLimitTitle": "Limites de connexion",

@@ -82,7 +82,7 @@
         "retryDelay": "Retraso entre reintentos en ms",
         "sse": "Abre un stream SSE (EventSource)",
         "sseEvent": "Tipo de evento con nombre a escuchar",
-        "sseInsert": "Cómo las mensajes actualizan la variable (replace, append, prepend)",
+        "sseInsert": "Cómo los mensajes actualizan la variable (replace, append, prepend)",
         "sseLimit": "Longitud máxima del array en modo append/prepend",
         "sseCredentials": "Envía cookies a endpoints cross-origin"
       },
@@ -1950,7 +1950,7 @@
       "sse": "URL del endpoint SSE. Soporta expresiones interpoladas (ej: /api/{channel}).",
       "as": "Nombre de la variable de contexto reactiva que recibe los datos de cada mensaje.",
       "sseEvent": "Tipo de evento SSE con nombre a escuchar. Sin este atributo, solo se capturan mensajes sin nombre (default).",
-      "sseInsert": "Cómo las nuevas mensajes actualizan la variable: replace (por defecto), append (array del más antiguo al más reciente) o prepend (array del más reciente al más antiguo).",
+      "sseInsert": "Cómo los nuevos mensajes actualizan la variable: replace (por defecto), append (array del más antiguo al más reciente) o prepend (array del más reciente al más antiguo).",
       "sseLimit": "Longitud máxima del array al usar el modo append o prepend. Las entradas más antiguas se descartan cuando se excede el límite. No tiene efecto en modo replace (emite una advertencia en consola).",
       "sseCredentials": "Atributo booleano. Cuando está presente, el EventSource se abre con withCredentials: true, enviando cookies en solicitudes cross-origin.",
       "into": "Nombre del store. Cuando se define, cada mensaje también se escribe en el store global nombrado bajo la clave as.",

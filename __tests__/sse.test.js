@@ -166,6 +166,38 @@ describe('SSE Directive', () => {
       expect(MockEventSource._instances).toHaveLength(1);
       expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(false);
     });
+
+    test('0.5 — populated loop with sse does NOT open EventSource per clone (regression)', () => {
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{ items: ["a", "b", "c"] }');
+      const el = document.createElement('div');
+      el.setAttribute('each', 'item in items');
+      el.setAttribute('sse', '/api/stream');
+      el.setAttribute('as', 'data');
+      parent.appendChild(el);
+      document.body.appendChild(parent);
+      processTree(parent);
+
+      // The original element's SSE bails via _isLoopElement guard, and
+      // _LOOP_ATTRS strips `sse` from every clone — zero connections total.
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
+
+    test('0.6 — populated loop with sse + foreach variant produces zero connections', () => {
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{ users: [{ name: "A" }, { name: "B" }] }');
+      const el = document.createElement('div');
+      el.setAttribute('foreach', 'user in users');
+      el.setAttribute('sse', '/api/live');
+      el.setAttribute('as', 'ticker');
+      parent.appendChild(el);
+      document.body.appendChild(parent);
+      processTree(parent);
+
+      expect(MockEventSource._instances).toHaveLength(0);
+      expect(warnedWith(warnSpy, 'loop element is not supported')).toBe(true);
+    });
   });
 
 

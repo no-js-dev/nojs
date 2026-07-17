@@ -11,6 +11,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 ## Core Guides
 
 - [Data Fetching](https://no-js.dev/#/data-fetching): Declarative HTTP via `get`, `post`, `put`, `patch`, `delete`, `query` (QUERY, RFC 10008) attributes; base URL, caching, polling, reactive URLs, loading/error/empty templates
+- [Server-Sent Events](https://no-js.dev/#/sse): `sse` directive for streaming data via EventSource; insert modes (replace, append, prepend), named events, `$sse` connection state, reactive URLs, store integration, error templates, per-message `then` callback
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute), `model` (two-way input binding)
 - [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`

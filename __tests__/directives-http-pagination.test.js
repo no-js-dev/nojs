@@ -62,7 +62,7 @@ function mockFetchSequence(responses) {
   });
 }
 
-function wait(ms = 60) {
+function wait(ms = 10) {
   return new Promise((r) => setTimeout(r, ms));
 }
 

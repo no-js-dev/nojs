@@ -313,7 +313,7 @@ describe('i18n Directive (t)', () => {
     _i18n.locale = 'en';
   });
 
-  test('translates simple key', () => {
+  test('t directive translates simple key into element text', () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', '{}');
     const span = document.createElement('span');
@@ -401,7 +401,7 @@ function mockErrorResponse(status, body) {
   };
 }
 
-function flush(ms = 50) {
+function flush(ms = 10) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -908,6 +908,7 @@ describe('use directive — slots', () => {
 
     processTree(parent);
 
+    expect(el.innerHTML).toBe('<p>Original</p>');
   });
 });
 

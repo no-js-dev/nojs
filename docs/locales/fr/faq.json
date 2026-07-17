@@ -80,7 +80,7 @@
       },
       "q14": {
         "question": "Quelle est la taille du bundle ?",
-        "answer": "Un seul fichier, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations et 40+ directives. Drag-and-drop et form validation maintenant dans NoJS Elements."
+        "answer": "Un seul petit fichier autonome, zéro dépendance. Cela inclut réactivité, routage, fetch de données, i18n, animations et 40+ directives. Drag-and-drop et form validation maintenant dans NoJS Elements."
       },
       "q15": {
         "question": "Ai-je besoin d'un build ?",
@@ -88,7 +88,7 @@
       },
       "q16": {
         "question": "Est-il prêt pour la production ?",
-        "answer": "Oui. 1 350+ tests unitaires, testé sur les navigateurs modernes. Ce site de documentation est entièrement construit avec No.JS."
+        "answer": "Oui. 2 100+ tests unitaires, testé sur les navigateurs modernes. Ce site de documentation est entièrement construit avec No.JS."
       }
     }
   }

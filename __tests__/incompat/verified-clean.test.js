@@ -269,10 +269,10 @@ describe('Verified-clean: second-pass combinations', () => {
 
     // Button click should still work
     const btn = switchEl.querySelector('button');
-    if (btn && btn.style.display !== 'none') {
-      btn.click();
-      expect(ctx.count).toBe(8);
-    }
+    expect(btn).not.toBeNull();
+    expect(btn.style.display).not.toBe('none');
+    btn.click();
+    expect(ctx.count).toBe(8);
   });
 
   test('error-boundary + each on the same element -- items render normally', () => {
@@ -529,13 +529,12 @@ describe('Verified-clean: third-pass combinations', () => {
 
     // After restore, the right case should show
     const restored = document.body.querySelector('[switch]');
-    if (restored) {
-      // Mode was 'y' when toggled off; after restore it should re-evaluate
-      expect(
-        visibleText(restored).includes('X-BRANCH') ||
-        visibleText(restored).includes('Y-BRANCH')
-      ).toBe(true);
-    }
+    expect(restored).not.toBeNull();
+    // Mode was 'y' when toggled off; after restore it should re-evaluate
+    expect(
+      visibleText(restored).includes('X-BRANCH') ||
+      visibleText(restored).includes('Y-BRANCH')
+    ).toBe(true);
   });
 
   test('switch + if -- switch value change while if is false shows right case on restore', () => {
@@ -563,9 +562,8 @@ describe('Verified-clean: third-pass combinations', () => {
     ctx.show = true;
 
     switchDiv = document.body.querySelector('[switch]');
-    if (switchDiv) {
-      expect(visibleText(switchDiv)).toContain('B-CASE');
-    }
+    expect(switchDiv).not.toBeNull();
+    expect(visibleText(switchDiv)).toContain('B-CASE');
   });
 
   test('switch + loop on the same element -- each clone runs its own switch', () => {

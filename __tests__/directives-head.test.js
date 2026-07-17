@@ -1,6 +1,6 @@
 import { _stores, _config } from '../src/globals.js';
 import { createContext } from '../src/context.js';
-import { processTree } from '../src/registry.js';
+import { processTree, _disposeTree } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
 
 import '../src/filters.js';
@@ -55,9 +55,15 @@ describe('page-title directive', () => {
     expect(document.title).toBe('Second | Site');
   });
 
-  test('does not throw when expression evaluates to null', () => {
-    document.body.innerHTML = `<div hidden page-title="missingVar"></div>`;
-    expect(() => processTree(document.body)).not.toThrow();
+  test('does not set title when expression evaluates to null', () => {
+    document.title = 'Original';
+    document.body.innerHTML = `
+      <div state="{ val: null }">
+        <div hidden page-title="val"></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.title).toBe('Original');
   });
 });
 
@@ -303,5 +309,161 @@ describe('page-jsonld directive', () => {
     expect(allScripts.length).toBe(2);
     // Original untouched
     expect(allScripts[0].textContent).toContain('WebSite');
+  });
+});
+
+// ─── hardening: XSS guards, null values, disposal cleanup ─────────────────────
+
+describe('page-description — null values and disposal', () => {
+  test('does not create meta when expression evaluates to null', () => {
+    document.body.innerHTML = `
+      <div state="{ desc: null }">
+        <div hidden page-description="desc"></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('meta[name="description"]')).toBeNull();
+  });
+
+  test('removes created meta on disposal', () => {
+    document.body.innerHTML = `
+      <div state="{ desc: 'Disposable' }">
+        <div hidden page-description="desc" id="desc-host"></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('meta[name="description"]')).not.toBeNull();
+
+    _disposeTree(document.body);
+    expect(document.querySelector('meta[name="description"]')).toBeNull();
+  });
+});
+
+describe('page-canonical — XSS guards, null values and disposal', () => {
+  test('blocks javascript: protocol in canonical URL (XSS guard)', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-canonical="'javascript:alert(1)'"></div>
+      </div>
+    `;
+    processTree(document.body);
+    const link = document.querySelector('link[rel="canonical"]');
+    // Blocked value: either no link created, or href neutered
+    expect(link ? link.href : '').not.toContain('javascript:');
+  });
+
+  test('blocks vbscript: protocol in canonical URL (XSS guard)', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-canonical="'vbscript:MsgBox(1)'"></div>
+      </div>
+    `;
+    processTree(document.body);
+    const link = document.querySelector('link[rel="canonical"]');
+    expect(link ? link.href : '').not.toContain('vbscript:');
+  });
+
+  test('blocks data: protocol in canonical URL (XSS guard)', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-canonical="'data:text/html,<h1>XSS</h1>'"></div>
+      </div>
+    `;
+    processTree(document.body);
+    const link = document.querySelector('link[rel="canonical"]');
+    expect(link ? link.href : '').not.toContain('data:text/html');
+  });
+
+  test('allows https: canonical URLs', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-canonical="'https://example.com/about'"></div>
+      </div>
+    `;
+    processTree(document.body);
+    const link = document.querySelector('link[rel="canonical"]');
+    expect(link).not.toBeNull();
+    expect(link.href).toBe('https://example.com/about');
+  });
+
+  test('does not create link when expression evaluates to null', () => {
+    document.body.innerHTML = `
+      <div state="{ url: null }">
+        <div hidden page-canonical="url"></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('link[rel="canonical"]')).toBeNull();
+  });
+
+  test('removes created canonical link on disposal', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-canonical="'/disposable'"></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('link[rel="canonical"]')).not.toBeNull();
+
+    _disposeTree(document.body);
+    expect(document.querySelector('link[rel="canonical"]')).toBeNull();
+  });
+});
+
+describe('page-jsonld — injection guards, empty values and disposal', () => {
+  test('escapes </ sequences to prevent script injection', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-jsonld>{"@type":"WebPage","name":"Test</script>"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    // The </ must be escaped to <\\/ so the payload cannot close the script tag
+    expect(script ? script.textContent : '').not.toContain('</script>');
+  });
+
+  test('does nothing when element body is empty', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-jsonld></div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('script[type="application/ld+json"][data-nojs]')).toBeNull();
+  });
+
+  test('removes created JSON-LD script on disposal', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-jsonld>{"@type":"WebPage","name":"Disposable"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(document.querySelector('script[type="application/ld+json"][data-nojs]')).not.toBeNull();
+
+    _disposeTree(document.body);
+    expect(document.querySelector('script[type="application/ld+json"][data-nojs]')).toBeNull();
+  });
+
+  test('handles malformed JSON gracefully (does not throw)', () => {
+    document.body.innerHTML = `
+      <div state="{}">
+        <div hidden page-jsonld>{"@type": "WebPage", "name": unclosed</div>
+      </div>
+    `;
+    expect(() => processTree(document.body)).not.toThrow();
+  });
+
+  test('handles {placeholder} that evaluates to null (renders empty string)', () => {
+    document.body.innerHTML = `
+      <div state="{ val: null }">
+        <div hidden page-jsonld>{"@type":"WebPage","name":"{val}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    const script = document.querySelector('script[type="application/ld+json"][data-nojs]');
+    expect(script).not.toBeNull();
+    expect(script.textContent).toContain('"name":""');
   });
 });

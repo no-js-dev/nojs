@@ -54,7 +54,7 @@ describe('HTTP Gate — if-gated HTTP verbs', () => {
     return { wrapper, el };
   }
 
-  function flush(ms = 50) {
+  function flush(ms = 10) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
@@ -221,29 +221,34 @@ describe('HTTP Gate — if-gated HTTP verbs', () => {
     wrapper.appendChild(el);
     document.body.appendChild(wrapper);
 
-    processTree(wrapper);
-    await flush();
+    jest.useFakeTimers();
+    try {
+      processTree(wrapper);
+      await jest.advanceTimersByTimeAsync(50);
 
-    expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalled();
 
-    // Activate — triggers initial fetch + starts interval
-    wrapper.__ctx.active = true;
-    await flush(100);
+      // Activate — triggers initial fetch + starts interval
+      wrapper.__ctx.active = true;
+      await jest.advanceTimersByTimeAsync(100);
 
-    const callsAfterActivation = global.fetch.mock.calls.length;
-    expect(callsAfterActivation).toBeGreaterThanOrEqual(1);
+      const callsAfterActivation = global.fetch.mock.calls.length;
+      expect(callsAfterActivation).toBeGreaterThanOrEqual(1);
 
-    // Deactivate — should clear the polling interval via gate disposer
-    wrapper.__ctx.active = false;
-    await flush(100);
+      // Deactivate — should clear the polling interval via gate disposer
+      wrapper.__ctx.active = false;
+      await jest.advanceTimersByTimeAsync(100);
 
-    const callsAfterDeactivation = global.fetch.mock.calls.length;
+      const callsAfterDeactivation = global.fetch.mock.calls.length;
 
-    // Wait long enough for at least one more poll cycle if interval were alive
-    await flush(700);
+      // Advance past several poll cycles — none should fire if interval was cleared
+      await jest.advanceTimersByTimeAsync(2000);
 
-    // No additional fetches after deactivation
-    expect(global.fetch.mock.calls.length).toBe(callsAfterDeactivation);
+      // No additional fetches after deactivation
+      expect(global.fetch.mock.calls.length).toBe(callsAfterDeactivation);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // ── Re-activation cycle ─────────────────────────────────────────────

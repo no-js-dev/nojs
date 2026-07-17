@@ -45,6 +45,7 @@ import "./filters.js";
 // Side-effect imports: register all built-in directives
 import "./directives/state.js";
 import "./directives/http.js";
+import "./directives/sse.js";
 import "./directives/binding.js";
 import "./directives/conditionals.js";
 import "./directives/loops.js";
@@ -71,7 +72,7 @@ let _configLocked = false;
 // Keep in sync with context.js proxy handler $xxx variables.
 // Any new $xxx context variable requires adding xxx to this list.
 const _RESERVED_GLOBAL_NAMES = new Set([
-  "store", "route", "router", "i18n", "refs", "form", "parent",
+  "store", "route", "router", "i18n", "refs", "form", "sse", "parent",
   "watch", "set", "notify", "raw", "isProxy", "listeners",
   "app", "config", "env", "debug", "version", "plugins", "globals",
   "el", "event", "self", "this", "super", "window", "document",
@@ -590,7 +591,7 @@ const NoJS = {
   },
 
   // Version
-  version: "1.19.0",
+  version: "1.20.0",
 };
 
 // Expose sentinel symbols as read-only properties

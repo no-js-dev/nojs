@@ -20,6 +20,7 @@
            { route: '/docs/loops', label: $i18n.shell.sidebar.loops },
            { route: '/docs/templates', label: $i18n.shell.sidebar.templates },
            { route: '/docs/data-fetching', label: $i18n.shell.sidebar.fetchApi },
+           { route: '/docs/sse', label: $i18n.shell.sidebar.sse },
            { route: '/docs/pagination', label: $i18n.shell.sidebar.pagination },
            { route: '/docs/routing', label: $i18n.shell.sidebar.routing },
            { route: '/docs/head-management', label: $i18n.shell.sidebar.headManagement },

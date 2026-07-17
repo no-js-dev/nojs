@@ -551,6 +551,7 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ## See Also
 
+- [Server-Sent Events](sse.md) — `sse` directive for real-time server-pushed streaming data
 - [Actions & Refs](actions-refs.md) — `call` directive for click-triggered requests
 - [State Management](state-management.md) — `into` for writing responses to stores
 - [Configuration](configuration.md) — global API settings, CSRF, interceptors
@@ -558,4 +559,4 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ---
 
-**Previous:** [Head Management ←](head-management.md) | **Next:** [Data Binding →](data-binding.md)
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Server-Sent Events →](sse.md)

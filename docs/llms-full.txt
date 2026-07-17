@@ -11,6 +11,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 ## Core Guides
 
 - [Data Fetching](#data-fetching) — `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008), base URL, caching, pagination
+- [Server-Sent Events](#server-sent-events-sse) — `sse` directive, insert modes, named events, `$sse` state, store integration
 - [Data Binding](#data-binding) — `bind`, `bind-html`, `bind-*`, `model`
 - [Conditionals](#conditionals) — `if`, `else-if`, `show`, `hide`, `switch`/`case`
 - [Loops](#loops) — `foreach` (primary), `each`/`for` (aliases), loop variables, nesting
@@ -693,7 +694,209 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ---
 
-**Previous:** [Head Management ←](head-management.md) | **Next:** [Data Binding →](data-binding.md)
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Server-Sent Events →](sse.md)
+
+# Server-Sent Events (SSE)
+
+The `sse` directive opens an EventSource connection to a server endpoint and exposes incoming data as a reactive context variable. JSON payloads are parsed automatically; non-JSON data is stored as a plain string.
+
+## Basic Usage
+
+```html
+<!-- Latest value from an SSE stream -->
+<div sse="/api/ticker" as="quote">
+  <span bind="quote.price"></span>
+</div>
+
+<!-- Plain text fallback — non-JSON data becomes a string -->
+<div sse="/api/log" as="line">
+  <p bind="line"></p>
+</div>
+```
+
+## Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `sse` | string | URL of the SSE endpoint. Supports interpolated expressions (e.g. `/api/{channel}`). |
+| `as` | string | Name of the reactive context variable that receives each message's data. |
+| `sse-event` | string | Named SSE event type to listen for. Without this, only unnamed (default) messages are captured. |
+| `sse-insert` | string | How new messages update the variable: `replace` (default), `append` (oldest-first array), or `prepend` (newest-first array). |
+| `sse-limit` | number | Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. Has no effect in replace mode (triggers a console warning). |
+| `sse-credentials` | boolean | When present, the EventSource is opened with `withCredentials: true`, sending cookies on cross-origin requests. |
+| `into` | string | Store name. When set, each message is also written to the named global store under the `as` key. |
+| `error` | string | ID of a `<template>` element to render when the connection permanently fails (`readyState === CLOSED`). |
+| `then` | string | Expression executed after each message is processed. Receives `$event` (the parsed data). |
+
+## Insert Modes
+
+The `sse-insert` attribute controls how successive messages update the context variable.
+
+- **replace** (default) — each message overwrites the previous value. Best for single-value streams like stock tickers.
+- **append** — messages accumulate into an array (oldest first), capped by `sse-limit`. Using append without `sse-limit` triggers a console warning about potential unbounded memory growth.
+- **prepend** — messages accumulate into an array (newest first), capped by `sse-limit`. Using prepend without `sse-limit` triggers a console warning about potential unbounded memory growth.
+
+> **Note:** `sse-limit` has no effect in replace mode (no array to cap). Setting a non-zero `sse-limit` in replace mode triggers a console warning.
+
+```html
+<!-- Replace (default) -->
+<div sse="/api/ticker" as="quote">
+  <span bind="quote.symbol"></span>: <span bind="quote.price"></span>
+</div>
+
+<!-- Append: oldest-first, capped at 50 -->
+<div sse="/api/feed" as="messages" sse-insert="append" sse-limit="50">
+  <div foreach="msg in messages">
+    <p bind="msg.text"></p>
+  </div>
+</div>
+
+<!-- Prepend: newest-first, capped at 20 -->
+<div sse="/api/notifications" as="notifs" sse-insert="prepend" sse-limit="20">
+  <div foreach="n in notifs">
+    <p bind="n.message"></p>
+  </div>
+</div>
+```
+
+## Named Events
+
+By default, the directive listens for unnamed SSE messages (the `message` event). Set `sse-event` to listen for a specific named event type instead. Multiple elements can subscribe to different event types on the same endpoint — each opens its own EventSource connection.
+
+```html
+<!-- Only listens to "price-update" events -->
+<div sse="/api/stream" sse-event="price-update" as="price">
+  <span bind="price.value"></span>
+</div>
+
+<!-- Different event on the same endpoint -->
+<div sse="/api/stream" sse-event="user-joined" as="joined">
+  <p bind="joined.name + ' joined'"></p>
+</div>
+```
+
+## Connection State (`$sse`)
+
+Every `sse` element exposes a reactive `$sse` object on its context with three boolean properties reflecting the EventSource `readyState`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `$sse.connecting` | boolean | `true` while the EventSource is in `CONNECTING` state (initial connect or auto-reconnect). |
+| `$sse.open` | boolean | `true` when the connection is open and receiving messages. |
+| `$sse.error` | boolean | `true` only when the connection has permanently failed (`readyState === CLOSED`). During auto-reconnect, `error` remains `false`. |
+
+> **Note:** During auto-reconnect the browser's EventSource transitions to `CONNECTING`. NoJS mirrors this: `$sse.connecting` becomes `true`, `$sse.open` becomes `false`, and `$sse.error` stays `false`. The error flag only fires when the connection cannot be recovered (`CLOSED`).
+
+```html
+<div sse="/api/stream" as="data">
+  <p show="$sse.connecting">Connecting...</p>
+  <p show="$sse.open" bind="data"></p>
+  <p show="$sse.error">Connection lost.</p>
+</div>
+```
+
+## Reactive URLs
+
+When the `sse` URL contains interpolated expressions, the directive watches for changes. If the resolved URL changes, the current EventSource is closed and a new one is opened to the updated endpoint. In append/prepend mode, accumulated data is reset to an empty array. In replace mode (the default), the previous value persists until the first message arrives on the new connection.
+
+```html
+<div state="{ channel: 'general' }">
+  <select model="channel">
+    <option value="general">General</option>
+    <option value="alerts">Alerts</option>
+  </select>
+
+  <!-- Connection closes and reopens when channel changes -->
+  <div sse="/api/stream/{channel}" as="messages"
+       sse-insert="append" sse-limit="30">
+    <p foreach="msg in messages" bind="msg.text"></p>
+  </div>
+</div>
+```
+
+## Store Integration
+
+Add the `into` attribute to write each message into a global store alongside the local context variable. Other elements anywhere in the DOM can read the data via `$store.storeName`.
+
+```html
+<!-- SSE data written to both local context and the "live" store -->
+<div sse="/api/ticker" as="price" into="live">
+  <span bind="price"></span>
+</div>
+
+<!-- Consumed from anywhere via the store -->
+<footer>
+  <span bind="$store.live.price"></span>
+</footer>
+```
+
+## Error Handling
+
+Point the `error` attribute to a `<template>` to render fallback content when the connection permanently closes. The template receives a synthetic object with a single `message` field (`"SSE connection closed"`) — not the browser error object. The error template only renders when `readyState` reaches `CLOSED` (terminal close); it is never shown during auto-reconnect.
+
+```html
+<div sse="/api/stream" as="data" error="sseError">
+  <p show="$sse.connecting">Reconnecting...</p>
+  <p show="$sse.open" bind="data"></p>
+</div>
+
+<template id="sseError" var="err">
+  <div class="error">
+    <p bind="err.message"></p>
+  </div>
+</template>
+```
+
+## Per-Message Callback (`then`)
+
+The `then` attribute accepts an expression that runs after each message is processed and the context variable is updated. The parsed message data is available as `$event`.
+
+```html
+<div state="{ count: 0 }">
+  <div sse="/api/notifications" as="notif"
+       then="count = count + 1">
+    <p bind="notif.title"></p>
+    <small bind="count + ' received'"></small>
+  </div>
+</div>
+```
+
+## No Loading Template
+
+Unlike HTTP directives (`get`, `post`), the `sse` directive does not support a loading template attribute. SSE connections are long-lived — there is no single request/response cycle to bracket. Use `$sse.connecting` to show a status indicator while the connection is being established.
+
+## Authentication
+
+The EventSource API does not support custom headers. Two authentication strategies are available:
+
+1. **Query-string tokens** — embed the token in the URL.
+2. **Cookie-based credentials** — add `sse-credentials` to send cookies on cross-origin requests. The server must respond with `Access-Control-Allow-Credentials: true` and an explicit `Access-Control-Allow-Origin`.
+
+```html
+<!-- Query-string token -->
+<div sse="/api/stream?token={authToken}" as="data">...</div>
+
+<!-- Cookie-based auth -->
+<div sse="https://api.example.com/stream" sse-credentials as="data">...</div>
+```
+
+NoJS fetch interceptors do not apply to SSE connections. EventSource is a separate browser API — header injection, caching, and retry logic from the fetch pipeline are not available.
+
+## Connection Limits
+
+Browsers enforce a per-origin limit of roughly 6 concurrent HTTP/1.1 connections. Each `sse` element opens its own EventSource connection — connections are never shared or coalesced, even when multiple elements point to the same URL. NoJS logs a warning when a 6th connection to the same origin is opened. To stay within limits, use HTTP/2 (which multiplexes streams over a single TCP connection), reduce the number of `sse` elements on the page, or close unused connections via conditional rendering (e.g. an `if` directive).
+
+---
+
+## See Also
+
+- [Data Fetching](data-fetching.md) — HTTP request directives (`get`, `post`, `put`, `patch`, `delete`, `query`)
+- [State Management](state-management.md) — `into` for writing to stores, `$store` for global state
+- [Error Handling](error-handling.md) — `error` templates and `error-boundary`
+
+---
+
+**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [Data Binding →](data-binding.md)
 
 # Data Binding
 
@@ -836,7 +1039,7 @@ For form inputs, `model` creates automatic two-way data binding:
 
 ---
 
-**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [State Management →](state-management.md)
+**Previous:** [Server-Sent Events ←](sse.md) | **Next:** [State Management →](state-management.md)
 
 # Conditionals
 
@@ -5163,6 +5366,11 @@ Complete reference of every No.JS directive.
 | `get-cursor` | `get-cursor` | Enable cursor-based pagination |
 | `get-cursor-field` | `get-cursor-field="next"` | JSON field name containing the next cursor value |
 | `get-threshold` | `get-threshold="300px"` | `rootMargin` for the IntersectionObserver (default `"200px"` for scroll, `"0px"` for visible) |
+| `sse` | `sse="/api/stream"` | Open an SSE stream (EventSource) |
+| `sse-event` | `sse-event="price-update"` | Named event type to listen for |
+| `sse-insert` | `sse-insert="append"` | How messages update the variable: `replace`, `append`, or `prepend` |
+| `sse-limit` | `sse-limit="50"` | Maximum array length in append/prepend mode |
+| `sse-credentials` | `sse-credentials` | Send cookies to cross-origin endpoints |
 
 ## State
 

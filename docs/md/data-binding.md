@@ -139,4 +139,4 @@ For form inputs, `model` creates automatic two-way data binding:
 
 ---
 
-**Previous:** [Data Fetching ←](data-fetching.md) | **Next:** [State Management →](state-management.md)
+**Previous:** [Server-Sent Events ←](sse.md) | **Next:** [State Management →](state-management.md)

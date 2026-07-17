@@ -25,6 +25,7 @@ No build step. No virtual DOM. No transpiler. No JSX. Just HTML.
 ## Features
 
 - **Declarative HTTP** — `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008) as HTML attributes
+- **Server-Sent Events** — `sse` for real-time streaming with `$sse` connection state, insert modes, and auto-reconnection
 - **Reactive Binding** — `bind`, `bind-*`, `model` for one/two-way data binding
 - **Conditionals & Loops** — `if`, `else-if`, `show`, `hide`, `each`, `foreach`, `switch`
 - **State Management** — `state` (local), `store` (global), `computed`, `watch`, `notify()`
@@ -163,6 +164,7 @@ Full documentation is available in the [docs/](docs/) folder:
 |-------|-------------|
 | [Getting Started](docs/md/getting-started.md) | Installation, core concepts, how it works |
 | [Data Fetching](docs/md/data-fetching.md) | `get`, `post`, `put`, `patch`, `delete`, `query` (RFC 10008), caching, polling |
+| [Server-Sent Events](docs/md/sse.md) | `sse`, `$sse` connection state, insert modes, reactive URLs |
 | [Data Binding](docs/md/data-binding.md) | `bind`, `bind-html`, `bind-*`, `model` |
 | [Conditionals](docs/md/conditionals.md) | `if`, `else-if`, `show`, `hide`, `switch`/`case` |
 | [Loops](docs/md/loops.md) | `each`, `foreach`, loop variables, nested loops |

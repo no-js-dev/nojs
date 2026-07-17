@@ -164,6 +164,7 @@ const _BLOCKED_TAGS = new Set([
   'script', 'style', 'iframe', 'object', 'embed',
   'base', 'form', 'meta', 'link', 'noscript',
   'svg', 'math', 'template', 'xmp', 'applet',
+  'noembed', 'noframes', 'plaintext',
 ]);
 
 export function _sanitizeHtml(html) {

@@ -22,7 +22,7 @@ const _LOOP_ATTRS = [
   "template",
   "animate-enter", "animate-leave", "animate-stagger", "animate-duration", "animate",
   // HTTP verb attrs — prevent clones from firing one fetch per iteration.
-  "get", "post", "put", "patch", "delete",
+  "get", "post", "put", "patch", "delete", "query",
   // SSE attr — prevent clones from opening one EventSource per iteration.
   "sse",
   // Head/SEO attrs — prevent clones from clobbering document.title etc.

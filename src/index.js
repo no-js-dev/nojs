@@ -591,7 +591,7 @@ const NoJS = {
   },
 
   // Version
-  version: "1.19.0",
+  version: "1.20.0",
 };
 
 // Expose sentinel symbols as read-only properties

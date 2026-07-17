@@ -290,6 +290,30 @@ describe('DOM Helpers', () => {
       expect(result).toContain(safeUri);
       expect(result).toContain('alt="safe"');
     });
+
+    // ── Rawtext / plaintext tag smuggling (H6 hardening) ────────────────
+
+    test('removes <plaintext> that smuggles unsanitized content', () => {
+      const html = '<p>safe</p><plaintext><img src=x onerror="alert(1)">';
+      const result = _sanitizeHtml(html);
+      expect(result).not.toContain('<plaintext');
+      expect(result).toContain('safe');
+    });
+
+    test('removes <noembed> wrapping script payload', () => {
+      const html = '<div>ok</div><noembed><script>alert("xss")</script></noembed>';
+      const result = _sanitizeHtml(html);
+      expect(result).not.toContain('<noembed');
+      expect(result).not.toContain('<script');
+      expect(result).toContain('ok');
+    });
+
+    test('removes <noframes> wrapping event-handler payload', () => {
+      const html = '<noframes><div onmouseover="steal()">trap</div></noframes><p>legit</p>';
+      const result = _sanitizeHtml(html);
+      expect(result).not.toContain('<noframes');
+      expect(result).toContain('legit');
+    });
   });
 });
 

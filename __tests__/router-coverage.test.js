@@ -457,6 +457,42 @@ describe('Router — guard redirect safety', () => {
 
     expect(router.current.path).toBe('/login');
   });
+
+  test('guard with protocol-relative redirect (//host) is blocked', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _stores.auth = { loggedIn: false };
+
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/secret" guard="$store.auth.loggedIn" redirect="//evil.com">
+        <h1>Secret</h1>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/secret');
+
+    expect(warnSpy).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('not a relative path'));
+    warnSpy.mockRestore();
+  });
+
+  test('guard with backslash redirect (\\\\host) is blocked', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _stores.auth = { loggedIn: false };
+
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/secret2" guard="$store.auth.loggedIn" redirect="\\\\evil.com">
+        <h1>Secret</h1>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/secret2');
+
+    expect(warnSpy).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('not a relative path'));
+    warnSpy.mockRestore();
+  });
 });
 
 // ── _stripBase coverage ───────────────────────────────────────────────────────

@@ -5,7 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.19.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.20.0...HEAD)
+
+## [1.20.0](https://github.com/no-js-dev/nojs/compare/v1.19.0...v1.20.0) — 2026-07-17
+
+Declarative Server-Sent Events. The new `sse` directive opens a persistent EventSource connection and binds incoming messages to the reactive context — the streaming counterpart to `get`. Shares the `as`/`into`/`error`/`then` companion API with the HTTP directives and adds SSE-specific companions for named events, insert modes, array capping, and credentials.
+
+### Added
+
+- feat(sse): `sse` directive for declarative Server-Sent Events via the native `EventSource` API — opens a persistent connection to a server endpoint, parses incoming messages as JSON (raw-string fallback), and binds them to the element's reactive context
+  - `sse="url"` with `{expr}` interpolation — URL changes close the old connection and open a new one reactively
+  - `as` companion names the context variable (default `"data"`)
+  - `sse-event` listens for a named SSE event instead of the default `message` event
+  - `sse-insert="replace|append|prepend"` — `replace` (default) overwrites the variable, `append`/`prepend` accumulate in an array
+  - `sse-limit` caps array length in append/prepend mode, preventing unbounded memory growth on long-lived streams
+  - `sse-credentials` opens the EventSource with `withCredentials: true` for cross-origin cookie sending
+  - `into` dual-writes event data to a global store
+  - `error` renders a template on terminal connection close only (not during browser auto-reconnect)
+  - `then` evaluates an expression per message (`$event` = parsed data)
+  - `$sse` reactive status object — `connecting`, `open`, `error` booleans reflecting the EventSource lifecycle
+  - Per-origin connection warning at the 6th concurrent EventSource to the same origin
+- test(sse): unit test suite with MockEventSource covering all insert modes, named events, credentials, store dual-write, error templates, URL interpolation, and connection lifecycle
+- test(e2e): Playwright specs for SSE directive — streaming endpoints, connection state, insert modes, limits, named events, credentials, and error handling
+- docs(sse): markdown documentation, HTML docs page with cheatsheet, i18n locales (en/pt/es/fr/it), and LLM docs (llms.txt + llms-full.txt)
+
+### Fixed
+
+- fix(sse): register disposal once during init, add debug logging, validate `sse-limit` is a positive integer
+- fix(e2e): rewrite insert-modes specs to JSON data-mode contract
+- fix(e2e): deflake pagination spec 4 with request-settled sync
+- fix(e2e): move loop+animation attrs from ul container to li element in stagger fixture
 
 ## [1.19.0](https://github.com/no-js-dev/nojs/compare/v1.18.0...v1.19.0) — 2026-07-09
 

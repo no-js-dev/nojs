@@ -90,7 +90,7 @@
         <tr><td><code>$sse.error</code></td><td>boolean</td><td t="docs.sse.errorProp"></td></tr>
       </tbody>
     </table>
-    <div class="callout" t="docs.sse.statesCallout"></div>
+    <div class="callout"><p t="docs.sse.statesCallout"></p></div>
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">sse</span>=<span class="hl-str">"/api/stream"</span> <span class="hl-attr">as</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;p</span> <span class="hl-attr">show</span>=<span class="hl-str">"$sse.connecting"</span><span class="hl-tag">&gt;</span>Connecting...<span class="hl-tag">&lt;/p&gt;</span>
   <span class="hl-tag">&lt;p</span> <span class="hl-attr">show</span>=<span class="hl-str">"$sse.open"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
@@ -164,14 +164,11 @@
     <h2 class="doc-title" id="sse-error-handling" t="docs.sse.errorHandlingTitle"></h2>
     <p class="doc-text" t="docs.sse.errorHandlingText"></p>
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">sse</span>=<span class="hl-str">"/api/stream"</span> <span class="hl-attr">as</span>=<span class="hl-str">"data"</span> <span class="hl-attr">error</span>=<span class="hl-str">"sseError"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;p</span> <span class="hl-attr">show</span>=<span class="hl-str">"$sse.connecting"</span><span class="hl-tag">&gt;</span>Reconnecting...<span class="hl-tag">&lt;/p&gt;</span>
-  <span class="hl-tag">&lt;p</span> <span class="hl-attr">show</span>=<span class="hl-str">"$sse.open"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span>
 
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"sseError"</span> <span class="hl-attr">var</span>=<span class="hl-str">"err"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"error"</span><span class="hl-tag">&gt;</span>
-    <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
-  <span class="hl-tag">&lt;/div&gt;</span>
+  <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
   </div>
 
@@ -198,7 +195,7 @@
   <div class="doc-section">
     <h2 class="doc-title" id="sse-authentication" t="docs.sse.authTitle"></h2>
     <p class="doc-text" t="docs.sse.authText"></p>
-    <div class="callout" t="docs.sse.authCallout" t-html></div>
+    <div class="callout"><p t="docs.sse.authCallout" t-html></p></div>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Query-string token --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">sse</span>=<span class="hl-str">"/api/stream?token={authToken}"</span> <span class="hl-attr">as</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
 

@@ -694,7 +694,7 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ---
 
-**Previous:** [Head Management ←](head-management.md) | **Next:** [Server-Sent Events →](sse.md)
+**Previous:** [Getting Started ←](getting-started.md) | **Next:** [Server-Sent Events →](sse.md)
 
 # Server-Sent Events (SSE)
 
@@ -722,7 +722,7 @@ The `sse` directive opens an EventSource connection to a server endpoint and exp
 | `as` | string | Name of the reactive context variable that receives each message's data. |
 | `sse-event` | string | Named SSE event type to listen for. Without this, only unnamed (default) messages are captured. |
 | `sse-insert` | string | How new messages update the variable: `replace` (default), `append` (oldest-first array), or `prepend` (newest-first array). |
-| `sse-limit` | number | Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. Has no effect in replace mode (triggers a console warning). |
+| `sse-limit` | positive integer | Must be a positive integer (>0) to cap the array in append or prepend mode. Oldest entries are dropped when the limit is exceeded. `sse-limit="0"`, empty, and non-numeric values warn and are treated as uncapped. Has no effect in replace mode (triggers a console warning). |
 | `sse-credentials` | boolean | When present, the EventSource is opened with `withCredentials: true`, sending cookies on cross-origin requests. |
 | `into` | string | Store name. When set, each message is also written to the named global store under the `as` key. |
 | `error` | string | ID of a `<template>` element to render when the connection permanently fails (`readyState === CLOSED`). |

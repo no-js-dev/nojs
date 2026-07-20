@@ -83,7 +83,7 @@
         "sse": "Open an SSE stream (EventSource)",
         "sseEvent": "Named event to listen for",
         "sseInsert": "How messages update the variable (replace, append, prepend)",
-        "sseLimit": "Maximum array length in append/prepend mode",
+        "sseLimit": "Positive integer cap for append/prepend arrays (0 or empty warns, treated as uncapped)",
         "sseCredentials": "Send cookies to cross-origin endpoints"
       },
       "state": {
@@ -1951,7 +1951,7 @@
       "as": "Name of the reactive context variable that receives each message's data.",
       "sseEvent": "Named SSE event type to listen for. Without this, only unnamed (default) messages are captured.",
       "sseInsert": "How new messages update the variable: replace (default), append (oldest-first array), or prepend (newest-first array).",
-      "sseLimit": "Maximum array length when using append or prepend mode. Oldest entries are dropped when the limit is exceeded. Has no effect in replace mode (triggers a console warning).",
+      "sseLimit": "Must be a positive integer (>0) to cap the array in append or prepend mode. Oldest entries are dropped when the limit is exceeded. sse-limit=\"0\", empty, and non-numeric values warn and are treated as uncapped. Has no effect in replace mode (triggers a console warning).",
       "sseCredentials": "Boolean attribute. When present, the EventSource is opened with withCredentials: true, sending cookies on cross-origin requests.",
       "into": "Store name. When set, each message is also written to the named global store under the as key.",
       "error": "ID of a <template> element to render when the connection permanently fails (readyState === CLOSED).",

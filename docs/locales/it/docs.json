@@ -83,7 +83,7 @@
         "sse": "Apre uno stream SSE (EventSource)",
         "sseEvent": "Tipo di evento con nome da ascoltare",
         "sseInsert": "Come i messaggi aggiornano la variabile (replace, append, prepend)",
-        "sseLimit": "Lunghezza massima dell'array in modalità append/prepend",
+        "sseLimit": "Intero positivo che limita gli array append/prepend (0 o vuoto emette avviso, trattato come illimitato)",
         "sseCredentials": "Invia cookie agli endpoint cross-origin"
       },
       "state": {
@@ -1951,7 +1951,7 @@
       "as": "Nome della variabile di contesto reattiva che riceve i dati di ogni messaggio.",
       "sseEvent": "Tipo di evento SSE con nome da ascoltare. Senza questo attributo, vengono catturati solo i messaggi senza nome (default).",
       "sseInsert": "Come i nuovi messaggi aggiornano la variabile: replace (predefinito), append (array dal più vecchio al più recente) o prepend (array dal più recente al più vecchio).",
-      "sseLimit": "Lunghezza massima dell'array in modalità append o prepend. Le voci più vecchie vengono scartate quando il limite viene superato. Non ha effetto in modalità replace (emette un avviso in console).",
+      "sseLimit": "Deve essere un intero positivo (>0) per limitare l'array in modalità append o prepend. Le voci più vecchie vengono scartate quando il limite viene superato. sse-limit=\"0\", vuoto e valori non numerici emettono un avviso e vengono trattati come illimitato. Non ha effetto in modalità replace (emette un avviso in console).",
       "sseCredentials": "Attributo booleano. Quando presente, l'EventSource viene aperto con withCredentials: true, inviando cookie nelle richieste cross-origin.",
       "into": "Nome dello store. Quando definito, ogni messaggio viene scritto anche nello store globale con il nome specificato sotto la chiave as.",
       "error": "ID di un elemento <template> da renderizzare quando la connessione fallisce permanentemente (readyState === CLOSED).",

@@ -127,7 +127,7 @@
     <p class="doc-text" t="docs.i18n.tHtml.text"></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Translation: "Read our &lt;a href='/terms'&gt;terms&lt;/a&gt;" --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">t</span>=<span class="hl-str">"legal.notice"</span> <span class="hl-attr">t-html</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
-    <div class="callout" t="docs.i18n.tHtml.callout"></div>
+    <div class="callout"><p t="docs.i18n.tHtml.callout"></p></div>
   </div>
 
   <!-- Number & Date Formatting -->

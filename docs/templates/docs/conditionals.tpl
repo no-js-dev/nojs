@@ -114,7 +114,7 @@
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"noItems"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;p&gt;</span>No items found.<span class="hl-tag">&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
-    <div class="callout" t="docs.conditionals.elseOnLoops.callout"></div>
+    <div class="callout"><p t="docs.conditionals.elseOnLoops.callout"></p></div>
   </div>
 
 </div>

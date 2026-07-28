@@ -21,6 +21,7 @@ import { createContext } from "../context.js";
 import { _execStatement, _interpolate } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
+import { _isLoopElement } from "./loops.js";
 
 // Per-origin connection tracking: Map<origin, Set<EventSource>>
 const _originConnections = new Map();
@@ -52,17 +53,22 @@ registerDirective("sse", {
   priority: 1,
   gated: true,
   init(el, name, url) {
+    if (_isLoopElement(el)) {
+      _warn("sse: SSE directive on a loop element is not supported — move it to a parent or child element", el);
+      return;
+    }
     const asKey = el.getAttribute("as") || "data";
     const sseEvent = el.getAttribute("sse-event") || null;
     const insertRaw = el.getAttribute("sse-insert");
     const insertMode = insertRaw === "append" || insertRaw === "prepend"
       ? insertRaw : "replace";
     const limitAttr = el.getAttribute("sse-limit");
-    const limitParsed = limitAttr ? parseInt(limitAttr, 10) : 0;
-    if (limitAttr && (isNaN(limitParsed) || limitParsed < 0)) {
-      _warn('sse-limit="' + limitAttr + '" is not a valid non-negative integer; ignoring.');
+    const hasLimit = el.hasAttribute("sse-limit");
+    const limitParsed = hasLimit ? parseInt(limitAttr, 10) : 0;
+    if (hasLimit && (isNaN(limitParsed) || limitParsed <= 0)) {
+      _warn('sse-limit="' + limitAttr + '" is not a valid positive integer; ignoring.');
     }
-    const limit = (isNaN(limitParsed) || limitParsed < 0) ? 0 : limitParsed;
+    const limit = (isNaN(limitParsed) || limitParsed <= 0) ? 0 : limitParsed;
     const withCredentials = el.hasAttribute("sse-credentials");
     const intoStore = el.getAttribute("into");
     const errorTpl = el.getAttribute("error");
@@ -165,6 +171,8 @@ registerDirective("sse", {
         if (es.readyState === EventSource.CLOSED) {
           _log("SSE: connection closed by server", resolvedUrl);
           _updateSseState(false, false, true);
+          if (_origin) _untrackConnection(_origin, es);
+          if (_es === es) { _es = null; _origin = null; }
           _renderError();
         } else {
           // Auto-reconnecting (CONNECTING): not terminal
@@ -211,14 +219,7 @@ registerDirective("sse", {
           _notifyStoreWatchers(intoStore);
         }
 
-        // then expression with $event in scope
-        if (thenExpr) {
-          try {
-            _execStatement(thenExpr, ctx, { $event: parsed });
-          } catch (err) {
-            _warn("sse then expression error:", err.message);
-          }
-        }
+        if (thenExpr) _execStatement(thenExpr, ctx, { $event: parsed });
       }
 
       es.addEventListener(eventName, onMessage);

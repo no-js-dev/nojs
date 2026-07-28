@@ -21,7 +21,7 @@ import { findContext, _clearDeclared, _loadTemplateElement, _processTemplateIncl
 
 function _isSafeRedirect(path) {
   if (!path || typeof path !== "string") return false;
-  return path.startsWith("/") || path.startsWith("#") || path.startsWith(".");
+  return (path.startsWith("/") && !path.startsWith("//")) || path.startsWith("#") || path.startsWith(".");
 }
 import { processTree, _disposeTree } from "./registry.js";
 import { _animateIn, _injectBuiltInStyles } from "./animations.js";

@@ -87,7 +87,7 @@ Major CSS features:
 ## Conventions
 
 - Dark theme only — all colors assume `--bg-color: #07080b` background
-- Syntax highlighting in code blocks uses manual `<span>` classes: `.tok-tag`, `.tok-attr`, `.tok-str`, `.tok-punc`, `.tok-comment`, `.tok-mustache`
+- Syntax highlighting in code blocks uses manual `<span>` classes: `.hl-tag`, `.hl-attr`, `.hl-str`, `.hl-cmt`, `.hl-kw`, `.hl-fn`, `.hl-num`, `.hl-op`, `.hl-prop`, `.hl-sel` (docs pages). The landing page hero editor uses a legacy set: `.tok-tag`, `.tok-attr`, `.tok-str`, `.tok-punc`, `.tok-mustache`
 - SVG icons are inlined, not loaded from an icon library
 - No `<div>` soup — semantic elements (`<nav>`, `<main>`, `<header>`, `<footer>`, `<article>`, `<section>`, `<details>`) are used throughout
 - When adding a new page: create a new `templates/<name>.tpl` file — file-based routing resolves it automatically. Add a nav link with `route="/<name>"` and i18n keys to the shell locale files

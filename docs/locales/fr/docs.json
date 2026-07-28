@@ -83,7 +83,7 @@
         "sse": "Ouvre un flux SSE (EventSource)",
         "sseEvent": "Type d'événement nommé à écouter",
         "sseInsert": "Mode de mise à jour de la variable (replace, append, prepend)",
-        "sseLimit": "Longueur maximale du tableau en mode append/prepend",
+        "sseLimit": "Entier positif limitant les tableaux append/prepend (0 ou vide avertit, traité comme illimité)",
         "sseCredentials": "Envoie les cookies vers les endpoints cross-origin"
       },
       "state": {
@@ -1951,7 +1951,7 @@
       "as": "Nom de la variable de contexte réactive qui reçoit les données de chaque message.",
       "sseEvent": "Type d'événement SSE nommé à écouter. Sans cet attribut, seuls les messages sans nom (default) sont capturés.",
       "sseInsert": "Mode de mise à jour de la variable : replace (par défaut), append (tableau du plus ancien au plus récent) ou prepend (tableau du plus récent au plus ancien).",
-      "sseLimit": "Longueur maximale du tableau en mode append ou prepend. Les entrées les plus anciennes sont supprimées lorsque la limite est dépassée. N'a aucun effet en mode replace (déclenche un avertissement en console).",
+      "sseLimit": "Doit être un entier positif (>0) pour limiter le tableau en mode append ou prepend. Les entrées les plus anciennes sont supprimées lorsque la limite est dépassée. sse-limit=\"0\", vide et valeurs non numériques déclenchent un avertissement et sont traités comme illimité. N'a aucun effet en mode replace (déclenche un avertissement en console).",
       "sseCredentials": "Attribut booléen. Lorsque présent, l'EventSource est ouvert avec withCredentials: true, envoyant les cookies sur les requêtes cross-origin.",
       "into": "Nom du store. Lorsque défini, chaque message est également écrit dans le store global nommé sous la clé as.",
       "error": "ID d'un élément <template> à afficher lorsque la connexion échoue définitivement (readyState === CLOSED).",

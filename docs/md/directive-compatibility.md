@@ -45,6 +45,7 @@ The matrix below categorizes directive combinations into three groups:
 | `each` + `else` (attribute) | Compatible | `else="templateId"` on a loop element shows the template when the collection is empty. |
 | `each` + `key` | Compatible | Enables efficient keyed diffing for list updates. |
 | `each` + `ref` | Use workaround | Only the last clone's ref survives. See [Limitation: duplicate ref in loop](#duplicate-ref-in-loop). |
+| `each` + `sse` | Use workaround | The `sse` directive is skipped on elements that carry a loop directive. Place `sse` on a parent element and iterate over the bound variable inside. See [Limitation: sse on loop element](#sse-on-loop-element). |
 
 ### Binding + Binding (same element)
 
@@ -285,6 +286,22 @@ These are documented same-element combinations that do not work as expected. Eac
 <ul get="/api/items" as="items">
   <li each="item in items" key="item.id" bind="item.name"></li>
 </ul>
+```
+
+### SSE on loop element
+
+**Issue:** The `sse` directive is skipped when placed on an element that also carries a loop directive (`each`/`foreach`/`for`). The `_isLoopElement` guard in the SSE directive's init detects the loop attribute and bails out — no EventSource connection is opened.
+
+**Workaround:** Place `sse` on a parent element and iterate over the bound variable inside:
+
+```html
+<!-- Wrong: sse is silently skipped on a loop element -->
+<li each="msg in messages" sse="/api/feed" as="messages" bind="msg.text"></li>
+
+<!-- Correct: sse on parent, loop on child -->
+<div sse="/api/feed" as="messages" sse-insert="append" sse-limit="100">
+  <li each="msg in messages" key="$index" bind="msg.text"></li>
+</div>
 ```
 
 ---

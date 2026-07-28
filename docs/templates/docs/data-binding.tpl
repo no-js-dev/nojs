@@ -22,7 +22,7 @@
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">bind-html</span>=<span class="hl-str">"article.content"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">bind-html</span>=<span class="hl-str">"`&lt;em&gt;${user.bio}&lt;/em&gt;`"</span><span class="hl-tag">&gt;&lt;/div&gt;</span></pre></div>
     <div class="callout"><p t="docs.dataBinding.bindHtml.callout"></p></div>
-    <div class="callout callout-tip"><p t-html="docs.dataBinding.bindHtml.sanitizerTip"></p></div>
+    <div class="callout callout-tip"><p t="docs.dataBinding.bindHtml.sanitizerTip" t-html></p></div>
   </div>
 
   <!-- bind-* -->

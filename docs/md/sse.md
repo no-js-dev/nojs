@@ -48,7 +48,7 @@ During browser auto-reconnection (a transient network hiccup), `$sse.error` rema
 Because there is no `loading` template for SSE (the concept of "loading finished" does not map cleanly to a persistent stream), you compose state indicators using `$sse` with the existing `show`/`hide` directives:
 
 ```html
-<div sse="/api/feed" as="messages" sse-insert="append">
+<div sse="/api/feed" as="messages" sse-insert="append" sse-limit="100">
 
   <p show="$sse.connecting" class="status">Connecting...</p>
   <p show="$sse.error" class="error">Connection lost.</p>
@@ -174,7 +174,7 @@ The template receives an error object with a `message` field (`"SSE connection c
 
 When the error template is rendered, the element's previous content (data display) is replaced by the template content.
 
-> **Note:** `location.reload()` and other navigation methods are **not available** inside NoJS expressions — the CSP-safe evaluator wraps `location` in a read-only proxy with navigation methods replaced by no-ops. To add a reconnect button, use app-level JavaScript (e.g., a `<script>` block that defines a `window.reconnect` function).
+> **Note:** `location.reload()` and other navigation methods are **not available** inside NoJS expressions — the CSP-safe evaluator exposes `location` as a read-only wrapper with navigation methods (`assign`, `replace`, `reload`) replaced by no-ops. To add a reconnect button, define a global function in a `<script>` block (e.g., `window.reconnect = () => location.reload()`) and invoke it via a native `onclick` attribute, which bypasses the expression evaluator entirely.
 
 ---
 
@@ -248,7 +248,7 @@ URLs with `{expression}` placeholders automatically reconnect when the reference
     <option value="alerts">Alerts</option>
   </select>
 
-  <div sse="/api/chat/{channel}" as="messages" sse-insert="append">
+  <div sse="/api/chat/{channel}" as="messages" sse-insert="append" sse-limit="50">
     <div each="msg in messages" bind="msg.text"></div>
   </div>
 </div>
@@ -276,7 +276,7 @@ The reactive URL watcher responds to changes in parent contexts, global stores (
 | `as` | `string` | `"data"` | Context variable name for incoming data. |
 | `sse-event` | `string` | `"message"` | Named SSE event to listen for. Suppresses default `message` handling. |
 | `sse-insert` | `"replace"` \| `"append"` \| `"prepend"` | `"replace"` | How incoming messages update the context variable. |
-| `sse-limit` | `non-negative integer` | (none) | Maximum array length in append/prepend mode. Oldest items are dropped. Invalid values (non-numeric, negative) trigger a console warning and are ignored (treated as uncapped). |
+| `sse-limit` | `positive integer` | (none) | Maximum array length in append/prepend mode. Oldest items are dropped. Must be a positive integer (>0); `sse-limit="0"`, empty values, and non-numeric values trigger a console warning and are treated as uncapped. Has no effect in replace mode (triggers a console warning). |
 | `sse-credentials` | `boolean` (presence) | `false` | Sets `withCredentials: true` on the EventSource for cross-origin cookies. |
 | `into` | `string` | (none) | Write data to a named global store (dual-write with local context). |
 | `error` | `string` | (none) | Template ID to display when the connection permanently closes (`readyState === CLOSED`). |

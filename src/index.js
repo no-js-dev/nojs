@@ -31,7 +31,7 @@ import {
   _onDispose,
   _stripBase,
 } from "./globals.js";
-import { _i18n, _loadI18nForLocale } from "./i18n.js";
+import { _i18n, _loadI18nForLocale, _notifyI18n } from "./i18n.js";
 import { createContext } from "./context.js";
 import { evaluate, resolve, _execStatement } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
@@ -500,15 +500,16 @@ const NoJS = {
     if (opts.defaultLocale) _i18n._locale = opts.defaultLocale;
 
     // Restore persisted locale (highest priority)
+    let localeRestored = false;
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        if (saved) { _i18n._locale = saved; return; }
+        if (saved) { _i18n._locale = saved; localeRestored = true; }
       } catch (_) {}
     }
 
-    // Detect browser language (second priority)
-    if (opts.detectBrowser) {
+    // Detect browser language (second priority — skipped when persisted locale was restored)
+    if (!localeRestored && opts.detectBrowser) {
       const browserLang =
         (typeof navigator !== "undefined" && navigator.language) || "en";
       const prefix = browserLang.split("-")[0];
@@ -521,6 +522,15 @@ const NoJS = {
       const has = (loc) => _i18n.locales[loc] || list.includes(loc);
       if (has(browserLang)) _i18n._locale = browserLang;
       else if (has(prefix)) _i18n._locale = prefix;
+    }
+
+    // Post-init guard: load locale bundle or notify listeners when called after init()
+    if (_initPromise) {
+      if (_config.i18n.loadPath && !_i18n.locales[_i18n._locale]) {
+        _loadI18nForLocale(_i18n._locale).then(() => _notifyI18n());
+      } else if (opts.locales) {
+        _notifyI18n();
+      }
     }
   },
 

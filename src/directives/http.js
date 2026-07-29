@@ -522,17 +522,31 @@ for (const method of HTTP_METHODS) {
 
           // ── Context accumulation for insert modes ──
           if (isInsertMode && !_isFirstFetch) {
+            _removeInlineLoading();
+
             const prev = ctx[asKey];
             if (Array.isArray(prev) && Array.isArray(_effectiveData)) {
-              // Concatenate arrays: append adds new at end, prepend adds new at start
               const accumulated = insertMode === "append"
                 ? [...prev, ..._effectiveData]
                 : [..._effectiveData, ...prev];
-              ctx.$set(asKey, accumulated);
+
+              if (insertMode === "prepend") {
+                // Scroll preservation: $set triggers loops.js delta-append
+                // synchronously, so DOM measurements are valid immediately after.
+                const scrollContainer = _findScrollContainer(el);
+                const oldScrollTop = scrollContainer.scrollTop;
+                const oldScrollHeight = scrollContainer.scrollHeight;
+                ctx.$set(asKey, accumulated);
+                const newScrollHeight = scrollContainer.scrollHeight;
+                scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+              } else {
+                ctx.$set(asKey, accumulated);
+              }
             } else {
-              // Non-array values are replaced
               ctx.$set(asKey, _effectiveData);
             }
+
+            _isFirstFetch = false;
           } else {
             ctx.$set(asKey, _effectiveData);
           }
@@ -544,48 +558,8 @@ for (const method of HTTP_METHODS) {
             _notifyStoreWatchers(intoStore);
           }
 
-          // ── Insert mode: append/prepend content ──
-          if (isInsertMode && !_isFirstFetch) {
-            _removeInlineLoading();
-
-            // Clone original children to render this page's content
-            const wrapper = document.createElement("div");
-            wrapper.style.display = "contents";
-            const childCtx = createContext({ [asKey]: _effectiveData }, ctx);
-            wrapper.__ctx = childCtx;
-            for (const child of originalChildren)
-              wrapper.appendChild(child.cloneNode(true));
-
-            if (insertMode === "prepend") {
-              // Scroll position preservation for prepend
-              const scrollContainer = _findScrollContainer(el);
-              const oldScrollTop = scrollContainer.scrollTop;
-              const oldScrollHeight = scrollContainer.scrollHeight;
-
-              // Insert after sentinel (sentinel stays at top)
-              if (_sentinel && _sentinel.nextSibling) {
-                el.insertBefore(wrapper, _sentinel.nextSibling);
-              } else {
-                el.appendChild(wrapper);
-              }
-              processTree(wrapper);
-
-              // Adjust scroll position so user does not see a jump
-              const newScrollHeight = scrollContainer.scrollHeight;
-              scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-            } else {
-              // Append: insert before sentinel (sentinel stays at bottom)
-              if (_sentinel) {
-                el.insertBefore(wrapper, _sentinel);
-              } else {
-                el.appendChild(wrapper);
-              }
-              processTree(wrapper);
-            }
-
-            _isFirstFetch = false;
-          } else {
-            // ── Replace mode (default) or first fetch in insert mode ──
+          // ── Replace mode (default) or first fetch in insert mode ──
+          if (!isInsertMode || _isFirstFetch) {
             // Success template
             if (successTpl) {
               const clone = _cloneTemplate(successTpl);

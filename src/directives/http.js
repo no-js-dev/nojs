@@ -531,8 +531,9 @@ for (const method of HTTP_METHODS) {
                 : [..._effectiveData, ...prev];
 
               if (insertMode === "prepend") {
-                // Scroll preservation: $set triggers loops.js delta-append
-                // synchronously, so DOM measurements are valid immediately after.
+                // Scroll preservation: $set triggers loops.js full rebuild for
+                // prepend (delta-append for append) — both synchronous, so DOM
+                // measurements are valid immediately after.
                 const scrollContainer = _findScrollContainer(el);
                 const oldScrollTop = scrollContainer.scrollTop;
                 const oldScrollHeight = scrollContainer.scrollHeight;
@@ -906,6 +907,7 @@ for (const method of HTTP_METHODS) {
         } else if (trigger === "scroll" && !isInsertMode) {
           // scroll without get-insert — fall back to visible behavior (warned above)
           if (typeof IntersectionObserver !== "undefined") {
+            const r = _findScrollContainer(el);
             const observer = new IntersectionObserver(
               (entries) => {
                 for (const entry of entries) {
@@ -916,7 +918,7 @@ for (const method of HTTP_METHODS) {
                   }
                 }
               },
-              { rootMargin: threshold },
+              { root: r === document.documentElement ? null : r, rootMargin: threshold },
             );
             observer.observe(el);
             _onDispose(() => observer.disconnect());

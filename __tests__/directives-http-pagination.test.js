@@ -1839,5 +1839,32 @@ describe('HTTP Pagination & Triggers', () => {
       expect(visObs).toBeDefined();
       expect(visObs._options.root).toBe(scrollable);
     });
+
+    test('67 — scroll-without-insert fallback observer uses scrollable ancestor as root', async () => {
+      global.fetch = mockFetchJson([{ id: 1 }]);
+
+      const scrollable = document.createElement('div');
+      scrollable.style.overflowY = 'auto';
+
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-trigger', 'scroll');
+
+      parent.appendChild(el);
+      scrollable.appendChild(parent);
+      document.body.appendChild(scrollable);
+
+      processTree(parent);
+
+      // scroll without get-insert falls back to visible-like observer on el
+      const obs = MockIntersectionObserver._instances.find(
+        (o) => o._entries.includes(el)
+      );
+      expect(obs).toBeDefined();
+      expect(obs._options.root).toBe(scrollable);
+    });
   });
 });

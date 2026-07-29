@@ -5,7 +5,8 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const LOCAL_BUILD = path.join(ROOT, 'dist/iife/no.js');
-const LOCAL_ELEMENTS = path.join(ROOT, '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
+// NOJS_ELEMENTS_PATH: override to point at a custom nojs-elements.js build (CI, worktrees, standalone clones)
+const LOCAL_ELEMENTS = process.env.NOJS_ELEMENTS_PATH || path.join(ROOT, '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
 const LOCAL_ELEMENTS_SCRIPT = '/__local__/nojs-elements.js';
 
 const CDN_PATTERN = /https:\/\/cdn\.no-js\.dev\//g;

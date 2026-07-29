@@ -136,46 +136,6 @@ The `from` attribute will be removed in a future major version. Migrate to the `
 
 ---
 
-## Common Mistakes
-
-### Directive on the container, not the item
-
-The most common loop mistake is placing `foreach`/`each`/`for` on a container element instead of the repeating child. The loop element IS the repeating unit — it is removed from the DOM and cloned as siblings between comment markers. Putting the directive on a `<ul>` or `<tbody>` produces N copies of the entire container, which is invalid HTML and almost never intended.
-
-```html
-<!-- WRONG — each on <ul> creates N <ul> elements, each with one <li> -->
-<ul each="item in items">
-  <li bind="item"></li>
-</ul>
-
-<!-- RIGHT — each on <li> creates N <li> elements inside one <ul> -->
-<ul>
-  <li each="item in items" bind="item"></li>
-</ul>
-```
-
-The same applies to tables — the directive belongs on `<tr>`, not on `<table>` or `<tbody>`:
-
-```html
-<!-- WRONG — produces N <tbody> elements -->
-<table>
-  <tbody each="row in rows">
-    <tr><td bind="row.name"></td></tr>
-  </tbody>
-</table>
-
-<!-- RIGHT — produces N <tr> elements inside one <tbody> -->
-<table>
-  <tbody>
-    <tr each="row in rows"><td bind="row.name"></td></tr>
-  </tbody>
-</table>
-```
-
-> **Rule of thumb:** Always ask "which element should repeat?" and put the loop directive on that element. The parent element becomes the container automatically.
-
----
-
 ## Key-Based Reconciliation
 
 By default, when the source array changes, the loop directive performs a **full rebuild** — all child nodes are disposed and recreated from scratch. This is simple and correct, but destroys and re-mounts DOM nodes on every update.
@@ -298,6 +258,46 @@ Loop directives are fully reactive. When the source array changes (push, splice,
 >   <span bind="key"></span>: <span bind="settings[key]"></span>
 > </span>
 > ```
+
+---
+
+## Common Mistakes
+
+### Directive on the container, not the item
+
+The most common loop mistake is placing `foreach`/`each`/`for` on a container element instead of the repeating child. The loop element IS the repeating unit — it is removed from the DOM and cloned as siblings between comment markers. Putting the directive on a `<ul>` or `<tbody>` produces N copies of the entire container, which is invalid HTML and almost never intended.
+
+```html
+<!-- WRONG — each on <ul> creates N <ul> elements, each with one <li> -->
+<ul each="item in items">
+  <li bind="item"></li>
+</ul>
+
+<!-- RIGHT — each on <li> creates N <li> elements inside one <ul> -->
+<ul>
+  <li each="item in items" bind="item"></li>
+</ul>
+```
+
+The same applies to tables — the directive belongs on `<tr>`, not on `<table>` or `<tbody>`:
+
+```html
+<!-- WRONG — produces N <tbody> elements -->
+<table>
+  <tbody each="row in rows">
+    <tr><td bind="row.name"></td></tr>
+  </tbody>
+</table>
+
+<!-- RIGHT — produces N <tr> elements inside one <tbody> -->
+<table>
+  <tbody>
+    <tr each="row in rows"><td bind="row.name"></td></tr>
+  </tbody>
+</table>
+```
+
+> **Rule of thumb:** Always ask "which element should repeat?" and put the loop directive on that element. The parent element becomes the container automatically.
 
 ---
 

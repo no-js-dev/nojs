@@ -38,20 +38,12 @@ test.describe('Insert Modes', () => {
     await expect(loadMoreBtn).toBeVisible({ timeout: 5000 });
     await loadMoreBtn.click();
 
-    // Wait for page 2 items to appear in the DOM (auto-retrying assertion)
-    await expect(items.filter({ hasText: 'Page 2' }).first()).toBeVisible({ timeout: 5000 });
-
-    // Verify both pages present and page-1 items BEFORE page-2 in DOM order.
-    // Note: The framework's insert mode clones original children into per-page
-    // wrappers while the first-fetch `each` re-renders with the accumulated
-    // context, so total item count exceeds unique items — we check ordering
-    // rather than exact counts.
-    const allTexts = await items.allTextContents();
-    const firstPage1Idx = allTexts.findIndex(t => t.includes('Page 1'));
-    const firstPage2Idx = allTexts.findIndex(t => t.includes('Page 2'));
-    expect(firstPage1Idx).toBeGreaterThanOrEqual(0);
-    expect(firstPage2Idx).toBeGreaterThanOrEqual(0);
-    expect(firstPage1Idx).toBeLessThan(firstPage2Idx);
+    // After dedup fix: exactly 4 unique items — 2 from page 1, 2 from page 2
+    await expect(items).toHaveCount(4, { timeout: 5000 });
+    await expect(items.nth(0)).toHaveText('Page 1 Item A');
+    await expect(items.nth(1)).toHaveText('Page 1 Item B');
+    await expect(items.nth(2)).toHaveText('Page 2 Item A');
+    await expect(items.nth(3)).toHaveText('Page 2 Item B');
   });
 
   // ── get-insert="prepend" ─────────────────────────────────────────────
@@ -81,16 +73,12 @@ test.describe('Insert Modes', () => {
     await expect(loadMoreBtn).toBeVisible({ timeout: 5000 });
     await loadMoreBtn.click();
 
-    // Wait for page 2 items to appear in the DOM (auto-retrying assertion)
-    await expect(items.filter({ hasText: 'Page 2' }).first()).toBeVisible({ timeout: 5000 });
-
-    // Verify both pages present and page-2 items BEFORE page-1 in DOM order
-    const allTexts = await items.allTextContents();
-    const firstPage1Idx = allTexts.findIndex(t => t.includes('Page 1'));
-    const firstPage2Idx = allTexts.findIndex(t => t.includes('Page 2'));
-    expect(firstPage1Idx).toBeGreaterThanOrEqual(0);
-    expect(firstPage2Idx).toBeGreaterThanOrEqual(0);
-    expect(firstPage2Idx).toBeLessThan(firstPage1Idx);
+    // After dedup fix: exactly 4 unique items — page 2 prepended before page 1
+    await expect(items).toHaveCount(4, { timeout: 5000 });
+    await expect(items.nth(0)).toHaveText('Page 2 Item A');
+    await expect(items.nth(1)).toHaveText('Page 2 Item B');
+    await expect(items.nth(2)).toHaveText('Page 1 Item A');
+    await expect(items.nth(3)).toHaveText('Page 1 Item B');
   });
 
   // ── Default (no get-insert): replace ─────────────────────────────────

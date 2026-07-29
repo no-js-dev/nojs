@@ -32,9 +32,7 @@ test.describe('Plugin System', () => {
     await expect(page.getByTestId('cancel-status')).toHaveText('idle');
     // Click to trigger the POST — interceptor will CANCEL it (AbortError)
     await page.getByTestId('cancel-trigger').click();
-    // Wait briefly for any async resolution
-    await page.waitForTimeout(500);
-    // Status should remain 'idle' because the then expression never ran
+    // Status should remain 'idle' because the CANCEL interceptor aborts the request
     await expect(page.getByTestId('cancel-status')).toHaveText('idle');
     // Error template should NOT be visible (AbortError is silently swallowed)
     await expect(page.getByTestId('cancel-error')).not.toBeVisible();

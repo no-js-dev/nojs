@@ -1427,6 +1427,38 @@ Loop directives are fully reactive. When the source array changes (push, splice,
 
 ---
 
+## Common Mistakes
+
+The loop element IS the repeating unit — put the directive on the child that should repeat, not on its container.
+
+```html
+<!-- WRONG — each on <ul> creates N <ul> elements, each with one <li> -->
+<ul each="item in items">
+  <li bind="item"></li>
+</ul>
+
+<!-- RIGHT — each on <li> creates N <li> elements inside one <ul> -->
+<ul>
+  <li each="item in items" bind="item"></li>
+</ul>
+
+<!-- WRONG — each on <tbody> produces N <tbody> elements -->
+<table>
+  <tbody each="row in rows">
+    <tr><td bind="row.name"></td></tr>
+  </tbody>
+</table>
+
+<!-- RIGHT — each on <tr> produces N <tr> inside one <tbody> -->
+<table>
+  <tbody>
+    <tr each="row in rows"><td bind="row.name"></td></tr>
+  </tbody>
+</table>
+```
+
+---
+
 ## See Also
 
 - [Conditionals](conditionals.md) — `else="templateId"` on the loop element renders a template for empty lists

@@ -41,8 +41,7 @@ test.describe('Events', () => {
     const input = page.getByTestId('debounce-input');
 
     await input.fill('hello');
-    // Output should not update immediately
-    await page.waitForTimeout(400);
+    // Debounce delays the update — auto-retrying assertion waits for it
     await expect(output).toHaveText('hello');
   });
 

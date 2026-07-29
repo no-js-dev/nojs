@@ -10,6 +10,7 @@ import '../src/directives/binding.js';
 import '../src/directives/http.js';
 import '../src/directives/refs.js';
 import '../src/directives/events.js';
+import '../src/directives/loops.js';
 
 
 // ── IntersectionObserver mock ──────────────────────────────────────────────
@@ -1621,6 +1622,249 @@ describe('HTTP Pagination & Triggers', () => {
       // When cursor comes from header, data should be used as-is (it's already an array)
       expect(el.__ctx.items).toEqual([{ id: 1 }, { id: 2 }]);
       expect(el.__ctx.cursor).toBe('next');
+    });
+  });
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Insert-mode DOM deduplication (ADR-002 D1)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('Insert-mode DOM deduplication (ADR-002 D1)', () => {
+
+    test('61 — append mode renders exactly 4 unique items across 2 fetches (no duplication)', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el } = buildDom({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'append',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await wait();
+
+      // First fetch: 2 items rendered
+      expect(el.__ctx.items).toEqual(page1);
+      let items = el.querySelectorAll('.item');
+      expect(items.length).toBe(2);
+      expect(items[0].textContent).toBe('A');
+      expect(items[1].textContent).toBe('B');
+
+      // Click "Load More" button for second fetch
+      const btn = el.querySelector('[data-nojs-load-more]');
+      expect(btn).not.toBeNull();
+      btn.click();
+      await wait();
+
+      // After second fetch: exactly 4 items (no duplication), page1 then page2
+      expect(el.__ctx.items).toEqual([...page1, ...page2]);
+      items = el.querySelectorAll('.item');
+      expect(items.length).toBe(4);
+      expect(items[0].textContent).toBe('A');
+      expect(items[1].textContent).toBe('B');
+      expect(items[2].textContent).toBe('C');
+      expect(items[3].textContent).toBe('D');
+    });
+
+    test('62 — prepend mode renders correct count and order across 2 fetches', async () => {
+      const page1 = [{ id: 1, name: 'X' }, { id: 2, name: 'Y' }];
+      const page2 = [{ id: 3, name: 'P' }, { id: 4, name: 'Q' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el } = buildDom({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await wait();
+
+      // First fetch
+      expect(el.__ctx.items).toEqual(page1);
+      let items = el.querySelectorAll('.item');
+      expect(items.length).toBe(2);
+
+      // Click "Load More"
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await wait();
+
+      // After second fetch: 4 items, page2 before page1
+      expect(el.__ctx.items).toEqual([...page2, ...page1]);
+      items = el.querySelectorAll('.item');
+      expect(items.length).toBe(4);
+      expect(items[0].textContent).toBe('P');
+      expect(items[1].textContent).toBe('Q');
+      expect(items[2].textContent).toBe('X');
+      expect(items[3].textContent).toBe('Y');
+    });
+
+    test('63 — replace mode (no get-insert) renders exact count without accumulation', async () => {
+      const data1 = [{ id: 1, name: 'First' }];
+      const data2 = [{ id: 2, name: 'Second' }, { id: 3, name: 'Third' }];
+      global.fetch = mockFetchSequence([
+        { data: data1 },
+        { data: data2 },
+      ]);
+
+      const { el } = buildDom({
+        get: '/api/items',
+        as: 'items',
+      }, '<span class="item" each="item in items" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await wait();
+
+      // First fetch: 1 item
+      expect(el.__ctx.items).toEqual(data1);
+      let items = el.querySelectorAll('.item');
+      expect(items.length).toBe(1);
+      expect(items[0].textContent).toBe('First');
+
+      // Trigger re-fetch (replace mode uses el.refresh = doRequest)
+      el.refresh();
+      await wait();
+
+      // After second fetch: only data2, no accumulation
+      expect(el.__ctx.items).toEqual(data2);
+      items = el.querySelectorAll('.item');
+      expect(items.length).toBe(2);
+      expect(items[0].textContent).toBe('Second');
+      expect(items[1].textContent).toBe('Third');
+    });
+  });
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Observer root option (ADR-002 D2)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('Observer root option (ADR-002 D2)', () => {
+
+    test('64 — scroll observer uses scrollable ancestor as root', async () => {
+      global.fetch = mockFetchSequence([
+        { data: [{ id: 1 }] },
+        { data: [{ id: 2 }] },
+      ]);
+
+      const scrollable = document.createElement('div');
+      scrollable.style.overflowY = 'auto';
+
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items?page={page}');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-insert', 'append');
+      el.setAttribute('get-page', '1');
+      el.setAttribute('get-trigger', 'scroll');
+
+      parent.appendChild(el);
+      scrollable.appendChild(parent);
+      document.body.appendChild(scrollable);
+
+      processTree(parent);
+      await wait();
+
+      // After first fetch, _setupScrollObserver is called
+      const scrollObs = MockIntersectionObserver._instances.find(
+        (o) => o._entries.some((e) => e.hasAttribute && e.hasAttribute('data-nojs-sentinel'))
+      );
+      expect(scrollObs).toBeDefined();
+      expect(scrollObs._options.root).toBe(scrollable);
+      expect(scrollObs._options.rootMargin).toBe('200px');
+    });
+
+    test('65 — scroll observer uses null root at document level', async () => {
+      global.fetch = mockFetchSequence([
+        { data: [{ id: 1 }] },
+        { data: [{ id: 2 }] },
+      ]);
+
+      const { el } = buildDom({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'append',
+        'get-page': '1',
+        'get-trigger': 'scroll',
+      });
+
+      processTree(el.parentElement);
+      await wait();
+
+      const scrollObs = MockIntersectionObserver._instances.find(
+        (o) => o._entries.some((e) => e.hasAttribute && e.hasAttribute('data-nojs-sentinel'))
+      );
+      expect(scrollObs).toBeDefined();
+      expect(scrollObs._options.root).toBeNull();
+    });
+
+    test('66 — visible trigger observer uses scrollable ancestor as root', async () => {
+      global.fetch = mockFetchJson([{ id: 1 }]);
+
+      const scrollable = document.createElement('div');
+      scrollable.style.overflowY = 'auto';
+
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-trigger', 'visible');
+
+      parent.appendChild(el);
+      scrollable.appendChild(parent);
+      document.body.appendChild(scrollable);
+
+      processTree(parent);
+
+      // visible trigger creates observer immediately
+      const visObs = MockIntersectionObserver._instances.find(
+        (o) => o._entries.includes(el)
+      );
+      expect(visObs).toBeDefined();
+      expect(visObs._options.root).toBe(scrollable);
+    });
+
+    test('67 — scroll-without-insert fallback observer uses scrollable ancestor as root', async () => {
+      global.fetch = mockFetchJson([{ id: 1 }]);
+
+      const scrollable = document.createElement('div');
+      scrollable.style.overflowY = 'auto';
+
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-trigger', 'scroll');
+
+      parent.appendChild(el);
+      scrollable.appendChild(parent);
+      document.body.appendChild(scrollable);
+
+      processTree(parent);
+
+      // scroll without get-insert falls back to visible-like observer on el
+      const obs = MockIntersectionObserver._instances.find(
+        (o) => o._entries.includes(el)
+      );
+      expect(obs).toBeDefined();
+      expect(obs._options.root).toBe(scrollable);
     });
   });
 });

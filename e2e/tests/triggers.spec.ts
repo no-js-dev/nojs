@@ -36,8 +36,8 @@ test.describe('Triggers', () => {
 
     await page.goto('/e2e/examples/trigger-visible.html');
 
-    // Wait a moment to ensure no fetch fires while element is off-screen
-    await page.waitForTimeout(500);
+    // Wait for page to fully settle — no network requests should fire while off-screen
+    await page.waitForLoadState('networkidle');
 
     // The lazy container should NOT have loaded yet (it's below a 2000px spacer)
     expect(requestCount).toBe(0);
@@ -60,8 +60,8 @@ test.describe('Triggers', () => {
 
     await page.goto('/e2e/examples/trigger-hover.html');
 
-    // No fetch should happen before hover
-    await page.waitForTimeout(300);
+    // No fetch should happen before hover — wait for page to fully settle
+    await page.waitForLoadState('networkidle');
     expect(requestCount).toBe(0);
 
     // Hover over the container
@@ -88,8 +88,8 @@ test.describe('Triggers', () => {
 
     await page.goto('/e2e/examples/trigger-none.html');
 
-    // Wait to confirm no automatic fetch
-    await page.waitForTimeout(500);
+    // Wait for page to fully settle — no automatic fetch should fire
+    await page.waitForLoadState('networkidle');
     expect(requestCount).toBe(0);
     await expect(page.getByTestId('manual-content')).not.toBeVisible();
   });
@@ -105,8 +105,8 @@ test.describe('Triggers', () => {
 
     await page.goto('/e2e/examples/trigger-none.html');
 
-    // Wait to confirm no automatic fetch
-    await page.waitForTimeout(300);
+    // Wait for page to fully settle — no automatic fetch should fire
+    await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('manual-content')).not.toBeVisible();
 
     // Click the fetch button to trigger programmatic refresh

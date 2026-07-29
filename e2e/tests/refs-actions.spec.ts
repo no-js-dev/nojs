@@ -54,8 +54,11 @@ test.describe('Refs & Actions', () => {
     await expect(val).toHaveText('7');
 
     // Click triggers call → loading template → success → restore
-    await page.getByTestId('call-reactive-btn').click();
-    await page.waitForTimeout(500);
+    // Wait for the POST response to confirm the call round-trip completed
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/action') && r.status() === 200),
+      page.getByTestId('call-reactive-btn').click(),
+    ]);
 
     // After restore: the restored span should show the value
     const restoredVal = page.getByTestId('call-reactive-val');

@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Docs-site language selector + Tools "More" menu, rebuilt on the
 // NoJS-Elements dropdown family (NOJS-199 / PR #208).
@@ -7,6 +9,12 @@ import AxeBuilder from '@axe-core/playwright';
 // Fixture: e2e/examples/lang-selector.html — self-contained, mirrors the
 // docs nav markup (desktop .lang-select dropdown, mobile .lang-pills row,
 // Tools dropdown) and loads NoJS core + Elements from the local test server.
+
+// Resolve the NoJS-Elements build path exactly as test-server.js does:
+// env override > sibling repo relative to project root.
+const ELEMENTS_BUILD = process.env.NOJS_ELEMENTS_PATH
+  || path.join(__dirname, '..', '..', '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
+const elementsAvailable = fs.existsSync(ELEMENTS_BUILD);
 
 const FIXTURE = '/e2e/examples/lang-selector.html';
 
@@ -18,6 +26,7 @@ const TOOL_LINKS = {
 
 // ─── Desktop ──────────────────────────────────────────────────────────
 test.describe('Language selector — desktop', () => {
+  test.skip(!elementsAvailable, 'NoJS-Elements build not present');
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test.beforeEach(async ({ page }) => {
@@ -112,6 +121,7 @@ test.describe('Language selector — desktop', () => {
 
 // ─── Tools "More" dropdown ────────────────────────────────────────────
 test.describe('Tools menu — desktop', () => {
+  test.skip(!elementsAvailable, 'NoJS-Elements build not present');
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test.beforeEach(async ({ page }) => {
@@ -167,6 +177,7 @@ test.describe('Tools menu — desktop', () => {
 
 // ─── Mobile ───────────────────────────────────────────────────────────
 test.describe('Language selector — mobile', () => {
+  test.skip(!elementsAvailable, 'NoJS-Elements build not present');
   test.use({ viewport: { width: 375, height: 812 } });
 
   test.beforeEach(async ({ page }) => {
@@ -212,6 +223,7 @@ test.describe('Language selector — mobile', () => {
 
 // ─── Accessibility ────────────────────────────────────────────────────
 test.describe('Language selector — accessibility', () => {
+  test.skip(!elementsAvailable, 'NoJS-Elements build not present');
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('17 — no accessibility violations (axe)', async ({ page }) => {

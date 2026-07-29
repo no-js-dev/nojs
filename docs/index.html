@@ -117,13 +117,15 @@
   <script src="https://cdn.no-js.dev/"></script>
   <script src="https://cdn-elements.no-js.dev/"></script>
   <script>
+    var LOCALES = ['en', 'es', 'pt', 'it', 'fr'];
     NoJS.config({
+      stores: { ui: { locales: LOCALES } },
       router: { useHash: false, viewTransition: true, templates: '' }
     });
     NoJS.i18n({
       loadPath: '/locales/{locale}/{ns}.json',
       ns: ['shell'],
-      supportedLocales: ['en', 'es', 'pt', 'it', 'fr'],
+      supportedLocales: LOCALES,
       persist: true,
       detectBrowser: true,
       defaultLocale: 'en'
@@ -213,20 +215,12 @@
               <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div class="lang-select-menu" dropdown-menu>
-              <button dropdown-item on:click="$i18n.locale = 'en'" class-active="$i18n.locale === 'en'">EN</button>
-              <button dropdown-item on:click="$i18n.locale = 'es'" class-active="$i18n.locale === 'es'">ES</button>
-              <button dropdown-item on:click="$i18n.locale = 'pt'" class-active="$i18n.locale === 'pt'">PT</button>
-              <button dropdown-item on:click="$i18n.locale = 'it'" class-active="$i18n.locale === 'it'">IT</button>
-              <button dropdown-item on:click="$i18n.locale = 'fr'" class-active="$i18n.locale === 'fr'">FR</button>
+              <button dropdown-item each="l in $store.ui.locales" on:click="$i18n.locale = l" class-active="$i18n.locale === l" bind="l.toUpperCase()"></button>
             </div>
           </div>
           <!-- Language pills (mobile drawer only) — kept in sync with the desktop dropdown above -->
           <div class="lang-pills" bind-aria-label="$i18n.t('shell.header.selectLanguage')">
-            <button class="lang-pill" on:click="$i18n.locale = 'en'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'en'">EN</button>
-            <button class="lang-pill" on:click="$i18n.locale = 'es'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'es'">ES</button>
-            <button class="lang-pill" on:click="$i18n.locale = 'pt'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'pt'">PT</button>
-            <button class="lang-pill" on:click="$i18n.locale = 'it'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'it'">IT</button>
-            <button class="lang-pill" on:click="$i18n.locale = 'fr'; $store.nav.menuOpen = false" class-active="$i18n.locale === 'fr'">FR</button>
+            <button class="lang-pill" each="l in $store.ui.locales" on:click="$i18n.locale = l; $store.nav.menuOpen = false" class-active="$i18n.locale === l" bind="l.toUpperCase()"></button>
           </div>
           <div class="nav-divider section-divider"><span class="section-divider-symbol"><span class="section-divider-bracket">&lt;</span><svg class="section-divider-bolt" width="14" height="14" viewBox="0 0 150 150" fill="currentColor" aria-hidden="true"><path d="m119.5 16h-54l-26 51h18l-27 67 73-67h-18z"/></svg><span class="section-divider-bracket">&gt;</span></span></div>
           <div class="nav-social-group">

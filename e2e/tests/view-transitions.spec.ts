@@ -211,13 +211,13 @@ test.describe('View Transitions', () => {
     await page.getByTestId('link-a').click();
     await expect(page.getByTestId('page-a')).toBeVisible();
 
-    // Wait a bit for async warning
-    await page.waitForTimeout(500);
-
-    const deprecationWarning = warnings.find(w =>
-      w.includes('deprecated') || w.includes('Class-based')
-    );
-    expect(deprecationWarning).toBeDefined();
+    // Wait for the deprecation warning to appear in console
+    await expect(() => {
+      const deprecationWarning = warnings.find(w =>
+        w.includes('deprecated') || w.includes('Class-based')
+      );
+      expect(deprecationWarning).toBeDefined();
+    }).toPass({ timeout: 5000 });
   });
 
   // ── Test 7: view-transition-name on outlet ──────────────────────────

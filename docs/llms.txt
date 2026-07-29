@@ -15,7 +15,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute), `model` (two-way input binding)
 - [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
-- [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, nesting
+- [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, nesting. **Common mistake:** the loop element IS the repeating unit — put the directive on the child (`<li>`, `<tr>`), not the container (`<ul>`, `<table>`, `<tbody>`), or you get N container replicas.
 - [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src`, preloading
 
 ## Interaction

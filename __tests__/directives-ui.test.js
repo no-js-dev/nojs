@@ -948,6 +948,144 @@ describe('stagger and enter animation', () => {
   });
 });
 
+describe('animate-stagger with external template', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  test('external template clones get animate class and staggered delays', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'stagger-tpl';
+    tpl.innerHTML = '<span bind="item"></span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ items: ["a", "b", "c", "d"] }');
+    const ul = document.createElement('ul');
+    const li = document.createElement('li');
+    li.setAttribute('each', 'item in items');
+    li.setAttribute('template', 'stagger-tpl');
+    li.setAttribute('animate', 'cls');
+    li.setAttribute('animate-stagger', '100');
+    ul.appendChild(li);
+    parent.appendChild(ul);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    const clones = [...ul.children].filter(n => n.nodeType === 1);
+    expect(clones.length).toBe(4);
+
+    clones.forEach((clone, i) => {
+      expect(clone.classList.contains('cls')).toBe(true);
+      expect(clone.style.animationDelay).toBe(`${i * 100}ms`);
+    });
+  });
+
+  test('delta-append continues stagger delays from previous count', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'delta-tpl';
+    tpl.innerHTML = '<span bind="item"></span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ items: ["a", "b", "c"] }');
+    const ul = document.createElement('ul');
+    const li = document.createElement('li');
+    li.setAttribute('each', 'item in items');
+    li.setAttribute('template', 'delta-tpl');
+    li.setAttribute('animate', 'cls');
+    li.setAttribute('animate-stagger', '100');
+    ul.appendChild(li);
+    parent.appendChild(ul);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    const initialClones = [...ul.children].filter(n => n.nodeType === 1);
+    expect(initialClones.length).toBe(3);
+    expect(initialClones[0].style.animationDelay).toBe('0ms');
+    expect(initialClones[1].style.animationDelay).toBe('100ms');
+    expect(initialClones[2].style.animationDelay).toBe('200ms');
+
+    // Push 2 new items via reactive context update (same array prefix)
+    const items = parent.__ctx.items;
+    parent.__ctx.items = [...items, 'd', 'e'];
+
+    const allClones = [...ul.children].filter(n => n.nodeType === 1);
+    expect(allClones.length).toBe(5);
+
+    // New clones continue stagger from oldLen (3)
+    expect(allClones[3].classList.contains('cls')).toBe(true);
+    expect(allClones[4].classList.contains('cls')).toBe(true);
+    expect(allClones[3].style.animationDelay).toBe('300ms');
+    expect(allClones[4].style.animationDelay).toBe('400ms');
+  });
+
+  test('keyed loop: reorder does not re-animate; insert animates only new item', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'keyed-tpl';
+    tpl.innerHTML = '<span bind="item.name"></span>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ items: [{id:1,name:"A"},{id:2,name:"B"},{id:3,name:"C"}] }');
+    const ul = document.createElement('ul');
+    const li = document.createElement('li');
+    li.setAttribute('each', 'item in items');
+    li.setAttribute('key', 'item.id');
+    li.setAttribute('template', 'keyed-tpl');
+    li.setAttribute('animate', 'cls');
+    li.setAttribute('animate-stagger', '100');
+    ul.appendChild(li);
+    parent.appendChild(ul);
+    document.body.appendChild(parent);
+
+    processTree(parent);
+
+    const initialClones = [...ul.children].filter(n => n.nodeType === 1);
+    expect(initialClones.length).toBe(3);
+    initialClones.forEach(c => expect(c.classList.contains('cls')).toBe(true));
+
+    // Simulate animationend to clear the enter class on all initial clones
+    initialClones.forEach(c => c.dispatchEvent(new Event('animationend')));
+    initialClones.forEach(c => expect(c.classList.contains('cls')).toBe(false));
+
+    // Reorder only (no new items): C, A, B
+    parent.__ctx.items = [
+      { id: 3, name: 'C' },
+      { id: 1, name: 'A' },
+      { id: 2, name: 'B' },
+    ];
+
+    const reorderedClones = [...ul.children].filter(n => n.nodeType === 1);
+    expect(reorderedClones.length).toBe(3);
+    // Moved items must NOT be re-animated
+    reorderedClones.forEach(c => expect(c.classList.contains('cls')).toBe(false));
+
+    // Insert one new item at index 1: C, D(new), A, B
+    parent.__ctx.items = [
+      { id: 3, name: 'C' },
+      { id: 4, name: 'D' },
+      { id: 1, name: 'A' },
+      { id: 2, name: 'B' },
+    ];
+
+    const afterInsert = [...ul.children].filter(n => n.nodeType === 1);
+    expect(afterInsert.length).toBe(4);
+
+    // Only the new item (id:4, position 1) gets the animation class
+    const newClone = afterInsert[1];
+    expect(newClone.classList.contains('cls')).toBe(true);
+    expect(newClone.style.animationDelay).toBe('100ms');
+
+    // Existing items remain without animation class
+    expect(afterInsert[0].classList.contains('cls')).toBe(false);
+    expect(afterInsert[2].classList.contains('cls')).toBe(false);
+    expect(afterInsert[3].classList.contains('cls')).toBe(false);
+  });
+});
+
 describe('foreach empty with else template', () => {
   afterEach(() => {
     document.body.innerHTML = '';

@@ -712,6 +712,149 @@ describe('NoJS.i18n() — browser detection with supportedLocales (loadPath)', (
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+//  NOJS-297: i18n post-init guard — NoJS.i18n() called after init()
+//  must load the locale bundle and notify listeners
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NoJS.i18n() post-init guard (NOJS-297)', () => {
+  const originalFetch = global.fetch;
+  const originalLanguage = Object.getOwnPropertyDescriptor(navigator, 'language');
+  let fetchMock;
+  let No;
+
+  function setNavigatorLanguage(lang) {
+    Object.defineProperty(navigator, 'language', { value: lang, configurable: true });
+  }
+
+  beforeEach(async () => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    _config.i18n.loadPath = null;
+    _config.i18n.ns = [];
+    _config.i18n.cache = false;
+    _config.i18n.persist = false;
+    _config.i18n.supportedLocales = [];
+    _config.i18n.fallbackLocale = 'en';
+    try { localStorage.removeItem('nojs-locale'); } catch (_) {}
+
+    fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ greeting: 'Olá' }),
+    });
+    global.fetch = fetchMock;
+
+    No = (await import('../src/index.js')).default;
+  });
+
+  afterEach(() => {
+    _i18n._locale = 'en';
+    _i18n.locales = {};
+    _i18nListeners.clear();
+    _config.i18n.loadPath = null;
+    _config.i18n.ns = [];
+    _config.i18n.cache = false;
+    _config.i18n.persist = false;
+    _config.i18n.supportedLocales = [];
+    _config.i18n.fallbackLocale = 'en';
+    try { localStorage.removeItem('nojs-locale'); } catch (_) {}
+    global.fetch = originalFetch;
+    No._initialized = false;
+    if (originalLanguage) {
+      Object.defineProperty(navigator, 'language', originalLanguage);
+    } else {
+      delete navigator.language;
+    }
+  });
+
+  test('post-init: loadPath + detectBrowser fetches resolved locale and notifies', async () => {
+    // Simulate init() already completed
+    await No.init(document.createElement('div'));
+
+    const notified = [];
+    _i18nListeners.add(() => notified.push('called'));
+
+    setNavigatorLanguage('pt-BR');
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      detectBrowser: true,
+      supportedLocales: ['en', 'pt'],
+    });
+
+    // Browser detection resolved to 'pt'
+    expect(_i18n.locale).toBe('pt');
+
+    // Wait for async load + notify
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fetchMock).toHaveBeenCalledWith('/locales/pt.json');
+    expect(_i18n.locales.pt).toEqual({ greeting: 'Olá' });
+    expect(notified).toEqual(['called']);
+  });
+
+  test('post-init: inline locales notifies without fetch', async () => {
+    await No.init(document.createElement('div'));
+
+    const notified = [];
+    _i18nListeners.add(() => notified.push('called'));
+
+    No.i18n({
+      locales: { en: { hello: 'Hello' }, pt: { hello: 'Oi' } },
+    });
+
+    // Synchronous notification — no fetch needed
+    expect(notified).toEqual(['called']);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(_i18n.t('hello')).toBe('Hello');
+  });
+
+  test('pre-init: guard is a no-op — no fetch at i18n()-time', () => {
+    // Do NOT call init() — _initPromise is null
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'pt',
+      supportedLocales: ['en', 'pt'],
+    });
+
+    expect(_i18n.locale).toBe('pt');
+    // No fetch triggered at i18n()-time; init() would load later
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('post-init: persisted locale loads its bundle', async () => {
+    await No.init(document.createElement('div'));
+
+    localStorage.setItem('nojs-locale', 'es');
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ greeting: 'Hola' }),
+    });
+
+    const notified = [];
+    _i18nListeners.add(() => notified.push('called'));
+
+    No.i18n({
+      loadPath: '/locales/{locale}.json',
+      defaultLocale: 'en',
+      persist: true,
+      supportedLocales: ['en', 'es'],
+    });
+
+    // Persisted locale 'es' should be active
+    expect(_i18n.locale).toBe('es');
+
+    // Wait for async load + notify
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fetchMock).toHaveBeenCalledWith('/locales/es.json');
+    expect(_i18n.locales.es).toEqual({ greeting: 'Hola' });
+    expect(notified).toEqual(['called']);
+  });
+});
+
 describe('_notifyI18n', () => {
   beforeEach(() => {
     _i18nListeners.clear();

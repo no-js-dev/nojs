@@ -820,6 +820,7 @@ for (const method of HTTP_METHODS) {
           _renderLoadMoreButton();
           return;
         }
+        const r = _findScrollContainer(el);
         _scrollObserver = new IntersectionObserver(
           (entries) => {
             for (const entry of entries) {
@@ -829,7 +830,7 @@ for (const method of HTTP_METHODS) {
               }
             }
           },
-          { rootMargin: threshold },
+          { root: r === document.documentElement ? null : r, rootMargin: threshold },
         );
         if (_sentinel) _scrollObserver.observe(_sentinel);
         _onDispose(() => {
@@ -877,6 +878,7 @@ for (const method of HTTP_METHODS) {
         } else if (trigger === "visible") {
           // Lazy load: fire once when the element enters the viewport.
           if (typeof IntersectionObserver !== "undefined") {
+            const r = _findScrollContainer(el);
             const observer = new IntersectionObserver(
               (entries) => {
                 for (const entry of entries) {
@@ -887,7 +889,7 @@ for (const method of HTTP_METHODS) {
                   }
                 }
               },
-              { rootMargin: threshold },
+              { root: r === document.documentElement ? null : r, rootMargin: threshold },
             );
             observer.observe(el);
             _onDispose(() => observer.disconnect());

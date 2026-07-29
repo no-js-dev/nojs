@@ -37,8 +37,7 @@ test.describe('Pagination', () => {
     const container = page.getByTestId('button-container');
 
     // Page 1 loads automatically
-    await expect(page.getByTestId('btn-item').first()).toBeVisible({ timeout: 5000 });
-    expect(await page.getByTestId('btn-item').count()).toBe(2);
+    await expect(page.getByTestId('btn-item')).toHaveCount(2, { timeout: 5000 });
 
     // Load More button should be visible after first page
     const loadMoreBtn = container.locator('[data-nojs-load-more]');
@@ -56,11 +55,9 @@ test.describe('Pagination', () => {
   // ── Infinite scroll ──────────────────────────────────────────────────
 
   test('2 — infinite scroll appends pages on scroll', async ({ page }) => {
-    await page.route('**/api/items*', async (route) => {
+    await page.route('**/api/items*', (route) => {
       const url = new URL(route.request().url(), 'http://localhost');
       const p = parseInt(url.searchParams.get('page') || '1');
-      // Small delay to prevent observer rapid-fire
-      await new Promise(r => setTimeout(r, 100));
       if (p > 3) {
         route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
       } else {
@@ -73,15 +70,17 @@ test.describe('Pagination', () => {
 
     // Page 1 loads automatically
     await expect(page.getByTestId('scroll-item').first()).toBeVisible({ timeout: 5000 });
-    const initialCount = await page.getByTestId('scroll-item').count();
-    expect(initialCount).toBe(2);
 
-    // Scroll to bottom — more items should appear
+    // Scroll to bottom to trigger the IntersectionObserver for more pages.
+    // When content is shorter than the container the sentinel is already
+    // visible, so the observer may auto-fire — either way, items from
+    // subsequent pages should accumulate.
     await container.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    // Wait for items to increase beyond the initial count
+
+    // Items should increase beyond the initial page-1 count of 2
     await expect(async () => {
       const count = await page.getByTestId('scroll-item').count();
-      expect(count).toBeGreaterThan(initialCount);
+      expect(count).toBeGreaterThan(2);
     }).toPass({ timeout: 5000 });
   });
 
@@ -150,9 +149,9 @@ test.describe('Pagination', () => {
       loadMoreBtn.click(),
     ]);
 
-    // Wait for items to render (insert mode + each re-render = 6 visible items).
+    // Wait for items to render (2 from page 1 + 2 from page 2 = 4 unique items after dedup).
     // Auto-retrying assertion resolves the render race before checking button state.
-    await expect(page.getByTestId('btn-item')).toHaveCount(6, { timeout: 5000 });
+    await expect(page.getByTestId('btn-item')).toHaveCount(4, { timeout: 5000 });
 
     // Load more button should be gone after last-page header
     await expect(page.getByTestId('button-container').locator('[data-nojs-load-more]')).toBeHidden({ timeout: 5000 });
@@ -276,9 +275,7 @@ test.describe('Pagination', () => {
     await page.goto('/e2e/examples/pagination-scroll.html');
 
     // Page 1 loads
-    await expect(page.getByTestId('scroll-item').first()).toBeVisible({ timeout: 5000 });
-    const page1Count = await page.getByTestId('scroll-item').count();
-    expect(page1Count).toBe(2);
+    await expect(page.getByTestId('scroll-item')).toHaveCount(2, { timeout: 5000 });
 
     // Scroll to trigger page 2 (which errors)
     const container = page.getByTestId('scroll-container');
@@ -288,8 +285,10 @@ test.describe('Pagination', () => {
     await expect(page.getByTestId('error')).toBeVisible({ timeout: 5000 });
 
     // Existing items from page 1 should still be present
-    const afterErrorCount = await page.getByTestId('scroll-item').count();
-    expect(afterErrorCount).toBeGreaterThanOrEqual(page1Count);
+    await expect(async () => {
+      const count = await page.getByTestId('scroll-item').count();
+      expect(count).toBeGreaterThanOrEqual(2);
+    }).toPass({ timeout: 5000 });
   });
 
   // ── Page auto-increment ──────────────────────────────────────────────

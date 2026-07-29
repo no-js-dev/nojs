@@ -42,6 +42,7 @@
     <button data-test="cancel-trigger" post="/api/blocked" as="blocked" error="cancel-err-tpl"
             then="cancelStatus = 'sent'">Send blocked request</button>
     <span data-test="cancel-status" bind="cancelStatus"></span>
+    <span data-test="cancel-signal" style="display:none">pending</span>
     <template id="cancel-err-tpl"><span data-test="cancel-error">Request was blocked</span></template>
   </section>
 
@@ -74,6 +75,7 @@
             return { [nojs.RESPOND]: { value: 'from-cache' } };
           }
           if (url.includes('/api/blocked')) {
+            document.querySelector('[data-test="cancel-signal"]').textContent = 'cancelled';
             return { [nojs.CANCEL]: true };
           }
         });

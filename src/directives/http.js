@@ -522,17 +522,32 @@ for (const method of HTTP_METHODS) {
 
           // ── Context accumulation for insert modes ──
           if (isInsertMode && !_isFirstFetch) {
+            _removeInlineLoading();
+
             const prev = ctx[asKey];
             if (Array.isArray(prev) && Array.isArray(_effectiveData)) {
-              // Concatenate arrays: append adds new at end, prepend adds new at start
               const accumulated = insertMode === "append"
                 ? [...prev, ..._effectiveData]
                 : [..._effectiveData, ...prev];
-              ctx.$set(asKey, accumulated);
+
+              if (insertMode === "prepend") {
+                // Scroll preservation: $set triggers loops.js full rebuild for
+                // prepend (delta-append for append) — both synchronous, so DOM
+                // measurements are valid immediately after.
+                const scrollContainer = _findScrollContainer(el);
+                const oldScrollTop = scrollContainer.scrollTop;
+                const oldScrollHeight = scrollContainer.scrollHeight;
+                ctx.$set(asKey, accumulated);
+                const newScrollHeight = scrollContainer.scrollHeight;
+                scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+              } else {
+                ctx.$set(asKey, accumulated);
+              }
             } else {
-              // Non-array values are replaced
               ctx.$set(asKey, _effectiveData);
             }
+
+            _isFirstFetch = false;
           } else {
             ctx.$set(asKey, _effectiveData);
           }
@@ -544,48 +559,8 @@ for (const method of HTTP_METHODS) {
             _notifyStoreWatchers(intoStore);
           }
 
-          // ── Insert mode: append/prepend content ──
-          if (isInsertMode && !_isFirstFetch) {
-            _removeInlineLoading();
-
-            // Clone original children to render this page's content
-            const wrapper = document.createElement("div");
-            wrapper.style.display = "contents";
-            const childCtx = createContext({ [asKey]: _effectiveData }, ctx);
-            wrapper.__ctx = childCtx;
-            for (const child of originalChildren)
-              wrapper.appendChild(child.cloneNode(true));
-
-            if (insertMode === "prepend") {
-              // Scroll position preservation for prepend
-              const scrollContainer = _findScrollContainer(el);
-              const oldScrollTop = scrollContainer.scrollTop;
-              const oldScrollHeight = scrollContainer.scrollHeight;
-
-              // Insert after sentinel (sentinel stays at top)
-              if (_sentinel && _sentinel.nextSibling) {
-                el.insertBefore(wrapper, _sentinel.nextSibling);
-              } else {
-                el.appendChild(wrapper);
-              }
-              processTree(wrapper);
-
-              // Adjust scroll position so user does not see a jump
-              const newScrollHeight = scrollContainer.scrollHeight;
-              scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-            } else {
-              // Append: insert before sentinel (sentinel stays at bottom)
-              if (_sentinel) {
-                el.insertBefore(wrapper, _sentinel);
-              } else {
-                el.appendChild(wrapper);
-              }
-              processTree(wrapper);
-            }
-
-            _isFirstFetch = false;
-          } else {
-            // ── Replace mode (default) or first fetch in insert mode ──
+          // ── Replace mode (default) or first fetch in insert mode ──
+          if (!isInsertMode || _isFirstFetch) {
             // Success template
             if (successTpl) {
               const clone = _cloneTemplate(successTpl);
@@ -846,6 +821,7 @@ for (const method of HTTP_METHODS) {
           _renderLoadMoreButton();
           return;
         }
+        const r = _findScrollContainer(el);
         _scrollObserver = new IntersectionObserver(
           (entries) => {
             for (const entry of entries) {
@@ -855,7 +831,7 @@ for (const method of HTTP_METHODS) {
               }
             }
           },
-          { rootMargin: threshold },
+          { root: r === document.documentElement ? null : r, rootMargin: threshold },
         );
         if (_sentinel) _scrollObserver.observe(_sentinel);
         _onDispose(() => {
@@ -903,6 +879,7 @@ for (const method of HTTP_METHODS) {
         } else if (trigger === "visible") {
           // Lazy load: fire once when the element enters the viewport.
           if (typeof IntersectionObserver !== "undefined") {
+            const r = _findScrollContainer(el);
             const observer = new IntersectionObserver(
               (entries) => {
                 for (const entry of entries) {
@@ -913,7 +890,7 @@ for (const method of HTTP_METHODS) {
                   }
                 }
               },
-              { rootMargin: threshold },
+              { root: r === document.documentElement ? null : r, rootMargin: threshold },
             );
             observer.observe(el);
             _onDispose(() => observer.disconnect());
@@ -930,6 +907,7 @@ for (const method of HTTP_METHODS) {
         } else if (trigger === "scroll" && !isInsertMode) {
           // scroll without get-insert — fall back to visible behavior (warned above)
           if (typeof IntersectionObserver !== "undefined") {
+            const r = _findScrollContainer(el);
             const observer = new IntersectionObserver(
               (entries) => {
                 for (const entry of entries) {
@@ -940,7 +918,7 @@ for (const method of HTTP_METHODS) {
                   }
                 }
               },
-              { rootMargin: threshold },
+              { root: r === document.documentElement ? null : r, rootMargin: threshold },
             );
             observer.observe(el);
             _onDispose(() => observer.disconnect());

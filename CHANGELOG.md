@@ -5,7 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.20.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.20.1...HEAD)
+
+## [1.20.1](https://github.com/no-js-dev/nojs/compare/v1.20.0...v1.20.1) — 2026-08-04
+
+Patch release — bug fixes, e2e suite hardening, docs improvements, and dependency bumps.
+
+### Fixed
+
+- fix(http): remove insert-mode duplicate rendering — context accumulation is now the single renderer ([`46b4d1f`](https://github.com/no-js-dev/nojs/commit/46b4d1f), [#275](https://github.com/no-js-dev/nojs/issues/275), PR [#308](https://github.com/no-js-dev/nojs/pull/308))
+- fix(http): set IntersectionObserver root to nearest scrollable ancestor on all three pagination/visible observers ([`9764c49`](https://github.com/no-js-dev/nojs/commit/9764c49), [`94cf475`](https://github.com/no-js-dev/nojs/commit/94cf475), [#302](https://github.com/no-js-dev/nojs/issues/302), PR [#308](https://github.com/no-js-dev/nojs/pull/308))
+- fix(i18n): load locale bundle when `NoJS.i18n({loadPath})` is called after auto-init ([`a7b2a5c`](https://github.com/no-js-dev/nojs/commit/a7b2a5c), [#213](https://github.com/no-js-dev/nojs/issues/213), PR [#304](https://github.com/no-js-dev/nojs/pull/304))
+- fix(http): handle deferred scroll compensation for prepend with animate-leave via internal deferred-render slot signal ([`da7ab65`](https://github.com/no-js-dev/nojs/commit/da7ab65), [`241601a`](https://github.com/no-js-dev/nojs/commit/241601a), [`6c5fa75`](https://github.com/no-js-dev/nojs/commit/6c5fa75), [#316](https://github.com/no-js-dev/nojs/issues/316), PRs [#323](https://github.com/no-js-dev/nojs/pull/323)/[#327](https://github.com/no-js-dev/nojs/pull/327))
+- fix(loops): strip all side-effect directives from loop clones ([`27c85a1`](https://github.com/no-js-dev/nojs/commit/27c85a1), PR [#293](https://github.com/no-js-dev/nojs/pull/293))
+- fix(sse): add sse to `_LOOP_ATTRS` to prevent EventSource-per-clone in loops ([`98cd415`](https://github.com/no-js-dev/nojs/commit/98cd415), PR [#293](https://github.com/no-js-dev/nojs/pull/293))
+- fix(sse): harden sse directive — loop guard, limit validation, terminal untrack, dead code removal ([`a31b58b`](https://github.com/no-js-dev/nojs/commit/a31b58b), PR [#293](https://github.com/no-js-dev/nojs/pull/293))
+- fix(dom): block `noembed`, `noframes`, `plaintext` in sanitizer ([`75685b5`](https://github.com/no-js-dev/nojs/commit/75685b5), PR [#295](https://github.com/no-js-dev/nojs/pull/295))
+- fix(router): reject protocol-relative URLs in `_isSafeRedirect` ([`992ffad`](https://github.com/no-js-dev/nojs/commit/992ffad), PR [#295](https://github.com/no-js-dev/nojs/pull/295))
+
+### Changed
+
+- refactor(http): remove dead `_isFirstFetch` assignment in accumulation branch ([`6c2e52d`](https://github.com/no-js-dev/nojs/commit/6c2e52d))
+- test(e2e): harden flaky waits, eliminate `waitForTimeout`, add deterministic waits and exact-count assertions, Elements skip-guard ([`9ccc898`](https://github.com/no-js-dev/nojs/commit/9ccc898), [`50658de`](https://github.com/no-js-dev/nojs/commit/50658de), [#277](https://github.com/no-js-dev/nojs/issues/277) [#278](https://github.com/no-js-dev/nojs/issues/278) [#274](https://github.com/no-js-dev/nojs/issues/274) [#276](https://github.com/no-js-dev/nojs/issues/276), PRs [#303](https://github.com/no-js-dev/nojs/pull/303)/[#309](https://github.com/no-js-dev/nojs/pull/309))
+- test(loops): cover template + animate-stagger path ([`7f24cc3`](https://github.com/no-js-dev/nojs/commit/7f24cc3), [#270](https://github.com/no-js-dev/nojs/issues/270), PR [#306](https://github.com/no-js-dev/nojs/pull/306))
+- test(suite): overhaul unit test suite after full audit ([`719e5a4`](https://github.com/no-js-dev/nojs/commit/719e5a4), PR [#283](https://github.com/no-js-dev/nojs/pull/283))
+
+### Docs
+
+- docs(loops): add Common Mistakes callout for container-vs-item directive placement (md + llms + website tpl ×5 locales) ([`166d397`](https://github.com/no-js-dev/nojs/commit/166d397), [`9704e65`](https://github.com/no-js-dev/nojs/commit/9704e65), [#269](https://github.com/no-js-dev/nojs/issues/269) [#318](https://github.com/no-js-dev/nojs/issues/318), PRs [#305](https://github.com/no-js-dev/nojs/pull/305)/[#307](https://github.com/no-js-dev/nojs/pull/307))
+- docs(site): deduplicate locale-list in docs shell ([`b2b6586`](https://github.com/no-js-dev/nojs/commit/b2b6586), [#214](https://github.com/no-js-dev/nojs/issues/214))
+- docs(adr): commit ADR-002 as a repo file ([`6430c08`](https://github.com/no-js-dev/nojs/commit/6430c08), [#319](https://github.com/no-js-dev/nojs/issues/319))
+- docs(sse): sweep SSE docs, fix callout typography, correct sse-limit contract ([`a79a082`](https://github.com/no-js-dev/nojs/commit/a79a082), PR [#296](https://github.com/no-js-dev/nojs/pull/296))
+- docs(i18n): correct stale claims in home and FAQ locales ([`4f80de7`](https://github.com/no-js-dev/nojs/commit/4f80de7))
+- docs(site): add Google Analytics gtag to docs entry pages ([`0abe55c`](https://github.com/no-js-dev/nojs/commit/0abe55c), PR [#315](https://github.com/no-js-dev/nojs/pull/315))
+- chore(test-server): support `NOJS_ELEMENTS_PATH` env var override ([`11fcbc2`](https://github.com/no-js-dev/nojs/commit/11fcbc2), [#276](https://github.com/no-js-dev/nojs/issues/276) [#317](https://github.com/no-js-dev/nojs/issues/317))
+- chore(dev-server): honor `NOJS_ELEMENTS_PATH` env override ([`b868729`](https://github.com/no-js-dev/nojs/commit/b868729))
+- chore(security): add 2026-07 core security audit report ([`d47c237`](https://github.com/no-js-dev/nojs/commit/d47c237), PR [#294](https://github.com/no-js-dev/nojs/pull/294))
+
+### Chore
+
+- chore(deps-dev): bump `@testing-library/jest-dom` from 6.9.1 to 7.0.0 ([`9ae46f7`](https://github.com/no-js-dev/nojs/commit/9ae46f7))
+- chore(deps-dev): bump `jsdom` from 28.1.0 to 30.0.0 ([`cbaf4ce`](https://github.com/no-js-dev/nojs/commit/cbaf4ce))
+- chore(deps-dev): bump `eslint` from 10.6.0 to 10.8.0 ([`7f84aa6`](https://github.com/no-js-dev/nojs/commit/7f84aa6))
+- chore(deps-dev): bump `@playwright/test` from 1.61.1 to 1.62.0 ([`e817f0a`](https://github.com/no-js-dev/nojs/commit/e817f0a))
+- chore(deps): bump `actions/setup-node` from 6 to 7 ([`44219ad`](https://github.com/no-js-dev/nojs/commit/44219ad))
+- chore(deps-dev): bump `@commitlint/cli` from 21.2.0 to 21.2.1 ([`0d83f82`](https://github.com/no-js-dev/nojs/commit/0d83f82))
 
 ## [1.20.0](https://github.com/no-js-dev/nojs/compare/v1.19.0...v1.20.0) — 2026-07-17
 

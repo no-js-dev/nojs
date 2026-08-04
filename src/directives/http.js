@@ -531,37 +531,36 @@ for (const method of HTTP_METHODS) {
                 : [..._effectiveData, ...prev];
 
               if (insertMode === "prepend") {
-                // get+each combo: loops.js detaches el and renders
-                // clones as siblings — el is not connected, so no
-                // scroll container is resolvable. Skip compensation.
-                if (!el.isConnected) {
-                  ctx.$set(asKey, accumulated);
-                } else {
-                  // Scroll preservation: $set triggers loops.js rebuild.
-                  // After $set, check for loops.js's deferred-render
-                  // signal (set when animate-leave defers renderItems).
-                  // If present → register delta-based compensation on
-                  // completion. If absent → render was synchronous,
-                  // compensate immediately from the measured delta.
-                  const scrollContainer = _findScrollContainer(el);
-                  const oldScrollHeight = scrollContainer.scrollHeight;
-                  ctx.$set(asKey, accumulated);
+                // Scroll preservation: $set triggers loops.js rebuild.
+                // Pre-mark el with a slot so loops.js can walk up and
+                // find it even when the loop is nested below el
+                // (e.g. <div get><ul><li each>). After $set, check
+                // if loops.js flagged the slot as deferred (animate-
+                // leave). If so → register delta-based compensation
+                // on completion. If not → render was synchronous,
+                // compensate immediately from the measured delta.
+                // Slot identity doubles as a generation guard: a new
+                // cycle creates a new object, making the old one stale.
+                const scrollContainer = _findScrollContainer(el);
+                const oldScrollHeight = scrollContainer.scrollHeight;
+                const slot = {};
+                el._deferredRenderSlot = slot;
+                ctx.$set(asKey, accumulated);
 
-                  if (typeof el._deferredRenderCallback !== "undefined") {
-                    // Render deferred — compensate at fire time (delta-based)
-                    el._deferredRenderCallback = () => {
-                      if (!scrollContainer.isConnected) return;
-                      const delta = scrollContainer.scrollHeight - oldScrollHeight;
-                      if (delta !== 0) scrollContainer.scrollTop += delta;
-                    };
-                    // Disposal cleanup (Rule 2)
-                    el.__disposers = el.__disposers || [];
-                    el.__disposers.push(() => { el._deferredRenderCallback = undefined; });
-                  } else {
-                    // Synchronous render — compensate immediately
+                if (slot.deferred) {
+                  slot.cb = () => {
+                    if (!scrollContainer.isConnected) return;
                     const delta = scrollContainer.scrollHeight - oldScrollHeight;
                     if (delta !== 0) scrollContainer.scrollTop += delta;
-                  }
+                  };
+                  // Response handler runs async — _currentEl may have
+                  // moved; register cleanup on el directly (Rule 2).
+                  el.__disposers = el.__disposers || [];
+                  el.__disposers.push(() => { el._deferredRenderSlot = undefined; });
+                } else {
+                  el._deferredRenderSlot = undefined;
+                  const delta = scrollContainer.scrollHeight - oldScrollHeight;
+                  if (delta !== 0) scrollContainer.scrollTop += delta;
                 }
               } else {
                 ctx.$set(asKey, accumulated);

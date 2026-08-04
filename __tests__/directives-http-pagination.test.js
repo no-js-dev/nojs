@@ -1947,13 +1947,13 @@ describe('HTTP Pagination & Triggers', () => {
       await wait();
       expect(el.__ctx.items).toEqual([...page2, ...page1]);
       expect(el.querySelectorAll('.item').length).toBe(2);
-      // No compensation (delta was 0, sync render); no mechanism armed
+      // No compensation (delta was 0, sync render); slot cleared
       expect(getScrollTop()).toBe(200);
-      expect(el._deferredRenderCallback).toBeUndefined();
+      expect(el._deferredRenderSlot).toBeUndefined();
 
       // Third fetch (prepend): 4 items, scrollHeight = 900
       // delta = 900 - 500 = 400 → scrollTop = 200 + 400 = 600
-      // A stale observer/callback from the zero-delta prepend would interfere.
+      // A stale slot from the zero-delta prepend would interfere.
       btn = el.querySelector('[data-nojs-load-more]');
       btn.click();
       await wait();
@@ -2091,7 +2091,7 @@ describe('HTTP Pagination & Triggers', () => {
       jest.useRealTimers();
     });
 
-    test('72 — dispose mid-defer: no compensation, callback cleaned', async () => {
+    test('72 — dispose mid-defer: no compensation, slot cleaned', async () => {
       jest.useFakeTimers();
 
       const page1 = [{ id: 1, name: 'A' }];
@@ -2123,44 +2123,127 @@ describe('HTTP Pagination & Triggers', () => {
       // Dispose before the deferred render fires
       _disposeTree(el);
 
-      // Callback cleared by disposer
-      expect(el._deferredRenderCallback).toBeUndefined();
+      // Slot cleared by disposer
+      expect(el._deferredRenderSlot).toBeUndefined();
 
       // Advance past the 5s animate-duration timeout
       jest.advanceTimersByTime(10000);
       await jest.advanceTimersByTimeAsync(0);
 
-      // scrollTop NOT adjusted — callback was cleaned on dispose
+      // scrollTop NOT adjusted — slot was cleaned on dispose
       expect(getScrollTop()).toBe(200);
 
       jest.useRealTimers();
     });
 
-    test('73 — get+each on same element: no throw, no fetch, no observer leak', async () => {
-      global.fetch = mockFetchJson([{ id: 1, name: 'A' }]);
+    test('73 — nested markup (el > ul > li[each]): slot walks up to get-host and compensation fires', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
 
-      const parent = document.createElement('div');
-      parent.setAttribute('state', '{ items: [] }');
-      const el = document.createElement('span');
-      el.className = 'item';
-      el.setAttribute('get', '/api/items');
+      // Nested: el[get] > ul > li[each] — loop's parent is <ul>, not el
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.overflowY = 'auto';
+      const stateEl = document.createElement('div');
+      stateEl.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items?page={page}');
       el.setAttribute('as', 'items');
       el.setAttribute('get-insert', 'prepend');
-      el.setAttribute('each', 'item in items');
-      el.setAttribute('bind', 'item.name');
-      parent.appendChild(el);
-      document.body.appendChild(parent);
+      el.setAttribute('get-page', '1');
+      el.setAttribute('get-trigger', 'button');
+      el.innerHTML = '<ul><li class="item" each="item in items" bind="item.name"></li></ul>';
+      stateEl.appendChild(el);
+      scrollContainer.appendChild(stateEl);
+      document.body.appendChild(scrollContainer);
 
-      // http.js bails via _isLoopElement guard — no throw
-      expect(() => processTree(parent)).not.toThrow();
+      let _scrollTop = 200;
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const items = el.querySelectorAll('.item');
+          return 500 + items.length * 100;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(scrollContainer, 'scrollTop', {
+        get: () => _scrollTop,
+        set: (v) => { _scrollTop = v; },
+        configurable: true,
+      });
+
+      processTree(stateEl);
       await wait();
 
-      // el detached by loops.js self-repeating pattern
-      expect(el.isConnected).toBe(false);
-      // http.js returned early — no fetch fired
-      expect(global.fetch).not.toHaveBeenCalled();
-      // No deferred render callback on detached el
-      expect(el._deferredRenderCallback).toBeUndefined();
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await wait();
+
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(_scrollTop).toBe(400);
+    });
+
+    test('74 — nested markup with animate-leave: deferred compensation fires across nesting gap', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      // Nested: el[get] > ul > li[each animate-leave]
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.overflowY = 'auto';
+      const stateEl = document.createElement('div');
+      stateEl.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items?page={page}');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-insert', 'prepend');
+      el.setAttribute('get-page', '1');
+      el.setAttribute('get-trigger', 'button');
+      el.innerHTML = '<ul><li class="item" each="item in items" animate-leave="fadeOut" bind="item.name"></li></ul>';
+      stateEl.appendChild(el);
+      scrollContainer.appendChild(stateEl);
+      document.body.appendChild(scrollContainer);
+
+      let _scrollTop = 200;
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const items = el.querySelectorAll('.item');
+          return 500 + items.length * 100;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(scrollContainer, 'scrollTop', {
+        get: () => _scrollTop,
+        set: (v) => { _scrollTop = v; },
+        configurable: true,
+      });
+
+      processTree(stateEl);
+      await wait();
+
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      // Wait for fetch + deferred render (setTimeout(done, 0)) + callback
+      await wait(50);
+
+      // Slot walked up from <ul> (loop parent) to el (get-host).
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(_scrollTop).toBe(400);
     });
   });
 });

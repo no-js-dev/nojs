@@ -573,6 +573,13 @@
         "leave": "Classe CSS ajoutée aux éléments avant leur suppression",
         "stagger": "Délai (ms) entre l'animation d'entrée de chaque élément",
         "duration": "Durée maximale (ms) avant la fin forcée de l'animation de sortie"
+      },
+      "commonMistakes": {
+        "title": "Erreurs Courantes",
+        "containerSubtitle": "Directive sur le container, pas sur l'item",
+        "containerText": "L'erreur la plus courante dans les loops est de placer foreach/each/for sur un élément container au lieu de l'élément enfant qui doit se répéter. L'élément avec le loop EST l'unité qui se répète — il est retiré du DOM et cloné en tant que siblings entre les comment markers. Placer la directive sur un <ul> ou <tbody> produit N copies du container entier, ce qui est du HTML invalide et presque jamais intentionnel.",
+        "tableText": "Cela s'applique aussi aux tables — la directive appartient au <tr>, pas au <table> ou <tbody> :",
+        "ruleOfThumb": "Règle d'or : Demandez-vous toujours “quel élément doit se répéter ?” et placez la directive de loop sur cet élément. L'élément parent devient automatiquement le container."
       }
     },
     "templates": {

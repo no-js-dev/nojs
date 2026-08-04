@@ -258,4 +258,37 @@
     <span class="hl-attr">bind</span>=<span class="hl-str">"item.name"</span><span class="hl-tag">&gt;&lt;/li&gt;</span></pre></div>
   </div>
 
+  <!-- Common Mistakes -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="loops-common-mistakes" t="docs.loops.commonMistakes.title"></h2>
+    <h3 class="doc-subtitle" t="docs.loops.commonMistakes.containerSubtitle"></h3>
+    <p class="doc-text" t="docs.loops.commonMistakes.containerText"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- WRONG — each on &lt;ul&gt; creates N &lt;ul&gt; elements, each with one &lt;li&gt; --&gt;</span>
+<span class="hl-tag">&lt;ul</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;li</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
+<span class="hl-tag">&lt;/ul&gt;</span>
+
+<span class="hl-cmt">&lt;!-- RIGHT — each on &lt;li&gt; creates N &lt;li&gt; elements inside one &lt;ul&gt; --&gt;</span>
+<span class="hl-tag">&lt;ul&gt;</span>
+  <span class="hl-tag">&lt;li</span> <span class="hl-attr">each</span>=<span class="hl-str">"item in items"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"item"</span><span class="hl-tag">&gt;&lt;/li&gt;</span>
+<span class="hl-tag">&lt;/ul&gt;</span></pre></div>
+    <p class="doc-text" t="docs.loops.commonMistakes.tableText"></p>
+    <div class="code-block"><pre><span class="hl-cmt">&lt;!-- WRONG — produces N &lt;tbody&gt; elements --&gt;</span>
+<span class="hl-tag">&lt;table&gt;</span>
+  <span class="hl-tag">&lt;tbody</span> <span class="hl-attr">each</span>=<span class="hl-str">"row in rows"</span><span class="hl-tag">&gt;</span>
+    <span class="hl-tag">&lt;tr&gt;&lt;td</span> <span class="hl-attr">bind</span>=<span class="hl-str">"row.name"</span><span class="hl-tag">&gt;&lt;/td&gt;&lt;/tr&gt;</span>
+  <span class="hl-tag">&lt;/tbody&gt;</span>
+<span class="hl-tag">&lt;/table&gt;</span>
+
+<span class="hl-cmt">&lt;!-- RIGHT — produces N &lt;tr&gt; elements inside one &lt;tbody&gt; --&gt;</span>
+<span class="hl-tag">&lt;table&gt;</span>
+  <span class="hl-tag">&lt;tbody&gt;</span>
+    <span class="hl-tag">&lt;tr</span> <span class="hl-attr">each</span>=<span class="hl-str">"row in rows"</span><span class="hl-tag">&gt;&lt;td</span> <span class="hl-attr">bind</span>=<span class="hl-str">"row.name"</span><span class="hl-tag">&gt;&lt;/td&gt;&lt;/tr&gt;</span>
+  <span class="hl-tag">&lt;/tbody&gt;</span>
+<span class="hl-tag">&lt;/table&gt;</span></pre></div>
+    <div class="callout">
+      <p t="docs.loops.commonMistakes.ruleOfThumb"></p>
+    </div>
+  </div>
+
 </div>

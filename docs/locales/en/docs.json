@@ -579,7 +579,7 @@
         "containerSubtitle": "Directive on the container, not the item",
         "containerText": "The most common loop mistake is placing foreach/each/for on a container element instead of the repeating child. The loop element IS the repeating unit — it is removed from the DOM and cloned as siblings between comment markers. Putting the directive on a <ul> or <tbody> produces N copies of the entire container, which is invalid HTML and almost never intended.",
         "tableText": "The same applies to tables — the directive belongs on <tr>, not on <table> or <tbody>:",
-        "ruleOfThumb": "Rule of thumb: Always ask “which element should repeat?” and put the loop directive on that element. The parent element becomes the container automatically."
+        "ruleOfThumb": "Rule of thumb: Always ask \"which element should repeat?\" and put the loop directive on that element. The parent element becomes the container automatically."
       }
     },
     "templates": {

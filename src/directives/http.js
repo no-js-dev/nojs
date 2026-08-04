@@ -570,8 +570,6 @@ for (const method of HTTP_METHODS) {
             } else {
               ctx.$set(asKey, _effectiveData);
             }
-
-            _isFirstFetch = false;
           } else {
             ctx.$set(asKey, _effectiveData);
           }

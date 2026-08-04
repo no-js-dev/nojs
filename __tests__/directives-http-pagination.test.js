@@ -1907,15 +1907,17 @@ describe('HTTP Pagination & Triggers', () => {
       return { scrollContainer, parent, el, getScrollTop: () => _scrollTop };
     }
 
-    test('68 — prepend without animate-leave compensates scroll immediately', async () => {
-      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
-      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+    test('68 — prepend: sync zero-delta arms nothing; subsequent prepend compensates with no stale interference', async () => {
+      const page1 = [{ id: 1, name: 'A' }];
+      const page2 = [{ id: 2, name: 'B' }];
+      const page3 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
       global.fetch = mockFetchSequence([
         { data: page1 },
         { data: page2 },
+        { data: page3 },
       ]);
 
-      const { el, getScrollTop } = buildDomWithScroll({
+      const { scrollContainer, el, getScrollTop } = buildDomWithScroll({
         get: '/api/items?page={page}',
         as: 'items',
         'get-insert': 'prepend',
@@ -1923,24 +1925,43 @@ describe('HTTP Pagination & Triggers', () => {
         'get-trigger': 'button',
       }, '<span class="item" each="item in items" bind="item.name"></span>');
 
+      // Non-overflowing: scrollHeight stays at 500 until 3+ items
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const count = el.querySelectorAll('.item').length;
+          return count >= 3 ? 500 + count * 100 : 500;
+        },
+        configurable: true,
+      });
+
       processTree(el.parentElement);
       await wait();
 
-      // First fetch: 2 items => scrollHeight = 500 + 200 = 700
+      // First fetch: 1 item, scrollHeight = 500
       expect(el.__ctx.items).toEqual(page1);
-      expect(el.querySelectorAll('.item').length).toBe(2);
+      expect(el.querySelectorAll('.item').length).toBe(1);
 
-      const btn = el.querySelector('[data-nojs-load-more]');
+      // Second fetch (prepend): 2 items, scrollHeight still 500 → delta = 0
+      let btn = el.querySelector('[data-nojs-load-more]');
       btn.click();
       await wait();
+      expect(el.__ctx.items).toEqual([...page2, ...page1]);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+      // No compensation (delta was 0, sync render); slot cleared
+      expect(getScrollTop()).toBe(200);
+      expect(el._deferredRenderSlot).toBeUndefined();
 
-      // After prepend: 4 items => scrollHeight = 500 + 400 = 900
-      // delta = 900 - 700 = 200 => scrollTop = 200 + 200 = 400
-      expect(el.querySelectorAll('.item').length).toBe(4);
-      expect(getScrollTop()).toBe(400);
+      // Third fetch (prepend): 4 items, scrollHeight = 900
+      // delta = 900 - 500 = 400 → scrollTop = 200 + 400 = 600
+      // A stale slot from the zero-delta prepend would interfere.
+      btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await wait();
+      expect(el.__ctx.items.length).toBe(4);
+      expect(getScrollTop()).toBe(600);
     });
 
-    test('69 — prepend with animate-leave compensates scroll after deferred render', async () => {
+    test('69 — prepend with animate-leave: delta-based compensation at deferred render completion', async () => {
       const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
       const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
       global.fetch = mockFetchSequence([
@@ -1966,18 +1987,111 @@ describe('HTTP Pagination & Triggers', () => {
 
       const btn = el.querySelector('[data-nojs-load-more]');
       btn.click();
-      // Wait for fetch response + deferred render (setTimeout(done, 0))
-      // + MutationObserver callback
+      // Wait for fetch + deferred render (setTimeout(done, 0)) + callback
       await wait(50);
 
-      // After deferred render completes:
-      // 4 items => scrollHeight = 900, oldScrollHeight = 700, delta = 200
-      // scrollTop = 200 + 200 = 400
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop += delta → 200 + 200 = 400
       expect(el.querySelectorAll('.item').length).toBe(4);
       expect(getScrollTop()).toBe(400);
     });
 
-    test('70 — prepend MutationObserver disconnected on disposal mid-defer', async () => {
+    test('70 — user scroll during deferral window preserved in delta-based compensation', async () => {
+      jest.useFakeTimers();
+
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { scrollContainer, el, getScrollTop } = buildDomWithScroll({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" animate-leave="fadeOut" animate-duration="5000" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await jest.advanceTimersByTimeAsync(50);
+
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      // Trigger deferred prepend
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await jest.advanceTimersByTimeAsync(10);
+
+      // User scrolls during the deferral window
+      scrollContainer.scrollTop = 350;
+      expect(getScrollTop()).toBe(350);
+
+      // Fire the deferred render (advance past 5s animate-duration)
+      jest.advanceTimersByTime(5000);
+      await jest.advanceTimersByTimeAsync(0);
+
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // Delta-based: 350 (user position) + 200 = 550
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(getScrollTop()).toBe(550);
+
+      jest.useRealTimers();
+    });
+
+    test('71 — unrelated DOM mutation during deferral does not trigger compensation', async () => {
+      jest.useFakeTimers();
+
+      const page1 = [{ id: 1, name: 'A' }];
+      const page2 = [{ id: 2, name: 'B' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el, getScrollTop } = buildDomWithScroll({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" animate-leave="fadeOut" animate-duration="5000" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await jest.advanceTimersByTimeAsync(50);
+
+      expect(el.querySelectorAll('.item').length).toBe(1);
+
+      // Trigger deferred prepend
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await jest.advanceTimersByTimeAsync(10);
+
+      // Inject unrelated DOM mutation — with the old MutationObserver
+      // this would have mis-triggered compensation
+      const indicator = document.createElement('div');
+      indicator.className = 'loading-indicator';
+      el.appendChild(indicator);
+      await jest.advanceTimersByTimeAsync(0);
+
+      // scrollTop must NOT have changed
+      expect(getScrollTop()).toBe(200);
+
+      // Clean up and fire the real deferred render
+      el.removeChild(indicator);
+      jest.advanceTimersByTime(5000);
+      await jest.advanceTimersByTimeAsync(0);
+
+      // Only now: 2 items → scrollHeight = 700, oldScrollHeight = 600, delta = 100
+      // scrollTop = 200 + 100 = 300
+      expect(el.querySelectorAll('.item').length).toBe(2);
+      expect(getScrollTop()).toBe(300);
+
+      jest.useRealTimers();
+    });
+
+    test('72 — dispose mid-defer: no compensation, slot cleaned', async () => {
       jest.useFakeTimers();
 
       const page1 = [{ id: 1, name: 'A' }];
@@ -1993,35 +2107,143 @@ describe('HTTP Pagination & Triggers', () => {
         'get-insert': 'prepend',
         'get-page': '1',
         'get-trigger': 'button',
-        // Long animate-duration so we can dispose before the fallback fires
       }, '<span class="item" each="item in items" animate-leave="fadeOut" animate-duration="5000" bind="item.name"></span>');
 
       processTree(parent);
       await jest.advanceTimersByTimeAsync(50);
 
-      // First fetch complete
       expect(el.__ctx.items).toEqual(page1);
       expect(el.querySelectorAll('.item').length).toBe(1);
 
-      // Click "Load More" — triggers prepend
+      // Trigger deferred prepend
       const btn = el.querySelector('[data-nojs-load-more]');
       btn.click();
-      // Flush microtasks so fetch resolves, $set fires, observer is set up.
-      // The animate-leave setTimeout(done, 5000) is scheduled but has not fired.
       await jest.advanceTimersByTimeAsync(10);
 
-      // Dispose the tree before the deferred render fires
+      // Dispose before the deferred render fires
       _disposeTree(el);
+
+      // Slot cleared by disposer
+      expect(el._deferredRenderSlot).toBeUndefined();
 
       // Advance past the 5s animate-duration timeout
       jest.advanceTimersByTime(10000);
-      // Flush any MutationObserver microtasks
       await jest.advanceTimersByTimeAsync(0);
 
-      // scrollTop should NOT have been adjusted (observer disconnected by dispose)
+      // scrollTop NOT adjusted — slot was cleaned on dispose
       expect(getScrollTop()).toBe(200);
 
       jest.useRealTimers();
+    });
+
+    test('73 — nested markup (el > ul > li[each]): slot walks up to get-host and compensation fires', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      // Nested: el[get] > ul > li[each] — loop's parent is <ul>, not el
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.overflowY = 'auto';
+      const stateEl = document.createElement('div');
+      stateEl.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items?page={page}');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-insert', 'prepend');
+      el.setAttribute('get-page', '1');
+      el.setAttribute('get-trigger', 'button');
+      el.innerHTML = '<ul><li class="item" each="item in items" bind="item.name"></li></ul>';
+      stateEl.appendChild(el);
+      scrollContainer.appendChild(stateEl);
+      document.body.appendChild(scrollContainer);
+
+      let _scrollTop = 200;
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const items = el.querySelectorAll('.item');
+          return 500 + items.length * 100;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(scrollContainer, 'scrollTop', {
+        get: () => _scrollTop,
+        set: (v) => { _scrollTop = v; },
+        configurable: true,
+      });
+
+      processTree(stateEl);
+      await wait();
+
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await wait();
+
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(_scrollTop).toBe(400);
+    });
+
+    test('74 — nested markup with animate-leave: deferred compensation fires across nesting gap', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      // Nested: el[get] > ul > li[each animate-leave]
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.overflowY = 'auto';
+      const stateEl = document.createElement('div');
+      stateEl.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/items?page={page}');
+      el.setAttribute('as', 'items');
+      el.setAttribute('get-insert', 'prepend');
+      el.setAttribute('get-page', '1');
+      el.setAttribute('get-trigger', 'button');
+      el.innerHTML = '<ul><li class="item" each="item in items" animate-leave="fadeOut" bind="item.name"></li></ul>';
+      stateEl.appendChild(el);
+      scrollContainer.appendChild(stateEl);
+      document.body.appendChild(scrollContainer);
+
+      let _scrollTop = 200;
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const items = el.querySelectorAll('.item');
+          return 500 + items.length * 100;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(scrollContainer, 'scrollTop', {
+        get: () => _scrollTop,
+        set: (v) => { _scrollTop = v; },
+        configurable: true,
+      });
+
+      processTree(stateEl);
+      await wait();
+
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      // Wait for fetch + deferred render (setTimeout(done, 0)) + callback
+      await wait(50);
+
+      // Slot walked up from <ul> (loop parent) to el (get-host).
+      // 4 items → scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(_scrollTop).toBe(400);
     });
   });
 });

@@ -455,6 +455,10 @@ const _loopHandler = {
       // Animate out old items if animate-leave is set
       const currentClones = _getManagedClones(startMarker, endMarker);
       if (animLeave && currentClones.length > 0) {
+        // Signal: renderItems() is deferred behind animate-leave.
+        // Consumers (http.js scroll compensation) can set a callback
+        // that fires once the deferred render lands.
+        parent._deferredRenderCallback = null;
         let remaining = currentClones.length;
         currentClones.forEach((clone) => {
           clone.classList.add(animLeave);
@@ -463,6 +467,9 @@ const _loopHandler = {
             remaining--;
             if (remaining <= 0) {
               renderItems();
+              const _cb = parent._deferredRenderCallback;
+              parent._deferredRenderCallback = undefined;
+              if (typeof _cb === "function") _cb();
             }
           };
           clone.addEventListener("animationend", done, { once: true });

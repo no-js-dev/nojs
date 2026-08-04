@@ -531,38 +531,37 @@ for (const method of HTTP_METHODS) {
                 : [..._effectiveData, ...prev];
 
               if (insertMode === "prepend") {
-                // Scroll preservation: $set triggers loops.js rebuild.
-                // For plain loops the rebuild is synchronous, so
-                // scrollHeight changes immediately. Under animate-leave,
-                // loops.js defers renderItems() behind animationend /
-                // setTimeout — the post-$set delta reads 0. Fall back
-                // to a one-shot MutationObserver on el that performs
-                // the adjustment when the deferred render lands.
-                const scrollContainer = _findScrollContainer(el);
-                const oldScrollTop = scrollContainer.scrollTop;
-                const oldScrollHeight = scrollContainer.scrollHeight;
-                ctx.$set(asKey, accumulated);
-                const newScrollHeight = scrollContainer.scrollHeight;
-                const delta = newScrollHeight - oldScrollHeight;
-                if (delta !== 0) {
-                  scrollContainer.scrollTop = oldScrollTop + delta;
+                // get+each combo: loops.js detaches el and renders
+                // clones as siblings — el is not connected, so no
+                // scroll container is resolvable. Skip compensation.
+                if (!el.isConnected) {
+                  ctx.$set(asKey, accumulated);
                 } else {
-                  const observer = new MutationObserver(() => {
-                    if (!el.isConnected) {
-                      observer.disconnect();
-                      return;
-                    }
-                    const deferredDelta = scrollContainer.scrollHeight - oldScrollHeight;
-                    if (deferredDelta !== 0) {
-                      scrollContainer.scrollTop = oldScrollTop + deferredDelta;
-                      observer.disconnect();
-                    }
-                  });
-                  observer.observe(el, { childList: true, subtree: true });
-                  // Response handler runs async — _currentEl may have
-                  // moved; register cleanup on el directly (Rule 2).
-                  el.__disposers = el.__disposers || [];
-                  el.__disposers.push(() => observer.disconnect());
+                  // Scroll preservation: $set triggers loops.js rebuild.
+                  // After $set, check for loops.js's deferred-render
+                  // signal (set when animate-leave defers renderItems).
+                  // If present → register delta-based compensation on
+                  // completion. If absent → render was synchronous,
+                  // compensate immediately from the measured delta.
+                  const scrollContainer = _findScrollContainer(el);
+                  const oldScrollHeight = scrollContainer.scrollHeight;
+                  ctx.$set(asKey, accumulated);
+
+                  if (typeof el._deferredRenderCallback !== "undefined") {
+                    // Render deferred — compensate at fire time (delta-based)
+                    el._deferredRenderCallback = () => {
+                      if (!scrollContainer.isConnected) return;
+                      const delta = scrollContainer.scrollHeight - oldScrollHeight;
+                      if (delta !== 0) scrollContainer.scrollTop += delta;
+                    };
+                    // Disposal cleanup (Rule 2)
+                    el.__disposers = el.__disposers || [];
+                    el.__disposers.push(() => { el._deferredRenderCallback = undefined; });
+                  } else {
+                    // Synchronous render — compensate immediately
+                    const delta = scrollContainer.scrollHeight - oldScrollHeight;
+                    if (delta !== 0) scrollContainer.scrollTop += delta;
+                  }
                 }
               } else {
                 ctx.$set(asKey, accumulated);

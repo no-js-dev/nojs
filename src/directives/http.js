@@ -531,15 +531,39 @@ for (const method of HTTP_METHODS) {
                 : [..._effectiveData, ...prev];
 
               if (insertMode === "prepend") {
-                // Scroll preservation: $set triggers loops.js full rebuild for
-                // prepend (delta-append for append) — both synchronous, so DOM
-                // measurements are valid immediately after.
+                // Scroll preservation: $set triggers loops.js rebuild.
+                // For plain loops the rebuild is synchronous, so
+                // scrollHeight changes immediately. Under animate-leave,
+                // loops.js defers renderItems() behind animationend /
+                // setTimeout — the post-$set delta reads 0. Fall back
+                // to a one-shot MutationObserver on el that performs
+                // the adjustment when the deferred render lands.
                 const scrollContainer = _findScrollContainer(el);
                 const oldScrollTop = scrollContainer.scrollTop;
                 const oldScrollHeight = scrollContainer.scrollHeight;
                 ctx.$set(asKey, accumulated);
                 const newScrollHeight = scrollContainer.scrollHeight;
-                scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+                const delta = newScrollHeight - oldScrollHeight;
+                if (delta !== 0) {
+                  scrollContainer.scrollTop = oldScrollTop + delta;
+                } else {
+                  const observer = new MutationObserver(() => {
+                    if (!el.isConnected) {
+                      observer.disconnect();
+                      return;
+                    }
+                    const deferredDelta = scrollContainer.scrollHeight - oldScrollHeight;
+                    if (deferredDelta !== 0) {
+                      scrollContainer.scrollTop = oldScrollTop + deferredDelta;
+                      observer.disconnect();
+                    }
+                  });
+                  observer.observe(el, { childList: true, subtree: true });
+                  // Response handler runs async — _currentEl may have
+                  // moved; register cleanup on el directly (Rule 2).
+                  el.__disposers = el.__disposers || [];
+                  el.__disposers.push(() => observer.disconnect());
+                }
               } else {
                 ctx.$set(asKey, accumulated);
               }

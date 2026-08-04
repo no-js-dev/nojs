@@ -1867,4 +1867,161 @@ describe('HTTP Pagination & Triggers', () => {
       expect(obs._options.root).toBe(scrollable);
     });
   });
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Prepend scroll compensation (issue #316)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('Prepend scroll compensation', () => {
+
+    function buildDomWithScroll(attrs, children = '') {
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.overflowY = 'auto';
+
+      const parent = document.createElement('div');
+      parent.setAttribute('state', '{}');
+      const el = document.createElement('div');
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, v);
+      }
+      if (children) el.innerHTML = children;
+      parent.appendChild(el);
+      scrollContainer.appendChild(parent);
+      document.body.appendChild(scrollContainer);
+
+      let _scrollTop = 200;
+      Object.defineProperty(scrollContainer, 'scrollHeight', {
+        get: () => {
+          const items = el.querySelectorAll('.item');
+          return 500 + items.length * 100;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(scrollContainer, 'scrollTop', {
+        get: () => _scrollTop,
+        set: (v) => { _scrollTop = v; },
+        configurable: true,
+      });
+
+      return { scrollContainer, parent, el, getScrollTop: () => _scrollTop };
+    }
+
+    test('68 — prepend without animate-leave compensates scroll immediately', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el, getScrollTop } = buildDomWithScroll({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await wait();
+
+      // First fetch: 2 items => scrollHeight = 500 + 200 = 700
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      await wait();
+
+      // After prepend: 4 items => scrollHeight = 500 + 400 = 900
+      // delta = 900 - 700 = 200 => scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(getScrollTop()).toBe(400);
+    });
+
+    test('69 — prepend with animate-leave compensates scroll after deferred render', async () => {
+      const page1 = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
+      const page2 = [{ id: 3, name: 'C' }, { id: 4, name: 'D' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el, getScrollTop } = buildDomWithScroll({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+      }, '<span class="item" each="item in items" animate-leave="fadeOut" bind="item.name"></span>');
+
+      processTree(el.parentElement);
+      await wait();
+
+      // First fetch: 2 items rendered
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(2);
+      expect(getScrollTop()).toBe(200);
+
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      // Wait for fetch response + deferred render (setTimeout(done, 0))
+      // + MutationObserver callback
+      await wait(50);
+
+      // After deferred render completes:
+      // 4 items => scrollHeight = 900, oldScrollHeight = 700, delta = 200
+      // scrollTop = 200 + 200 = 400
+      expect(el.querySelectorAll('.item').length).toBe(4);
+      expect(getScrollTop()).toBe(400);
+    });
+
+    test('70 — prepend MutationObserver disconnected on disposal mid-defer', async () => {
+      jest.useFakeTimers();
+
+      const page1 = [{ id: 1, name: 'A' }];
+      const page2 = [{ id: 2, name: 'B' }, { id: 3, name: 'C' }];
+      global.fetch = mockFetchSequence([
+        { data: page1 },
+        { data: page2 },
+      ]);
+
+      const { el, parent, getScrollTop } = buildDomWithScroll({
+        get: '/api/items?page={page}',
+        as: 'items',
+        'get-insert': 'prepend',
+        'get-page': '1',
+        'get-trigger': 'button',
+        // Long animate-duration so we can dispose before the fallback fires
+      }, '<span class="item" each="item in items" animate-leave="fadeOut" animate-duration="5000" bind="item.name"></span>');
+
+      processTree(parent);
+      await jest.advanceTimersByTimeAsync(50);
+
+      // First fetch complete
+      expect(el.__ctx.items).toEqual(page1);
+      expect(el.querySelectorAll('.item').length).toBe(1);
+
+      // Click "Load More" — triggers prepend
+      const btn = el.querySelector('[data-nojs-load-more]');
+      btn.click();
+      // Flush microtasks so fetch resolves, $set fires, observer is set up.
+      // The animate-leave setTimeout(done, 5000) is scheduled but has not fired.
+      await jest.advanceTimersByTimeAsync(10);
+
+      // Dispose the tree before the deferred render fires
+      _disposeTree(el);
+
+      // Advance past the 5s animate-duration timeout
+      jest.advanceTimersByTime(10000);
+      // Flush any MutationObserver microtasks
+      await jest.advanceTimersByTimeAsync(0);
+
+      // scrollTop should NOT have been adjusted (observer disconnected by dispose)
+      expect(getScrollTop()).toBe(200);
+
+      jest.useRealTimers();
+    });
+  });
 });

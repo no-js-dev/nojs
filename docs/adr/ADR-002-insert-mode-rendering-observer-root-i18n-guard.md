@@ -90,7 +90,7 @@ Add an `_initPromise`-gated guard at the end of `NoJS.i18n()` that loads the res
 
 - `_notifyI18n` added to the `i18n.js` import in `src/index.js`.
 - Persisted-locale early `return` replaced by a `localeRestored` flag (line 503 in current source), ensuring execution continues to the post-init guard on all exit paths.
-- Post-init guard (lines 530-535 in current source): checks `if (_initPromise)`, then:
+- Post-init guard (lines 528-534 in current source): checks `if (_initPromise)`, then:
   - If `loadPath` is set and the locale bundle isn't already loaded: `_loadI18nForLocale(locale).then(() => _notifyI18n())`.
   - If inline `locales` were provided: `_notifyI18n()` (notify immediately, no fetch needed).
 - Pre-init behavior unchanged: `_initPromise` is `null` before `init()`, so the guard is a no-op.

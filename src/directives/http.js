@@ -531,23 +531,43 @@ for (const method of HTTP_METHODS) {
                 : [..._effectiveData, ...prev];
 
               if (insertMode === "prepend") {
-                // Scroll preservation: $set triggers loops.js full rebuild for
-                // prepend (delta-append for append) — both synchronous, so DOM
-                // measurements are valid immediately after.
+                // Scroll preservation: $set triggers loops.js rebuild.
+                // Pre-mark el with a slot so loops.js can walk up and
+                // find it even when the loop is nested below el
+                // (e.g. <div get><ul><li each>). After $set, check
+                // if loops.js flagged the slot as deferred (animate-
+                // leave). If so → register delta-based compensation
+                // on completion. If not → render was synchronous,
+                // compensate immediately from the measured delta.
+                // Slot identity doubles as a generation guard: a new
+                // cycle creates a new object, making the old one stale.
                 const scrollContainer = _findScrollContainer(el);
-                const oldScrollTop = scrollContainer.scrollTop;
                 const oldScrollHeight = scrollContainer.scrollHeight;
+                const slot = {};
+                el._deferredRenderSlot = slot;
                 ctx.$set(asKey, accumulated);
-                const newScrollHeight = scrollContainer.scrollHeight;
-                scrollContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+
+                if (slot.deferred) {
+                  slot.cb = () => {
+                    if (!scrollContainer.isConnected) return;
+                    const delta = scrollContainer.scrollHeight - oldScrollHeight;
+                    if (delta !== 0) scrollContainer.scrollTop += delta;
+                  };
+                  // Response handler runs async — _currentEl may have
+                  // moved; register cleanup on el directly (Rule 2).
+                  el.__disposers = el.__disposers || [];
+                  el.__disposers.push(() => { el._deferredRenderSlot = undefined; });
+                } else {
+                  el._deferredRenderSlot = undefined;
+                  const delta = scrollContainer.scrollHeight - oldScrollHeight;
+                  if (delta !== 0) scrollContainer.scrollTop += delta;
+                }
               } else {
                 ctx.$set(asKey, accumulated);
               }
             } else {
               ctx.$set(asKey, _effectiveData);
             }
-
-            _isFirstFetch = false;
           } else {
             ctx.$set(asKey, _effectiveData);
           }

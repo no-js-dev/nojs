@@ -455,6 +455,19 @@ const _loopHandler = {
       // Animate out old items if animate-leave is set
       const currentClones = _getManagedClones(startMarker, endMarker);
       if (animLeave && currentClones.length > 0) {
+        // Find the nearest ancestor that declared interest in deferred
+        // renders (http.js sets _deferredRenderSlot before $set).
+        // Walk up from parent because the loop's container may be nested
+        // below the HTTP host element (e.g. <div get><ul><li each>).
+        let _deferTarget = null;
+        let _deferSlot = null;
+        let _node = parent;
+        while (_node) {
+          if (_node._deferredRenderSlot) { _deferTarget = _node; _deferSlot = _node._deferredRenderSlot; break; }
+          _node = _node.parentNode;
+        }
+        if (_deferSlot) _deferSlot.deferred = true;
+
         let remaining = currentClones.length;
         currentClones.forEach((clone) => {
           clone.classList.add(animLeave);
@@ -463,6 +476,13 @@ const _loopHandler = {
             remaining--;
             if (remaining <= 0) {
               renderItems();
+              // Invoke deferred-render callback if the slot still
+              // belongs to the cycle that armed it (identity check
+              // serves as generation guard against overlapping cycles).
+              if (_deferTarget && _deferTarget._deferredRenderSlot === _deferSlot) {
+                _deferTarget._deferredRenderSlot = undefined;
+                if (typeof _deferSlot.cb === "function") _deferSlot.cb();
+              }
             }
           };
           clone.addEventListener("animationend", done, { once: true });

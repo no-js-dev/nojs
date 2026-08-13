@@ -307,3 +307,31 @@ describe('cache safety', () => {
     expect(evaluate('user.name', ctx)).toBe('test');
   });
 });
+
+// ── Package entry-point reachability (ADR-024) ────────────────────────
+
+describe('package entry-point reachability', () => {
+  let entry;
+
+  beforeAll(async () => {
+    entry = await import('../src/index.js');
+  });
+
+  test('parseExpression is re-exported from the module entry', () => {
+    expect(typeof entry.parseExpression).toBe('function');
+  });
+
+  test('parseStatements is re-exported from the module entry', () => {
+    expect(typeof entry.parseStatements).toBe('function');
+  });
+
+  test('segmentPipes is re-exported from the module entry', () => {
+    expect(typeof entry.segmentPipes).toBe('function');
+  });
+
+  test('re-exported functions are the same references as evaluate.js exports', () => {
+    expect(entry.parseExpression).toBe(parseExpression);
+    expect(entry.parseStatements).toBe(parseStatements);
+    expect(entry.segmentPipes).toBe(segmentPipes);
+  });
+});

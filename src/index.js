@@ -33,7 +33,7 @@ import {
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale, _notifyI18n } from "./i18n.js";
 import { createContext } from "./context.js";
-import { evaluate, resolve, _execStatement } from "./evaluate.js";
+import { evaluate, resolve, _execStatement, parseExpression, parseStatements, segmentPipes } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
 import { registerDirective, processTree, _removeCoreDirective, _disposeChildren, _disposeTree } from "./registry.js";
 import { _createRouter } from "./router.js";
@@ -617,3 +617,9 @@ Object.defineProperty(NoJS, "_initialized", {
 });
 
 export default NoJS;
+
+// Compiler-support parser exports (ADR-024).
+// These bypass the runtime caches and are intended for offline tooling
+// (e.g. the @no-js-dev/server compiler) that needs to parse NoJS
+// expressions without running the framework.
+export { parseExpression, parseStatements, segmentPipes };

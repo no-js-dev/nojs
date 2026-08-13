@@ -102,6 +102,10 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 - `NoJS.findContext(el: HTMLElement): object | null` — Walk up the DOM to find the nearest reactive context attached to an ancestor element.
 - `NoJS.processTree(root: HTMLElement): void` — Walk a DOM subtree and execute all matching directives by priority.
 
+### Compiler Support (ADR-024)
+
+- `parseExpression(str): AST` / `parseStatements(str): AST[]` / `segmentPipes(str): string[]` — Named exports from the module entry for offline tooling (compilers, linters). Bypass runtime caches. Call `segmentPipes` before `parseExpression` to strip pipe filters. Forbidden property access (`__proto__`, `constructor`, `prototype`) yields `{ type: 'Forbidden' }` nodes.
+
 ### Metadata
 
 - `NoJS.version: string` — The framework version string (e.g. `"1.17.0"`).

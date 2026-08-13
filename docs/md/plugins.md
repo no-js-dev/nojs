@@ -512,6 +512,57 @@ A full analytics plugin demonstrating the plugin lifecycle, globals, interceptor
 
 ---
 
+## Compiler Support — Parser Exports (ADR-024)
+
+Three named exports give offline tooling (compilers, linters, bundler plugins) direct access to the No.JS expression parser without running the framework. They bypass the runtime LRU caches so they never interfere with a live app.
+
+```js
+import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/src/index.js';
+```
+
+### `segmentPipes(str)`
+
+Split a raw directive value into its expression segment and zero or more pipe-filter segments. Pipes inside strings, template literals, brackets, and `||` operators are preserved — only top-level `|` delimiters are split.
+
+**Always call `segmentPipes` before `parseExpression`** so that filter syntax is stripped before parsing.
+
+Returns `string[]`. Empty/null input returns `[]`.
+
+```js
+segmentPipes('user.name | uppercase | truncate:20');
+// → ['user.name', 'uppercase', 'truncate:20']
+
+segmentPipes('a || b');
+// → ['a || b']  — logical OR is NOT a pipe
+```
+
+### `parseExpression(str)`
+
+Parse a single No.JS expression into an AST node. Supports the full expression grammar: identifiers, member access (dot and computed), optional chaining, arithmetic, comparison, logical, ternary, template literals, arrow functions, spread, `typeof`, `in`, assignment operators, and postfix `++`/`--`.
+
+Prototype-chain property access (`constructor`, `__proto__`, `prototype`) produces `{ type: 'Forbidden' }` nodes — compilers must treat these as hard errors.
+
+Returns an AST node object. Empty/null input returns `{ type: 'Literal', value: undefined }`.
+
+```js
+parseExpression('user.name');
+// → { type: 'MemberExpr', object: { type: 'Identifier', name: 'user' }, ... }
+
+parseExpression('obj.__proto__');
+// → { type: 'Forbidden' }
+```
+
+### `parseStatements(str)`
+
+Parse a semicolon-separated statement string (as used in `on:click`, `watch`) into an array of AST nodes. Uses the same grammar as `parseExpression` but handles multiple statements.
+
+Returns `AST[]`.
+
+```js
+parseStatements('count++; name = "hello"');
+// → [{ type: 'PostfixExpr', ... }, { type: 'AssignExpr', ... }]
+```
+
 ## See Also
 
 - [Custom Directives](custom-directives.md) — simpler extension point for single-attribute behaviors

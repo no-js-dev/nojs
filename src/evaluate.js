@@ -2227,3 +2227,49 @@ export function _interpolate(str, ctx) {
     return encodeURIComponent(String(val));
   });
 }
+
+// ── Compiler-support surface (ADR-024, NoJS-Server) ───────────────────
+// Thin wrappers exposing the parser for static analysis by external tools
+// (e.g. @no-js-dev/server compiler). These operate on the raw AST layer
+// and never read from or write to the runtime eval caches (_exprCache).
+
+// Parse one expression into its AST. Node types: Literal, Identifier,
+// BinaryExpr, UnaryExpr, ConditionalExpr, MemberExpr, OptionalMemberExpr,
+// CallExpr, OptionalCallExpr, ArrayExpr, ObjectExpr, ArrowFunction,
+// TemplateLiteral, SpreadElement, AssignExpr, PostfixExpr, and Forbidden
+// (emitted for __proto__/constructor/prototype access — consumers must
+// treat it as a hard error). Pipes are NOT split here: run segmentPipes()
+// first and pass only the expression portion.
+export function parseExpression(str) {
+  if (typeof str !== "string" || str.trim() === "") {
+    return { type: "Literal", value: undefined };
+  }
+  return _parseExpr(_tokenize(str));
+}
+
+// Parse a semicolon-delimited statement string into one AST node per
+// statement (static-analysis counterpart of _execStatement). Mirrors
+// _parseStatements' splitting but stays cache-free (_stmtCache untouched).
+export function parseStatements(str) {
+  if (typeof str !== "string" || str.trim() === "") return [];
+  const tokens = _tokenize(str);
+  const stmts = [];
+  let start = 0;
+  for (let i = 0; i <= tokens.length; i++) {
+    if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
+      const chunk = tokens.slice(start, i);
+      if (chunk.length > 0) stmts.push(_parseExpr(chunk));
+      start = i + 1;
+    }
+  }
+  return stmts;
+}
+
+// Segment a raw directive value into [expression, ...filterSpecs], e.g.
+// "user.name | uppercase | truncate:20" → ["user.name", "uppercase",
+// "truncate:20"]. Pipes inside strings/templates/brackets are preserved;
+// || is never treated as a pipe.
+export function segmentPipes(str) {
+  if (typeof str !== "string") return [];
+  return _parsePipes(str);
+}

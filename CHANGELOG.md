@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.20.2...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.21.0...HEAD)
+
+## [1.21.0](https://github.com/no-js-dev/nojs/compare/v1.20.2...v1.21.0) — 2026-08-12
+
+### Added
+
+- Compiler-support parser exports: `parseExpression`, `parseStatements`, and `segmentPipes` are now named exports from the module entry point (`src/index.js`), enabling offline tooling such as the `@no-js-dev/server` compiler to parse NoJS expressions without running the framework (ADR-024)
+- Package entry-point reachability tests for the three parser exports
+
+### Docs
+
+- Added "Compiler Support — Parser Exports" section to `plugins.md`, `llms.txt`, and `llms-full.txt` documenting function signatures, the `segmentPipes`-before-`parseExpression` rule, and Forbidden node semantics
 
 ## [1.20.2](https://github.com/no-js-dev/nojs/compare/v1.20.1...v1.20.2) — 2026-08-05
 

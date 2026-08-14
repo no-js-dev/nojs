@@ -263,9 +263,12 @@ const _loopHandler = {
 
       // Same-reference optimisation: propagate to managed clones without DOM
       // rebuild. Skipped while the else template is showing — the managed
-      // nodes are template content, not item clones.
+      // nodes are template content, not item clones. Also skipped when a
+      // filter expression exists — the filter may reference outer-scope
+      // variables whose change should produce a different filtered list even
+      // when the source array reference is unchanged.
       const managedClones = _getManagedClones(startMarker, endMarker);
-      if (!elseRendered && list === prevList && list.length > 0 && managedClones.length > 0) {
+      if (!elseRendered && !filterExpr && list === prevList && list.length > 0 && managedClones.length > 0) {
         for (const clone of managedClones) {
           if (clone.__ctx && clone.__ctx.$notify) clone.__ctx.$notify();
         }
@@ -640,6 +643,8 @@ const _loopHandler = {
     const savedEl = _currentEl;
     _setCurrentEl(parent);
     _watchExpr(listPath, ctx, update);
+    if (filterExpr) _watchExpr(filterExpr, ctx, update);
+    if (sortProp) _watchExpr(sortProp, ctx, update);
     update();
     _setCurrentEl(savedEl);
   },

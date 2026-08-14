@@ -337,3 +337,93 @@ describe('Loop + State interaction', () => {
     expect(statuses[1].textContent).toBe('false');
   });
 });
+
+// ── Filter outer-scope dependency tracking (NOJS-335) ────────────────
+
+describe('Loop filter subscribes to outer-scope dependencies', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  test('toggling outer boolean re-filters the loop', () => {
+    document.body.innerHTML = `
+      <div state="{ items: [{name:'Alice',active:true},{name:'Bob',active:false},{name:'Charlie',active:true}], showActive: true }">
+        <button class="toggle" on:click="showActive = !showActive">Toggle</button>
+        <ul>
+          <li each="item in items" filter="!showActive || item.active">
+            <span class="name" bind="item.name"></span>
+          </li>
+        </ul>
+      </div>
+    `;
+    processTree(document.body);
+
+    const names = () => [...document.querySelectorAll('.name')].map(n => n.textContent);
+
+    // Initial: showActive=true → only active items pass the filter
+    expect(names()).toEqual(['Alice', 'Charlie']);
+
+    // Toggle showActive to false → all items should show
+    document.querySelector('.toggle').click();
+    expect(names()).toEqual(['Alice', 'Bob', 'Charlie']);
+
+    // Toggle back to true → only active items again
+    document.querySelector('.toggle').click();
+    expect(names()).toEqual(['Alice', 'Charlie']);
+  });
+
+  test('typing into model-bound search re-filters the loop via includes', () => {
+    document.body.innerHTML = `
+      <div state="{ users: [{name:'Alice'},{name:'Bob'},{name:'Charlie'}], query: '' }">
+        <input class="search" model="query" />
+        <ul>
+          <li each="user in users" filter="!query || user.name.toLowerCase().includes(query.toLowerCase())">
+            <span class="rname" bind="user.name"></span>
+          </li>
+        </ul>
+      </div>
+    `;
+    processTree(document.body);
+
+    const names = () => [...document.querySelectorAll('.rname')].map(n => n.textContent);
+
+    // Initially all items shown (query is empty)
+    expect(names()).toEqual(['Alice', 'Bob', 'Charlie']);
+
+    // Type 'li' → matches Alice and Charlie
+    const input = document.querySelector('.search');
+    input.value = 'li';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(names()).toEqual(['Alice', 'Charlie']);
+
+    // Clear search → all items again
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(names()).toEqual(['Alice', 'Bob', 'Charlie']);
+  });
+
+  test('keyed loop filter subscribes to outer deps', () => {
+    document.body.innerHTML = `
+      <div state="{ items: [{id:1,name:'Alice',active:true},{id:2,name:'Bob',active:false},{id:3,name:'Charlie',active:true}], showActive: true }">
+        <button class="toggle" on:click="showActive = !showActive">Toggle</button>
+        <ul>
+          <li each="item in items" key="item.id" filter="!showActive || item.active">
+            <span class="kname" bind="item.name"></span>
+          </li>
+        </ul>
+      </div>
+    `;
+    processTree(document.body);
+
+    const names = () => [...document.querySelectorAll('.kname')].map(n => n.textContent);
+
+    expect(names()).toEqual(['Alice', 'Charlie']);
+
+    document.querySelector('.toggle').click();
+    expect(names()).toEqual(['Alice', 'Bob', 'Charlie']);
+
+    document.querySelector('.toggle').click();
+    expect(names()).toEqual(['Alice', 'Charlie']);
+  });
+});

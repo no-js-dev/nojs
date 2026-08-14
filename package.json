@@ -1,6 +1,6 @@
 {
   "name": "@no-js-dev/nojs",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "description": "The HTML-first reactive framework — build dynamic web apps with just HTML attributes, no JavaScript required",
   "browser": "dist/iife/no.js",
   "unpkg": "dist/iife/no.js",

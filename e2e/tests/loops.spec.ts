@@ -234,4 +234,45 @@ test.describe('Loops', () => {
     await expect(items).toHaveCount(0);
     await expect(elseEl).toBeVisible();
   });
+
+  // ── Filter outer-scope dependency tracking (NOJS-335) ──────────────
+
+  test('17 — filter with outer boolean toggle re-filters on change', async ({ page }) => {
+    const items = page.getByTestId('filter-outer-item');
+
+    // Initial: showActive=true → only active items (Alice, Charlie)
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toHaveText('Alice');
+    await expect(items.nth(1)).toHaveText('Charlie');
+
+    // Toggle showActive to false → all items
+    await page.getByTestId('filter-toggle').click();
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toHaveText('Alice');
+    await expect(items.nth(1)).toHaveText('Bob');
+    await expect(items.nth(2)).toHaveText('Charlie');
+
+    // Toggle back → active-only again
+    await page.getByTestId('filter-toggle').click();
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toHaveText('Alice');
+    await expect(items.nth(1)).toHaveText('Charlie');
+  });
+
+  test('18 — filter with outer search query re-filters on input', async ({ page }) => {
+    const items = page.getByTestId('filter-search-item');
+
+    // Initially all items shown
+    await expect(items).toHaveCount(3);
+
+    // Type 'li' → matches Alice and Charlie
+    await page.getByTestId('filter-search').fill('li');
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toHaveText('Alice');
+    await expect(items.nth(1)).toHaveText('Charlie');
+
+    // Clear → all items
+    await page.getByTestId('filter-search').fill('');
+    await expect(items).toHaveCount(3);
+  });
 });

@@ -139,6 +139,24 @@
     <template id="fr-no-data"><p data-test="fr-tpl-else">Empty list</p></template>
   </section>
 
+  <!-- 17. Filter with outer-scope boolean toggle (NOJS-335) -->
+  <section state="{ items335: [{name:'Alice',active:true},{name:'Bob',active:false},{name:'Charlie',active:true}], showActive: true }">
+    <p class="test-label">Test 17: Filter with outer-scope boolean toggle</p>
+    <button data-test="filter-toggle" on:click="showActive = !showActive">Toggle</button>
+    <ul data-test="filter-outer-list">
+      <li data-test="filter-outer-item" each="item in items335" filter="!showActive || item.active" bind="item.name"></li>
+    </ul>
+  </section>
+
+  <!-- 18. Filter with outer-scope search query (NOJS-335) -->
+  <section state="{ users335: [{name:'Alice'},{name:'Bob'},{name:'Charlie'}], query335: '' }">
+    <p class="test-label">Test 18: Filter with outer-scope search query</p>
+    <input data-test="filter-search" model="query335" type="text" placeholder="Search..." />
+    <ul data-test="filter-search-list">
+      <li data-test="filter-search-item" each="user in users335" filter="!query335 || user.name.toLowerCase().includes(query335.toLowerCase())" bind="user.name"></li>
+    </ul>
+  </section>
+
   <script src="../../dist/iife/no.js"></script>
   <!--
     WORKAROUND: processTree(document.body) breaks when a self-repeating loop

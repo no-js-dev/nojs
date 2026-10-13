@@ -19,7 +19,7 @@ import {
 } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { evaluate, _execStatement } from '../src/evaluate.js';
-import { registerDirective } from '../src/registry.js';
+import { registerDirective, processTree } from '../src/registry.js';
 import { _doFetch } from '../src/fetch.js';
 
 beforeEach(() => {
@@ -1216,5 +1216,44 @@ describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', ()
     await flush();
     expect(document.getElementById('n').textContent).toBe('1');
     expect(otherWrites).toBe(0);
+  });
+});
+
+describe('Directive freeze — names covered by core wildcard directives', () => {
+  test.each(['bind-href', 'on:click', 'class-active', 'style-color'])(
+    'registering "%s" after freeze is rejected and the core handler stays active',
+    (name) => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const init = jest.fn();
+
+      registerDirective(name, { init });
+
+      expectWarning(warnSpy, `Cannot override core directive "${name}"`);
+      warnSpy.mockRestore();
+    }
+  );
+
+  test('bind-src from a plugin cannot bypass core bind-* sanitization', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.directive('bind-src', { init(el) { el.setAttribute('src', 'javascript:void(0)'); } });
+
+    const host = document.createElement('div');
+    host.innerHTML = `<div state="{ u: 'javascript:alert(1)' }"><img bind-src="u"></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(host.querySelector('img').getAttribute('src')).not.toBe('javascript:void(0)');
+    warnSpy.mockRestore();
+  });
+
+  test('names not covered by a core directive still register', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+
+    registerDirective('chart-pie', { init });
+    registerDirective('bindings', { init });
+
+    expectNoWarning(warnSpy, 'Cannot override');
+    warnSpy.mockRestore();
   });
 });

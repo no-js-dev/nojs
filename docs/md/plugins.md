@@ -137,10 +137,13 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
         init(el, name, value) { /* ... */ }
       });
       app.directive('bind', { /* ... */ }); // ❌ core directive — warning, ignored
+      app.directive('bind-href', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
     }
   };
 </script>
 ```
+
+The same applies to any name matched by a core wildcard directive: `on:*`, `bind-*`, `class-*` and `style-*`.
 
 ---
 
@@ -300,6 +303,8 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 Trusted interceptors receive the full, unredacted request options and response object.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
+>
+> Trust is fixed when `NoJS.use()` is called; changing the options object afterwards has no effect. Only interceptors registered from inside a plugin's `install()` can be trusted, and `NoJS.interceptor()` takes a plain function (a caller-supplied `pluginName` is ignored).
 
 ### Redacted Headers
 
@@ -385,7 +390,7 @@ app.on('ready', fn);
 
 ### Never Use `eval` or `Function`
 
-Values passed to `NoJS.global()` are checked for dangerous references. `eval` and `Function` are blocked:
+Values passed to `NoJS.global()` are checked for dangerous references. `eval`, `Function` (including bound copies), and the `window`, `document` and `globalThis` objects are blocked:
 
 ```js
 // ❌ Rejected

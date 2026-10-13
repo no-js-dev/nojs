@@ -30,14 +30,17 @@ import { registerDirective } from "../registry.js";
 import { _isLoopElement } from "./loops.js";
 
 // Interpolate {key} placeholders in a string without URL-encoding.
-// Used by page-jsonld where the template is a JSON string.
+// Used by page-jsonld where the template is a JSON string; values are
+// escaped as JSON string content (and "<" so they cannot close the <script>).
 function _interpolateRaw(str, ctx) {
   // Match only {identifiers} — skip { starting with " or ' or whitespace-then-quote
   // to avoid consuming JSON structure (both compact and pretty-printed).
   return str.replace(/\{\s*([^}"'{\s][^}]*)\}/g, (_, expr) => {
     try {
       const val = evaluate(expr.trim(), ctx);
-      return val != null ? String(val) : "";
+      return val != null
+        ? JSON.stringify(String(val)).slice(1, -1).replace(/</g, "\\u003c")
+        : "";
     } catch (_) {
       return "";
     }

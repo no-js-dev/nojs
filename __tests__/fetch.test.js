@@ -1072,3 +1072,64 @@ describe('URL seen by untrusted request interceptors', () => {
     }
   });
 });
+
+describe('Global headers origin scoping', () => {
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+  });
+
+  afterEach(() => {
+    _config.headers = {};
+    _config.baseApiUrl = '';
+  });
+
+  test('global headers are not sent to a foreign absolute URL', async () => {
+    await _doFetch('https://other-api.com/data', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are not sent to a protocol-relative foreign URL', async () => {
+    await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('per-request headers still apply to a foreign URL while global ones do not', async () => {
+    await _doFetch('https://other-api.com/data', 'GET', null, { 'X-Explicit': '1' });
+    expect(sent()['X-Explicit']).toBe('1');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are sent to baseApiUrl-relative and baseApiUrl-absolute URLs', async () => {
+    await _doFetch('/users', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://api.myapp.com/other', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to same-origin URLs when no baseApiUrl is set', async () => {
+    _config.baseApiUrl = '';
+    await _doFetch('/api/test', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch(window.location.origin + '/api/abs', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to the origin of an element base= attribute', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('base', 'https://other-api.com/v2');
+    await _doFetch('items', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://other-api.com/abs', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+});

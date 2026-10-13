@@ -1219,9 +1219,8 @@ describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', ()
   });
 });
 
-// NOJS-BOOT-008 — flipped to test() by the fix commit
 describe('Directive freeze — names covered by core wildcard directives', () => {
-  test.failing.each(['bind-href', 'on:click', 'class-active', 'style-color'])(
+  test.each(['bind-href', 'on:click', 'class-active', 'style-color'])(
     'registering "%s" after freeze is rejected and the core handler stays active',
     (name) => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1234,7 +1233,7 @@ describe('Directive freeze — names covered by core wildcard directives', () =>
     }
   );
 
-  test.failing('bind-src from a plugin cannot bypass core bind-* sanitization', () => {
+  test('bind-src from a plugin cannot bypass core bind-* sanitization', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS.directive('bind-src', { init(el) { el.setAttribute('src', 'javascript:void(0)'); } });
 

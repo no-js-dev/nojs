@@ -16,28 +16,24 @@ describe.each(engines)('inherited Object.prototype names (%s engine)', (_n, ev) 
     m: { toString: 'ts', valueOf: 3 },
   });
 
-  // NOJS-EVAL-005 — flipped to test() by the fix commit
-  test.failing('(5).toString() and number/string toString()', () => {
+  test('(5).toString() and number/string toString()', () => {
     expect(ev('(5).toString()', make())).toBe('5');
     expect(ev('big.toString()', make())).toBe('1234.5');
     expect(ev('name.toString()', make())).toBe('x');
   });
 
-  // NOJS-EVAL-005 — flipped to test() by the fix commit
-  test.failing('toLocaleString is callable on numbers and dates', () => {
+  test('toLocaleString is callable on numbers and dates', () => {
     expect(ev('big.toLocaleString("en-US")', make())).toBe('1,234.5');
     expect(typeof ev('d.toLocaleString()', make())).toBe('string');
   });
 
-  // NOJS-EVAL-005 — flipped to test() by the fix commit
-  test.failing('hasOwnProperty and valueOf are callable', () => {
+  test('hasOwnProperty and valueOf are callable', () => {
     expect(ev('o.hasOwnProperty("a")', make())).toBe(true);
     expect(ev('o.hasOwnProperty("zz")', make())).toBe(false);
     expect(ev('d.valueOf()', make())).toBe(0);
   });
 
-  // NOJS-EVAL-005 — flipped to test() by the fix commit
-  test.failing('own data fields named like Object.prototype members are readable', () => {
+  test('own data fields named like Object.prototype members are readable', () => {
     expect(ev('m.toString', make())).toBe('ts');
     expect(ev('m["valueOf"]', make())).toBe(3);
   });
@@ -47,8 +43,7 @@ describe.each(engines)('inherited Object.prototype names (%s engine)', (_n, ev) 
   });
 });
 
-// NOJS-EVAL-005 — flipped to test() by the fix commit
-test.failing('resolve() and statement write-back accept Object.prototype names', () => {
+test('resolve() and statement write-back accept Object.prototype names', () => {
   const ctx = createContext({ o: { valueOf: 3 } });
   expect(resolve('o.valueOf', ctx)).toBe(3);
   const c2 = createContext({});
@@ -59,8 +54,7 @@ test.failing('resolve() and statement write-back accept Object.prototype names',
 describe.each(engines)('data fields named alert/confirm/prompt (%s engine)', (_n, ev) => {
   const make = () => createContext({ cfg: { confirm: true, prompt: 'p', alert: 'a' }, k: 'confirm' });
 
-  // NOJS-EVAL-006 — flipped to test() by the fix commit
-  test.failing('read via dot, literal computed and runtime computed', () => {
+  test('read via dot, literal computed and runtime computed', () => {
     expect(ev('cfg.confirm', make())).toBe(true);
     expect(ev('cfg.prompt', make())).toBe('p');
     expect(ev('cfg["alert"]', make())).toBe('a');
@@ -68,15 +62,13 @@ describe.each(engines)('data fields named alert/confirm/prompt (%s engine)', (_n
     expect(ev('cfg?.[k]', make())).toBe(true);
   });
 
-  // NOJS-EVAL-006 — flipped to test() by the fix commit
-  test.failing('object literals keep these keys', () => {
+  test('object literals keep these keys', () => {
     expect(ev('{ confirm: 1, prompt: 2 }', make())).toEqual({ confirm: 1, prompt: 2 });
     expect(ev('{ ...cfg }', make())).toEqual({ confirm: true, prompt: 'p', alert: 'a' });
   });
 });
 
-// NOJS-EVAL-006 — flipped to test() by the fix commit
-test.failing('data fields named alert/confirm/prompt are writable', () => {
+test('data fields named alert/confirm/prompt are writable', () => {
   const ctx = createContext({ cfg: { confirm: true } });
   _execStatement('cfg.confirm = false', ctx, {});
   expect(ctx.cfg.confirm).toBe(false);
@@ -103,6 +95,13 @@ describe.each(engines)('dangerous names stay blocked (%s engine)', (_n, ev) => {
   test('calls through blocked names', () => {
     expect(ev('o.constructor("x")', make())).toBeUndefined();
     expect(ev('o[k]("x")', make())).toBeUndefined();
+  });
+
+  test('legacy accessor methods stay blocked', () => {
+    for (const n of ['__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__']) {
+      expect(ev(`o.${n}`, make())).toBeUndefined();
+      expect(ev(`o["${n}"]("__proto__")`, make())).toBeUndefined();
+    }
   });
 
   test('object literals drop blocked keys', () => {

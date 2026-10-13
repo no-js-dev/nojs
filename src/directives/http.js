@@ -269,7 +269,7 @@ for (const method of HTTP_METHODS) {
         let current = obj;
         for (const part of parts) {
           if (current == null || typeof current !== "object") return undefined;
-          if (_FORBIDDEN_PROPS[part]) {
+          if (_FORBIDDEN_PROPS.has(part)) {
             _warn("Blocked access to forbidden property '" + part + "' in get-cursor-field");
             return undefined;
           }

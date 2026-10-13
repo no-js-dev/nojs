@@ -722,7 +722,16 @@ function _parseExpr(tokens) {
 // ---------------------------------------------------------------------------
 // AST tree-walking evaluator
 // ---------------------------------------------------------------------------
-export const _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };
+// A Set so only the listed names match (a plain object would also match every
+// inherited Object.prototype member such as `toString` or `hasOwnProperty`).
+// The legacy accessor methods are listed explicitly; before, they were only
+// blocked because they are inherited.
+export const _FORBIDDEN_PROPS = new Set([
+  '__proto__', 'constructor', 'prototype',
+  '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__',
+]);
+// Non-string computed keys (numbers, arrays) are compared by their string form.
+const _isForbiddenProp = (p) => _FORBIDDEN_PROPS.has(typeof p === 'string' ? p : String(p));
 
 // Foreign-realm accessor names (VULNERABILITY F4 / NOJS-239). Reading any of
 // these off a raw DOM element (e.g. an <iframe> resolved via `$refs`) hands back
@@ -815,7 +824,7 @@ function _inSafeGlobals(name) {
 const _BLOCKED_WINDOW_PROPS = new Set([
   'fetch', 'XMLHttpRequest', 'localStorage', 'sessionStorage',
   'WebSocket', 'indexedDB', 'eval', 'Function', 'importScripts',
-  'open', 'postMessage',
+  'open', 'postMessage', 'alert', 'confirm', 'prompt',
 ]);
 // Props on window that must return safe proxies instead of raw objects
 const _WINDOW_PROXY_OVERRIDES = {}; // populated after proxy creation below
@@ -1134,7 +1143,7 @@ function _evalNode(node, scope) {
         const prop = node.computed
           ? _evalNode(node.property, scope)
           : node.property.name || node.property.value;
-        if (_FORBIDDEN_PROPS[prop]) return undefined;
+        if (_isForbiddenProp(prop)) return undefined;
         // F4 / NOJS-239: refuse foreign-realm accessors (contentDocument,
         // contentWindow, frames, parent, top, self) on raw DOM elements so an
         // <iframe> ref can never hand back a cross-realm object. Safe window /
@@ -1155,7 +1164,7 @@ function _evalNode(node, scope) {
           const prop = node.callee.computed
             ? _evalNode(node.callee.property, scope)
             : node.callee.property.name;
-          if (_FORBIDDEN_PROPS[prop]) return undefined;
+          if (_isForbiddenProp(prop)) return undefined;
           // F4 / NOJS-239: same foreign-realm accessor block as MemberExpr, so a
           // call like `$refs.frame.contentDocument.querySelector(...)` cannot
           // reach a cross-realm object via the callee's object chain.
@@ -1197,12 +1206,12 @@ function _evalNode(node, scope) {
             const src = _evalNode(prop.value, scope);
             if (src && typeof src === 'object') {
               for (const k of Object.keys(src)) {
-                if (!_FORBIDDEN_PROPS[k]) obj[k] = src[k];
+                if (!_isForbiddenProp(k)) obj[k] = src[k];
               }
             }
           } else {
             const key = prop.computed ? _evalNode(prop.key, scope) : prop.key;
-            if (_FORBIDDEN_PROPS[key]) continue;
+            if (_isForbiddenProp(key)) continue;
             obj[key] = _evalNode(prop.value, scope);
           }
         }
@@ -1489,7 +1498,7 @@ function _compileNode(node) {
       const objFn = _compileNode(node.object);
       if (!node.computed) {
         const prop = node.property.name || node.property.value;
-        if (_FORBIDDEN_PROPS[prop]) return _fnUndefined;
+        if (_isForbiddenProp(prop)) return _fnUndefined;
         // F4 / NOJS-239: foreign-realm accessors are only readable off the
         // safe window/document proxies, never off raw DOM elements.
         const realmBlocked = _FORBIDDEN_REALM_ACCESSORS.has(prop);
@@ -1505,7 +1514,7 @@ function _compileNode(node) {
         const obj = objFn(c, l);
         if (obj == null) return undefined;
         const prop = propFn(c, l);
-        if (_FORBIDDEN_PROPS[prop]) return undefined;
+        if (_isForbiddenProp(prop)) return undefined;
         if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(obj)) return undefined;
         return _rewrapResult(obj[prop]);
       });
@@ -1519,7 +1528,7 @@ function _compileNode(node) {
         const thisFn = _compileNode(callee.object);
         if (!callee.computed) {
           const prop = callee.property.name;
-          if (_FORBIDDEN_PROPS[prop]) return _fnUndefined;
+          if (_isForbiddenProp(prop)) return _fnUndefined;
           const realmBlocked = _FORBIDDEN_REALM_ACCESSORS.has(prop);
           return _guard(node.type, (c, l) => {
             const thisObj = thisFn(c, l);
@@ -1535,7 +1544,7 @@ function _compileNode(node) {
           const thisObj = thisFn(c, l);
           if (thisObj == null) return undefined;
           const prop = propFn(c, l);
-          if (_FORBIDDEN_PROPS[prop]) return undefined;
+          if (_isForbiddenProp(prop)) return undefined;
           if (_FORBIDDEN_REALM_ACCESSORS.has(prop) && !_SAFE_PROXIES.has(thisObj)) return undefined;
           const fn = thisObj[prop];
           if (typeof fn !== "function") return undefined;
@@ -1583,7 +1592,7 @@ function _compileNode(node) {
       const props = node.properties.map((prop) => {
         if (prop.spread) return { spread: true, valueFn: _compileNode(prop.value) };
         if (prop.computed) return { computed: true, keyFn: _compileNode(prop.key), valueFn: _compileNode(prop.value) };
-        return { key: prop.key, valueFn: _compileNode(prop.value), forbidden: !!_FORBIDDEN_PROPS[prop.key] };
+        return { key: prop.key, valueFn: _compileNode(prop.value), forbidden: _FORBIDDEN_PROPS.has(prop.key) };
       });
       return _guard(node.type, (c, l) => {
         const obj = {};
@@ -1593,12 +1602,12 @@ function _compileNode(node) {
             const src = p.valueFn(c, l);
             if (src && typeof src === "object") {
               for (const k of Object.keys(src)) {
-                if (!_FORBIDDEN_PROPS[k]) obj[k] = src[k];
+                if (!_isForbiddenProp(k)) obj[k] = src[k];
               }
             }
           } else if (p.computed) {
             const key = p.keyFn(c, l);
-            if (_FORBIDDEN_PROPS[key]) continue;
+            if (_isForbiddenProp(key)) continue;
             obj[key] = p.valueFn(c, l);
           } else {
             if (p.forbidden) continue;
@@ -1730,7 +1739,7 @@ function _parseDeclaration(chunk, declared) {
       );
     }
     const name = id.value;
-    if (name === "const" || name === "let" || _FORBIDDEN_PROPS[name] === 1 || name.charCodeAt(0) === 36 /* $ */) {
+    if (name === "const" || name === "let" || _FORBIDDEN_PROPS.has(name) || name.charCodeAt(0) === 36 /* $ */) {
       throw new SyntaxError(`invalid ${kind} declaration name "${name}"`);
     }
     if (declared.has(name)) {
@@ -1797,7 +1806,7 @@ function _assignToTarget(target, value, scope) {
     const prop = target.computed
       ? _evalNode(target.property, scope)
       : target.property.name || target.property.value;
-    if (_FORBIDDEN_PROPS[prop]) return;
+    if (_isForbiddenProp(prop)) return;
     obj[prop] = value;
   }
 }
@@ -2287,9 +2296,9 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // handled by the chainKeys write-back above.
     for (const k in scope) {
       if (!Object.prototype.hasOwnProperty.call(scope, k)) continue;
-      if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
+      if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || _hasOwn.call(extraVars, k)) continue;
       if (locals && locals.has(k)) continue;
-      if (_FORBIDDEN_PROPS[k]) continue;
+      if (_isForbiddenProp(k)) continue;
       ctx.$set(k, scope[k]);
     }
 
@@ -2330,7 +2339,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
 
 export function resolve(path, ctx) {
   return path.split(".").reduce((o, k) => {
-    if (_FORBIDDEN_PROPS[k]) return undefined;
+    if (_isForbiddenProp(k)) return undefined;
     return o?.[k];
   }, ctx);
 }

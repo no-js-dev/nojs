@@ -84,7 +84,10 @@ const _DANGEROUS_REFS = typeof window !== "undefined"
   : new Set();
 
 function _isUnsafeGlobalValue(value) {
-  return _DANGEROUS_REFS.has(value);
+  if (_DANGEROUS_REFS.has(value)) return true;
+  // Bound eval/Function are distinct objects; the real window/document bypass the expression allow-list
+  if (typeof value === "function") return /^(bound )+(eval|Function)$/.test(value.name);
+  return typeof window !== "undefined" && (value === window || value === document || value === globalThis);
 }
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -252,6 +255,9 @@ const NoJS = {
       _warn(`WARNING: Plugin "${plugin.name}" installed with trusted access to sensitive HTTP headers.`);
     }
 
+    // Snapshot options so install() or later code cannot change `trusted` on the stored copy
+    const snapshot = Object.freeze({ ...options });
+
     // Set current plugin name for interceptor tracking
     _setCurrentPluginName(plugin.name);
     try {
@@ -260,7 +266,7 @@ const NoJS = {
       _setCurrentPluginName(null);
     }
 
-    _plugins.set(plugin.name, { plugin, options });
+    _plugins.set(plugin.name, { plugin, options: snapshot });
 
     // If already initialized and plugin has init, await then call
     if (_initPromise && plugin.init) {
@@ -388,8 +394,7 @@ const NoJS = {
       // Clean up devtools listener
       destroyDevtools();
 
-      _configLocked = false;
-
+      // _configLocked intentionally stays set: rendered bindings keep using _config after dispose()
       _initPromise = null;
       _log("Disposed.");
     } finally {
@@ -564,6 +569,12 @@ const NoJS = {
     }
     if (!_interceptors[type]) {
       _warn(`NoJS.interceptor(): unknown type "${type}" (expected "request" or "response").`);
+      return;
+    }
+    // Unwrap caller-supplied { fn, pluginName }: plugin identity comes only from install()
+    if (fn && typeof fn === "object") fn = fn.fn;
+    if (typeof fn !== "function") {
+      _warn("NoJS.interceptor(): handler must be a function.");
       return;
     }
     _interceptors[type].push(

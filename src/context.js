@@ -270,6 +270,9 @@ export function _collectKeys(ctx) {
   while (c && c.__isProxy) {
     const raw = c.__raw;
     for (const k of Object.keys(raw)) {
+      // Skip the cache itself: copying it into vals would make each new cache
+      // hold the previous one, an unbounded chain pinning every old value.
+      if (k === "__collectKeysCache") continue;
       if (!allKeys.has(k)) {
         allKeys.add(k);
         allVals[k] = raw[k];

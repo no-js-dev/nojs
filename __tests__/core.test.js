@@ -2177,8 +2177,7 @@ describe('_collectKeys cache retention', () => {
     return links;
   }
 
-  // NOJS-REACT-001 — flipped to test() by the fix commit
-  test.failing('statements do not chain old caches or pin replaced state values', () => {
+  test('statements do not chain old caches or pin replaced state values', () => {
     const ctx = createContext({ q: '', results: [] });
     const firstResults = ctx.results;
     for (let i = 0; i < 50; i++) {
@@ -2190,8 +2189,7 @@ describe('_collectKeys cache retention', () => {
     expect(links.some((c) => c.result.vals.results === firstResults)).toBe(false);
   });
 
-  // NOJS-REACT-001 — flipped to test() by the fix commit
-  test.failing('a child cache does not capture its own or its parent cache', () => {
+  test('a child cache does not capture its own or its parent cache', () => {
     const parent = createContext({ x: 0 });
     const child = createContext({ y: 0 }, parent);
     for (let i = 1; i <= 5; i++) {

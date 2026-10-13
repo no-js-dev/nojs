@@ -84,7 +84,8 @@ export interface NoJSInstance {
   /**
    * Inject a reactive global variable accessible as $name in any expression.
    * @param name - Global name (without $ prefix). Must not be reserved or forbidden.
-   * @param value - The value to inject. Plain objects are wrapped in a reactive context.
+   * @param value - The value to inject. Objects are published by reference (not copied);
+   *   call notify() after mutating one from JavaScript.
    */
   global(name: string, value: unknown): void;
 

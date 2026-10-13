@@ -306,27 +306,12 @@ const NoJS = {
       _warn(`Global "$${name}" owned by "${_globalOwners[name]}" is being overwritten.`);
     }
 
-    // Sanitize object values to strip __proto__ keys
-    if (value && typeof value === "object" && !value.__isProxy) {
+    // Objects are published by reference (no copy): methods, Dates and the
+    // plugin's own handle reach templates. Reject values holding forbidden keys
+    // or nested eval/Function refs (a reactive proxy lists its target's keys).
+    if (value && typeof value === "object") {
       try {
-        value = JSON.parse(JSON.stringify(value));
-      } catch {
-        // Non-serializable objects — check for dangerous function references
-        try {
-          _deepCheckUnsafe(value);
-        } catch (safetyErr) {
-          if (safetyErr.message === "unsafe_global") return;
-          // Other errors pass through
-        }
-      }
-      // Wrap in reactive context for deep reactivity
-      value = createContext(value);
-    } else if (value && typeof value === "object" && value.__isProxy) {
-      // Already a reactive proxy — sanitization branch above is skipped, so run the
-      // recursive unsafe-reference / prototype-pollution check on the raw target
-      // to avoid storing nested eval/Function refs or polluted prototypes verbatim.
-      try {
-        _deepCheckUnsafe(value.__raw ?? value);
+        _deepCheckUnsafe(value);
       } catch (safetyErr) {
         if (safetyErr.message === "unsafe_global") return;
         // Other errors pass through

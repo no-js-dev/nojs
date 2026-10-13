@@ -1239,8 +1239,8 @@ describe('plugin globals across scopes and by reference', () => {
     NoJS.processTree(document.body);
   }
 
-  // NOJS-API-001 — flipped to test() by the fix commit
-  test.failing('re-publishing with NoJS.global() updates every scope', async () => {
+  // NOJS-API-001
+  test('re-publishing with NoJS.global() updates every scope', async () => {
     NoJS.global('flags', { beta: false });
     render("$flags.beta ? 'on' : 'off'");
     expect(texts()).toEqual(['off', 'off', 'off']);
@@ -1250,8 +1250,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(texts()).toEqual(['on', 'on', 'on']);
   });
 
-  // NOJS-API-001 — flipped to test() by the fix commit
-  test.failing('a global first published after render updates every scope', async () => {
+  // NOJS-API-001
+  test('a global first published after render updates every scope', async () => {
     render("$late ? $late.v : 'none'");
     expect(texts()).toEqual(['none', 'none', 'none']);
 
@@ -1260,8 +1260,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(texts()).toEqual(['yes', 'yes', 'yes']);
   });
 
-  // NOJS-API-001 — flipped to test() by the fix commit
-  test.failing('in-place mutation followed by NoJS.notify() updates every scope', async () => {
+  // NOJS-API-001
+  test('in-place mutation followed by NoJS.notify() updates every scope', async () => {
     NoJS.global('theme', { mode: 'dark' });
     render('$theme.mode');
 
@@ -1271,8 +1271,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(texts()).toEqual(['light', 'light', 'light']);
   });
 
-  // NOJS-API-001 — flipped to test() by the fix commit
-  test.failing('a template write in one scope updates every scope', async () => {
+  // NOJS-API-001
+  test('a template write in one scope updates every scope', async () => {
     NoJS.global('theme', { mode: 'dark' });
     render('$theme.mode', `<button id="btn" on:click="$theme.mode = 'light'">t</button>`);
 
@@ -1281,8 +1281,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(texts()).toEqual(['light', 'light', 'light']);
   });
 
-  // NOJS-API-006 — flipped to test() by the fix commit
-  test.failing('object globals keep methods and Dates', () => {
+  // NOJS-API-006
+  test('object globals keep methods and Dates', () => {
     const since = new Date(0);
     NoJS.global('auth', { user: 'guest', since, logout() { this.user = null; } });
 
@@ -1291,8 +1291,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(evaluate('$auth.since', ctx)).toBe(since);
   });
 
-  // NOJS-API-006 — flipped to test() by the fix commit
-  test.failing('templates see the published object itself', async () => {
+  // NOJS-API-006
+  test('templates see the published object itself', async () => {
     const auth = { user: 'guest' };
     NoJS.global('auth', auth);
     render('$auth.user');
@@ -1304,8 +1304,8 @@ describe('plugin globals across scopes and by reference', () => {
     expect(texts()).toEqual(['alice', 'alice', 'alice']);
   });
 
-  // NOJS-API-006 — flipped to test() by the fix commit
-  test.failing('a method called from a template updates every scope', async () => {
+  // NOJS-API-006
+  test('a method called from a template updates every scope', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS.global('auth', { user: 'alice', logout() { this.user = 'guest'; } });
     render('$auth.user', '<button id="btn" on:click="$auth.logout()">x</button>');
@@ -1323,5 +1323,28 @@ describe('plugin globals across scopes and by reference', () => {
 
     expect(evaluate('$evil && $evil.run', createContext({}))).toBeUndefined();
     warnSpy.mockRestore();
+  });
+
+  // Hot paths: loop $-variables must not count as globals, and a statement
+  // over a $-root that is not a published global must not wake every scope
+  test('only global bindings and global writes use the app-wide wake', async () => {
+    let reads = 0;
+    NoJS.filter('countReads', (v) => { reads++; return v; });
+    NoJS.global('theme', { mode: 'dark' });
+    render('$theme.mode | countReads', '<button id="btn" on:click="$refs.none">x</button>');
+    document.body.insertAdjacentHTML('beforeend',
+      '<div state="{ items: [1, 2] }"><p foreach="item in items"><i bind="$index | countReads"></i></p></div>');
+    NoJS.processTree(document.body.lastElementChild);
+
+    let before = reads;
+    NoJS.global('theme', { mode: 'light' });
+    await flush();
+    expect(texts()).toEqual(['light', 'light', 'light']);
+    expect(reads - before).toBe(3); // the loop rows did not re-run
+
+    before = reads;
+    document.getElementById('btn').click();
+    await flush();
+    expect(reads - before).toBe(1); // only the button's own scope
   });
 });

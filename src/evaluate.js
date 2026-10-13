@@ -1843,9 +1843,14 @@ function _applyFilter(value, filterStr) {
   return fn(value, ...args);
 }
 
+// Split filter args by comma, respecting quotes. Whitespace inside a quoted
+// arg is significant (`join:', '` must keep the space) — only unquoted args
+// are trimmed; whitespace outside the quotes of a quoted arg is dropped.
 function _parseFilterArgs(str) {
   const args = [];
+  const quotedArgs = [];
   let current = "";
+  let quoted = false;
   let inStr = false;
   let strChar = "";
   for (const ch of str) {
@@ -1858,20 +1863,32 @@ function _parseFilterArgs(str) {
       continue;
     }
     if (ch === "'" || ch === '"') {
+      if (!quoted && !current.trim()) current = "";
       inStr = true;
+      quoted = true;
       strChar = ch;
       continue;
     }
     if (ch === ",") {
-      args.push(current.trim());
+      args.push(quoted ? current : current.trim());
+      quotedArgs.push(quoted);
       current = "";
+      quoted = false;
       continue;
     }
+    if (quoted && (ch === " " || ch === "\t" || ch === "\n" || ch === "\r")) continue;
     current += ch;
   }
-  if (current.trim()) args.push(current.trim());
-  // Try to parse numbers
-  return args.map((a) => {
+  if (quoted) {
+    args.push(current);
+    quotedArgs.push(true);
+  } else if (current.trim()) {
+    args.push(current.trim());
+    quotedArgs.push(false);
+  }
+  // Try to parse numbers (a whitespace-only quoted arg stays a string)
+  return args.map((a, i) => {
+    if (quotedArgs[i] && !a.trim()) return a;
     const n = Number(a);
     return isNaN(n) ? a : n;
   });

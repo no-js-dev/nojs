@@ -1385,8 +1385,7 @@ describe('Template src is page-relative (ignores base= / baseApiUrl)', () => {
     _templateHtmlCache.clear();
   });
 
-  // NOJS-DOM-004 — flipped to test() by the fix commit
-  test.failing('baseApiUrl does not prefix relative template src', async () => {
+  test('baseApiUrl does not prefix relative template src', async () => {
     _config.baseApiUrl = 'https://api.myapp.com/v1';
     document.body.innerHTML =
       '<template src="/templates/header.html"></template>' +
@@ -1402,8 +1401,7 @@ describe('Template src is page-relative (ignores base= / baseApiUrl)', () => {
     ]);
   });
 
-  // NOJS-DOM-004 — flipped to test() by the fix commit
-  test.failing('an ancestor base= does not prefix template src', async () => {
+  test('an ancestor base= does not prefix template src', async () => {
     document.body.innerHTML =
       '<div base="https://api.example.com"><template src="/partials/nav.tpl"></template></div>';
 
@@ -1412,8 +1410,7 @@ describe('Template src is page-relative (ignores base= / baseApiUrl)', () => {
     expect(global.fetch).toHaveBeenCalledWith('/partials/nav.tpl');
   });
 
-  // NOJS-DOM-004 — flipped to test() by the fix commit
-  test.failing('nested ./ src resolves against the parent template folder, not baseApiUrl', async () => {
+  test('nested ./ src resolves against the parent template folder, not baseApiUrl', async () => {
     _config.baseApiUrl = 'https://api.myapp.com/v1';
     global.fetch = jest.fn((url) => Promise.resolve({
       ok: true,

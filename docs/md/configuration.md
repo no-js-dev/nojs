@@ -7,7 +7,7 @@
   NoJS.config({
     // API
     baseApiUrl: 'https://api.myapp.com/v1',
-    headers: { 'Authorization': 'Bearer xxx' },
+    headers: { 'Authorization': 'Bearer xxx' },  // same-origin / baseApiUrl / base only
     timeout: 10000,
     retries: 2,
     retryDelay: 1000,
@@ -81,7 +81,7 @@
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
+> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is ignored with a console warning: no `window.__NOJS_DEVTOOLS__`, no context registry, and no `nojs:devtools` events. Sensitive values (auth headers, the CSRF token, and context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session`, matched as substrings, so e.g. `keywords` is also redacted) are shown as `[REDACTED]`.
 
 ---
 
@@ -153,7 +153,7 @@ NoJS.config({
 
 When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `dangerouslyDisableSanitize: true` to disable sanitization entirely (not recommended — see [Security](#security)).
 
-> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes. Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
+> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes (and stay locked after `NoJS.dispose()`). Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
 
 The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 

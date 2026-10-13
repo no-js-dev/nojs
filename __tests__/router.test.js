@@ -3144,3 +3144,123 @@ describe('Router — focusBehavior (M2)', () => {
     expect(document.activeElement).toBe(outlet);
   });
 });
+
+describe('Router — history mode keeps ?query and #hash on init and popstate', () => {
+  afterEach(() => {
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
+  });
+
+  test('initial load of /search?q=hello#frag keeps the URL and fills $route.query', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/search?q=hello#frag');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+
+  test('initial load strips the base from the pathname only', async () => {
+    _config.router = { useHash: false, base: '/app', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/app/search?q=hello');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(window.location.pathname + window.location.search).toBe('/app/search?q=hello');
+  });
+
+  test('Back to /search?q=hello#frag restores $route.query and keeps the URL', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/"><p>Home</p></template>
+      <template route="/search"><p>Search</p></template>
+      <template route="/other"><p>Other</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+    await router.push('/search?q=hello#frag');
+    await router.push('/other');
+    expect(router.current.path).toBe('/other');
+
+    window.history.back(); // jsdom fires popstate asynchronously
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+});
+
+describe('Router — page-jsonld value escaping', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top' };
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  test('a $route.query value cannot inject properties into the JSON-LD', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
+        <p>search</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
+    const data = JSON.parse(ldText());
+    expect(data['@type']).toBe('SearchResultsPage');
+    expect(data.name).toBe('x","@type":"Organization');
+  });
+
+  test('a $route.query value containing </script> cannot terminate the script element', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/item" page-jsonld='{"@type":"Thing","name":"{$route.query.n}"}'>
+        <p>item</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/item?n=' + encodeURIComponent('a"</script><b>'));
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText()).name).toBe('a"</script><b>');
+  });
+});

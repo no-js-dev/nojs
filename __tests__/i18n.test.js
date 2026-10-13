@@ -1939,8 +1939,7 @@ describe('t-html param escaping and persisted locale validation', () => {
     document.body.innerHTML = '';
   });
 
-  // NOJS-I18N-002 — flipped to test() by the fix commit
-  test.failing('t-html treats interpolated params as text', () => {
+  test('t-html treats interpolated params as text', () => {
     _i18n.locales = { en: { welcome: 'Welcome back, <b>{name}</b>!' } };
     _i18n.locale = 'en';
     const evil = '<a href="https://evil.example/login">Sign in</a><img src="https://evil.example/pixel">';
@@ -1968,8 +1967,7 @@ describe('t-html param escaping and persisted locale validation', () => {
     expect(el.textContent).toBe('Hi <i>x</i> & y');
   });
 
-  // NOJS-I18N-005 — flipped to test() by the fix commit
-  test.failing('persisted locale outside supportedLocales is ignored', async () => {
+  test('persisted locale outside supportedLocales is ignored', async () => {
     const { default: NoJS } = await import('../src/index.js');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     _i18n._locale = 'en';

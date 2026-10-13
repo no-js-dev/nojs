@@ -29,8 +29,7 @@ describe('persist restore validation', () => {
     Object.keys(_refs).forEach((k) => delete _refs[k]);
   });
 
-  // NOJS-STATE-001 — flipped to test() by the fix commit
-  test.failing('dotted keys from storage do not reach $refs members', () => {
+  test('dotted keys from storage do not reach $refs members', () => {
     const toast = document.createElement('div');
     _refs.toast = toast;
     localStorage.setItem('nojs_state_pv1', JSON.stringify({
@@ -42,8 +41,7 @@ describe('persist restore validation', () => {
     expect(toast.innerHTML).toBe('');
   });
 
-  // NOJS-STATE-001 — flipped to test() by the fix commit
-  test.failing('$-prefixed keys from storage do not shadow built-ins', () => {
+  test('$-prefixed keys from storage do not shadow built-ins', () => {
     localStorage.setItem('nojs_state_pv2', JSON.stringify({
       theme: 'light',
       $store: { auth: { role: 'admin' } },
@@ -72,16 +70,14 @@ describe('persist-fields allow-list fails closed', () => {
     localStorage.clear();
   });
 
-  // NOJS-STATE-004 — flipped to test() by the fix commit
-  test.failing('persist-fields="" persists nothing', () => {
+  test('persist-fields="" persists nothing', () => {
     const el = mount({ 'persist-key': 'pf1', 'persist-fields': '' });
     el.__ctx.theme = 'light';
     const saved = JSON.parse(localStorage.getItem('nojs_state_pf1') || '{}');
     expect(saved).toEqual({});
   });
 
-  // NOJS-STATE-004 — flipped to test() by the fix commit
-  test.failing('bare persist-fields attribute persists nothing', () => {
+  test('bare persist-fields attribute persists nothing', () => {
     const el = document.createElement('div');
     el.setAttribute('state', '{ theme: "dark", token: "secret-123" }');
     el.setAttribute('persist', 'localStorage');

@@ -4425,8 +4425,7 @@ describe('switch re-match and same-case updates', () => {
     document.body.innerHTML = '';
   });
 
-  // NOJS-COND-001 — flipped to test() by the fix commit
-  test.failing('on:click on a case element runs once per click after A→B→A', () => {
+  test('on:click on a case element runs once per click after A→B→A', () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', "{ tab: 'a', clicks: 0 }");
     parent.innerHTML = `
@@ -4445,8 +4444,7 @@ describe('switch re-match and same-case updates', () => {
     expect(parent.__ctx.clicks).toBe(1);
   });
 
-  // NOJS-COND-001 — flipped to test() by the fix commit
-  test.failing('case elements gain no listeners across re-matches', () => {
+  test('case elements gain no listeners across re-matches', () => {
     const tpl = document.createElement('template');
     tpl.id = 'rematch-b-tpl';
     tpl.innerHTML = '<p>B</p>';
@@ -4474,8 +4472,7 @@ describe('switch re-match and same-case updates', () => {
     expect(addB).not.toHaveBeenCalled();
   });
 
-  // NOJS-COND-005 — flipped to test() by the fix commit
-  test.failing('typed input in the matched then-case survives an update that keeps the same case', () => {
+  test('typed input in the matched then-case survives an update that keeps the same case', () => {
     const tpl = document.createElement('template');
     tpl.id = 'rematch-admin-tpl';
     tpl.innerHTML = '<input id="rematch-inp">';

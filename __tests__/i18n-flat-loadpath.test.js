@@ -41,8 +41,7 @@ afterEach(() => {
 });
 
 describe('locale setter — flat-mode loadPath (NOJS-I18N-001)', () => {
-  // NOJS-I18N-001 — flipped to test() by the fix commit
-  test.failing('switching locale fetches /locales/pt.json and listeners see the new text', async () => {
+  test('switching locale fetches /locales/pt.json and listeners see the new text', async () => {
     const seen = [];
     _i18nListeners.add(() => seen.push(_i18n.t('greeting')));
 
@@ -54,8 +53,7 @@ describe('locale setter — flat-mode loadPath (NOJS-I18N-001)', () => {
     expect(seen).toEqual(['Olá']);
   });
 
-  // NOJS-I18N-001 — flipped to test() by the fix commit
-  test.failing('switching back to a loaded locale uses the cache (no second fetch)', async () => {
+  test('switching back to a loaded locale uses the cache (no second fetch)', async () => {
     _config.i18n.cache = true;
     await _loadI18nForLocale('en'); // initial load, as init() does
 

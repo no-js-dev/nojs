@@ -467,3 +467,53 @@ describe('page-jsonld — injection guards, empty values and disposal', () => {
     expect(script.textContent).toContain('"name":""');
   });
 });
+
+// ─── page-jsonld value escaping ───────────────────────────────────────────────
+
+describe('page-jsonld value escaping', () => {
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  test('a value containing a double quote still yields valid JSON-LD', () => {
+    document.body.innerHTML = `
+      <div state='{"name":"27\\" Monitor"}'>
+        <div hidden page-jsonld>{"@type":"Product","name":"{name}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ '@type': 'Product', name: '27" Monitor' });
+  });
+
+  test('a value cannot inject extra properties', () => {
+    document.body.innerHTML = `
+      <div state='{"q":"x\\",\\"@type\\":\\"Organization"}'>
+        <div hidden page-jsonld>{"@type":"SearchResultsPage","name":"{q}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    const data = JSON.parse(ldText());
+    expect(data['@type']).toBe('SearchResultsPage');
+    expect(data.name).toBe('x","@type":"Organization');
+  });
+
+  test('backslashes and newlines in a value are escaped', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"a\\\\b\\nc"}'>
+        <div hidden page-jsonld>{"name":"{v}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText()).name).toBe('a\\b\nc');
+  });
+
+  test('a value containing </script> cannot terminate the script element', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"</script><b>x"}'>
+        <div hidden page-jsonld>{"name":"{v}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText()).name).toBe('</script><b>x');
+  });
+});

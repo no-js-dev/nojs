@@ -177,7 +177,7 @@ Prototype pollution vectors (`__proto__`, `constructor`, `prototype`) are also b
 
 ### Reactivity
 
-Object values passed to `NoJS.global()` are automatically wrapped in a reactive context. Mutations trigger DOM updates just like store or state changes:
+Globals are app-wide: every binding that reads `$name`, in any scope, updates when a template expression writes through it (`$user.name = 'Ada'`, `$user.logout()`) or when `NoJS.global()` publishes a new value, just like store changes:
 
 ```html
 <script>
@@ -187,6 +187,19 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <!-- Updates reactively when $user.name changes -->
 <span bind="$user.name"></span>
 ```
+
+Object values are published by reference, not copied: templates see the plugin's own object, with its methods and `Date` values. When plugin code mutates that object from JavaScript, call `NoJS.notify()` to update the DOM (as with `NoJS.store`):
+
+```js
+const user = { name: 'Guest', logout() { this.name = 'Guest'; } };
+app.global('user', user);
+
+// later, e.g. after a login request in plugin code:
+user.name = 'Ada';
+app.notify();
+```
+
+Values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
 
 ### Ownership Tracking
 

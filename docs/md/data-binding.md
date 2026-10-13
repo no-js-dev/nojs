@@ -60,6 +60,8 @@ Bind any HTML attribute dynamically.
      bind-data-role="user.role"></div>
 ```
 
+> **Event handlers are not bindable.** Any `bind-on*` attribute (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver`, …) is rejected: the attribute is never set and a `[No.JS] [Security] … rejected` warning names the element and attribute. Binding an inline handler would execute state as code. Use `on:` directives instead (`on:click="save()"`). URL attributes (`href`, `src`, `action`, …) are additionally filtered — `javascript:`, `vbscript:` and non-image `data:` values become `#`.
+
 ---
 
 ## `model` — Two-Way Binding

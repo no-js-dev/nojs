@@ -114,6 +114,8 @@ Full client-side routing with no page reloads.
 >   await NoJS.router.push('/dashboard');
 > </script>
 > ```
+>
+> If a newer navigation starts before the current one has rendered (for example, while a `lazy="ondemand"` template is still loading), only the newer page renders. The earlier Promise still resolves, without rendering its page.
 
 ---
 

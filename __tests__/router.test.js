@@ -3192,8 +3192,7 @@ describe('Router — superseded navigation', () => {
     return { router, seen, outlet: document.querySelector('[route-view]') };
   }
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('renders only the newer page when it loads first', async () => {
+  test('renders only the newer page when it loads first', async () => {
     const { router, seen, outlet } = await setup();
     const slow = router.push('/slow');
     const fast = router.push('/fast');
@@ -3210,8 +3209,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/fast']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('renders only the newer page when the superseded one loads first', async () => {
+  test('renders only the newer page when the superseded one loads first', async () => {
     const { router, seen, outlet } = await setup();
     const slow = router.push('/slow');
     const fast = router.push('/fast');
@@ -3228,8 +3226,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/fast']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a repeated navigation waits for the template load already in flight', async () => {
+  test('a repeated navigation waits for the template load already in flight', async () => {
     const { router, seen, outlet } = await setup();
     const first = router.push('/slow');
     const second = router.push('/slow');
@@ -3243,8 +3240,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/slow']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a late file-based layout probe does not replace the newer page', async () => {
+  test('a late file-based layout probe does not replace the newer page', async () => {
     _config.router.templates = 'pages';
     const { router, seen, outlet } = await setup();
     const docs = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
@@ -3259,8 +3255,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/fast']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a repeated file-based navigation waits for the layout probe in flight', async () => {
+  test('a repeated file-based navigation waits for the layout probe in flight', async () => {
     _config.router.templates = 'pages';
     const { router, seen, outlet } = await setup();
     const first = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
@@ -3275,8 +3270,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/docs/intro']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a superseded nested layout drops its unprocessed leaf', async () => {
+  test('a superseded nested layout drops its unprocessed leaf', async () => {
     _config.router.templates = 'pages';
     const { router, seen, outlet } = await setup();
     const docs = router.push('/docs/intro');
@@ -3297,8 +3291,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/fast']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a superseded navigation drops its unprocessed nested index route', async () => {
+  test('a superseded navigation drops its unprocessed nested index route', async () => {
     const { router, seen, outlet } = await setup();
     const slow = router.push('/slow');
     resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1><div route-view="tabs" route-index="overview" src="/tabs/"></div>');
@@ -3318,8 +3311,7 @@ describe('Router — superseded navigation', () => {
     expect(seen).toEqual(['/fast']);
   });
 
-  // NOJS-ROUTE-003 — flipped to test() by the fix commit
-  test.failing('a superseded View Transition update callback does not render', async () => {
+  test('a superseded View Transition update callback does not render', async () => {
     // Browsers run the update callback asynchronously, after the old state is captured
     document.startViewTransition = jest.fn(({ update }) => {
       const done = new Promise((r) => setTimeout(r, 0)).then(update);

@@ -33,8 +33,7 @@ describe('Request interceptors with concurrent requests', () => {
     _interceptors.request.length = 0;
   });
 
-  // NOJS-HTTP-003 — flipped to test() by the fix commit
-  test.failing('every sibling get element passes through an async request interceptor', async () => {
+  test('every sibling get element passes through an async request interceptor', async () => {
     _interceptors.request.push(async () => {
       await flush(1); // e.g. an async token lookup
       return { headers: { 'X-Tenant': 'acme' } };
@@ -47,8 +46,7 @@ describe('Request interceptors with concurrent requests', () => {
     expect(tenants().sort()).toEqual([['/api/a', 'acme'], ['/api/b', 'acme'], ['/api/c', 'acme']]);
   });
 
-  // NOJS-HTTP-003 — flipped to test() by the fix commit
-  test.failing('a CANCEL policy interceptor applies to every concurrent request', async () => {
+  test('a CANCEL policy interceptor applies to every concurrent request', async () => {
     _interceptors.request.push((url) => (url.includes('/admin') ? { [_CANCEL]: true } : undefined));
 
     const results = await Promise.allSettled([

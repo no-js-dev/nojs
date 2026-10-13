@@ -340,7 +340,7 @@ describe('DevTools Protocol', () => {
 
       const result = await sendCommand('get:config');
 
-      expect(result.headers).toBe('[REDACTED]');
+      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
 
       delete _config.headers;
     });
@@ -354,7 +354,7 @@ describe('DevTools Protocol', () => {
       expect(result.devtools).toBe(true);
       expect(result.baseApiUrl).toBe('');
       expect(result.csrf.token).toBe('[REDACTED]');
-      expect(result.headers).toBe('[REDACTED]');
+      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
 
       delete _config.csrf;
       delete _config.headers;
@@ -657,5 +657,56 @@ describe('M12 — destroyDevtools cleanup', () => {
 
     // Clean up
     destroyDevtools();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Redaction on the window.__NOJS_DEVTOOLS__ surfaces
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Devtools redaction', () => {
+  afterEach(() => {
+    _config.headers = {};
+    delete _config.csrf;
+  });
+
+  test('config getter redacts sensitive headers and the csrf token', () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };
+    const json = JSON.stringify(window.__NOJS_DEVTOOLS__.config);
+    expect(json).not.toContain('Bearer SECRET');
+    expect(json).not.toContain('CSRFSECRET');
+    expect(window.__NOJS_DEVTOOLS__.config.headers['X-Custom']).toBe('visible');
+  });
+
+  test('store snapshots redact sensitive keys', async () => {
+    initDevtools({ version: 'x' });
+    _stores.auth = createContext({ token: 'jwt-abc', password: 'hunter2', name: 'ann' });
+    const json = JSON.stringify(window.__NOJS_DEVTOOLS__.stores);
+    expect(json).not.toContain('jwt-abc');
+    expect(json).not.toContain('hunter2');
+    expect(json).toContain('ann');
+    const res = await sendCommand('inspect:store', { name: 'auth' });
+    expect(JSON.stringify(res)).not.toContain('jwt-abc');
+  });
+
+  test('get:config command returns the same redacted shape as the config getter', async () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };
+    const res = await sendCommand('get:config');
+    expect(JSON.stringify(res)).not.toContain('Bearer SECRET');
+    expect(JSON.stringify(res)).not.toContain('CSRFSECRET');
+    expect(res).toEqual(window.__NOJS_DEVTOOLS__.config);
+  });
+
+  test('local host: contexts are still registered and events still emitted', () => {
+    const { events, cleanup } = collectEvents();
+    const ctx = createContext({ a: 1 });
+    ctx.a = 2;
+    cleanup();
+    expect(_ctxRegistry.size).toBe(1);
+    expect(events.map((e) => e.type)).toEqual(['ctx:created', 'ctx:updated']);
   });
 });

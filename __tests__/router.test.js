@@ -3163,8 +3163,7 @@ describe('Router — page-jsonld value escaping', () => {
   const ldText = () =>
     document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
 
-  // NOJS-HEAD-001 — flipped to test() by the fix commit
-  test.failing('a $route.query value cannot inject properties into the JSON-LD', async () => {
+  test('a $route.query value cannot inject properties into the JSON-LD', async () => {
     document.body.innerHTML = `
       <div route-view></div>
       <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
@@ -3179,8 +3178,7 @@ describe('Router — page-jsonld value escaping', () => {
     expect(data.name).toBe('x","@type":"Organization');
   });
 
-  // NOJS-HEAD-001 — flipped to test() by the fix commit
-  test.failing('a $route.query value containing </script> cannot terminate the script element', async () => {
+  test('a $route.query value containing </script> cannot terminate the script element', async () => {
     document.body.innerHTML = `
       <div route-view></div>
       <template route="/item" page-jsonld='{"@type":"Thing","name":"{$route.query.n}"}'>

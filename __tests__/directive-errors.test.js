@@ -31,8 +31,7 @@ function mount(html) {
 }
 
 describe('directive init errors', () => {
-  // NOJS-BOOT-001 — flipped to test() by the fix commit
-  test.failing('a throwing init does not stop later elements from rendering and restores _currentEl', () => {
+  test('a throwing init does not stop later elements from rendering and restores _currentEl', () => {
     registerDirective('init-throws', { init() { throw new Error('boom'); } });
     const host = mount(
       `<div state="{ a: 'ok' }"><i init-throws></i><span id="after" bind="a"></span></div>` +
@@ -49,8 +48,7 @@ describe('directive init errors', () => {
 });
 
 describe('disposer errors', () => {
-  // NOJS-BOOT-002 — flipped to test() by the fix commit
-  test.failing('a throwing disposer does not stop the remaining disposers or the if content swap', () => {
+  test('a throwing disposer does not stop the remaining disposers or the if content swap', () => {
     const ran = [];
     registerDirective('dispose-throws', {
       init() {
@@ -74,8 +72,7 @@ describe('disposer errors', () => {
     expect(warnSpy).toHaveBeenCalledWith('[No.JS]', 'disposer error:', 'bad dispose');
   });
 
-  // NOJS-BOOT-002 — flipped to test() by the fix commit
-  test.failing('a throwing gate disposer does not stop the remaining ones on teardown', () => {
+  test('a throwing gate disposer does not stop the remaining ones on teardown', () => {
     const ran = [];
     const el = document.createElement('div');
     el.__gateDisposers = [() => { throw new Error('bad gate dispose'); }, () => ran.push('next')];

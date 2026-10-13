@@ -124,6 +124,12 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
 
 ---
 
+## Directive Errors
+
+If a directive's `init` (built-in or [custom](custom-directives.md)) throws, No.JS catches the error, logs a warning naming the directive and the element, and continues with the remaining directives and elements. A cleanup (dispose) function that throws is caught and logged the same way, and the remaining cleanups still run.
+
+---
+
 ## Common Mistakes
 
 ```html

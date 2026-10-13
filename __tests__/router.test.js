@@ -3144,3 +3144,53 @@ describe('Router — focusBehavior (M2)', () => {
     expect(document.activeElement).toBe(outlet);
   });
 });
+
+describe('Router — page-jsonld value escaping', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top' };
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  // NOJS-HEAD-001 — flipped to test() by the fix commit
+  test.failing('a $route.query value cannot inject properties into the JSON-LD', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
+        <p>search</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
+    const data = JSON.parse(ldText());
+    expect(data['@type']).toBe('SearchResultsPage');
+    expect(data.name).toBe('x","@type":"Organization');
+  });
+
+  // NOJS-HEAD-001 — flipped to test() by the fix commit
+  test.failing('a $route.query value containing </script> cannot terminate the script element', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/item" page-jsonld='{"@type":"Thing","name":"{$route.query.n}"}'>
+        <p>item</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/item?n=' + encodeURIComponent('a"</script><b>'));
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText()).name).toBe('a"</script><b>');
+  });
+});

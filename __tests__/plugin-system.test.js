@@ -1218,3 +1218,110 @@ describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', ()
     expect(otherWrites).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Plugin globals are app-wide and published by reference (NOJS-API-001/006)
+// ─────────────────────────────────────────────────────────────────────────
+// A global is read from unrelated scopes (header, sidebar, root bindings).
+// Every binding that reads it must follow a re-publish, a template write
+// from any scope, and a plugin-side mutation flushed with NoJS.notify().
+// Templates must see the plugin's own object: methods, Dates and identity.
+describe('plugin globals across scopes and by reference', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const texts = () => ['a', 'b', 'c'].map((id) => document.getElementById(id).textContent);
+
+  // Same binding in two sibling state scopes and at the root (no state)
+  function render(expr, extra = '') {
+    document.body.innerHTML =
+      `<div state="{}"><span id="a" bind="${expr}"></span>${extra}</div>` +
+      `<div state="{}"><span id="b" bind="${expr}"></span></div>` +
+      `<span id="c" bind="${expr}"></span>`;
+    NoJS.processTree(document.body);
+  }
+
+  // NOJS-API-001 — flipped to test() by the fix commit
+  test.failing('re-publishing with NoJS.global() updates every scope', async () => {
+    NoJS.global('flags', { beta: false });
+    render("$flags.beta ? 'on' : 'off'");
+    expect(texts()).toEqual(['off', 'off', 'off']);
+
+    NoJS.global('flags', { beta: true });
+    await flush();
+    expect(texts()).toEqual(['on', 'on', 'on']);
+  });
+
+  // NOJS-API-001 — flipped to test() by the fix commit
+  test.failing('a global first published after render updates every scope', async () => {
+    render("$late ? $late.v : 'none'");
+    expect(texts()).toEqual(['none', 'none', 'none']);
+
+    NoJS.global('late', { v: 'yes' });
+    await flush();
+    expect(texts()).toEqual(['yes', 'yes', 'yes']);
+  });
+
+  // NOJS-API-001 — flipped to test() by the fix commit
+  test.failing('in-place mutation followed by NoJS.notify() updates every scope', async () => {
+    NoJS.global('theme', { mode: 'dark' });
+    render('$theme.mode');
+
+    _globals.theme.mode = 'light';
+    NoJS.notify();
+    await flush();
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  // NOJS-API-001 — flipped to test() by the fix commit
+  test.failing('a template write in one scope updates every scope', async () => {
+    NoJS.global('theme', { mode: 'dark' });
+    render('$theme.mode', `<button id="btn" on:click="$theme.mode = 'light'">t</button>`);
+
+    document.getElementById('btn').click();
+    await flush();
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  // NOJS-API-006 — flipped to test() by the fix commit
+  test.failing('object globals keep methods and Dates', () => {
+    const since = new Date(0);
+    NoJS.global('auth', { user: 'guest', since, logout() { this.user = null; } });
+
+    const ctx = createContext({});
+    expect(evaluate('typeof $auth.logout', ctx)).toBe('function');
+    expect(evaluate('$auth.since', ctx)).toBe(since);
+  });
+
+  // NOJS-API-006 — flipped to test() by the fix commit
+  test.failing('templates see the published object itself', async () => {
+    const auth = { user: 'guest' };
+    NoJS.global('auth', auth);
+    render('$auth.user');
+    expect(evaluate('$auth', createContext({}))).toBe(auth);
+
+    auth.user = 'alice'; // the plugin updates its own object
+    NoJS.notify();
+    await flush();
+    expect(texts()).toEqual(['alice', 'alice', 'alice']);
+  });
+
+  // NOJS-API-006 — flipped to test() by the fix commit
+  test.failing('a method called from a template updates every scope', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('auth', { user: 'alice', logout() { this.user = 'guest'; } });
+    render('$auth.user', '<button id="btn" on:click="$auth.logout()">x</button>');
+
+    document.getElementById('btn').click();
+    await flush();
+    warnSpy.mockRestore();
+    expect(texts()).toEqual(['guest', 'guest', 'guest']);
+  });
+
+  // The safety check must still keep nested eval/Function away from templates
+  test('nested eval in an object global never reaches templates', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('evil', { run: eval });
+
+    expect(evaluate('$evil && $evil.run', createContext({}))).toBeUndefined();
+    warnSpy.mockRestore();
+  });
+});

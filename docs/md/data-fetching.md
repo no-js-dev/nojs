@@ -205,6 +205,8 @@ Used on forms or triggered via `call`.
 | `into` | Write response to a named global store |
 | `cached` | Cache responses (memory/local/session) |
 
+> **`body` interpolation:** in a JSON body, a `{expr}` inside a quoted string is inserted as escaped text (`"{user.name}"`), and anywhere else as a JSON value (`{"id": {id}}`). Values are never URL-encoded. A body that is not JSON, such as `body="{note}"`, is sent as plain text with the value inserted as-is. The same rules apply to `call`.
+
 ### Request Lifecycle
 
 ```

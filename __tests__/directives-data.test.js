@@ -3193,22 +3193,19 @@ describe('body= JSON interpolation (NOJS-HTTP-002, NOJS-REFS-001)', () => {
     return global.fetch.mock.calls[0][1];
   }
 
-  // NOJS-HTTP-002 — flipped to test() by the fix commit
-  test.failing.each(CASES)('post sends the %s body as JSON', async (_, body, expected) => {
+  test.each(CASES)('post sends the %s body as JSON', async (_, body, expected) => {
     const opts = await clickWithBody({ post: '/api/create' }, body);
     expect(opts.body).toBe(expected);
     expect(opts.headers['Content-Type']).toBe('application/json');
   });
 
-  // NOJS-REFS-001 — flipped to test() by the fix commit
-  test.failing.each(CASES)('call sends the %s body as JSON', async (_, body, expected) => {
+  test.each(CASES)('call sends the %s body as JSON', async (_, body, expected) => {
     const opts = await clickWithBody({ call: '/api/create', method: 'post' }, body);
     expect(opts.body).toBe(expected);
     expect(opts.headers['Content-Type']).toBe('application/json');
   });
 
-  // NOJS-HTTP-002 — flipped to test() by the fix commit
-  test.failing.each(EDGE_CASES)('post body: %s', async (_, body, expected, contentType) => {
+  test.each(EDGE_CASES)('post body: %s', async (_, body, expected, contentType) => {
     const opts = await clickWithBody({ post: '/api/create' }, body);
     expect(opts.body).toBe(expected);
     expect(opts.headers['Content-Type']).toBe(contentType);
@@ -3220,14 +3217,12 @@ describe('body= JSON interpolation (NOJS-HTTP-002, NOJS-REFS-001)', () => {
     expect(opts.headers['Content-Type']).toBe(contentType);
   });
 
-  // NOJS-HTTP-002 — flipped to test() by the fix commit
-  test.failing('a single {expr} body is sent as the raw value, not URL-encoded', async () => {
+  test('a single {expr} body is sent as the raw value, not URL-encoded', async () => {
     const opts = await clickWithBody({ post: '/api/create' }, '{role}');
     expect(opts.body).toBe('admin & ops');
   });
 
-  // NOJS-HTTP-002 — flipped to test() by the fix commit
-  test.failing('query interpolates the JSON body and keys the cache on it', async () => {
+  test('query interpolates the JSON body and keys the cache on it', async () => {
     const parent = document.createElement('div');
     parent.setAttribute('state', STATE);
     const el = document.createElement('div');

@@ -22,7 +22,7 @@ import {
 } from "../globals.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
+import { _doFetch, _cacheGet, _cacheSet, _interpolateBody } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateBody(bodyAttr, ctx);
           }
         }
         const cacheKey =
@@ -425,7 +425,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolate(bodyAttr, ctx);
+            const interpolated = _interpolateBody(bodyAttr, ctx);
             try {
               reqBody = JSON.parse(interpolated);
             } catch {

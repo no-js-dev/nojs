@@ -27,6 +27,28 @@ Bind any DOM event directly in HTML:
 <div on:custom-event="handleCustom($event.detail)"></div>
 ```
 
+### Multiple statements and local variables
+
+Separate statements with `;`. Use `const` or `let` for values that only the handler needs — they are local to that handler run and are never written to state:
+
+```html
+<div state="{ items: ['a', 'b', 'c'] }">
+  <!-- move the first item to the end -->
+  <button on:click="const m = items.splice(0, 1)[0]; items.splice(2, 0, m)">Rotate</button>
+  <button on:click="let n = items.length; n = n * 2; total = n">Double count</button>
+</div>
+```
+
+| Form | Behaviour |
+|------|-----------|
+| `const name = value`, `let name = value`, `let name` | Handler-local binding; visible to the following statements of the same handler only |
+| `const a = 1, b = 2` | Several declarations in one statement |
+| `name = value` (no `const`/`let`) | Writes to the owning state; creates a new state key on the nearest context when none exists |
+| Reassigning a `const` | `TypeError` — the handler stops and none of its state writes apply |
+| `const` without a value, declaring a name twice, destructuring (`const [a] = list`), names starting with `$` | Rejected with a warning naming the statement; the handler does not run |
+
+Errors in a handler are logged as `[No.JS] Expression error: <statement>` and dispatch a `nojs:error` event on the element, so `error-boundary` can catch them.
+
 ---
 
 ## Event Modifiers

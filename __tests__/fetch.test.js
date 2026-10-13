@@ -985,20 +985,17 @@ describe('Global headers origin scoping', () => {
     _config.baseApiUrl = '';
   });
 
-  // NOJS-HTTP-005 — flipped to test() by the fix commit
-  test.failing('global headers are not sent to a foreign absolute URL', async () => {
+  test('global headers are not sent to a foreign absolute URL', async () => {
     await _doFetch('https://other-api.com/data', 'GET');
     expect(sent().Authorization).toBeUndefined();
   });
 
-  // NOJS-HTTP-005 — flipped to test() by the fix commit
-  test.failing('global headers are not sent to a protocol-relative foreign URL', async () => {
+  test('global headers are not sent to a protocol-relative foreign URL', async () => {
     await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
     expect(sent().Authorization).toBeUndefined();
   });
 
-  // NOJS-HTTP-005 — flipped to test() by the fix commit
-  test.failing('per-request headers still apply to a foreign URL while global ones do not', async () => {
+  test('per-request headers still apply to a foreign URL while global ones do not', async () => {
     await _doFetch('https://other-api.com/data', 'GET', null, { 'X-Explicit': '1' });
     expect(sent()['X-Explicit']).toBe('1');
     expect(sent().Authorization).toBeUndefined();

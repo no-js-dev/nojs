@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { createContext } from '../src/context.js';
-import { evaluate, _execStatement } from '../src/evaluate.js';
+import { evaluate, _evaluateInterpreted, _execStatement } from '../src/evaluate.js';
 
 function makeCtx(data = {}) {
   return createContext(data);
@@ -249,5 +249,53 @@ describe('Expression evaluator — malformed-input robustness', () => {
       expect(() => _execStatement('nonExistentFn()', ctx, { $el: document.createElement('div') })).not.toThrow();
       expect(warnSpy).toHaveBeenCalled();
     });
+  });
+});
+
+describe('Expression evaluator — call-depth bound', () => {
+  let warnSpy;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  // `tick` turns `|| f(f)` off after a budget so a regression fails the assertion instead of hanging the suite.
+  const FAN = '(f => [1, 2].map(() => tick() || f(f)))';
+  const engines = { compiled: evaluate, interpreted: _evaluateInterpreted };
+
+  describe.each(Object.keys(engines))('%s engine', (name) => {
+    const run = engines[name];
+
+    // NOJS-EVAL-018 — flipped to test() by the fix commit
+    test.failing('self-applying fan-out aborts the whole expression at once', () => {
+      let calls = 0;
+      const ctx = makeCtx({ tick: () => ++calls > 1000 });
+      const t = Date.now();
+      expect(run(`${FAN}(${FAN})`, ctx)).toBeUndefined();
+      expect(Date.now() - t).toBeLessThan(500);
+      expect(calls).toBeLessThan(1000);
+      expect(warnSpy).toHaveBeenCalled();
+    }, 5000);
+
+    // NOJS-EVAL-018 — flipped to test() by the fix commit
+    test.failing('plain infinite recursion still returns undefined with a warning', () => {
+      expect(run('(f => f(f))(f => f(f))', makeCtx())).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+    }, 5000);
+
+    test('normal recursion within the bound still works', () => {
+      expect(run('(f => n => n <= 1 ? 1 : n * f(f)(n - 1))(f => n => n <= 1 ? 1 : n * f(f)(n - 1))(20)', makeCtx()))
+        .toBe(2432902008176640000);
+    }, 5000);
+
+    test('evaluation after an aborted one is unaffected (depth counter is restored)', () => {
+      let calls = 0;
+      run(`${FAN}(${FAN})`, makeCtx({ tick: () => ++calls > 1000 }));
+      expect(run('(x => y => x + y)(1)(2)', makeCtx())).toBe(3);
+    }, 5000);
   });
 });

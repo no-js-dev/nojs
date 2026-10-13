@@ -3126,6 +3126,65 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
   });
 });
 
+describe('HTTP failure warning redaction', () => {
+  test('failure warning redacts sensitive query parameter values but keeps the path', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }"><div get="/api/me?access_token={t}&page=2"></div></div>`;
+    processTree(document.body);
+    await new Promise((r) => setTimeout(r, 50));
+    const line = spy.mock.calls.map((c) => c.join(' ')).find((l) => l.includes('failed'));
+    spy.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    expect(line).toContain('/api/me');
+    expect(line).toContain('page=2');
+    expect(line).not.toContain('TOKEN-SECRET');
+  });
+
+  test('fetch:error, error and devtools payloads carry the redacted url', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    const onFetchError = jest.fn();
+    const onError = jest.fn();
+    const onDevtools = jest.fn();
+    _eventBus['fetch:error'] = [onFetchError];
+    _eventBus['error'] = [onError];
+    _config.devtools = true;
+    window.addEventListener('nojs:devtools', onDevtools);
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }"><div get="/api/me?access_token={t}&page=2"></div></div>`;
+    processTree(document.body);
+    await new Promise((r) => setTimeout(r, 50));
+    window.removeEventListener('nojs:devtools', onDevtools);
+    _config.devtools = false;
+    delete _eventBus['fetch:error'];
+    delete _eventBus['error'];
+    spy.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    const errDetail = onDevtools.mock.calls.map((c) => c[0].detail).find((d) => d.type === 'fetch:error');
+    for (const url of [onFetchError.mock.calls[0][0].url, onError.mock.calls[0][0].url, errDetail.data.url]) {
+      expect(url).toContain('/api/me');
+      expect(url).toContain('page=2');
+      expect(url).not.toContain('TOKEN-SECRET');
+    }
+  });
+});
+
 describe('NOJS-HTTP-001 — form fields are read before the loading template renders', () => {
   beforeEach(httpSetup);
   afterEach(httpTeardown);

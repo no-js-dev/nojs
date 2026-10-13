@@ -311,7 +311,7 @@ Trusted interceptors receive the full, unredacted request options and response o
 **Request** (stripped before passing to untrusted interceptors):
 `authorization`, `x-api-key`, `x-auth-token`, `cookie`, `proxy-authorization`, `set-cookie`, `x-csrf-token`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted. The header name configured in `csrf.header` is redacted as well.
 
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`

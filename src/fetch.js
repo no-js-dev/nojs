@@ -35,23 +35,31 @@ function _guardReentry(fn) {
 }
 
 function _isSensitiveHeader(name) {
-  return _SENSITIVE_HEADERS.has(name.toLowerCase()) || /^x-(auth|api)-/i.test(name);
+  return (
+    _SENSITIVE_HEADERS.has(name.toLowerCase()) ||
+    /^x-(auth|api)-/i.test(name) ||
+    (typeof _config.csrf?.header === "string" && name.toLowerCase() === _config.csrf.header.toLowerCase())
+  );
 }
 
-// URL param redaction helper
-function _redactUrlParams(url) {
-  try {
-    const u = new URL(url, "http://localhost");
-    for (const key of [...u.searchParams.keys()]) {
-      if (/token|key|secret|auth|password|credential/i.test(key)) {
-        u.searchParams.set(key, "[REDACTED]");
-      }
-    }
-    // Return just the path+search if it was a relative URL
-    return url.startsWith("http") ? u.href : u.pathname + u.search;
-  } catch {
-    return url;
-  }
+// URL param redaction helper. String-level: only the values of sensitive
+// query parameters are replaced, everything else is preserved byte-for-byte.
+export function _redactUrlParams(url) {
+  if (typeof url !== "string") return url;
+  const q = url.indexOf("?");
+  if (q === -1) return url;
+  const h = url.indexOf("#", q);
+  const end = h === -1 ? url.length : h;
+  const query = url.slice(q + 1, end).split("&").map((pair) => {
+    const eq = pair.indexOf("=");
+    if (eq === -1) return pair;
+    let key = pair.slice(0, eq);
+    try { key = decodeURIComponent(key.replace(/\+/g, " ")); } catch { /* keep raw key */ }
+    return /token|key|secret|auth|password|credential/i.test(key)
+      ? pair.slice(0, eq + 1) + "[REDACTED]"
+      : pair;
+  }).join("&");
+  return url.slice(0, q + 1) + query + url.slice(end);
 }
 
 // Response redaction helper for untrusted interceptors
@@ -59,6 +67,9 @@ function _redactResponse(response) {
   const redactedHeaders = new Headers(response.headers);
   for (const h of _SENSITIVE_RESPONSE_HEADERS) {
     redactedHeaders.delete(h);
+  }
+  for (const h of [...redactedHeaders.keys()]) {
+    if (_isSensitiveHeader(h)) redactedHeaders.delete(h);
   }
   const redactedUrl = _redactUrlParams(response.url);
   const redacted = Object.freeze({
@@ -194,6 +205,9 @@ export async function _doFetch(
     }
   }
 
+  // Untrusted interceptors see a redacted URL; the request uses `fullUrl`.
+  const redactedUrl = _redactUrlParams(fullUrl);
+
   if (hasRequestInterceptors) {
     // Skip the chain for a fetch issued from inside a request interceptor
     // (see _guardReentry). Nothing above is awaited, so a nested _doFetch
@@ -209,7 +223,7 @@ export async function _doFetch(
           : { ...opts, headers: { ...opts.headers } };
 
         const result = await _withTimeout(
-          Promise.resolve(fn(fullUrl, interceptorOpts)),
+          Promise.resolve(fn(isTrusted ? fullUrl : redactedUrl, interceptorOpts)),
           _INTERCEPTOR_TIMEOUT,
           "Interceptor timeout",
         ).catch(e => {

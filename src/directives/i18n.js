@@ -9,6 +9,9 @@ import { evaluate } from "../evaluate.js";
 import { findContext, _sanitizeHtml } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 
+const _escapeHtml = (v) =>
+  String(v).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+
 registerDirective("t", {
   priority: 20,
   gated: true,
@@ -31,7 +34,9 @@ registerDirective("t", {
       for (const attr of [...el.attributes]) {
         if (attr.name.startsWith("t-") && attr.name !== "t" && attr.name !== "t-html") {
           const paramName = attr.name.replace("t-", "");
-          params[paramName] = evaluate(attr.value, ctx) ?? attr.value;
+          const value = evaluate(attr.value, ctx) ?? attr.value;
+          // The translation string is trusted markup; param values are data.
+          params[paramName] = useHtml ? _escapeHtml(value) : value;
         }
       }
       const text = _i18n.t(key, params);

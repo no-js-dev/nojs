@@ -504,7 +504,14 @@ const NoJS = {
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        if (saved) { _i18n._locale = saved; localeRestored = true; }
+        const supported = _config.i18n.supportedLocales;
+        // Same allow-list as the locale setter: ignore a stale or foreign value
+        if (saved && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _warn(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+        } else if (saved) {
+          _i18n._locale = saved;
+          localeRestored = true;
+        }
       } catch (_) {}
     }
 

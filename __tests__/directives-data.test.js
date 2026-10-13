@@ -3149,8 +3149,7 @@ describe('HTTP URL placeholders: dot-segment values', () => {
     ['delete', '/api/users/{id}', ['', 'api', 'users', null]],
   ];
 
-  // NOJS-HTTP-004 — flipped to test.each() by the fix commit
-  test.failing.each(
+  test.each(
     ['.', '..'].flatMap((id) => cases.map((c) => [id, ...c]))
   )('placeholder value "%s" in %s="%s" cannot re-target the request', async (id, method, url, shape) => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});

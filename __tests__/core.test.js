@@ -670,8 +670,7 @@ describe('Expression Evaluator', () => {
       expect(result).toBe('/api/users/..%2Fadmin');  // .. + encoded /
     });
 
-    // NOJS-HTTP-004 — flipped to test.each() by the fix commit
-    test.failing.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
+    test.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const result = _interpolate('/a/{id}/b', createContext({ id }));
       const segs = new URL(result, 'http://localhost').pathname.split('/');

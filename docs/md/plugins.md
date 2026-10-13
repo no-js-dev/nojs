@@ -137,10 +137,13 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
         init(el, name, value) { /* ... */ }
       });
       app.directive('bind', { /* ... */ }); // ❌ core directive — warning, ignored
+      app.directive('bind-href', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
     }
   };
 </script>
 ```
+
+The same applies to any name matched by a core wildcard directive: `on:*`, `bind-*`, `class-*` and `style-*`.
 
 ---
 

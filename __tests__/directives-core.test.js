@@ -4419,3 +4419,82 @@ describe('NOJS-247 — else/else-if chain sniff expressions', () => {
     expect(document.getElementById('basic').querySelector('p').textContent).toBe('Basic');
   });
 });
+
+describe('switch re-match and same-case updates', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  test('on:click on a case element runs once per click after A→B→A', () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', "{ tab: 'a', clicks: 0 }");
+    parent.innerHTML = `
+      <div switch="tab">
+        <button case="'a'" id="tab-a" on:click="clicks++">A</button>
+        <button case="'b'" id="tab-b">B</button>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    parent.__ctx.tab = 'b';
+    parent.__ctx.tab = 'a';
+    document.getElementById('tab-a').click();
+
+    expect(parent.__ctx.clicks).toBe(1);
+  });
+
+  test('case elements gain no listeners across re-matches', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'rematch-b-tpl';
+    tpl.innerHTML = '<p>B</p>';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', "{ tab: 'a', clicks: 0 }");
+    parent.innerHTML = `
+      <div switch="tab">
+        <button case="'a'" id="tab-a" on:click="clicks++">A</button>
+        <button case="'b'" id="tab-b" then="rematch-b-tpl" on:click="clicks++"></button>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    const addA = jest.spyOn(document.getElementById('tab-a'), 'addEventListener');
+    const addB = jest.spyOn(document.getElementById('tab-b'), 'addEventListener');
+    for (let i = 0; i < 3; i++) {
+      parent.__ctx.tab = 'b';
+      parent.__ctx.tab = 'a';
+    }
+
+    expect(addA).not.toHaveBeenCalled();
+    expect(addB).not.toHaveBeenCalled();
+  });
+
+  test('typed input in the matched then-case survives an update that keeps the same case', () => {
+    const tpl = document.createElement('template');
+    tpl.id = 'rematch-admin-tpl';
+    tpl.innerHTML = '<input id="rematch-inp">';
+    document.body.appendChild(tpl);
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', "{ user: { role: 'admin', name: 'Ann' } }");
+    parent.innerHTML = `
+      <div switch="user.role">
+        <div case="'admin'" then="rematch-admin-tpl"></div>
+        <div default>Guest</div>
+      </div>
+    `;
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    const inp = document.getElementById('rematch-inp');
+    inp.value = 'half-typed';
+    // e.g. a refetch delivering the same role
+    parent.__ctx.user = { role: 'admin', name: 'Bob' };
+
+    expect(document.getElementById('rematch-inp').value).toBe('half-typed');
+    expect(document.getElementById('rematch-inp')).toBe(inp);
+  });
+});

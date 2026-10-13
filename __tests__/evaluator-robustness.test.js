@@ -270,8 +270,7 @@ describe('Expression evaluator — call-depth bound', () => {
   describe.each(Object.keys(engines))('%s engine', (name) => {
     const run = engines[name];
 
-    // NOJS-EVAL-018 — flipped to test() by the fix commit
-    test.failing('self-applying fan-out aborts the whole expression at once', () => {
+    test('self-applying fan-out aborts the whole expression at once', () => {
       let calls = 0;
       const ctx = makeCtx({ tick: () => ++calls > 1000 });
       const t = Date.now();
@@ -281,8 +280,7 @@ describe('Expression evaluator — call-depth bound', () => {
       expect(warnSpy).toHaveBeenCalled();
     }, 5000);
 
-    // NOJS-EVAL-018 — flipped to test() by the fix commit
-    test.failing('plain infinite recursion still returns undefined with a warning', () => {
+    test('plain infinite recursion still returns undefined with a warning', () => {
       expect(run('(f => f(f))(f => f(f))', makeCtx())).toBeUndefined();
       expect(warnSpy).toHaveBeenCalled();
     }, 5000);

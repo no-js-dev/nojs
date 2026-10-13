@@ -1022,6 +1022,13 @@ function _evalArgs(args, scope) {
   return result;
 }
 
+// Bound on nested arrow-function calls per expression. Exceeding it throws
+// one shared sentinel that no per-node catch swallows, so the whole expression
+// aborts at once instead of each frame resuming its siblings (exponential work).
+const _MAX_CALL_DEPTH = 256;
+const _DEPTH_ERR = new RangeError("Maximum expression call depth exceeded");
+let _callDepth = 0;
+
 function _evalNode(node, scope) {
   try {
     if (!node) return undefined;
@@ -1214,16 +1221,19 @@ function _evalNode(node, scope) {
 
       case 'ArrowFunction':
         return function (...callArgs) {
-          const childScope = Object.create(scope);
-          for (let i = 0; i < node.params.length; i++) {
-            const p = node.params[i];
-            if (typeof p === 'string' && p.startsWith('...')) {
-              childScope[p.slice(3)] = callArgs.slice(i);
-              break;
+          if (++_callDepth > _MAX_CALL_DEPTH) { _callDepth--; throw _DEPTH_ERR; }
+          try {
+            const childScope = Object.create(scope);
+            for (let i = 0; i < node.params.length; i++) {
+              const p = node.params[i];
+              if (typeof p === 'string' && p.startsWith('...')) {
+                childScope[p.slice(3)] = callArgs.slice(i);
+                break;
+              }
+              childScope[p] = callArgs[i];
             }
-            childScope[p] = callArgs[i];
-          }
-          return _evalNode(node.body, childScope);
+            return _evalNode(node.body, childScope);
+          } finally { _callDepth--; }
         };
 
       case 'TemplateLiteral': {
@@ -1249,6 +1259,7 @@ function _evalNode(node, scope) {
         return undefined;
     }
   } catch (e) {
+    if (e === _DEPTH_ERR) throw e;
     _warn("_evalNode error:", node?.type, e?.message || e);
     return undefined;
   }
@@ -1334,6 +1345,7 @@ function _guard(type, fn) {
     try {
       return fn(ctx, locals);
     } catch (e) {
+      if (e === _DEPTH_ERR) throw e;
       _warn("_evalNode error:", type, e?.message || e);
       return undefined;
     }
@@ -1616,16 +1628,19 @@ function _compileNode(node) {
       const bodyFn = _compileNode(node.body);
       const params = node.params;
       return (ctx, locals) => function (...callArgs) {
-        const child = Object.create(locals || null);
-        for (let i = 0; i < params.length; i++) {
-          const p = params[i];
-          if (typeof p === "string" && p.startsWith("...")) {
-            child[p.slice(3)] = callArgs.slice(i);
-            break;
+        if (++_callDepth > _MAX_CALL_DEPTH) { _callDepth--; throw _DEPTH_ERR; }
+        try {
+          const child = Object.create(locals || null);
+          for (let i = 0; i < params.length; i++) {
+            const p = params[i];
+            if (typeof p === "string" && p.startsWith("...")) {
+              child[p.slice(3)] = callArgs.slice(i);
+              break;
+            }
+            child[p] = callArgs[i];
           }
-          child[p] = callArgs[i];
-        }
-        return bodyFn(ctx, child);
+          return bodyFn(ctx, child);
+        } finally { _callDepth--; }
       };
     }
 

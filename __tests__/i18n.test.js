@@ -1926,3 +1926,65 @@ describe('t-* param expression sniff (NOJS-248)', () => {
     delete _stores.metrics;
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  t-html param escaping + persisted locale validation
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('t-html param escaping and persisted locale validation', () => {
+  afterEach(() => {
+    _config.i18n.persist = false;
+    _config.i18n.supportedLocales = [];
+    localStorage.clear();
+    document.body.innerHTML = '';
+  });
+
+  // NOJS-I18N-002 — flipped to test() by the fix commit
+  test.failing('t-html treats interpolated params as text', () => {
+    _i18n.locales = { en: { welcome: 'Welcome back, <b>{name}</b>!' } };
+    _i18n.locale = 'en';
+    const evil = '<a href="https://evil.example/login">Sign in</a><img src="https://evil.example/pixel">';
+    const parent = document.createElement('div');
+    parent.setAttribute('state', '{ uname: ' + JSON.stringify(evil) + ' }');
+    const el = document.createElement('p');
+    el.setAttribute('t', 'welcome');
+    el.setAttribute('t-html', '');
+    el.setAttribute('t-name', 'uname');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    expect(el.querySelector('a, img')).toBeNull();
+    expect(el.querySelector('b').textContent).toBe(evil);
+  });
+
+  test('plain t keeps rendering params as text', () => {
+    _i18n.locales = { en: { welcome: 'Hi {name}' } };
+    _i18n.locale = 'en';
+    const el = document.createElement('p');
+    el.setAttribute('t', 'welcome');
+    el.setAttribute('t-name', "'<i>x</i> & y'");
+    document.body.appendChild(el);
+    processTree(el);
+    expect(el.textContent).toBe('Hi <i>x</i> & y');
+  });
+
+  // NOJS-I18N-005 — flipped to test() by the fix commit
+  test.failing('persisted locale outside supportedLocales is ignored', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'xx-evil');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('en');
+    expect(warn).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('xx-evil'));
+    warn.mockRestore();
+  });
+
+  test('persisted locale inside supportedLocales is still restored', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'es');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('es');
+  });
+});

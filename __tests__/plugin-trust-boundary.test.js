@@ -14,8 +14,7 @@ describe('plugin trust-boundary hardening', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, statusText: 'OK', headers: new Headers(), url: '/api/me', text: () => Promise.resolve('{}'), json: () => Promise.resolve({}) });
   });
 
-  // NOJS-API-002 — flipped to test() by the fix commit
-  test.failing('API-002 — a plugin cannot grant itself trusted access by mutating its options', async () => {
+  test('API-002 — a plugin cannot grant itself trusted access by mutating its options', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     let seen;
     NoJS.use({ name: 'analytics', install(app, options) {
@@ -27,8 +26,7 @@ describe('plugin trust-boundary hardening', () => {
     expect(seen).toBeUndefined();
   });
 
-  // NOJS-API-002 — flipped to test() by the fix commit
-  test.failing('API-002 — a later mutation of the options object does not grant trust', async () => {
+  test('API-002 — a later mutation of the options object does not grant trust', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     let seen;
     const options = {};
@@ -41,8 +39,7 @@ describe('plugin trust-boundary hardening', () => {
     expect(seen).toBeUndefined();
   });
 
-  // NOJS-API-002 — flipped to test() by the fix commit
-  test.failing('API-002 — interceptor() ignores a caller-supplied pluginName', async () => {
+  test('API-002 — interceptor() ignores a caller-supplied pluginName', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS.use({ name: 'auth', install() {} }, { trusted: true });
     let seen;
@@ -52,8 +49,7 @@ describe('plugin trust-boundary hardening', () => {
     expect(seen).toBeUndefined();
   });
 
-  // NOJS-API-008 — flipped to test() by the fix commit
-  test.failing('API-008 — a bound Function is rejected by global()', () => {
+  test('API-008 — a bound Function is rejected by global()', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     window.__pwned = 0;
     NoJS.global('F', Function.bind(null));
@@ -62,8 +58,7 @@ describe('plugin trust-boundary hardening', () => {
     expect(window.__pwned).toBe(0);
   });
 
-  // NOJS-API-008 — flipped to test() by the fix commit
-  test.failing('API-008 — a bound Function nested in a non-serialisable object is rejected', () => {
+  test('API-008 — a bound Function nested in a non-serialisable object is rejected', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     window.__pwned2 = 0;
     NoJS.global('utils', { big: 1n, make: Function.bind(null) });
@@ -72,16 +67,14 @@ describe('plugin trust-boundary hardening', () => {
     expect(window.__pwned2).toBe(0);
   });
 
-  // NOJS-API-008 — flipped to test() by the fix commit
-  test.failing('API-008 — the real window is rejected by global()', () => {
+  test('API-008 — the real window is rejected by global()', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS.global('w', window);
     warn.mockRestore();
     expect(evaluate('typeof $w.localStorage', createContext({}))).toBe('undefined');
   });
 
-  // NOJS-API-010 — flipped to test() by the fix commit
-  test.failing('API-010 — dispose() does not lift the sanitize config lock', async () => {
+  test('API-010 — dispose() does not lift the sanitize config lock', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS._initialized = false;
     _config.sanitize = true; _config.dangerouslyDisableSanitize = false; _config.sanitizeHtml = null;

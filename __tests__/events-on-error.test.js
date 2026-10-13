@@ -51,8 +51,7 @@ function loadState(naturalWidth) {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('on:error on the element', () => {
-  // NOJS-EVT-001 — flipped to test() by the fix commit
-  test.failing('a failed load on <img on:error> runs the handler with $event', () => {
+  test('a failed load on <img on:error> runs the handler with $event', () => {
     const host = mount('<div state="{ fails: 0, kind: null }"><img on:error="fails++; kind = $event.type"></div>');
     const img = host.querySelector('img');
     const ctx = findContext(img);
@@ -68,8 +67,7 @@ describe('on:error on the element', () => {
     expect(ctx.fails).toBe(1);
   });
 
-  // NOJS-EVT-001 — flipped to test() by the fix commit
-  test.failing('an uncaught window error does not throw or run on:error handlers', () => {
+  test('an uncaught window error does not throw or run on:error handlers', () => {
     const host = mount('<div state="{ fails: 0 }"><img on:error="fails++"><div on:error="fails++"></div></div>');
 
     // No `error` property: with no window listener left, Jest's jsdom
@@ -83,8 +81,7 @@ describe('on:error on the element', () => {
 });
 
 describe('on:error on an <img> that failed before init', () => {
-  // NOJS-EVT-001 — flipped to test() by the fix commit
-  test.failing('the error is replayed once to every on:error on the element', async () => {
+  test('the error is replayed once to every on:error on the element', async () => {
     const host = mount(
       '<div state="{ fails: 0, onces: 0, kind: null, own: false }">' +
         '<img src="/missing.png" on:error="fails++; kind = $event.type; own = $event.target === $el && $event.currentTarget === $el"' +
@@ -104,8 +101,7 @@ describe('on:error on an <img> that failed before init', () => {
     expect([ctx.fails, ctx.onces]).toEqual([2, 1]);
   });
 
-  // NOJS-EVT-001 — flipped to test() by the fix commit
-  test.failing('the replay reaches only on:error, not inline onerror or ancestor listeners', async () => {
+  test('the replay reaches only on:error, not inline onerror or ancestor listeners', async () => {
     const onAncestor = jest.fn();
     const host = mount(
       '<div state="{ fails: 0 }"><img src="/missing.png" onerror="this.dataset.inline = \'ran\'" on:error="fails++"></div>',
@@ -124,8 +120,7 @@ describe('on:error on an <img> that failed before init', () => {
     expect(onAncestor).toHaveBeenCalledTimes(1);
   });
 
-  // NOJS-EVT-001 — flipped to test() by the fix commit
-  test.failing('no replay when the browser\'s own event arrives after init', async () => {
+  test('no replay when the browser\'s own event arrives after init', async () => {
     const host = mount('<div state="{ fails: 0 }"><img src="/missing.png" on:error="fails++"></div>', loadState(0));
     const img = host.querySelector('img');
 

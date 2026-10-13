@@ -153,7 +153,7 @@
         "self": "Si attiva solo se il target dell'evento è l'elemento stesso",
         "backspace": "Modificatore tasto per il tasto Backspace",
         "onUpdated": "Lifecycle: mutazione del DOM osservata",
-        "onError": "Lifecycle: errore nel sottoalbero"
+        "onError": "Evento error dell'elemento stesso (es. immagine non caricata)"
       },
       "styling": {
         "title": "Stile",
@@ -414,7 +414,7 @@
         "onMounted": "Elemento inserito nel DOM visibile",
         "onUpdated": "Mutazione del DOM osservata (via MutationObserver)",
         "onUnmounted": "Elemento rimosso dal DOM",
-        "onError": "Errore nel sottoalbero di questo elemento"
+        "onError": "Non è un hook del ciclo di vita: l'evento error dell'elemento stesso (es. un'immagine che non si carica)"
       },
       "keyModifiers": {
         "title": "Modificatori di Tasto",

@@ -25,6 +25,9 @@ Bind any DOM event directly in HTML:
 
 <!-- Custom events -->
 <div on:custom-event="handleCustom($event.detail)"></div>
+
+<!-- Load errors (img, script, video, …) -->
+<img src="/avatar.png" on:error="avatarFailed = true" />
 ```
 
 ### Multiple statements and local variables
@@ -148,7 +151,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 | `on:mounted` | Element inserted into visible DOM |
 | `on:updated` | DOM mutation observed (childList, attributes, characterData) |
 | `on:unmounted` | Element removed from DOM |
-| `on:error` | Any error in this element's subtree |
+
+> `on:error` is a regular DOM event, not a lifecycle hook: it runs when the element itself fires `error` (for example an `<img>` that fails to load), with `$event` like any other event. Load errors do not bubble, so put `on:error` on the element that loads the resource. If an `<img>` with a `src` already failed before No.JS processed it, its `on:error` handlers get the error replayed once (`$event.isTrusted` is `false`); inline `onerror`, other listeners and `error-boundary` are not notified again. For other elements an error fired before that point is not seen.
 
 ---
 

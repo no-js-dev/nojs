@@ -153,7 +153,7 @@
         "self": "Solo se ejecuta si el objetivo del evento es el elemento mismo",
         "backspace": "Modificador de tecla para la tecla Retroceso",
         "onUpdated": "Lifecycle: mutación del DOM observada",
-        "onError": "Lifecycle: error en el subárbol"
+        "onError": "Evento error del propio elemento (ej. imagen que no se pudo cargar)"
       },
       "styling": {
         "title": "Estilos",
@@ -414,7 +414,7 @@
         "onMounted": "El elemento se inserta en el DOM visible",
         "onUpdated": "Mutación del DOM observada (via MutationObserver)",
         "onUnmounted": "El elemento se elimina del DOM",
-        "onError": "Error en el subárbol de este elemento"
+        "onError": "No es un hook de ciclo de vida: el evento error del propio elemento (ej. una imagen que no se puede cargar)"
       },
       "keyModifiers": {
         "title": "Modificadores de Tecla",

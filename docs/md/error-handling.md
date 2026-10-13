@@ -72,11 +72,11 @@ When an error is caught, the boundary replaces its children with the fallback te
 
 ## Error Boundary Events
 
-When an error boundary catches an error, it dispatches a `nojs:error` CustomEvent on the boundary element. Listen with `on:error` to log errors or show notifications:
+When an error boundary catches an error, it dispatches a `nojs:error` CustomEvent on the boundary element. Listen with `on:nojs:error` to log errors or show notifications:
 
 ```html
 <div error-boundary="#fallback"
-     on:error="console.log($event.detail.message)">
+     on:nojs:error="console.log($event.detail.message)">
   <!-- children -->
 </div>
 ```

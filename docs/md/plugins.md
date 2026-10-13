@@ -517,8 +517,10 @@ A full analytics plugin demonstrating the plugin lifecycle, globals, interceptor
 Three named exports give offline tooling (compilers, linters, bundler plugins) direct access to the No.JS expression parser without running the framework. They bypass the runtime LRU caches so they never interfere with a live app.
 
 ```js
-import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/src/index.js';
+import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/compiler';
 ```
+
+`@no-js-dev/nojs/compiler` is a Node-safe ESM entry: it loads the parser without the framework runtime (no DOM walk, no directive registration). The same functions are also re-exported from the main entry (`@no-js-dev/nojs`), and the legacy deep path `@no-js-dev/nojs/src/index.js` keeps working.
 
 ### `segmentPipes(str)`
 

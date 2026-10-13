@@ -104,7 +104,7 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Compiler Support (ADR-024)
 
-- `parseExpression(str): AST` / `parseStatements(str): AST[]` / `segmentPipes(str): string[]` — Named exports from the module entry for offline tooling (compilers, linters). Bypass runtime caches. Call `segmentPipes` before `parseExpression` to strip pipe filters. Forbidden property access (`__proto__`, `constructor`, `prototype`) yields `{ type: 'Forbidden' }` nodes.
+- `parseExpression(str): AST` / `parseStatements(str): AST[]` / `segmentPipes(str): string[]` — Named exports for offline tooling (compilers, linters) from the Node-safe `@no-js-dev/nojs/compiler` entry (also re-exported from the main entry). Bypass runtime caches. Call `segmentPipes` before `parseExpression` to strip pipe filters. Forbidden property access (`__proto__`, `constructor`, `prototype`) yields `{ type: 'Forbidden' }` nodes.
 
 ### Metadata
 

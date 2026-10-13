@@ -2,10 +2,28 @@
   "name": "@no-js-dev/nojs",
   "version": "1.21.1",
   "description": "The HTML-first reactive framework — build dynamic web apps with just HTML attributes, no JavaScript required",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
   "browser": "dist/iife/no.js",
   "unpkg": "dist/iife/no.js",
   "jsdelivr": "dist/iife/no.js",
   "types": "./types/nojs-plugin.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/nojs-plugin.d.ts",
+      "default": "./src/index.js"
+    },
+    "./compiler": "./dist/compiler/compiler.mjs",
+    "./src/*": "./src/*",
+    "./dist/*": "./dist/*",
+    "./types/*": "./types/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "types"
+  ],
   "scripts": {
     "build": "node build.js",
     "lint": "eslint src/",

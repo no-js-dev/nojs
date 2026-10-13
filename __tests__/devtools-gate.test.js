@@ -13,8 +13,7 @@ describe('devtools on a non-local host', () => {
     jest.restoreAllMocks();
   });
 
-  // NOJS-DEVT-001 — flipped to test() by the fix commit
-  test.failing('devtools: true is a no-op: no context registry and no nojs:devtools events', () => {
+  test('devtools: true is a no-op: no context registry and no nojs:devtools events', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     _config.devtools = true;
     const seen = [];

@@ -81,7 +81,7 @@
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
+> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is ignored with a console warning: no `window.__NOJS_DEVTOOLS__`, no context registry, and no `nojs:devtools` events. Sensitive values (auth headers, the CSRF token, and context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session`, matched as substrings, so e.g. `keywords` is also redacted) are shown as `[REDACTED]`.
 
 ---
 

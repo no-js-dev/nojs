@@ -340,7 +340,7 @@ describe('DevTools Protocol', () => {
 
       const result = await sendCommand('get:config');
 
-      expect(result.headers).toBe('[REDACTED]');
+      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
 
       delete _config.headers;
     });
@@ -354,7 +354,7 @@ describe('DevTools Protocol', () => {
       expect(result.devtools).toBe(true);
       expect(result.baseApiUrl).toBe('');
       expect(result.csrf.token).toBe('[REDACTED]');
-      expect(result.headers).toBe('[REDACTED]');
+      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
 
       delete _config.csrf;
       delete _config.headers;
@@ -670,8 +670,7 @@ describe('Devtools redaction', () => {
     delete _config.csrf;
   });
 
-  // NOJS-DEVT-002 — flipped to test() by the fix commit
-  test.failing('config getter redacts sensitive headers and the csrf token', () => {
+  test('config getter redacts sensitive headers and the csrf token', () => {
     initDevtools({ version: 'x' });
     _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
     _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };
@@ -681,8 +680,7 @@ describe('Devtools redaction', () => {
     expect(window.__NOJS_DEVTOOLS__.config.headers['X-Custom']).toBe('visible');
   });
 
-  // NOJS-DEVT-002 — flipped to test() by the fix commit
-  test.failing('store snapshots redact sensitive keys', async () => {
+  test('store snapshots redact sensitive keys', async () => {
     initDevtools({ version: 'x' });
     _stores.auth = createContext({ token: 'jwt-abc', password: 'hunter2', name: 'ann' });
     const json = JSON.stringify(window.__NOJS_DEVTOOLS__.stores);
@@ -693,8 +691,7 @@ describe('Devtools redaction', () => {
     expect(JSON.stringify(res)).not.toContain('jwt-abc');
   });
 
-  // NOJS-DEVT-002 — flipped to test() by the fix commit
-  test.failing('get:config command returns the same redacted shape as the config getter', async () => {
+  test('get:config command returns the same redacted shape as the config getter', async () => {
     initDevtools({ version: 'x' });
     _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
     _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };

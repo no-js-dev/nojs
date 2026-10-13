@@ -3152,8 +3152,7 @@ describe('Router — history mode keeps ?query and #hash on init and popstate', 
     window.history.replaceState({}, '', '/');
   });
 
-  // NOJS-ROUTE-002 — flipped to test() by the fix commit
-  test.failing('initial load of /search?q=hello#frag keeps the URL and fills $route.query', async () => {
+  test('initial load of /search?q=hello#frag keeps the URL and fills $route.query', async () => {
     _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
     window.scrollTo = jest.fn();
     document.body.innerHTML = `
@@ -3172,8 +3171,7 @@ describe('Router — history mode keeps ?query and #hash on init and popstate', 
     expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
   });
 
-  // NOJS-ROUTE-002 — flipped to test() by the fix commit
-  test.failing('initial load strips the base from the pathname only', async () => {
+  test('initial load strips the base from the pathname only', async () => {
     _config.router = { useHash: false, base: '/app', scrollBehavior: 'top' };
     window.scrollTo = jest.fn();
     document.body.innerHTML = `
@@ -3191,8 +3189,7 @@ describe('Router — history mode keeps ?query and #hash on init and popstate', 
     expect(window.location.pathname + window.location.search).toBe('/app/search?q=hello');
   });
 
-  // NOJS-ROUTE-002 — flipped to test() by the fix commit
-  test.failing('Back to /search?q=hello#frag restores $route.query and keeps the URL', async () => {
+  test('Back to /search?q=hello#frag restores $route.query and keeps the URL', async () => {
     _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
     window.scrollTo = jest.fn();
     document.body.innerHTML = `

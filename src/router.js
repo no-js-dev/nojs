@@ -1080,12 +1080,13 @@ export function _createRouter() {
             }
             return;
           }
-          navigate(path, true, true); // history pop → backward direction
+          // Keep ?query and #hash: the base is stripped from the pathname only
+          navigate(path + window.location.search + window.location.hash, true, true); // history pop → backward direction
         };
         window.addEventListener("popstate", _popstateHandler);
         _globalHandlers.push(() => window.removeEventListener("popstate", _popstateHandler));
         const path = _stripBase(window.location.pathname);
-        await navigate(path, true);
+        await navigate(path + window.location.search + window.location.hash, true);
       }
 
       // Prefetch route templates declared via <a route> links

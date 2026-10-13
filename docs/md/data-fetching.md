@@ -44,7 +44,7 @@ Absolute URLs skip base resolution:
 </script>
 ```
 
-> **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
+> **Note:** `retries` applies to 5xx server errors and network failures, including request timeouts. Client errors (4xx) are not retried.
 
 ### Per-Request Headers
 

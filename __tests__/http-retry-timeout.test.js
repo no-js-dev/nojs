@@ -87,8 +87,7 @@ describe('HTTP retry policy and timeout/cancel settlement', () => {
 
   // ── NOJS-HTTP-007: retry policy ───────────────────────────────────────
 
-  // NOJS-HTTP-007 — flipped to test() by the fix commit
-  test.failing('1 — 4xx responses are not retried', async () => {
+  test('1 — 4xx responses are not retried', async () => {
     global.fetch = jest.fn().mockResolvedValue(errorResponse(404));
 
     await expect(_doFetch('/api/x', 'GET', null, {}, null, null, 2, 1))
@@ -112,8 +111,7 @@ describe('HTTP retry policy and timeout/cancel settlement', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  // NOJS-HTTP-007 — flipped to test() by the fix commit
-  test.failing('4 — retry="0" makes exactly one attempt despite a global retries', async () => {
+  test('4 — retry="0" makes exactly one attempt despite a global retries', async () => {
     _config.retries = 2;
     _config.retryDelay = 1;
     global.fetch = jest.fn().mockResolvedValue(errorResponse(503));
@@ -127,8 +125,7 @@ describe('HTTP retry policy and timeout/cancel settlement', () => {
 
   // ── NOJS-HTTP-006: timeout / CANCEL settle the directive ──────────────
 
-  // NOJS-HTTP-006 — flipped to test() by the fix commit
-  test.failing('5 — a timeout is retried, then renders the error template and emits fetch:error', async () => {
+  test('5 — a timeout is retried, then renders the error template and emits fetch:error', async () => {
     jest.useFakeTimers();
     _config.timeout = 50;
     global.fetch = hangingFetch();
@@ -147,8 +144,7 @@ describe('HTTP retry policy and timeout/cancel settlement', () => {
     expect(errors.length).toBe(1);
   });
 
-  // NOJS-HTTP-006 — flipped to test() by the fix commit
-  test.failing('6 — NoJS.CANCEL sends no request, removes loading and renders the error template', async () => {
+  test('6 — NoJS.CANCEL sends no request, removes loading and renders the error template', async () => {
     global.fetch = jest.fn();
     _interceptors.request.push(() => ({ [_CANCEL]: true }));
 

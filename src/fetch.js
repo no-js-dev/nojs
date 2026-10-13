@@ -78,6 +78,29 @@ export function resolveUrl(url, el) {
   return url;
 }
 
+// Global config headers (e.g. Authorization) are only attached to requests
+// whose origin is the page, the configured baseApiUrl, or the nearest base=.
+// A parse failure is treated as NOT trusted.
+function _isTrustedOrigin(fullUrl, el) {
+  if (typeof window === "undefined") return true;
+  const origin = (u) => {
+    try {
+      return new URL(u.replace(/\\/g, "/"), window.location.href).origin;
+    } catch {
+      return null;
+    }
+  };
+  const target = origin(fullUrl);
+  if (!target) return false;
+  if (target === window.location.origin) return true;
+  if (_config.baseApiUrl && target === origin(_config.baseApiUrl)) return true;
+  for (let node = el; node; node = node.parentElement) {
+    const base = node.getAttribute?.("base");
+    if (base) return target === origin(base);
+  }
+  return false;
+}
+
 export async function _doFetch(
   url,
   method = "GET",
@@ -96,7 +119,10 @@ export async function _doFetch(
   const upperMethod = method.toUpperCase();
   let opts = {
     method: upperMethod,
-    headers: { ...(_config.headers || {}), ...extraHeaders },
+    headers: {
+      ...(_isTrustedOrigin(fullUrl, el) ? _config.headers : {}),
+      ...extraHeaders,
+    },
     credentials: _config.credentials,
   };
 

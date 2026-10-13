@@ -1368,3 +1368,82 @@ describe('Template integrity — insecure HTTP warning', () => {
     _templateHtmlCache.clear();
   });
 });
+
+describe('Template src is page-relative (ignores base= / baseApiUrl)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<p>content</p>'),
+    });
+  });
+
+  afterEach(() => {
+    _config.baseApiUrl = '';
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  // NOJS-DOM-004 — flipped to test() by the fix commit
+  test.failing('baseApiUrl does not prefix relative template src', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    document.body.innerHTML =
+      '<template src="/templates/header.html"></template>' +
+      '<template src="./components/footer.tpl"></template>' +
+      '<template src="partials/nav.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/templates/header.html',
+      'components/footer.tpl',
+      'partials/nav.tpl',
+    ]);
+  });
+
+  // NOJS-DOM-004 — flipped to test() by the fix commit
+  test.failing('an ancestor base= does not prefix template src', async () => {
+    document.body.innerHTML =
+      '<div base="https://api.example.com"><template src="/partials/nav.tpl"></template></div>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(global.fetch).toHaveBeenCalledWith('/partials/nav.tpl');
+  });
+
+  // NOJS-DOM-004 — flipped to test() by the fix commit
+  test.failing('nested ./ src resolves against the parent template folder, not baseApiUrl', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url.endsWith('/layout.html')
+        ? '<template src="./nav.html"></template>'
+        : '<p>content</p>'),
+    }));
+    document.body.innerHTML = '<template src="/templates/layout.html"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/templates/layout.html',
+      '/templates/nav.html',
+    ]);
+  });
+
+  test('absolute template URLs are fetched unchanged', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    document.body.innerHTML =
+      '<div base="https://api.example.com">' +
+      '<template src="https://cdn.example.com/a.tpl"></template>' +
+      '<template src="//cdn.example.com/b.tpl"></template>' +
+      '</div>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      'https://cdn.example.com/a.tpl',
+      '//cdn.example.com/b.tpl',
+    ]);
+  });
+});

@@ -3157,8 +3157,7 @@ describe('NOJS-HTTP-001 — form fields are read before the loading template ren
     return form;
   }
 
-  // NOJS-HTTP-001 — flipped to test() by the fix commit
-  test.failing('form with loading= sends the typed field values', async () => {
+  test('form with loading= sends the typed field values', async () => {
     const form = mountLoginForm(true);
     let formTextAtFetch;
     global.fetch.mockImplementation(() => {

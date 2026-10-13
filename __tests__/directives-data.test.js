@@ -3127,8 +3127,7 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
 });
 
 describe('HTTP failure warning redaction', () => {
-  // NOJS-HTTP-018 — flipped to test() by the fix commit
-  test.failing('failure warning redacts sensitive query parameter values but keeps the path', async () => {
+  test('failure warning redacts sensitive query parameter values but keeps the path', async () => {
     const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const originalFetch = global.fetch;
     global.fetch = jest.fn().mockResolvedValue({
@@ -3150,8 +3149,7 @@ describe('HTTP failure warning redaction', () => {
     expect(line).not.toContain('TOKEN-SECRET');
   });
 
-  // NOJS-HTTP-018 — flipped to test() by the fix commit
-  test.failing('fetch:error, error and devtools payloads carry the redacted url', async () => {
+  test('fetch:error, error and devtools payloads carry the redacted url', async () => {
     const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const originalFetch = global.fetch;
     global.fetch = jest.fn().mockResolvedValue({

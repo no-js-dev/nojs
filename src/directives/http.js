@@ -22,7 +22,7 @@ import {
 } from "../globals.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
+import { _doFetch, _cacheGet, _cacheSet, _redactUrlParams } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -663,13 +663,14 @@ for (const method of HTTP_METHODS) {
           if (err.name === "AbortError") return;
 
           _hideSkeleton();
+          const safeUrl = _redactUrlParams(resolvedUrl);
           _warn(
-            `${method.toUpperCase()} ${resolvedUrl} failed:`,
+            `${method.toUpperCase()} ${safeUrl} failed:`,
             err.message,
           );
-          _emitEvent("fetch:error", { url: resolvedUrl, error: err });
-          _emitEvent("error", { url: resolvedUrl, error: err });
-          _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
+          _emitEvent("fetch:error", { url: safeUrl, error: err });
+          _emitEvent("error", { url: safeUrl, error: err });
+          _devtoolsEmit("fetch:error", { method, url: safeUrl, error: err.message });
 
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);

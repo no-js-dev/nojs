@@ -976,8 +976,7 @@ describe('Untrusted interceptor redaction consistency', () => {
     _config.csrf = null;
   });
 
-  // NOJS-HTTP-013 — flipped to test() by the fix commit
-  test.failing('configured CSRF header name is withheld from untrusted request interceptors', async () => {
+  test('configured CSRF header name is withheld from untrusted request interceptors', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
     _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-SECRET' };
     let seen;
@@ -988,8 +987,7 @@ describe('Untrusted interceptor redaction consistency', () => {
     expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-SECRET');
   });
 
-  // NOJS-HTTP-013 — flipped to test() by the fix commit
-  test.failing('x-auth-* / x-api-* response headers are withheld from untrusted response interceptors', async () => {
+  test('x-auth-* / x-api-* response headers are withheld from untrusted response interceptors', async () => {
     let seen;
     _plugins.set('analytics', { plugin: {}, options: {} });
     _interceptors.response.push({
@@ -1009,8 +1007,7 @@ describe('Untrusted interceptor redaction consistency', () => {
     expect(seen.ct).toBe('application/json');
   });
 
-  // NOJS-HTTP-013 — flipped to test() by the fix commit
-  test.failing('untrusted request interceptors get a redacted url while the request goes to the real url', async () => {
+  test('untrusted request interceptors get a redacted url while the request goes to the real url', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
     let seenUrl;
     _plugins.set('analytics', { plugin: {}, options: {} });
@@ -1062,8 +1059,7 @@ describe('URL seen by untrusted request interceptors', () => {
     }
   });
 
-  // NOJS-HTTP-013 — flipped to test() by the fix commit
-  test.failing('differs from the real url only in sensitive values, replaced by a literal [REDACTED]', async () => {
+  test('differs from the real url only in sensitive values, replaced by a literal [REDACTED]', async () => {
     const cases = [
       ['//cdn.example.com/a?x=a%20b&access_token=S3&y=1#frag', '//cdn.example.com/a?x=a%20b&access_token=[REDACTED]&y=1#frag'],
       ['HTTP://h.com/a?API_KEY=S&q=a+b', 'HTTP://h.com/a?API_KEY=[REDACTED]&q=a+b'],

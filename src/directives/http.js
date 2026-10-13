@@ -406,6 +406,12 @@ for (const method of HTTP_METHODS) {
           }
         }
 
+        // Read form fields before the loading template replaces them
+        const formBody =
+          el.tagName === "FORM"
+            ? Object.fromEntries(new FormData(el).entries())
+            : null;
+
         // Show loading
         if (loadingTpl) {
           const clone = _cloneTemplate(loadingTpl);
@@ -435,8 +441,7 @@ for (const method of HTTP_METHODS) {
 
           // For forms, collect form data
           if (el.tagName === "FORM") {
-            const formData = new FormData(el);
-            reqBody = Object.fromEntries(formData.entries());
+            reqBody = formBody;
           }
 
           const extraHeaders = headersAttr ? JSON.parse(headersAttr) : {};

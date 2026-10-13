@@ -37,10 +37,14 @@ registerDirective("state", {
             ? sessionStorage
             : null;
       if (store) {
-        const persistFieldsAttr = el.getAttribute("persist-fields");
-        const persistFields = persistFieldsAttr
-          ? new Set(persistFieldsAttr.split(",").map((f) => f.trim()))
+        // A present persist-fields is always an allow-list, even when empty
+        // (persist nothing) — never fall back to "persist everything".
+        const persistFields = el.hasAttribute("persist-fields")
+          ? new Set(el.getAttribute("persist-fields").split(",").map((f) => f.trim()).filter(Boolean))
           : null;
+        if (persistFields && persistFields.size === 0) {
+          _warn('persist-fields is empty: no fields will be persisted.');
+        }
         const storeKey = "nojs_" + (_config.appId || "") + "state_" + persistKey;
         try {
           const saved = store.getItem(storeKey);
@@ -54,6 +58,10 @@ registerDirective("state", {
               // vectors. Crafted localStorage could otherwise inject internal
               // keys (e.g. __collectKeysCache, __devtoolsId) into the context.
               if (k.startsWith("__")) continue;
+              // Only plain top-level keys: dotted keys would walk into nested
+              // members via $set (e.g. $refs.x.innerHTML) and `$` keys would
+              // shadow built-ins ($store, $route, …).
+              if (k.includes(".") || k.startsWith("$")) continue;
               if (!persistFields || persistFields.has(k)) {
                 if (schemaCheck) {
                   if (!(k in initialState)) { _warn('persist-schema: ignoring unknown key "' + k + '"'); continue; }

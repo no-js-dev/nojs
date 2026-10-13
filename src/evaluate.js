@@ -2347,10 +2347,19 @@ export function resolve(path, ctx) {
 // "/" as "%2F". Path segments that intentionally contain "/" must be passed
 // as pre-encoded strings or concatenated outside of {} placeholders.
 export function _interpolate(str, ctx) {
-  return str.replace(/\{([^}]+)\}/g, (_, expr) => {
+  return str.replace(/\{([^}]+)\}/g, (_, expr, offset) => {
     const val = evaluate(expr.trim(), ctx);
     if (val == null) return "";
-    return encodeURIComponent(String(val));
+    const enc = encodeURIComponent(String(val));
+    // In the path part, "." / ".." survive encodeURIComponent and URL parsers
+    // collapse them (and their %2E forms) as dot-segments, re-targeting the
+    // request. Double-encode so the segment stays a literal child segment
+    // (the server decodes it to "%2E%2E"). Query/fragment values are unaffected.
+    if ((enc === "." || enc === "..") && !/[?#]/.test(str.slice(0, offset).replace(/\{[^}]*\}/g, ""))) {
+      _warn("Dot-segment value escaped in {" + expr.trim() + "}");
+      return enc.replace(/\./g, "%252E");
+    }
+    return enc;
   });
 }
 

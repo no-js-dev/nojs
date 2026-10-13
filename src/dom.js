@@ -4,7 +4,6 @@
 
 import { _config, _log, _warn } from "./globals.js";
 import { createContext } from "./context.js";
-import { resolveUrl } from "./fetch.js";
 
 // ─── Template HTML cache: url → html string ────────────────────────────────
 // Avoids re-fetching the same .tpl file on repeat navigation.
@@ -212,7 +211,8 @@ export function _sanitizeHtml(html) {
   return doc.body.innerHTML;
 }
 
-// Resolve a template src path.
+// Resolve a template src path. Templates are page assets: the API base
+// (`base=` attribute / `baseApiUrl`) is for HTTP directives and never applies.
 // - "./foo.tpl"  → relative to the parent template's folder (__srcBase)
 // - "/foo.tpl"   → absolute from server root (kept as-is for fetch)
 // - "foo.tpl"    → relative to page URL (kept as-is for fetch)
@@ -226,13 +226,13 @@ function _resolveTemplateSrc(src, tpl) {
       }
       node = node.parentNode;
     }
-    // No ancestor base found — strip "./" and resolve against the page URL via
-    // resolveUrl so the result is an absolute URL. Returning a bare relative
-    // string here would defeat _warnIfInsecureTemplateUrl's http:// check.
-    return resolveUrl(src.slice(2), tpl);
+    // No ancestor base found — strip "./" and let fetch resolve from page.
+    // A page-relative URL shares the page's protocol, so it never needs
+    // _warnIfInsecureTemplateUrl's http:// check.
+    return src.slice(2);
   }
-  // Absolute or plain relative — use the existing resolveUrl logic
-  return resolveUrl(src, tpl);
+  // Absolute or plain relative — fetch resolves it against the page URL
+  return src;
 }
 
 // Warn when a template URL uses plain HTTP from an HTTPS page (mixed content / MITM risk).

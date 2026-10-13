@@ -1,4 +1,4 @@
-import { _config, _interceptors, _cache } from '../src/globals.js';
+import { _config, _interceptors, _cache, _plugins } from '../src/globals.js';
 import { resolveUrl, _doFetch, _cacheGet, _cacheSet } from '../src/fetch.js';
 
 describe('URL Resolution', () => {
@@ -965,5 +965,171 @@ describe('Sensitive header handling around interceptors', () => {
     expect(result).toEqual({ data: 'result' });
     const calledHeaders = global.fetch.mock.calls[0][1].headers;
     expect(calledHeaders['Content-Type']).toBe('application/json');
+  });
+});
+
+describe('Untrusted interceptor redaction consistency', () => {
+  afterEach(() => {
+    _plugins.delete('analytics');
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _config.csrf = null;
+  });
+
+  test('configured CSRF header name is withheld from untrusted request interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-SECRET' };
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (url, opts) => { seen = { ...opts.headers }; }, pluginName: 'analytics' });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen['X-XSRF-TOKEN']).toBeUndefined();
+    expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-SECRET');
+  });
+
+  test('x-auth-* / x-api-* response headers are withheld from untrusted response interceptors', async () => {
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.response.push({
+      fn: (res) => { seen = { refresh: res.headers.get('x-auth-refresh-token'), key: res.headers.get('x-api-secret'), ct: res.headers.get('content-type') }; return res; },
+      pluginName: 'analytics',
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({ 'x-auth-refresh-token': 'RT', 'x-api-secret': 'K', 'content-type': 'application/json' }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen.refresh).toBeNull();
+    expect(seen.key).toBeNull();
+    expect(seen.ct).toBe('application/json');
+  });
+
+  test('untrusted request interceptors get a redacted url while the request goes to the real url', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seenUrl;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (url) => { seenUrl = url; return { url }; }, pluginName: 'analytics' });
+    await _doFetch('/api/login?access_token=abc123&page=2', 'GET');
+    expect(seenUrl).toContain('/api/login');
+    expect(seenUrl).toContain('page=2');
+    expect(seenUrl).not.toContain('abc123');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/login?access_token=abc123&page=2');
+  });
+
+  test('trusted request interceptors receive the real url', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seenUrl;
+    _plugins.set('analytics', { plugin: {}, options: { trusted: true } });
+    _interceptors.request.push({ fn: (url) => { seenUrl = url; }, pluginName: 'analytics' });
+    await _doFetch('/api/login?access_token=abc123', 'GET');
+    expect(seenUrl).toBe('/api/login?access_token=abc123');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/login?access_token=abc123');
+  });
+
+  test('non-string csrf.header does not throw during header redaction', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 42, token: 't' };
+    _interceptors.request.push({ fn: () => {}, pluginName: undefined });
+    await expect(_doFetch('/api/x', 'POST', { a: 1 })).resolves.toBeDefined();
+  });
+});
+
+describe('URL seen by untrusted request interceptors', () => {
+  const seenUrl = async (url) => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (u) => { seen = u; }, pluginName: 'analytics' });
+    await _doFetch(url, 'GET');
+    return seen;
+  };
+
+  afterEach(() => {
+    _plugins.delete('analytics');
+    _interceptors.request.length = 0;
+  });
+
+  test('is the real url, byte for byte, when no parameter is sensitive', async () => {
+    for (const u of ['//cdn.example.com/a?x=1', 'HTTP://h.com/a?q=a%20b#frag', 'api/x?a=1&b=a+b', '/p', 'https://h.com/a?page=2']) {
+      expect(await seenUrl(u)).toBe(u);
+      _interceptors.request.length = 0;
+    }
+  });
+
+  test('differs from the real url only in sensitive values, replaced by a literal [REDACTED]', async () => {
+    const cases = [
+      ['//cdn.example.com/a?x=a%20b&access_token=S3&y=1#frag', '//cdn.example.com/a?x=a%20b&access_token=[REDACTED]&y=1#frag'],
+      ['HTTP://h.com/a?API_KEY=S&q=a+b', 'HTTP://h.com/a?API_KEY=[REDACTED]&q=a+b'],
+      ['api/x?password=p&q=%20b', 'api/x?password=[REDACTED]&q=%20b'],
+      ['/a?token=1&token=2', '/a?token=[REDACTED]&token=[REDACTED]'],
+    ];
+    for (const [real, expected] of cases) {
+      expect(await seenUrl(real)).toBe(expected);
+      _interceptors.request.length = 0;
+    }
+  });
+});
+
+describe('Global headers origin scoping', () => {
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+  });
+
+  afterEach(() => {
+    _config.headers = {};
+    _config.baseApiUrl = '';
+  });
+
+  test('global headers are not sent to a foreign absolute URL', async () => {
+    await _doFetch('https://other-api.com/data', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are not sent to a protocol-relative foreign URL', async () => {
+    await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('per-request headers still apply to a foreign URL while global ones do not', async () => {
+    await _doFetch('https://other-api.com/data', 'GET', null, { 'X-Explicit': '1' });
+    expect(sent()['X-Explicit']).toBe('1');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are sent to baseApiUrl-relative and baseApiUrl-absolute URLs', async () => {
+    await _doFetch('/users', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://api.myapp.com/other', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to same-origin URLs when no baseApiUrl is set', async () => {
+    _config.baseApiUrl = '';
+    await _doFetch('/api/test', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch(window.location.origin + '/api/abs', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to the origin of an element base= attribute', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('base', 'https://other-api.com/v2');
+    await _doFetch('items', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://other-api.com/abs', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
   });
 });

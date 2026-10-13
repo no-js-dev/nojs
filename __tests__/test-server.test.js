@@ -60,8 +60,7 @@ describe('test-server path guard', () => {
     if (base) fs.rmSync(base, { recursive: true, force: true });
   });
 
-  // NOJS-INFRA-005 — flipped to test() by the fix commit
-  test.failing('sibling directory sharing the ROOT name prefix is forbidden', async () => {
+  test('sibling directory sharing the ROOT name prefix is forbidden', async () => {
     const res = await get(port, '/../app-private/secret.json');
     expect(res.status).toBe(403);
     expect(res.body).not.toContain('hunter2');

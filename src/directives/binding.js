@@ -143,6 +143,17 @@ registerDirective("bind-*", {
   priority: 20,
   init(el, name, expr) {
     const attrName = name.replace("bind-", "");
+    // Inline event-handler attributes (onclick, onerror, …) would execute
+    // bound state as code — stored/reflected XSS. Never bindable; the
+    // on:* directives cover event handling. Matches the bind-html
+    // sanitizer, which strips on* attributes.
+    if (attrName.toLowerCase().startsWith("on")) {
+      _warn(
+        `[Security] ${name} rejected: event-handler attributes are not bindable — use on:${attrName.slice(2).toLowerCase()} instead.`,
+        el
+      );
+      return;
+    }
     const ctx = findContext(el);
 
     // Two-way binding for value

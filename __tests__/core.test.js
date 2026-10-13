@@ -670,6 +670,18 @@ describe('Expression Evaluator', () => {
       expect(result).toBe('/api/users/..%2Fadmin');  // .. + encoded /
     });
 
+    // NOJS-HTTP-004 — flipped to test.each() by the fix commit
+    test.failing.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const result = _interpolate('/a/{id}/b', createContext({ id }));
+      const segs = new URL(result, 'http://localhost').pathname.split('/');
+      expect(segs.length).toBe(4);
+      expect(segs[2]).not.toBe('');
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+      expect(_interpolate('/a/{id}', createContext({ id: 'a.b' }))).toBe('/a/a.b');
+    });
+
     test('encodes spaces and special characters in interpolated values', () => {
       const ctx = createContext({ q: 'hello world' });
       expect(_interpolate('/search?q={q}', ctx)).toBe('/search?q=hello%20world');

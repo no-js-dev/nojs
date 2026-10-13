@@ -3125,3 +3125,80 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
     expect(headers['X-CSRF-Token']).toBeUndefined();
   });
 });
+
+describe('HTTP URL placeholders: dot-segment values', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  // The placeholder must stay a non-empty child segment of /api/users/ (not
+  // the parent collection, not a sibling) and a warning must be emitted.
+  const cases = [
+    ['get', '/api/users/{id}/avatar', ['', 'api', 'users', null, 'avatar']],
+    ['delete', '/api/users/{id}', ['', 'api', 'users', null]],
+  ];
+
+  test.each(
+    ['.', '..'].flatMap((id) => cases.map((c) => [id, ...c]))
+  )('placeholder value "%s" in %s="%s" cannot re-target the request', async (id, method, url, shape) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ id }));
+    const el = document.createElement(method === 'get' ? 'div' : 'button');
+    el.setAttribute(method, url);
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    if (method !== 'get') el.click();
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const requested = global.fetch.mock.calls[0][0];
+    const segs = new URL(requested, 'http://localhost').pathname.split('/');
+    expect(segs.length).toBe(shape.length);
+    shape.forEach((expected, i) => {
+      if (expected === null) expect(segs[i]).not.toBe('');
+      else expect(segs[i]).toBe(expected);
+    });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  // Regression guard: query values are not path segments and stay unchanged.
+  test.each(['.', '..'])('query placeholder value "%s" is sent unchanged', async (q) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ q }));
+    const el = document.createElement('div');
+    el.setAttribute('get', '/s?q={q}');
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(global.fetch.mock.calls[0][0]).toBe('/s?q=' + q);
+  });
+});

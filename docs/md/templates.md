@@ -67,6 +67,8 @@ Load templates from external HTML files:
 <template id="footer" src="/templates/footer.html"></template>
 ```
 
+Relative `src` paths resolve against the page URL (a `./` path inside a remote template resolves against that template's folder). The `base` attribute and `baseApiUrl` apply only to HTTP directives, never to template files.
+
 ### Recursive Loading
 
 Remote templates are loaded **recursively** — if a remote template itself contains `<template src="...">` elements, those are automatically resolved too:

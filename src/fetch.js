@@ -7,7 +7,6 @@ import { _config, _interceptors, _cache, _plugins, _SENSITIVE_HEADERS, _SENSITIV
 const _MAX_CACHE = 200;
 const _INTERCEPTOR_TIMEOUT = 5000;
 let _interceptorDepth = 0;
-const _MAX_INTERCEPTOR_DEPTH = 1;
 const _responseOriginals = new WeakMap();
 
 function _withTimeout(promise, ms, label) {
@@ -18,6 +17,21 @@ function _withTimeout(promise, ms, label) {
       id = setTimeout(() => reject(new Error(label)), ms);
     }),
   ]);
+}
+
+// Request-interceptor re-entrancy guard: _interceptorDepth is raised only while
+// the interceptor runs synchronously, so a fetch it issues from there skips the
+// chain. It is never held across an await, so it cannot leak into concurrent,
+// unrelated requests.
+function _guardReentry(fn) {
+  return (...args) => {
+    _interceptorDepth++;
+    try {
+      return fn(...args);
+    } finally {
+      _interceptorDepth--;
+    }
+  };
 }
 
 function _isSensitiveHeader(name) {
@@ -180,12 +194,14 @@ export async function _doFetch(
     }
   }
 
-  _interceptorDepth++;
-  try {
-    if (_interceptorDepth <= _MAX_INTERCEPTOR_DEPTH) {
+  if (hasRequestInterceptors) {
+    // Skip the chain for a fetch issued from inside a request interceptor
+    // (see _guardReentry). Nothing above is awaited, so a nested _doFetch
+    // reaches this check while the interceptor that issued it is running.
+    if (_interceptorDepth === 0) {
       for (let i = 0; i < _interceptors.request.length; i++) {
         const entry = _interceptors.request[i];
-        const fn = entry.fn ?? entry;
+        const fn = _guardReentry(entry.fn ?? entry);
         const isTrusted = entry.pluginName && _plugins.get(entry.pluginName)?.options?.trusted === true;
 
         const interceptorOpts = isTrusted
@@ -227,8 +243,6 @@ export async function _doFetch(
         }
       }
     }
-  } finally {
-    _interceptorDepth--;
   }
 
   // Re-apply sensitive headers after interceptor chain

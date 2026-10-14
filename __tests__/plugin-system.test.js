@@ -1519,6 +1519,119 @@ describe('NoJS.global() default — reactive copy (v1.21.1)', () => {
     expect(texts()).toEqual(['3', '3', '3']);
   });
 
+  // A watcher that always writes its global back never settles. The wake of
+  // the "$" bindings is queued on the batch, so the cycle is cut by the drain's
+  // 100-round cap with the v1.21.1 warning instead of overflowing the stack.
+  describe('unbounded write-back cycles', () => {
+    const CAP_WARNING = 'batch drain exceeded 100 rounds — possible update cycle; aborting drain';
+    let warnSpy;
+    const warnings = () => warnSpy.mock.calls.map((args) => args.map(String).join(' '));
+    const capWarnings = () => warnings().filter((w) => w.includes(CAP_WARNING));
+    const overflowWarnings = () => warnings().filter((w) => /call stack|RangeError|recursion/.test(w));
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+    afterEach(() => warnSpy.mockRestore());
+
+    test('a same-scope template writer stops at the cap like v1.21.1', async () => {
+      NoJS.global('q', { n: 0 });
+      document.body.innerHTML =
+        `<div state="{}"><div watch="$q.n" on:change="$q.n = $new + 1"></div>` +
+        `<button id="kick" on:click="$q.$set('n', 1)">k</button><span id="qn" bind="$q.n"></span></div>`;
+      NoJS.processTree(document.body);
+
+      document.getElementById('kick').click();
+      await flush();
+      // Same final state as v1.21.1: 100 drain rounds, binding one round behind
+      expect(_globals.q.n).toBe(101);
+      expect(document.getElementById('qn').textContent).toBe('100');
+      expect(capWarnings()).toHaveLength(1);
+      expect(overflowWarnings()).toHaveLength(0);
+    });
+
+    test('a writer woken from another scope is capped too', async () => {
+      NoJS.global('h', { n: 0 });
+      document.body.innerHTML =
+        `<div state="{}"><div watch="$h.n" on:change="$h.n = $new + 1"></div><span id="hn" bind="$h.n"></span></div>` +
+        `<div state="{}"><button id="kick" on:click="$h.$set('n', 1)">k</button></div>`;
+      NoJS.processTree(document.body);
+
+      document.getElementById('kick').click();
+      await flush();
+      expect(_globals.h.n).toBe(101);
+      expect(document.getElementById('hn').textContent).toBe('100');
+      expect(capWarnings()).toHaveLength(1);
+      expect(overflowWarnings()).toHaveLength(0);
+    });
+
+    test('a writer kicked by a JS $set is capped', async () => {
+      NoJS.global('k', { n: 0 });
+      document.body.innerHTML =
+        `<div state="{}"><div watch="$k.n" on:change="$k.n = $new + 1"></div><span id="kn" bind="$k.n"></span></div>`;
+      NoJS.processTree(document.body);
+
+      expect(() => _globals.k.$set('n', 1)).not.toThrow();
+      await flush();
+      expect(_globals.k.n).toBe(100);
+      expect(document.getElementById('kn').textContent).toBe('99');
+      expect(capWarnings()).toHaveLength(1);
+      expect(overflowWarnings()).toHaveLength(0);
+    });
+
+    test('bindings keep updating after a capped cycle', async () => {
+      NoJS.global('q', { n: 0 });
+      document.body.innerHTML =
+        `<div state="{}"><div watch="$q.n" on:change="$q.n = $new + 1"></div>` +
+        `<button id="kick" on:click="$q.$set('n', 1)">k</button></div>` +
+        `<div state="{ count: 0 }"><button id="inc" on:click="count++">+</button><span id="count" bind="count"></span></div>`;
+      NoJS.processTree(document.body);
+
+      document.getElementById('kick').click();
+      await flush();
+      document.getElementById('inc').click();
+      document.getElementById('inc').click();
+      await flush();
+      expect(document.getElementById('count').textContent).toBe('2');
+      expect(capWarnings()).toHaveLength(1);
+    });
+
+    test('a convergent template write-back settles in every scope', async () => {
+      NoJS.global('g', { n: 0 });
+      document.body.innerHTML =
+        `<div state="{}"><div watch="$g.n" on:change="$g.n = $new < 5 ? $new + 1 : $new"></div>` +
+        `<span id="a" bind="$g.n"></span><button id="kick" on:click="$g.$set('n', 1)">k</button></div>` +
+        `<div state="{}"><span id="b" bind="$g.n"></span></div>` +
+        `<span id="c" bind="$g.n"></span>`;
+      NoJS.processTree(document.body);
+
+      document.getElementById('kick').click();
+      await flush();
+      expect(_globals.g.n).toBe(5);
+      expect(texts()).toEqual(['5', '5', '5']);
+      expect(warnings()).toHaveLength(0);
+    });
+
+    test('$store watchers keep their synchronous timing', async () => {
+      _stores.s = createContext({ n: 0 });
+      const order = [];
+      NoJS.filter('tagStore', (v) => { order.push('store:' + v); return v; });
+      NoJS.filter('tagLocal', (v) => { order.push('local:' + v); return v; });
+      document.body.innerHTML =
+        `<div state="{ local: 0 }"><span bind="local | tagLocal"></span>` +
+        `<button id="kick" on:click="local = 1; $store.s.n = 1">k</button></div>` +
+        `<div state="{}"><span bind="$store.s.n | tagStore"></span></div>`;
+      NoJS.processTree(document.body);
+      order.length = 0;
+
+      document.getElementById('kick').click();
+      await flush();
+      // The store partition runs inside the statement, before the batch
+      // drains the context listeners (v1.21.1 order)
+      expect(order).toEqual(['store:1', 'local:1']);
+    });
+  });
+
   test('a plugin publishes in install() and templates mutate it via $set', async () => {
     document.body.innerHTML = `
       <header><span id="hdr" bind="$cart.count"></span></header>

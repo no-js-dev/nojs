@@ -4,7 +4,7 @@
 
 import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _collectKeys, _startBatch, _endBatch } from "./context.js";
+import { _collectKeys, _startBatch, _endBatch, _wakeGlobalWatchers } from "./context.js";
 
 function _makeCache() {
   const map = new Map();
@@ -2319,8 +2319,10 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         c = c.$parent;
       }
       // A published plugin global is read app-wide: also wake its bindings
-      // in other scopes (the "$" store partition, see _watchExpr)
-      if (stmtScan.dollarRoots.some((k) => k in _globals)) _notifyStoreWatchers("$");
+      // in other scopes (the "$" store partition, see _watchExpr). Queued on
+      // this statement's batch, not called synchronously: a watcher that
+      // writes the global back would otherwise recurse to a stack overflow.
+      if (stmtScan.dollarRoots.some((k) => k in _globals)) _wakeGlobalWatchers();
     }
   } catch (e) {
     _warn("Expression error:", expr, e.message);

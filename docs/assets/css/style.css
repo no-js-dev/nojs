@@ -2075,6 +2075,10 @@ html {
 .doc-table td a code {
   color: inherit;
 }
+.doc-table-flags th:nth-child(-n+2),
+.doc-table-flags td:nth-child(-n+2) code {
+  white-space: nowrap;
+}
 .demo-card {
   border: 1px solid var(--border-color);
   border-radius: var(--rounded-lg);

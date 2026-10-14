@@ -120,7 +120,7 @@ NoJS.config({ templates: { cache: true } });</pre></div>
 
     <h3 class="doc-title" id="config-load-path" t="docs.configuration.configOptions.loadPathTitle"></h3>
     <p class="doc-text" t="docs.configuration.configOptions.loadPathType"></p>
-    <p class="doc-text" t="docs.configuration.configOptions.loadPathText"></p>
+    <p class="doc-text" t="docs.configuration.configOptions.loadPathText" t-html></p>
     <div class="code-block"><pre highlight>NoJS.i18n({
   loadPath: '/locales/{locale}.json'          // Flat mode
   loadPath: '/locales/{locale}/{ns}.json'   // Namespace mode
@@ -254,6 +254,35 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
 
     <h3 class="doc-title" id="config-csp" t="docs.configuration.security.cspSecTitle"></h3>
     <p class="doc-text" t="docs.configuration.security.cspSecText1"></p>
+  </div>
+
+  <!-- Opt-in Hardening Flags -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="config-hardening" t="docs.configuration.hardening.title"></h2>
+    <p class="doc-text" t="docs.configuration.hardening.text"></p>
+    <table class="doc-table doc-table-flags">
+      <thead><tr><th t="docs.configuration.hardening.colFlag"></th><th t="docs.configuration.hardening.colDefault"></th><th t="docs.configuration.hardening.colWhenTrue"></th></tr></thead>
+      <tbody>
+        <tr><td><code>scopeHeaders</code></td><td><code>false</code></td><td t="docs.configuration.hardening.scopeHeaders"></td></tr>
+        <tr><td><code>strictRedaction</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictRedaction"></td></tr>
+        <tr><td><code>strictDirectives</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDirectives"></td></tr>
+        <tr><td><code>strictDevtools</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDevtools"></td></tr>
+        <tr><td><code>strictPersist</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictPersist"></td></tr>
+        <tr><td><code>strictJsonld</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictJsonld"></td></tr>
+        <tr><td><code>templates.pageRelative</code></td><td><code>false</code></td><td t="docs.configuration.hardening.pageRelative"></td></tr>
+        <tr><td><code>i18n.escapeParams</code></td><td><code>false</code></td><td t="docs.configuration.hardening.escapeParams"></td></tr>
+        <tr><td><code>i18n.strictLocale</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictLocale"></td></tr>
+      </tbody>
+    </table>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+&lt;/script&gt;</pre></div>
+    <div class="callout"><p t="docs.configuration.hardening.byRefCallout"></p></div>
   </div>
 
 </div>

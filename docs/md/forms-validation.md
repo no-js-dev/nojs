@@ -81,12 +81,14 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-Per-rule templates work too:
+`error-{rule}="#tplId"` also renders that template when that rule fails, with `$rule` and inside the same `aria-live` wrapper. The message, though, both `$error` inside the template and `$form.errors`, is the literal text `#tplId`. Write the message in the template itself, or use the generic `error="#tplId"` with `$rule`:
 
 ```html
-<input name="user" required validate="custom:checkAvailability"
-       error-required="#reqTpl"
-       error-custom="#customTpl" />
+<input name="user" required error-required="#reqTpl" />
+
+<template id="reqTpl">
+  <span class="field-error">Please choose a username</span>
+</template>
 ```
 
 ---
@@ -119,7 +121,7 @@ Inside any `<form>` with the `validate` attribute, `$form` provides:
 | `$form.dirty` | `boolean` | `true` if any field has been modified |
 | `$form.touched` | `boolean` | `true` if any field has been focused and blurred |
 | `$form.submitting` | `boolean` | `true` while the request is in flight |
-| `$form.pending` | `boolean` | `true` while async validators are running |
+| `$form.pending` | `boolean` | Always `false`: async validators are not supported |
 | `$form.errors` | `object` | Map of field names → error messages |
 | `$form.values` | `object` | Current form values |
 | `$form.firstError` | `string\|null` | Error message of the first invalid field (DOM order) |

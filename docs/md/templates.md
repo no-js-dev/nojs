@@ -90,6 +90,11 @@ A `./` path inside a remote template resolves against that template's folder. Ev
 
 This also applies to route templates (`<template route src>`) and file-based routing.
 
+Two cases do not see a `base` attribute that you might expect to apply. Both behave the same as in v1.21.1:
+
+- **Templates nested in a remote content include.** A remote template that is not a route template has its content loaded outside the page, so the `base` lookup for a nested `<template src>` never reaches the element that included it. A plain path (`parts/nav.tpl`) or a `/`-rooted path (`/parts/nav.tpl`) inside it ignores `base` on the including element and falls back to `baseApiUrl`, else to the page. Use a `./` path to load a nested file next to its parent template, or an absolute URL. Route templates are different: their nested `<template src>` load after the route is inserted into `route-view`, so a `base` on the `route-view` element or its ancestors applies.
+- **File-based route templates.** The router appends the templates it creates for file-based routes to `<body>`, not to the `route-view` element. A `base` on the `route-view` element or on its ancestors is therefore not used for the route file itself. Only a `base` on `<body>` or `<html>`, or `baseApiUrl`, applies.
+
 To keep templates on the page origin while HTTP directives use `base` / `baseApiUrl`, opt in to page-relative resolution:
 
 ```html

@@ -16,12 +16,12 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
 - [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
 - [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, re-render after in-place mutation (`push`, `splice`, `sort`, `reverse`, index assign) as well as reassignment, nesting. **Common mistake:** the loop element IS the repeating unit — put the directive on the child (`<li>`, `<tr>`), not the container (`<ul>`, `<table>`, `<tbody>`), or you get N container replicas.
-- [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src`, preloading
+- [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src` (resolved through the nearest `base` attribute or `baseApiUrl` like HTTP URLs; `templates.pageRelative: true` resolves against the page instead), preloading
 
 ## Interaction
 
 - [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:error`, `on:unmounted`); `$event` and `$el` references; `;`-separated statements with handler-local `const`/`let` bindings (never written to state; reassigning a `const` throws)
-- [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `min`, `max`, `pattern`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
+- [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `url`, `min`, `max`) plus native HTML attributes (`minlength`, `maxlength`, `pattern`, `type`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](https://no-js.dev/#/actions-refs): `call` (trigger HTTP from any element), `trigger` (dispatch custom events), `ref` (name an element), `$refs` (access named elements)
 
 ## Presentation
@@ -38,7 +38,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Drag and Drop](https://no-js.dev/#/drag-and-drop): `drag` source, `drop` zone, `drag-list` for sortable reordering, multi-select, custom placeholders, event handlers (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Custom Directives](https://no-js.dev/#/custom-directives): Extend the framework via `NoJS.directive(name, { priority, init(el, name, value) })` with full access to the reactive context
 - [Error Handling](https://no-js.dev/#/error-handling): Per-element `error` templates, `error-boundary` for subtree isolation, global error handler via `NoJS.on('error', fn)`
-- [Configuration](https://no-js.dev/#/configuration): `NoJS.config()` for global settings (baseApiUrl, headers, timeout, retries), request/response interceptors, CSRF token support
+- [Configuration](https://no-js.dev/#/configuration): `NoJS.config()` for global settings (baseApiUrl, headers, timeout, retries), request/response interceptors, CSRF token support, opt-in hardening flags (all default `false`, keeping v1.21.1 behavior)
 
 ## Public API
 
@@ -46,8 +46,22 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Configuration
 
-- `NoJS.config(opts?: object): void` — Merge global settings. Keys: `baseApiUrl` (string), `headers` (object), `timeout` (number, ms), `retries` (number), `cache` (object), `templates` (object), `router` (object), `i18n` (object), `stores` (object), `exprCacheSize` (number, default 500), `dangerouslyDisableSanitize` (boolean), `maxEventListeners` (number), `debug` (boolean), `appId` (string), `csrf` (object). Security-critical keys (`sanitize`, `dangerouslyDisableSanitize`, `sanitizeHtml`) are locked after `init()`.
+- `NoJS.config(opts?: object): void` — Merge global settings. Keys: `baseApiUrl` (string), `headers` (object), `timeout` (number, ms), `retries` (number), `cache` (object), `templates` (object), `router` (object), `i18n` (object), `stores` (object), `exprCacheSize` (number, default 500), `dangerouslyDisableSanitize` (boolean), `maxEventListeners` (number), `debug` (boolean), `appId` (string), `csrf` (object), plus the opt-in hardening flags listed below. Security-critical keys (`sanitize`, `dangerouslyDisableSanitize`, `sanitizeHtml`) are locked after `init()`.
 - `NoJS.baseApiUrl: string` — Get or set the base API URL for fetch directives.
+
+### Opt-in Hardening Flags
+
+All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config()`. Most take effect immediately, before or after `init()`; `strictPersist` and `strictDirectives` apply to restores and registrations made after they are set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale.
+
+- `scopeHeaders` — Global `config({ headers })` are sent only to trusted origins (the page, `baseApiUrl`, the nearest `base`). Default: sent with every request.
+- `strictRedaction` — Untrusted interceptors and `fetch:success` / `fetch:error` / `error` payloads get string-level redacted URLs (the `#fragment` is dropped, sensitive query values become `[REDACTED]`); the `csrf.header` name is withheld and cannot be overridden; request-sensitive headers are also stripped from responses. Default: request interceptors and event payloads get the raw URL; response interceptors get the URL re-serialized by the `URL` API with sensitive query values set to `%5BREDACTED%5D`.
+- `strictDirectives` — `NoJS.directive()` rejects names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). Applies to every registration made while it is set, because the registry is frozen at load.
+- `strictDevtools` — Devtools events and the context registry are also limited to local hosts; store snapshots and `get:config` redact sensitive keys; devtools fetch URLs are redacted. Default: only `window.__NOJS_DEVTOOLS__` is local-host-only.
+- `strictPersist` — On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$refs`, a plugin global, …) is skipped unless declared or listed in `persist-fields`. Default: every stored `$` key is restored (restore still skips dotted keys, `__`-prefixed keys and `__proto__` / `constructor` / `prototype`, and applies `persist-fields` / `persist-schema`). Independently of the flag, an empty `persist-fields` persists all fields.
+- `strictJsonld` — `page-jsonld` placeholders inside JSON strings are always JSON-escaped. Default: the v1.21.1 output is kept when it is valid JSON.
+- `templates.pageRelative` — `<template src>` ignores `base` and `baseApiUrl` and resolves against the page.
+- `i18n.escapeParams` — HTML-escape `t-*` params in `t-html`.
+- `i18n.strictLocale` — Ignore a persisted locale that is not in a non-empty `supportedLocales`. Read only by the `NoJS.i18n()` call that restores the locale: pass it there (or set it with `config()` before that call).
 
 ### Lifecycle
 
@@ -57,18 +71,18 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 ### Plugin System
 
 - `NoJS.use(plugin: object | function, options?: object): void` — Register a plugin. Plugin must have `{ name: string, install: function }` or be a named function. The `install(NoJS, options)` callback runs immediately. If `init()` has already completed and the plugin has an `init` method, it is called. Options: `{ trusted: true }` grants access to sensitive HTTP headers.
-- `NoJS.global(name: string, value: any): void` — Register a reactive global accessible as `$name` in expressions. Validates identifier format, blocks reserved names and prototype pollution vectors, sanitizes object values, and wraps in a reactive context. Notifies all store watchers on registration.
+- `NoJS.global(name: string, value: any, options?: { byRef?: boolean }): void` — Register a reactive global accessible as `$name` in expressions. Validates identifier format and blocks reserved names and prototype pollution vectors. By default an object value is published as a JSON copy (methods dropped, `Date` becomes an ISO string, own `__proto__` keys dropped; a value that cannot be serialized gets a shallow copy) wrapped in a reactive context with `$watch`/`$set`/`$notify`. With `{ byRef: true }` the object itself is published (methods, `Date`, `Map`, identity kept) after a full check that rejects forbidden keys and nested `eval`/`Function`. Globals are app-wide: a write from any scope updates every binding that reads `$name`.
 - `NoJS.internals: object` — Frozen object exposing semi-private APIs for trusted plugins: `execStatement`, `cloneTemplate`, `disposeChildren`, `disposeTree`, `warn`, `validators`, `removeCoreDirective`, `onDispose`.
 
 ### Directives, Filters, and Validators
 
-- `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. Core directives are frozen after `init()` — plugins can add new ones but not override built-ins.
+- `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. Core directives are frozen as soon as the framework loads — plugins can add new ones but not override built-ins. A name covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`, e.g. `on:clickoutside`) is accepted and wins for that attribute only, unless `strictDirectives: true` is set before the call.
 - `NoJS.filter(name: string, fn: function): void` — Register a custom filter for pipe syntax (`value | filterName`). Built-in filter names cannot be overridden. Throws `TypeError` if name or fn is invalid.
 - `NoJS.validator(name: string, fn: function): void` — Register a custom form validation rule. The names of the built-in `validate` rules (`required`, `email`, `url`, `min`, `max`) cannot be overridden; every other name, including `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha` and `alphanumeric`, can be registered. Throws `TypeError` if name or fn is invalid.
 
 ### Internationalization
 
-- `NoJS.i18n(opts: object): void` — Configure i18n. Options: `loadPath` (string, e.g. `/locales/{locale}.json`), `defaultLocale` (string), `fallbackLocale` (string), `persist` (boolean, saves to localStorage), `detectBrowser` (boolean), `supportedLocales` (array of locale codes; required to enable `detectBrowser` under `loadPath` since no bundles are loaded when detection runs — first-visit priority: persisted `nojs-locale` > browser detection > `defaultLocale`), `ns` (array of namespace strings), `cache` (boolean), `locales` (object mapping locale codes to metadata).
+- `NoJS.i18n(opts: object): void` — Configure i18n. Options: `loadPath` (string, e.g. `/locales/{locale}.json`), `defaultLocale` (string), `fallbackLocale` (string), `persist` (boolean, saves to localStorage), `detectBrowser` (boolean), `supportedLocales` (array of locale codes; required to enable `detectBrowser` under `loadPath` since no bundles are loaded when detection runs — first-visit priority: persisted `nojs-locale` > browser detection > `defaultLocale`), `ns` (array of namespace strings), `cache` (boolean), `locales` (object mapping locale codes to metadata), `escapeParams` (boolean, default `false`: `t-*` params in `t-html` are inserted raw and the result is sanitized; `true` HTML-escapes them), `strictLocale` (boolean, default `false`: a persisted locale is restored even if it is not in `supportedLocales`; `true` ignores it).
 - `NoJS.locale: string` — Get or set the active locale. Setting triggers re-fetch of all loaded namespaces for the new locale.
 
 ### Event Bus
@@ -108,8 +122,8 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Metadata
 
-- `NoJS.version: string` — The framework version string (e.g. `"1.17.0"`).
-- Latest release: **v1.17.0** — adds the `query` directive (HTTP QUERY, RFC 10008): a safe, idempotent, cacheable read that carries a request body, with body-aware caching and `query-trigger*` companions (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
+- `NoJS.version: string` — The framework version string (e.g. `"1.21.1"`).
+- Latest release: **v1.21.1** — `each`/`filter` re-evaluates when outer-scope dependencies change (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
 
 ## Reference
 

@@ -66,7 +66,7 @@
         "delete": "Elimina i dati (DELETE)",
         "query": "Lettura con corpo (QUERY, RFC 10008)",
         "as": "Nome per i dati recuperati nel contesto",
-        "body": "Corpo della richiesta",
+        "body": "Corpo della richiesta (codificato per URL; invialo con un header Content-Type: application/x-www-form-urlencoded)",
         "headers": "Header della richiesta",
         "params": "Parametri della query",
         "cached": "Cache delle risposte (memory/local/session)",
@@ -674,6 +674,7 @@
         "title": "post, put, patch, delete — Richieste di Mutazione",
         "text": "Usati nei form o attivati tramite call.",
         "formSubmissionTitle": "Invio del Form",
+        "formResetNote": "Dopo un invio riuscito, il template <code>success</code> sostituisce il contenuto del form. Senza <code>success</code>, i figli del form vengono renderizzati di nuovo dal markup originale, quindi i campi senza <code>model</code> tornano ai valori iniziali; i campi collegati con <code>model</code> mantengono il loro stato. Lo stesso vale per <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -681,7 +682,7 @@
         "col1": "Attributo",
         "col2": "Descrizione",
         "method": "URL per la richiesta",
-        "body": "Corpo della richiesta (stringa JSON con interpolazione). Per i form, serializza automaticamente i campi",
+        "body": "Stringa del corpo della richiesta. Ogni placeholder {…} viene sostituito dal suo valore codificato per URL. Un risultato che è JSON valido viene inviato come application/json (un valore JSON falsy come 0, false o null non invia alcun corpo). Per i form, i campi vengono serializzati in un oggetto JSON e body viene ignorato",
         "success": "ID del template da renderizzare in caso di successo. Riceve la risposta come var",
         "error": "ID del template da renderizzare in caso di errore. Riceve l'errore come var",
         "loading": "ID del template da mostrare durante la richiesta",
@@ -706,7 +707,7 @@
       },
       "urlEncoding": {
         "title": "Interpolazione URL e Encoding",
-        "text": "Dalla v1.10, tutti i valori <code>{placeholder}</code> negli attributi URL vengono automaticamente passati attraverso <code>encodeURIComponent()</code>. Questo è sicuro per i parametri di query e i segmenti di percorso a singolo livello, ma romperà i percorsi multi-segmento che contengono barre — perché <code>/</code> diventa <code>%2F</code>. Se il tuo valore contiene separatori di percorso, concatena al di fuori delle parentesi graffe."
+        "text": "Dalla v1.10, tutti i valori <code>&#123;placeholder&#125;</code> negli attributi URL vengono automaticamente passati attraverso <code>encodeURIComponent()</code>. Questo è sicuro per i parametri di query e i segmenti di percorso a singolo livello, ma romperà i percorsi multi-segmento che contengono barre — perché <code>/</code> diventa <code>%2F</code>. Se il tuo valore contiene separatori di percorso, usa un placeholder per ogni segmento di percorso."
       },
       "skeleton": {
         "title": "Skeleton Placeholder",
@@ -976,7 +977,7 @@
         "dirty": "true se un campo è stato modificato",
         "touched": "true se un campo ha ricevuto e perso il focus",
         "submitting": "true mentre la richiesta è in corso",
-        "pending": "true mentre i validatori asincroni sono in esecuzione",
+        "pending": "Sempre false: i validatori asincroni non sono supportati",
         "errors": "Mappa dei nomi dei campi → messaggi di errore",
         "values": "Valori correnti del form",
         "firstError": "Messaggio di errore del primo campo invalido (ordine del DOM)",
@@ -1399,9 +1400,9 @@
         "col1": "Attributo",
         "col2": "Tipo",
         "col3": "Descrizione",
-        "call": "URL per la richiesta (supporta interpolazione {variable})",
+        "call": "URL per la richiesta (supporta l'interpolazione di placeholder {…})",
         "method": "Metodo HTTP. Predefinito: \"get\"",
-        "body": "Corpo della richiesta (stringa JSON con interpolazione {variable})",
+        "body": "Stringa del corpo della richiesta. Ogni placeholder {…} viene sostituito dal suo valore codificato per URL. Un risultato che è JSON valido viene inviato come application/json (un valore JSON falsy come 0, false o null non invia alcun corpo)",
         "headers": "Stringa JSON di header aggiuntivi per la richiesta",
         "as": "Nome da assegnare alla risposta nel contesto. Predefinito: \"data\"",
         "into": "Scrive la risposta in uno store globale con nome",
@@ -1500,8 +1501,8 @@
       "errorBoundary": {
         "title": "error-boundary — Cattura Errori nel Sottoalbero",
         "text": "Avvolgi una sezione della tua pagina con error-boundary per catturare gli errori che si verificano nel suo sottoalbero. Il boundary intercetta due tipi di errori:",
-        "type1": "Errori di valutazione di espressione — emessi come CustomEvents nojs:error che risalgono dalle espressioni degli handler (es: un'espressione bind o on:click lancia un errore).",
-        "type2": "Errori a livello window — errori JS non catturati e fallimenti di caricamento risorse (es: un <img> 404) che provengono da elementi all'interno del boundary.",
+        "type1": "Errori degli event handler — quando un'istruzione di un event handler (per esempio on:click) lancia un errore, No.JS emette un CustomEvent nojs:error che risale dall'elemento. Un bind o un'altra espressione di sola lettura che fallisce non attiva il boundary: registra un avviso e restituisce undefined.",
+        "type2": "Errori a livello window — qualsiasi errore JS non catturato nella pagina, anche se lanciato fuori dal boundary (ogni boundary nella pagina mostra il suo fallback), e fallimenti di caricamento risorse (es: un <img> 404) su elementi all'interno del boundary.",
         "httpCaveat": "error-boundary NON cattura le richieste HTTP fallite fatte dalle direttive get/post/put/patch/delete. Usa l'attributo error sull'elemento fetch per la gestione errori per richiesta, o NoJS.on('fetch:error', ...) per la gestione globale degli errori HTTP."
       },
       "retry": {
@@ -1511,8 +1512,8 @@
       },
       "boundaryEvents": {
         "title": "Eventi di Error Boundary",
-        "text": "Quando un error boundary cattura un errore, emette un CustomEvent nojs:error sull'elemento boundary. Ascolta con on:error per registrare errori o mostrare notifiche.",
-        "callout": "L'oggetto $event.detail contiene: message (string), source (element) ed error (oggetto Error originale)."
+        "text": "Il CustomEvent nojs:error emesso da un errore di event handler risale oltre il boundary, quindi puoi ascoltarlo con on:nojs:error sul boundary o su qualsiasi antenato, per esempio per registrare errori o mostrare una notifica.",
+        "callout": "$event.detail contiene message (string) ed error (l'oggetto Error originale). Anche gli errori di window mostrano il fallback del boundary, ma non emettono nojs:error. Il boundary non emette alcun evento. on:error non riceve nojs:error; usa on:nojs:error. (Attualmente on:error viene eseguito solo per eventi error che risalgono (bubbling), emessi sull'elemento o su un discendente; gli errori di caricamento delle risorse, come un <img> con 404, non lo raggiungono.)"
       },
       "expressionErrors": {
         "title": "Errori di Espressione",
@@ -1546,7 +1547,7 @@
         "templatesCacheText2": "Imposta a false durante lo sviluppo locale se vuoi che le modifiche ai file .tpl vengano riflesse senza un ricaricamento forzato della pagina.",
         "loadPathTitle": "i18n.loadPath",
         "loadPathType": "Tipo: string | null | Default: null",
-        "loadPathText": "Template URL per il caricamento dei file JSON di locale tramite fetch. Usa {locale} e opzionalmente {ns} come placeholder. Quando è null, le traduzioni devono essere fornite inline tramite NoJS.i18n({ locales }).",
+        "loadPathText": "Template URL per il caricamento dei file JSON di locale tramite fetch. Usa &#123;locale&#125; e opzionalmente &#123;ns&#125; come placeholder. Quando è null, le traduzioni devono essere fornite inline tramite NoJS.i18n({ locales }).",
         "nsTitle": "i18n.ns",
         "nsType": "Tipo: string[] | Default: []",
         "nsText": "Array di identificatori di namespace da precaricare all'init(). Ogni namespace corrisponde a un file JSON separato per locale. Namespace aggiuntivi possono essere caricati on-demand tramite la direttiva i18n-ns o l'attributo di route.",
@@ -1601,6 +1602,23 @@
         "csrfTitle": "Protezione CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS utilizza un parser di espressioni personalizzato completamente compatibile con CSP — eval() e il costruttore Function() non vengono usati. Nessuna direttiva unsafe-eval è richiesta nella tua Content Security Policy."
+      },
+      "hardening": {
+        "title": "Flag di hardening opzionali",
+        "text": "I comportamenti di sicurezza più restrittivi sono opzionali, così le app costruite su v1.21.1 continuano a funzionare senza modifiche. Ogni flag vale false per impostazione predefinita (comportamento di v1.21.1) e si imposta con NoJS.config(). La maggior parte ha effetto immediato, prima o dopo init(). strictPersist e strictDirectives valgono per i ripristini e le registrazioni di direttive fatti dopo averli attivati, e i18n.strictLocale solo per la chiamata a NoJS.i18n() che ripristina il locale persistito.",
+        "colFlag": "Flag",
+        "colDefault": "Predefinito",
+        "colWhenTrue": "Con true",
+        "scopeHeaders": "Gli header globali di config({ headers }) vengono inviati solo alle origini attendibili (la pagina, baseApiUrl e l'attributo base più vicino) invece che a ogni richiesta.",
+        "strictRedaction": "Gli interceptor non attendibili e i payload degli eventi fetch:success / fetch:error / error ricevono una censura più rigida: il csrf.header viene trattenuto, gli header di risposta sensibili come header di richiesta vengono rimossi, e gli URL perdono il #fragment e hanno i valori sensibili della query sostituiti da [REDACTED].",
+        "strictDirectives": "NoJS.directive() rifiuta i nomi coperti da un wildcard del core (on:*, bind-*, class-*, style-*). Il registro viene congelato appena No.JS si carica, quindi il flag vale per ogni registrazione fatta mentre è attivo. Impostalo prima che i plugin registrino le direttive.",
+        "strictDevtools": "Gli eventi devtools e il registro dei contesti sono limitati anche agli host locali, gli snapshot degli store censurano le chiavi sensibili, get:config restituisce gli header censurati per chiave e gli URL degli eventi fetch di devtools vengono censurati.",
+        "strictPersist": "Al ripristino di persist, una chiave $ salvata con un nome riservato ($store, $route, $refs, un global di plugin, …) viene saltata, a meno che lo state la dichiari o persist-fields la elenchi.",
+        "strictJsonld": "I placeholder di page-jsonld dentro stringhe JSON vengono sempre escapati come contenuto di stringa JSON. Per impostazione predefinita, l'output di v1.21.1 viene mantenuto quando è JSON valido.",
+        "pageRelative": "<template src> viene risolto rispetto alla pagina e ignora base e baseApiUrl.",
+        "escapeParams": "I parametri t-* nelle traduzioni t-html vengono escapati come HTML. Cambiarlo dopo init() ri-renderizza le traduzioni attive.",
+        "strictLocale": "Un nojs-locale persistito che non è in un supportedLocales non vuoto viene ignorato al ripristino. Passalo nella chiamata a NoJS.i18n() che ripristina il locale, oppure impostalo con config() prima di quella chiamata.",
+        "byRefCallout": "NoJS.global(name, value, { byRef: true }) è un'opzione per singola chiamata: pubblica l'oggetto stesso invece di una copia JSON reattiva. Vedi Plugins."
       }
     },
     "plugins": {
@@ -1675,7 +1693,7 @@
       },
       "trusted": {
         "title": "Interceptor Fidati",
-        "text": "Per impostazione predefinita, gli interceptor ricevono copie censurate delle richieste e risposte — gli header sensibili e i parametri URL vengono rimossi o sostituiti con [REDACTED].",
+        "text": "Per impostazione predefinita, gli interceptor ricevono copie censurate delle richieste e risposte: gli header sensibili vengono rimossi, e gli interceptor di risposta ricevono l'URL ri-serializzato con i valori sensibili della query come %5BREDACTED%5D. Gli interceptor di richiesta ricevono l'URL originale, a meno che strictRedaction sia attivo.",
         "fullAccess": "I plugin di autenticazione che necessitano di accesso agli header reali possono essere installati con { trusted: true }.",
         "callout": "Un avviso nella console viene registrato quando un plugin viene installato con accesso fidato. Concedi trusted solo ai plugin che controlli o hai verificato.",
         "redactedTitle": "Header Censurati",

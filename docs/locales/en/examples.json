@@ -46,7 +46,7 @@
     "formPost": {
       "badge": "Forms",
       "name": "Form Submission",
-      "desc": "Submit form data with <code>post</code> and <code>body</code>. Combine with <code>model</code> for reactive form fields and inline validation."
+      "desc": "Submit a form with <code>post</code>: every field with a <code>name</code> is sent as a JSON object. Combine with <code>model</code> to show the field's value live."
     },
     "pagination": {
       "badge": "Pagination",

@@ -206,6 +206,8 @@ Absolute URLs skip base resolution:
 
 > **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
 
+> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, `baseApiUrl`, and the nearest `base` attribute.
+
 ### Per-Request Headers
 
 ```html
@@ -300,9 +302,16 @@ URLs that reference state variables re-fetch automatically when those values cha
 > <!-- ❌ Broken — path contains "/", will become "%2F" -->
 > <div get="/files/{path}">...</div>  <!-- path = "reports/2026" -->
 >
-> <!-- ✅ Workaround — concatenate outside {} -->
-> <div get="'/files/' + path">...</div>
+> <!-- ✅ Workaround — one placeholder per path segment -->
+> <div get="/files/{dir}/{name}">...</div>  <!-- dir = "reports", name = "2026" -->
 > ```
+
+In the path part of a URL, a placeholder whose value is exactly `.` or `..` is escaped as `%252E` or `%252E%252E`, and a console warning is logged. Without this, URL parsers would collapse the value as a dot-segment and send the request to a different path. The server receives the literal segment `%2E%2E`. Values in the query string, values in the fragment, and request bodies are not affected.
+
+```html
+<!-- id = ".." → requests /users/%252E%252E/avatar, not /avatar -->
+<div get="/users/{id}/avatar">...</div>
+```
 
 ---
 
@@ -333,13 +342,15 @@ Used on forms or triggered via `call`.
 </template>
 ```
 
+After a successful submit, the `success` template replaces the form's content. Without `success`, the form's children are rendered again from their original markup, so fields without `model` go back to their initial values; fields bound with `model` keep their state. The same applies to `<form query>`.
+
 ### PUT / PATCH / DELETE
 
 ```html
-<form put="/users/{user.id}"
-      body='{"name": "{user.name}", "role": "{selectedRole}"}'
-      success="#updateSuccess">
-  ...
+<form put="/users/{user.id}" success="#updateSuccess">
+  <input name="name" model="user.name" />
+  <select name="role" model="selectedRole">...</select>
+  <button type="submit">Save</button>
 </form>
 
 <button delete="/users/{user.id}"
@@ -355,7 +366,7 @@ Used on forms or triggered via `call`.
 | Attribute | Description |
 |-----------|-------------|
 | `post`, `put`, `patch`, `delete` | URL for the request |
-| `body` | Request body (JSON string with interpolation). For forms, auto-serializes fields |
+| `body` | Request body string. Each `{expression}` is replaced with its value encoded by `encodeURIComponent`, as in URLs (the URL dot-segment rule does not apply to bodies). A result that parses as JSON is sent as `application/json` (a falsy JSON value such as `0`, `false` or `null` sends no body). On a `<form>`, the fields are serialized to a JSON object and `body` is ignored |
 | `success` | Template ID to render on success. Receives response as `var` |
 | `error` | Template ID to render on error. Receives error as `var` |
 | `loading` | Template ID to show during request |
@@ -364,6 +375,16 @@ Used on forms or triggered via `call`.
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
 | `into` | Write response to a named global store |
 | `cached` | Cache responses (memory/local/session) |
+
+> **Note:** `body` placeholders use the URL interpolator, so a JSON object written in `body` is not sent as JSON: its own `{` is read as the start of a placeholder. To send dynamic JSON, use a `<form>` with named fields, which No.JS serializes to a JSON object. On a non-form element, send a URL-encoded body with a matching header:
+>
+> ```html
+> <button post="/login"
+>         headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+>         body="email={email}&password={password}">
+>   Log in
+> </button>
+> ```
 
 ### Request Lifecycle
 
@@ -379,47 +400,84 @@ Used on forms or triggered via `call`.
 
 ## `query` — Read Requests with a Body (RFC 10008)
 
-`query` issues an HTTP **QUERY** request ([RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html)) — a safe, idempotent, cacheable read that carries a request body. It behaves like `get` for auto-firing, reactive re-fetch, rendering (`as`/`loading`/`error`/`empty`), triggers, and caching, but sends a body like `post`. Use it when a search or filter is too complex for a URL query string but is still a *read*, not a *mutation*.
+`query` issues an HTTP **QUERY** request — a safe, idempotent, cacheable read that carries a request body, standardized in [RFC 10008](https://www.rfc-editor.org/rfc/rfc10008.html). Use it when a search or filter is too complex for a URL query string but is still a *read*, not a mutation.
 
 ```html
-<!-- Non-form: auto-fires on mount, re-fetches when the URL/params change -->
+<!-- A search whose criteria are too large for the URL -->
 <div query="/search"
-     body='{"filters": {"status": "active", "tags": ["a", "b"]}}'
+     headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+     body="status={status}&tag={tag}"
      as="results">
   <div each="hit in results" template="hitCard"></div>
 </div>
-
-<!-- Form: intercepts submit and serializes fields into the body -->
-<form query="/products/search" success="#resultsTpl">
-  <input name="q" type="text" />
-  <button type="submit">Search</button>
-</form>
 ```
 
-### Behavior
+`body` uses URL placeholders (see the [`body` note](#mutation-attributes)), so a non-form `query` sends its criteria URL-encoded, as above. To send a JSON object, use a form (see [Form-Driven Query](#form-driven-query)).
+
+QUERY behaves like `get` for rendering, caching, and triggers, but sends a body like `post`:
 
 | Behavior | Same as |
 |----------|---------|
-| Auto-fires on mount (non-form) and re-fetches when the URL/params change | `get` |
+| Auto-fires on mount (non-form) and re-fetches when the URL/params change (not when only the body changes) | `get` |
 | Renders into scope via `as`, supports `loading`/`error`/`empty` | `get` |
-| Cacheable via `cached` — the cache key includes the request body | `get` |
+| Cacheable via `cached` (the cache key includes the body) | `get` |
 | Sends a request body (`body`, or serialized form fields) | `post` |
 | On a `<form>`, intercepts submit and serializes fields | `post` |
 | **No CSRF token injected** — QUERY is a safe read | `get` |
 
-### Query Triggers
+### Form-Driven Query
 
-Non-form `query` elements support the same lazy-load triggers as `get`, using a `query-` prefix:
+On a `<form>`, `query` intercepts the submit and serializes the fields into the body — identical to `post`, but semantically a read:
+
+```html
+<form query="/products/search" success="#resultsTpl">
+  <input name="q" type="text" />
+  <select name="category">...</select>
+  <button type="submit">Search</button>
+</form>
+```
+
+### Triggers
+
+Non-form `query` elements support the lazy-load triggers of `get`, using a `query-` prefix:
 
 | Attribute | Description |
 |-----------|-------------|
-| `query-trigger` | `visible` \| `scroll` \| `hover` \| `button` \| `none` — when to fire |
-| `query-trigger-label` | Button label when `query-trigger="button"` (default `"Load More"`) |
-| `query-threshold` | Root-margin threshold (px) for `visible`/`scroll` triggers |
+| `query-trigger` | `visible` \| `hover` \| `none` — when to fire. `none` never fires on its own; call `el.refresh()` |
+| `query-threshold` | Root-margin threshold (px) for the `visible` trigger |
+
+The `scroll` and `button` triggers need `get-insert`, which is GET-only, so on `query` they log a warning and fall back (`scroll` to `visible`, `button` to firing on mount). `query-trigger-label` has no effect on `query`.
+
+To run a QUERY on demand, use `query-trigger="none"` and call `refresh()` through a `ref`:
+
+```html
+<div ref="report" query="/reports/generate"
+     query-trigger="none"
+     headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+     body="range=2026-Q1"
+     as="report">
+  <p bind="report.total"></p>
+</div>
+<button on:click="$refs.report.refresh()">Run Report</button>
+```
 
 ### Body-Aware Caching
 
-Because two QUERY requests to the same URL can differ only by body, the cache key incorporates the body. Identical URL **and** body hit the cache; a different body is a cache miss. GET cache keys are unchanged. Pagination (`get-cursor`, `get-page`, `get-insert`) remains **GET-only**.
+Because two QUERY requests to the same URL can differ only by body, the cache key incorporates the body. Identical URL **and** body hit the cache; a different body is a cache miss:
+
+```html
+<div state="{ term: '' }">
+  <input model="term" />
+  <button on:click="$refs.hits.refresh()">Search</button>
+  <div ref="hits" query="/search"
+       headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+       body="q={term}" cached="memory" as="hits">...</div>
+</div>
+```
+
+A change to body-only state does not re-fetch by itself. Call `el.refresh()` (here through `$refs`), or use `refresh=`, to re-issue the request. Searching for the same term again is served from the cache. Call `refresh()` from a later event than the one that changes the state: inside a single statement such as `term = 'x'; $refs.hits.refresh()`, the request still uses the old body.
+
+> **Note:** Pagination (`get-cursor`, `get-page`, `get-insert`) remains **GET-only**. All other method-agnostic companions (`as`, `loading`, `error`, `empty`, `into`, `debounce`, `headers`, `params`, `skeleton`, `refresh`, `cached`) work with `query` unchanged.
 
 ---
 
@@ -671,7 +729,7 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D` (`[REDACTED]` is written literally only with `strictRedaction`). Request interceptors receive the raw URL unless [`strictRedaction`](configuration.md#opt-in-hardening-flags) is set.
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 
@@ -687,6 +745,7 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ## See Also
 
+- [Server-Sent Events](sse.md) — `sse` directive for real-time server-pushed streaming data
 - [Actions & Refs](actions-refs.md) — `call` directive for click-triggered requests
 - [State Management](state-management.md) — `into` for writing responses to stores
 - [Configuration](configuration.md) — global API settings, CSRF, interceptors
@@ -694,7 +753,7 @@ Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, un
 
 ---
 
-**Previous:** [Getting Started ←](getting-started.md) | **Next:** [Server-Sent Events →](sse.md)
+**Previous:** [Head Management ←](head-management.md) | **Next:** [Server-Sent Events →](sse.md)
 
 # Server-Sent Events (SSE)
 
@@ -1546,6 +1605,50 @@ Load templates from external HTML files:
 <template id="footer" src="/templates/footer.html"></template>
 ```
 
+#### How `src` is resolved
+
+A `./` path inside a remote template resolves against that template's folder. Every other `src` is resolved the same way as an HTTP directive URL:
+
+| `src` | Result |
+|-------|--------|
+| `https://…`, `http://…`, `//…` | Fetched as written |
+| `/templates/header.html`, `templates/header.html`, top-level `./header.html` | Prefixed with the nearest ancestor `base` attribute, else with `baseApiUrl`, else fetched as written (relative to the page) |
+
+```html
+<script>NoJS.config({ baseApiUrl: '/api' });</script>
+
+<!-- fetches /api/parts/header.tpl -->
+<template src="parts/header.tpl"></template>
+
+<div base="https://cdn.example.com">
+  <!-- fetches https://cdn.example.com/parts/nav.tpl -->
+  <template src="/parts/nav.tpl"></template>
+</div>
+```
+
+This also applies to route templates (`<template route src>`) and file-based routing.
+
+Two cases do not see a `base` attribute that you might expect to apply. Both behave the same as in v1.21.1:
+
+- **Templates nested in a remote content include.** A remote template that is not a route template has its content loaded outside the page, so the `base` lookup for a nested `<template src>` never reaches the element that included it. A plain path (`parts/nav.tpl`) or a `/`-rooted path (`/parts/nav.tpl`) inside it ignores `base` on the including element and falls back to `baseApiUrl`, else to the page. Use a `./` path to load a nested file next to its parent template, or an absolute URL. Route templates are different: their nested `<template src>` load after the route is inserted into `route-view`, so a `base` on the `route-view` element or its ancestors applies.
+- **File-based route templates.** The router appends the templates it creates for file-based routes to `<body>`, not to the `route-view` element. A `base` on the `route-view` element or on its ancestors is therefore not used for the route file itself. Only a `base` on `<body>` or `<html>`, or `baseApiUrl`, applies.
+
+To keep templates on the page origin while HTTP directives use `base` / `baseApiUrl`, opt in to page-relative resolution:
+
+```html
+<script>
+  NoJS.config({
+    baseApiUrl: 'https://api.example.com/v1',
+    templates: { pageRelative: true }
+  });
+</script>
+
+<!-- fetches /templates/header.html from the page origin -->
+<template src="/templates/header.html"></template>
+```
+
+With `templates.pageRelative: true`, `base` and `baseApiUrl` are ignored for every template `src`. Absolute URLs and `./` paths inside a remote template behave the same in both modes.
+
 ### Recursive Loading
 
 Remote templates are loaded **recursively** — if a remote template itself contains `<template src="...">` elements, those are automatically resolved too:
@@ -1849,6 +1952,10 @@ Use `persist-fields` to control exactly which fields are saved and restored. Fie
 
 `persist-fields` accepts a comma-separated list of field names. Whitespace around each name is trimmed, so `"theme, sidebar"` and `"theme,sidebar"` are equivalent.
 
+An empty `persist-fields` (`persist-fields=""` or a bare `persist-fields` attribute) behaves like omitting it: all fields are persisted, and a console warning is logged once per element. List the fields to persist or remove the attribute.
+
+On restore, every stored key is set back on the state, including `$` keys such as a `get` result stored with `as="$items"`. Keys containing `.` are ignored. To stop stored data from shadowing built-ins like `$store` or `$route`, set [`strictPersist: true`](configuration.md#opt-in-hardening-flags): reserved `$` names are then restored only when the state declares them or `persist-fields` lists them.
+
 | Attribute | Description |
 |-----------|-------------|
 | `persist` | Storage backend: `"localStorage"` or `"sessionStorage"` |
@@ -1868,6 +1975,39 @@ Add `persist-schema` to validate that keys restored from storage match the initi
        on "theme" and ignores "unknown" -->
 </div>
 ```
+
+---
+
+### Using i18n in State and Store Expressions
+
+The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings. The initializer runs once, so these values are a snapshot of the locale active at that moment and do not change when the locale changes; use `bind="$i18n.common.buttons.save"` directly for text that must follow the locale.
+
+```html
+<!-- Initialize state with translated labels -->
+<div state="{ saveLabel: $i18n.common.buttons.save, title: $i18n.shell.sidebar.introduction }">
+  <h2 bind="title"></h2>
+  <button bind="saveLabel"></button>
+</div>
+
+<!-- Store with translated defaults -->
+<div store="ui" value="{
+  heading: $i18n.home.hero.title,
+  searchPlaceholder: $i18n.common.search.placeholder
+}"></div>
+
+<!-- Access from anywhere -->
+<input bind-placeholder="$store.ui.searchPlaceholder">
+```
+
+For interpolation or pluralization, use `$i18n.t()` instead of dot-notation. Call it directly in a `bind=` expression so it re-runs on locale change — putting `$i18n.t()` in a `state` initializer snapshots the result once at init and is **not** locale-reactive:
+
+```html
+<div state="{ user: { name: 'Ada' } }">
+  <p bind="$i18n.t('welcome', { name: user.name })"></p>
+</div>
+```
+
+See [Internationalization](i18n.md) for the full `$i18n.*` reference.
 
 ---
 
@@ -2186,12 +2326,14 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-Per-rule templates work too:
+`error-{rule}="#tplId"` also renders that template when that rule fails, with `$rule` and inside the same `aria-live` wrapper. The message, though, both `$error` inside the template and `$form.errors`, is the literal text `#tplId`. Write the message in the template itself, or use the generic `error="#tplId"` with `$rule`:
 
 ```html
-<input name="user" required validate="custom:checkAvailability"
-       error-required="#reqTpl"
-       error-custom="#customTpl" />
+<input name="user" required error-required="#reqTpl" />
+
+<template id="reqTpl">
+  <span class="field-error">Please choose a username</span>
+</template>
 ```
 
 ---
@@ -2224,7 +2366,7 @@ Inside any `<form>` with the `validate` attribute, `$form` provides:
 | `$form.dirty` | `boolean` | `true` if any field has been modified |
 | `$form.touched` | `boolean` | `true` if any field has been focused and blurred |
 | `$form.submitting` | `boolean` | `true` while the request is in flight |
-| `$form.pending` | `boolean` | `true` while async validators are running |
+| `$form.pending` | `boolean` | Always `false`: async validators are not supported |
 | `$form.errors` | `object` | Map of field names → error messages |
 | `$form.values` | `object` | Current form values |
 | `$form.firstError` | `string\|null` | Error message of the first invalid field (DOM order) |
@@ -2438,7 +2580,7 @@ Attach `call` to any clickable element to fire an HTTP request on click. It supp
 | `method` | `string` | HTTP method. Default: `"get"` |
 | `as` | `string` | Name to assign the response in the context. Default: `"data"` |
 | `into` | `string` | Write response to a named global store |
-| `body` | `string` | Request body (JSON string with `{variable}` interpolation) |
+| `body` | `string` | Request body string. Each `{variable}` is replaced with its URL-encoded value. A result that parses as JSON is sent as `application/json` (a falsy JSON value such as `0`, `false` or `null` sends no body). See the [`body` note](data-fetching.md#mutation-attributes) on JSON objects |
 | `loading` | `string` | Template ID to show during the request (e.g. `"#spinner"`) |
 | `success` | `string` | Template ID to render on success. Receives response via `var` |
 | `error` | `string` | Template ID to render on error. Receives error via `var` |
@@ -4200,6 +4342,18 @@ On the first load, the active locale is resolved in this priority order:
 
 This means a returning visitor who picked a language keeps it, while a first-time visitor lands in their browser's language when you support it.
 
+To ignore a persisted locale that is not listed in `supportedLocales` (for example a stale value left by an older deploy, or one written to `localStorage` by another script on the same origin), set `strictLocale: true`. The check runs when `NoJS.i18n()` restores the persisted value; with an empty `supportedLocales` list every persisted locale is still restored.
+
+```html
+<script>
+  NoJS.i18n({
+    supportedLocales: ['en', 'pt'],
+    persist: true,
+    strictLocale: true // default: false
+  });
+</script>
+```
+
 ---
 
 ## Usage
@@ -4237,6 +4391,35 @@ Add the `t-html` attribute to render a translation value as sanitized HTML inste
 
 The output is passed through `_sanitizeHtml()` to prevent XSS.
 
+### Params in `t-html` (`i18n.escapeParams`)
+
+By default, values passed through `t-*` params are inserted into the translation as-is, so a param can carry markup such as a link. The combined result is still sanitized: `<script>` and other blocked tags, `on*` handlers, and `javascript:` / non-image `data:` URLs are removed.
+
+```html
+<!-- Translation: "Read {link}" -->
+<p t="msg" t-html t-link="'<a href=/terms>terms</a>'"></p>
+<!-- →  Read <a href="/terms">terms</a> -->
+```
+
+Sanitization blocks scripts, but with raw params untrusted data can still inject non-script markup such as links and images, so set `escapeParams: true` when params come from user input.
+
+With `escapeParams: true`, params are HTML-escaped (`& < > " '`) before interpolation, and only the translation string itself is rendered as HTML:
+
+```html
+<script>
+  NoJS.i18n({ escapeParams: true });
+  // or: NoJS.config({ i18n: { escapeParams: true } })
+</script>
+
+<!-- Translation: "Welcome back, <b>{name}</b>!" -->
+<p t="welcome" t-html t-name="user.name"></p>
+<!-- user.name = "<i>Ann</i>"  →  Welcome back, <b>&lt;i&gt;Ann&lt;/i&gt;</b>! (shown literally) -->
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `escapeParams` | `false` | HTML-escape `t-*` param values in `t-html` translations. Plain `t` (without `t-html`) always renders text and is not affected. Changing it after `init()` re-renders active translations immediately. |
+
 ---
 
 ## Number & Date Formatting
@@ -4256,6 +4439,132 @@ The output is passed through `_sanitizeHtml()` to prevent XSS.
 <span bind="value | number"></span>              <!-- 1,234.56 -->
 <span bind="value | number:0"></span>            <!-- 1,235 -->
 <span bind="value | percent"></span>             <!-- 45% -->
+```
+
+---
+
+## Accessing Translations in Expressions (`$i18n.*`)
+
+The `$i18n` reactive proxy lets you access translation data as dot-notation properties directly in any expression context. This is the preferred approach for simple lookups — no directive or function call needed.
+
+### Syntax
+
+```
+$i18n.[namespace].[key].[subkey]
+```
+
+The proxy resolves dot-path properties against the loaded translation data for the current locale. For example, given this locale file:
+
+```json
+// /locales/en/common.json
+{
+  "buttons": { "save": "Save", "cancel": "Cancel" },
+  "status": { "online": "Online", "offline": "Offline" }
+}
+```
+
+You can access any value with `$i18n.common.buttons.save`.
+
+### Usage in `state` and `store`
+
+`state` and `store` initializers run once. Values read from `$i18n` there are a snapshot of the active locale and do not change when the locale changes. For text that must follow the locale, read `$i18n` in `bind` (or another directive that re-evaluates) instead.
+
+```html
+<!-- Initialize state with translated labels -->
+<div state="{ label: $i18n.common.buttons.save }">
+  <button bind="label"></button>
+</div>
+
+<!-- Use in store definitions -->
+<div store="ui" value="{
+  title: $i18n.shell.sidebar.introduction,
+  placeholder: $i18n.common.search.placeholder
+}"></div>
+```
+
+### Usage in `bind`
+
+```html
+<span bind="$i18n.common.buttons.save"></span>
+<h1 bind="$i18n.home.hero.title"></h1>
+
+<!-- Combine with other expressions -->
+<span bind="$i18n.common.status.online + ' (' + users.length + ')'"></span>
+```
+
+### Usage in `computed`
+
+```html
+<div state="{ role: 'admin' }">
+  <span computed="roleLabel"
+        expr="role === 'admin' ? $i18n.roles.admin : $i18n.roles.user"></span>
+  <p bind="roleLabel"></p>
+</div>
+```
+
+### Usage in conditionals
+
+```html
+<span if="$i18n.features.beta" bind="$i18n.features.beta"></span>
+```
+
+### Usage in `foreach`
+
+```html
+<!-- Translated headers for a table -->
+<th foreach="col in ['name','email','role']"
+    bind="$i18n.table.headers[col]"></th>
+```
+
+### Usage in attribute binding
+
+```html
+<input bind-placeholder="$i18n.common.search.placeholder">
+<img bind-alt="$i18n.common.logo.alt" src="/logo.png">
+<button bind-title="$i18n.common.buttons.save" bind-aria-label="$i18n.common.buttons.save">
+```
+
+### `$i18n.*` vs `$i18n.t()` — When to Use Each
+
+| | `$i18n.key.path` | `$i18n.t('key.path', opts)` |
+|--|--|--|
+| **Use for** | Simple string lookups | Interpolation, pluralization |
+| **Syntax** | Dot-notation property access | Function call with options |
+| **Interpolation** | No | Yes (`{ name: user.name }`) |
+| **Pluralization** | No | Yes (`{ count: n }`) |
+
+```html
+<!-- Simple lookup — use $i18n.* -->
+<span bind="$i18n.common.buttons.save"></span>
+
+<!-- Interpolation — use $i18n.t() -->
+<span bind="$i18n.t('greeting', { name: user.name })"></span>
+
+<!-- Pluralization — use $i18n.t() -->
+<span bind="$i18n.t('items', { count: cart.length })"></span>
+```
+
+### Reserved Properties
+
+The following properties on `$i18n` always resolve to methods or configuration values, not translation keys:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `locale` | `string` | Current locale (get/set) |
+| `locales` | `object` | All loaded locale data |
+| `t` | `function` | Translation function for interpolation/pluralization |
+| `setLocale` | `function` | Change the active locale |
+
+### Reactivity
+
+All `$i18n.*` bindings are fully reactive. When the locale changes (via `$i18n.locale = 'pt'` or `$i18n.setLocale('pt')`), every directive that re-evaluates its expression (`bind`, `bind-*`, `computed`, `if`, `show`, loops, ...) and references `$i18n.*` updates with the new locale's data. `state` and `store` initializers are not re-run.
+
+### Missing Keys
+
+When a key is not found in the current locale, the proxy returns `undefined`. Combined with the `default` filter, you can provide fallback text:
+
+```html
+<span bind="$i18n.missing.key | default:'Fallback text'"></span>
 ```
 
 ---
@@ -4359,7 +4668,9 @@ If your directive adds event listeners, observers, or timers, register cleanup v
 </script>
 ```
 
-> **Warning:** Custom directives cannot override built-in (core) directives — they are frozen after framework initialization. See [Plugins](plugins.md) for details.
+> **Warning:** Custom directives cannot override built-in (core) directives — they are frozen as soon as the framework loads, before `init()` runs. See [Plugins](plugins.md) for details.
+
+A custom directive may use a name that a core wildcard would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute keeps the core behavior. Set `NoJS.config({ strictDirectives: true })` before registering directives to reject such names (see [Plugins — Directive Registry Freezing](plugins.md#directive-registry-freezing)).
 
 ---
 
@@ -4435,7 +4746,7 @@ No.JS provides multiple layers of error handling — from per-element HTTP error
 Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an error template. When the request fails, the template renders inside the element:
 
 ```html
-<div get="/api/users" as="users" error="#usersError">
+<div ref="users" get="/api/users" as="users" error="#usersError">
   <div each="user in users" template="userCard"></div>
 </div>
 
@@ -4443,9 +4754,12 @@ Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an erro
   <div class="error-box">
     <p bind="err.message"></p>
     <p>Status: <span bind="err.status"></span></p>
+    <button on:click="$refs.users.refresh()">Try Again</button>
   </div>
 </template>
 ```
+
+The **Try Again** button re-issues the request through the element's `refresh()` method, reached with `ref` and `$refs`.
 
 ### Retry on Failure
 
@@ -4469,16 +4783,14 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 
 Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
 
-1. **Expression evaluation errors** — dispatched as `nojs:error` CustomEvents that bubble up from handler expressions (e.g. a `bind` or `on:click` expression throws).
-2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
+1. **Event handler errors** — when an event handler statement (for example an `on:click` expression) throws, No.JS dispatches a `nojs:error` CustomEvent that bubbles up from the element. A failing `bind` or other read-only expression does not trigger the boundary: it logs a warning and evaluates to `undefined` (see [Expression Errors](#expression-errors)).
+2. **Window-level errors** — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an `<img>` 404) on elements inside the boundary.
 
 > **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 
 ```html
 <div error-boundary="#errorFallback">
-  <div get="/api/fragile-endpoint" as="data">
-    <span bind="data.deep.nested.value"></span>
-  </div>
+  <button on:click="renderChart()">Show chart</button>
 </div>
 
 <template id="errorFallback" var="err">
@@ -4489,7 +4801,24 @@ Wrap a section of your page with `error-boundary` to catch errors that occur wit
 </template>
 ```
 
-When an error is caught, the boundary replaces its children with the fallback template. The `nojs:error` CustomEvent carries the error details in `event.detail`.
+When an error is caught, the boundary replaces its children with the fallback template, which receives `err.message`. Here `renderChart` is not defined, so the click shows "renderChart is not defined".
+
+---
+
+## Error Boundary Events
+
+The `nojs:error` CustomEvent that an event handler error dispatches bubbles past the boundary, so you can listen for it with `on:nojs:error` on the boundary or on any ancestor, for example to log errors or show a notification:
+
+```html
+<div state="{ lastError: '' }">
+  <div error-boundary="#fallback" on:nojs:error="lastError = $event.detail.message">
+    <button on:click="save()">Save</button>
+  </div>
+  <p bind="lastError"></p>
+</div>
+```
+
+> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` does not receive `nojs:error`; use `on:nojs:error`. (Currently `on:error` runs only for bubbling `error` events dispatched on the element or a descendant; resource load errors such as an `<img>` 404 do not reach it.)
 
 ---
 
@@ -4529,6 +4858,12 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
 ```
 
 > **Tip:** Enable `NoJS.config({ debug: true })` to see detailed expression evaluation warnings in the console.
+
+---
+
+## Directive Errors
+
+If a directive's `init` (built-in or [custom](custom-directives.md)) throws, No.JS catches the error, logs a warning naming the directive and the element, and continues with the remaining directives and elements. A cleanup (dispose) function that throws is caught and logged the same way, and the remaining cleanups still run.
 
 ---
 
@@ -4610,6 +4945,7 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
       defaultLocale: 'en',
       fallbackLocale: 'en',
       detectBrowser: true,
+      supportedLocales: ['en', 'es', 'pt'], // Locales to match against for detection (default: [])
       loadPath: '/locales/{locale}.json',  // Load from external JSON (default: null)
       ns: ['common'],           // Namespaces to preload (default: [])
       cache: true,              // Cache fetched locale files (default: true)
@@ -4640,7 +4976,53 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
+> **Security:** `window.__NOJS_DEVTOOLS__` and its command listener are installed only on local hosts (`localhost`, `127.0.0.1`, `0.0.0.0`, `*.localhost`, and pages with an empty hostname such as `file://`). On any other hostname, `devtools: true` logs a console warning and the devtools API is not exposed. **However, `nojs:devtools` events (context creation and updates, store creation, fetch URLs, route navigation) are still dispatched on `window`, where any script on the page can read them, and the internal context registry keeps growing.** Do not ship `devtools: true` to production, or also set `strictDevtools: true` (see below).
+
+### `strictDevtools`
+
+**Type:** `boolean` | **Default:** `false`
+
+By default, the localhost restriction above applies to `window.__NOJS_DEVTOOLS__` and its command listener only, as in v1.21.1. `nojs:devtools` events and the context registry follow `devtools` on any host. Store snapshots (`__NOJS_DEVTOOLS__.stores`, `inspect:store`) show every key, the `config` getter returns `headers` and `csrf` as configured, and the `get:config` command returns `headers` as the string `'[REDACTED]'` with `csrf.token` redacted.
+
+Set `strictDevtools: true` to harden devtools:
+
+- `nojs:devtools` events and the context registry are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
+- Store snapshots show context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`. Keys are matched as substrings, so `keyboard` and `author` are redacted too.
+- `get:config` and the `config` getter return `headers` as an object with sensitive headers redacted per key, and `csrf.token` as `[REDACTED]`.
+- `fetch:success` and `fetch:error` devtools events carry the URL without its `#fragment` and with sensitive query values (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`.
+
+```html
+<script>
+  NoJS.config({ devtools: true, strictDevtools: true });
+</script>
+```
+
+### Opt-in hardening flags
+
+Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()`. Most flags take effect immediately, before or after `init()`. `strictPersist` and `strictDirectives` apply to the restores and directive registrations made after they are set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale.
+
+| Flag | Default | When `true` |
+|------|---------|-------------|
+| `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
+| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. The URL `#fragment` is dropped. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors). |
+| `strictDirectives` | `false` | `NoJS.directive()` and `app.directive()` reject directive names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). The core registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set, before or after `init()`. Set it before plugins register their directives. |
+| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
+| `strictPersist` | `false` | On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$router`, `$refs`, `$parent`, `$i18n`, `$watch`, `$set`, `$notify`, `$form`, `$sse`, or a plugin global) is skipped unless the state declares it or `persist-fields` lists it. |
+| `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot add keys or end the string. By default the v1.21.1 output is kept whenever it is valid JSON. See [Head Management](head-management.md#page-jsonld). |
+| `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
+| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
+| `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |
+
+```html
+<script>
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+</script>
+```
 
 ---
 
@@ -4799,6 +5181,30 @@ Controls whether fetched locale JSON files are stored in an in-memory `Map` afte
 
 ```js
 NoJS.i18n({ cache: false }); // Always re-fetch locale files
+```
+
+### `i18n.supportedLocales`
+
+**Type:** `string[]` | **Default:** `[]`
+
+The list of locale codes your application ships. This option is **required to enable `detectBrowser` when using `loadPath`** (lazy locale files): at the moment detection runs no bundles have been fetched yet, so No.JS needs an explicit list to match the browser language against.
+
+When inline `locales` are provided instead, detection can match against the loaded bundle keys directly and `supportedLocales` is optional.
+
+On the visitor's first load, the locale is resolved in this priority order:
+
+1. A persisted `nojs-locale` in `localStorage` (when `persist: true`)
+2. The detected browser language (`navigator.language`), if it is listed in `supportedLocales`
+3. `defaultLocale`
+
+```js
+NoJS.i18n({
+  loadPath: '/locales/{locale}.json',
+  supportedLocales: ['en', 'es', 'pt', 'it', 'fr'],
+  detectBrowser: true,
+  persist: true,
+  defaultLocale: 'en'
+});
 ```
 
 ---
@@ -5066,6 +5472,26 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
 </script>
 ```
 
+#### Names under core wildcards
+
+A plugin can register a name that a core wildcard directive (`on:*`, `bind-*`, `class-*`, `style-*`) would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute only; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute still uses the core handler. In debug mode a log line notes the shadowing:
+
+```
+[No.JS] Directive "bind-chart" shadows core "bind-*" for that attribute.
+```
+
+#### `strictDirectives`
+
+Set `strictDirectives: true` to reject those names as well. With the flag on, any name matched by a core wildcard is treated like a core directive: `app.directive()` logs a warning and ignores it, so the core handler keeps sanitizing `bind-href`, `bind-src` and the rest:
+
+```js
+NoJS.config({ strictDirectives: true }); // before plugins install
+
+app.directive('bind-chart', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
+```
+
+The flag defaults to `false`.
+
 ---
 
 ## `NoJS.global()`
@@ -5108,6 +5534,45 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <!-- Updates reactively when $user.name changes -->
 <span bind="$user.name"></span>
 ```
+
+The value is a JSON copy of the object you pass: changing the original afterwards does not change the global, methods are dropped, and `Date` values become ISO strings. Own `__proto__` keys are dropped from the copy. A value that cannot be serialized to JSON (for example, one with a circular reference or a `BigInt`) gets a shallow copy instead: its own enumerable properties are copied (functions stored directly on the object included, methods inherited from a class prototype lost), and nested objects are shared with the original. A value that is already a reactive context is published as is. The global itself is a reactive context, so it has `$watch`, `$set` and `$notify`:
+
+```js
+app.global('cart', { count: 0 });
+
+// plugin code, e.g. in init():
+const cart = app.evaluate('$cart', app.createContext({}));
+cart.$watch(() => console.log('cart changed'));
+cart.$set('count', 3); // updates every $cart binding
+```
+
+#### App-wide updates
+
+Globals are app-wide: every binding that reads `$name`, in any scope, updates when the global changes. That covers a template write from any scope (`$cart.count++`, `$cart.$set('count', 1)`), a write from plugin JavaScript through the reactive global (`cart.count = 2`, `cart.$set(...)`), and a new `NoJS.global()` call for the same name. After mutating a nested object from JavaScript (`cart.items.push(x)`), call `cart.$notify()` or `NoJS.notify()`.
+
+#### `byRef`
+
+Pass `{ byRef: true }` to publish the object itself instead of a reactive copy. Templates then see the plugin's own object, with its methods, `Date` values, `Map`s and identity:
+
+```js
+const session = {
+  user: 'guest',
+  since: new Date(),
+  login(name) { this.user = name; },
+};
+app.global('session', session, { byRef: true });
+
+// later, in plugin code:
+session.user = 'Ada';
+app.notify(); // a plain object has no $watch/$set — flush the DOM yourself
+```
+
+```html
+<span bind="$session.user"></span>
+<button on:click="$session.login('ada')">Log in</button>
+```
+
+Template writes and method calls still update every scope. A `byRef` value is checked in full: values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
 
 ### Ownership Tracking
 
@@ -5211,7 +5676,7 @@ Return an object with `[NoJS.REPLACE]: data` from a **response** interceptor to 
 
 ## Trusted Interceptors
 
-By default, interceptors receive **redacted** copies of requests and responses — sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) and URL parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are stripped or replaced with `[REDACTED]`.
+By default, interceptors receive **redacted** copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) are stripped. In the URL that **response** interceptors receive, the values of query parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced; the URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. **Request** interceptors receive the raw URL unless [`strictRedaction`](#with-strictredaction-true) is set.
 
 Auth plugins that need access to the real headers can be installed with `{ trusted: true }`:
 
@@ -5224,6 +5689,8 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 Trusted interceptors receive the full, unredacted request options and response object.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
+>
+> Trust is fixed when `NoJS.use()` is called; changing the options object afterwards has no effect. Only interceptors registered from inside a plugin's `install()` can be trusted, and `NoJS.interceptor()` takes a plain function (a caller-supplied `pluginName` is ignored).
 
 ### Redacted Headers
 
@@ -5235,7 +5702,15 @@ Trusted interceptors receive the full, unredacted request options and response o
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+#### With `strictRedaction: true`
+
+Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens what untrusted interceptors and event payloads receive:
+
+- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
+- Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
+- URLs are redacted at the string level. The `#fragment` is removed, since it can carry tokens and is never sent to the server. In the query, the values of sensitive parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) become `[REDACTED]`. Everything else stays exactly as written. The request itself always goes to the real URL.
+- This redacted URL is what untrusted request interceptors, untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the `call` failure warning and the insecure-HTTP warning.
+- Without the flag, request interceptors and event payloads get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
 
 ---
 
@@ -5309,7 +5784,7 @@ app.on('ready', fn);
 
 ### Never Use `eval` or `Function`
 
-Values passed to `NoJS.global()` are checked for dangerous references. `eval` and `Function` are blocked:
+Values passed to `NoJS.global()` are checked for dangerous references. `eval`, `Function` (including bound copies), and the `window`, `document` and `globalThis` objects are blocked:
 
 ```js
 // ❌ Rejected
@@ -5448,18 +5923,23 @@ import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/
 
 ### `segmentPipes(str)`
 
-Split a raw directive value into its expression segment and zero or more pipe-filter segments. Pipes inside strings, template literals, brackets, and `||` operators are preserved — only top-level `|` delimiters are split. **Always call `segmentPipes` before `parseExpression`** so that filter syntax is stripped before parsing.
+Split a raw directive value into its expression segment and zero or more pipe-filter segments. Pipes inside strings, template literals, brackets, and `||` operators are preserved — only top-level `|` delimiters are split.
+
+**Always call `segmentPipes` before `parseExpression`** so that filter syntax is stripped before parsing.
 
 Returns `string[]`. Empty/null input returns `[]`.
 
 ```js
 segmentPipes('user.name | uppercase | truncate:20');
 // → ['user.name', 'uppercase', 'truncate:20']
+
+segmentPipes('a || b');
+// → ['a || b']  — logical OR is NOT a pipe
 ```
 
 ### `parseExpression(str)`
 
-Parse a single No.JS expression into an AST node. Supports the full expression grammar: identifiers, member access, optional chaining, arithmetic, comparison, logical, ternary, template literals, arrow functions, spread, `typeof`, `in`, assignment operators, and postfix `++`/`--`.
+Parse a single No.JS expression into an AST node. Supports the full expression grammar: identifiers, member access (dot and computed), optional chaining, arithmetic, comparison, logical, ternary, template literals, arrow functions, spread, `typeof`, `in`, assignment operators, and postfix `++`/`--`.
 
 Prototype-chain property access (`constructor`, `__proto__`, `prototype`) produces `{ type: 'Forbidden' }` nodes — compilers must treat these as hard errors.
 
@@ -5483,8 +5963,6 @@ Returns `AST[]`.
 parseStatements('count++; name = "hello"');
 // → [{ type: 'PostfixExpr', ... }, { type: 'AssignExpr', ... }]
 ```
-
----
 
 ## See Also
 
@@ -5511,7 +5989,7 @@ Complete reference of every No.JS directive.
 | `patch` | `patch="/users/1"` | Partial update (PATCH) |
 | `delete` | `delete="/users/1"` | Delete data (DELETE) |
 | `as` | `as="users"` | Name for fetched data in context |
-| `body` | `body='{"key":"val"}'` | Request body |
+| `body` | `body="key={expr}"` | Request body (`{expr}` values are URL-encoded; send it with `headers='{"Content-Type": "application/x-www-form-urlencoded"}'`; for JSON, use a `<form>` with named fields) |
 | `headers` | `headers='{"Auth":"Bearer x"}'` | Request headers |
 | `params` | `params="{ page: 1 }"` | Query parameters |
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |
@@ -5845,11 +6323,8 @@ manipulation.
   <!-- GET fires 300ms after the user stops typing -->
   <div get="/products?q={query}"
        debounce="300"
-       as="results">
-
-    <p show="!results.length && query">
-      No results for <strong bind="query"></strong>
-    </p>
+       as="results"
+       empty="#noResults">
 
     <p each="item in results">
       <span bind="item.name"></span>
@@ -5858,9 +6333,15 @@ manipulation.
 
   </div>
 </div>
+
+<template id="noResults">
+  <p show="query">No results for <strong bind="query"></strong></p>
+</template>
 ```
 
-**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `show`
+An empty response (`[]`, `null` or `""`) does not update `results`; it renders the `empty` template in place of the list instead. The next non-empty response restores the list.
+
+**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `empty` template
 
 ---
 

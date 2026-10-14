@@ -205,7 +205,7 @@ Add `persist-schema` to validate that keys restored from storage match the initi
 
 ### Using i18n in State and Store Expressions
 
-The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings that automatically update when the locale changes.
+The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings. The initializer runs once, so these values are a snapshot of the locale active at that moment and do not change when the locale changes; use `bind="$i18n.common.buttons.save"` directly for text that must follow the locale.
 
 ```html
 <!-- Initialize state with translated labels -->

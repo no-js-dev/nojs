@@ -4,7 +4,7 @@
 
 import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _collectKeys, _startBatch, _endBatch } from "./context.js";
+import { _collectKeys, _startBatch, _endBatch, _wakeGlobalWatchers } from "./context.js";
 
 function _makeCache() {
   const map = new Map();
@@ -2319,8 +2319,10 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         c = c.$parent;
       }
       // A published plugin global is read app-wide: also wake its bindings
-      // in other scopes (the "$" store partition, see _watchExpr)
-      if (stmtScan.dollarRoots.some((k) => k in _globals)) _notifyStoreWatchers("$");
+      // in other scopes (the "$" store partition, see _watchExpr). Queued on
+      // this statement's batch, not called synchronously: a watcher that
+      // writes the global back would otherwise recurse to a stack overflow.
+      if (stmtScan.dollarRoots.some((k) => k in _globals)) _wakeGlobalWatchers();
     }
   } catch (e) {
     _warn("Expression error:", expr, e.message);
@@ -2342,15 +2344,24 @@ export function resolve(path, ctx) {
   }, ctx);
 }
 
-// Interpolate strings like "/users/{user.id}?q={search}"
-// Note: interpolated values are encoded with encodeURIComponent, which encodes
-// "/" as "%2F". Path segments that intentionally contain "/" must be passed
-// as pre-encoded strings or concatenated outside of {} placeholders.
-export function _interpolate(str, ctx) {
+// Interpolate request bodies like "name={user.name}&page={page}".
+// Every placeholder value is encoded with encodeURIComponent. `_hook` is
+// internal: _interpolate uses it to post-process URL placeholders.
+export function _interpolateEncoded(str, ctx, _hook) {
   return str.replace(/\{([^}]+)\}/g, (_, expr, offset) => {
     const val = evaluate(expr.trim(), ctx);
     if (val == null) return "";
     const enc = encodeURIComponent(String(val));
+    return _hook ? _hook(enc, expr, offset) : enc;
+  });
+}
+
+// Interpolate URLs like "/users/{user.id}?q={search}"
+// Note: interpolated values are encoded with encodeURIComponent, which encodes
+// "/" as "%2F". Path segments that intentionally contain "/" must be passed
+// as pre-encoded strings or concatenated outside of {} placeholders.
+export function _interpolate(str, ctx) {
+  return _interpolateEncoded(str, ctx, (enc, expr, offset) => {
     // In the path part, "." / ".." survive encodeURIComponent and URL parsers
     // collapse them (and their %2E forms) as dot-segments, re-targeting the
     // request. Double-encode so the segment stays a literal child segment
@@ -2360,6 +2371,61 @@ export function _interpolate(str, ctx) {
       return enc.replace(/\./g, "%252E");
     }
     return enc;
+  });
+}
+
+// Interpolate {expr} placeholders in a page-jsonld template.
+// Default: when the v1.21.1 output (String(val) for every placeholder, "" for
+// null/undefined/errors) is valid JSON it is kept, so existing apps get the same
+// data. Only "<" in placeholder values is escaped; in valid JSON it can appear
+// only inside strings, so the parsed data is unchanged and a value can never
+// close the <script> element.
+// Otherwise (or always with strictJsonld) escaping depends on where the
+// placeholder sits: inside a JSON string (odd count of unescaped '"' in the
+// template text before it, other placeholders ignored) the value is escaped as
+// JSON string content; in raw context (e.g. "offers":{o}) it is emitted as-is.
+// Without strictJsonld, a string-context value that is already valid JSON
+// string content (e.g. pre-escaped for v1.21.1) is kept as-is.
+export function _interpolateJsonld(str, ctx, re) {
+  const vals = [];
+  const legacy = str.replace(re, (_, expr) => {
+    let s = "";
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      if (val != null) s = String(val);
+    } catch (_) { /* v1.21.1: evaluation errors render as "" */ }
+    vals.push(s);
+    return s;
+  });
+  const strict = _config.strictJsonld;
+  if (!strict) {
+    try {
+      JSON.parse(legacy);
+      let k = 0;
+      return str.replace(re, () => vals[k++].replace(/</g, "\\u003c"));
+    } catch (_) { /* v1.21.1 output is invalid JSON — escape by context */ }
+  }
+  let i = 0;
+  let last = 0;
+  let inString = false;
+  return str.replace(re, (match, _expr, offset) => {
+    for (let j = last, esc = false; j < offset; j++) {
+      const ch = str[j];
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inString = !inString;
+    }
+    last = offset + match.length;
+    const s = vals[i++];
+    let out = s;
+    if (inString) {
+      let verbatim = false;
+      if (!strict) {
+        try { verbatim = typeof JSON.parse('"' + s + '"') === "string"; } catch (_) { verbatim = false; }
+      }
+      if (!verbatim) out = JSON.stringify(s).slice(1, -1);
+    }
+    return out.replace(/</g, "\\u003c");
   });
 }
 

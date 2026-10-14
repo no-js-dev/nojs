@@ -38,6 +38,7 @@ import {
   _execStatement,
   resolve,
   _interpolate,
+  _interpolateEncoded,
   _exprCache,
   _stmtCache,
 } from '../src/evaluate.js';
@@ -694,6 +695,30 @@ describe('Expression Evaluator', () => {
     test('does not encode plain numeric IDs', () => {
       const ctx = createContext({ id: 123 });
       expect(_interpolate('/api/users/{id}', ctx)).toBe('/api/users/123');
+    });
+  });
+
+  describe('_interpolateEncoded (request bodies, v1.21.1 bytes)', () => {
+    test.each([
+      ['name={n}&x=1', { n: 'a&b=c d' }, 'name=a%26b%3Dc%20d&x=1'],
+      ['{msg}', { msg: 'hello world 100%' }, 'hello%20world%20100%25'],
+      ['{v}', { v: '..' }, '..'],
+      ['/a/{v}/b', { v: '.' }, '/a/./b'],
+      ['{missing}-{nil}', { nil: null }, '-'],
+    ])('%s with %j gives %s', (str, state, expected) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(_interpolateEncoded(str, createContext(state))).toBe(expected);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    test('_interpolate matches _interpolateEncoded except for path dot-segments', () => {
+      const ctx = createContext({ v: 'a b', d: '..' });
+      expect(_interpolate('/x/{v}?q={d}', ctx)).toBe(_interpolateEncoded('/x/{v}?q={d}', ctx));
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(_interpolate('/x/{d}', ctx)).toBe('/x/%252E%252E');
+      expect(_interpolateEncoded('/x/{d}', ctx)).toBe('/x/..');
+      warn.mockRestore();
     });
   });
 

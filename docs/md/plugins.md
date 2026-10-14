@@ -137,13 +137,30 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
         init(el, name, value) { /* ... */ }
       });
       app.directive('bind', { /* ... */ }); // ❌ core directive — warning, ignored
-      app.directive('bind-href', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
     }
   };
 </script>
 ```
 
-The same applies to any name matched by a core wildcard directive: `on:*`, `bind-*`, `class-*` and `style-*`.
+#### Names under core wildcards
+
+A plugin can register a name that a core wildcard directive (`on:*`, `bind-*`, `class-*`, `style-*`) would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute only; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute still uses the core handler. In debug mode a log line notes the shadowing:
+
+```
+[No.JS] Directive "bind-chart" shadows core "bind-*" for that attribute.
+```
+
+#### `strictDirectives`
+
+Set `strictDirectives: true` to reject those names as well. With the flag on, any name matched by a core wildcard is treated like a core directive: `app.directive()` logs a warning and ignores it, so the core handler keeps sanitizing `bind-href`, `bind-src` and the rest:
+
+```js
+NoJS.config({ strictDirectives: true }); // before plugins install
+
+app.directive('bind-chart', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
+```
+
+The flag defaults to `false`.
 
 ---
 
@@ -177,7 +194,7 @@ Prototype pollution vectors (`__proto__`, `constructor`, `prototype`) are also b
 
 ### Reactivity
 
-Globals are app-wide: every binding that reads `$name`, in any scope, updates when a template expression writes through it (`$user.name = 'Ada'`, `$user.logout()`) or when `NoJS.global()` publishes a new value, just like store changes:
+Object values passed to `NoJS.global()` are automatically wrapped in a reactive context. Mutations trigger DOM updates just like store or state changes:
 
 ```html
 <script>
@@ -188,18 +205,44 @@ Globals are app-wide: every binding that reads `$name`, in any scope, updates wh
 <span bind="$user.name"></span>
 ```
 
-Object values are published by reference, not copied: templates see the plugin's own object, with its methods and `Date` values. When plugin code mutates that object from JavaScript, call `NoJS.notify()` to update the DOM (as with `NoJS.store`):
+The value is a JSON copy of the object you pass: changing the original afterwards does not change the global, methods are dropped, and `Date` values become ISO strings. Own `__proto__` keys are dropped from the copy. The global itself is a reactive context, so it has `$watch`, `$set` and `$notify`:
 
 ```js
-const user = { name: 'Guest', logout() { this.name = 'Guest'; } };
-app.global('user', user);
+app.global('cart', { count: 0 });
 
-// later, e.g. after a login request in plugin code:
-user.name = 'Ada';
-app.notify();
+// plugin code, e.g. in init():
+const cart = app.evaluate('$cart', app.createContext({}));
+cart.$watch(() => console.log('cart changed'));
+cart.$set('count', 3); // updates every $cart binding
 ```
 
-Values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
+#### App-wide updates
+
+Globals are app-wide: every binding that reads `$name`, in any scope, updates when the global changes. That covers a template write from any scope (`$cart.count++`, `$cart.$set('count', 1)`), a write from plugin JavaScript through the reactive global (`cart.count = 2`, `cart.$set(...)`), and a new `NoJS.global()` call for the same name. After mutating a nested object from JavaScript (`cart.items.push(x)`), call `cart.$notify()` or `NoJS.notify()`.
+
+#### `byRef`
+
+Pass `{ byRef: true }` to publish the object itself instead of a reactive copy. Templates then see the plugin's own object, with its methods, `Date` values, `Map`s and identity:
+
+```js
+const session = {
+  user: 'guest',
+  since: new Date(),
+  login(name) { this.user = name; },
+};
+app.global('session', session, { byRef: true });
+
+// later, in plugin code:
+session.user = 'Ada';
+app.notify(); // a plain object has no $watch/$set — flush the DOM yourself
+```
+
+```html
+<span bind="$session.user"></span>
+<button on:click="$session.login('ada')">Log in</button>
+```
+
+Template writes and method calls still update every scope. A `byRef` value is checked in full: values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
 
 ### Ownership Tracking
 
@@ -324,12 +367,20 @@ Trusted interceptors receive the full, unredacted request options and response o
 **Request** (stripped before passing to untrusted interceptors):
 `authorization`, `x-api-key`, `x-auth-token`, `cookie`, `proxy-authorization`, `set-cookie`, `x-csrf-token`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted. The header name configured in `csrf.header` is redacted as well.
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
 
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+#### With `strictRedaction: true`
+
+Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens what untrusted interceptors and event payloads receive:
+
+- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
+- Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
+- URLs are redacted at the string level. The `#fragment` is removed, since it can carry tokens and is never sent to the server. In the query, the values of sensitive parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) become `[REDACTED]`. Everything else stays exactly as written. The request itself always goes to the real URL.
+- This redacted URL is what untrusted request interceptors, untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the `call` failure warning and the insecure-HTTP warning.
+- Without the flag, request interceptors and event payloads get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
 
 ---
 

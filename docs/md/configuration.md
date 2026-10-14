@@ -7,7 +7,7 @@
   NoJS.config({
     // API
     baseApiUrl: 'https://api.myapp.com/v1',
-    headers: { 'Authorization': 'Bearer xxx' },  // same-origin / baseApiUrl / base only
+    headers: { 'Authorization': 'Bearer xxx' },
     timeout: 10000,
     retries: 2,
     retryDelay: 1000,
@@ -81,7 +81,53 @@
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is ignored with a console warning: no `window.__NOJS_DEVTOOLS__`, no context registry, and no `nojs:devtools` events. Sensitive values (auth headers, the CSRF token, and context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session`, matched as substrings, so e.g. `keywords` is also redacted) are shown as `[REDACTED]`.
+> **Security:** `window.__NOJS_DEVTOOLS__` and its command listener are installed only on local hosts (`localhost`, `127.0.0.1`, `0.0.0.0`, `*.localhost`, and pages with an empty hostname such as `file://`). On any other hostname, `devtools: true` logs a console warning and the devtools API is not exposed. **However, `nojs:devtools` events (context creation and updates, store creation, fetch URLs, route navigation) are still dispatched on `window`, where any script on the page can read them, and the internal context registry keeps growing.** Do not ship `devtools: true` to production, or also set `strictDevtools: true` (see below).
+
+### `strictDevtools`
+
+**Type:** `boolean` | **Default:** `false`
+
+By default, the localhost restriction above applies to `window.__NOJS_DEVTOOLS__` and its command listener only, as in v1.21.1. `nojs:devtools` events and the context registry follow `devtools` on any host. Store snapshots (`__NOJS_DEVTOOLS__.stores`, `inspect:store`) show every key, the `config` getter returns `headers` and `csrf` as configured, and the `get:config` command returns `headers` as the string `'[REDACTED]'` with `csrf.token` redacted.
+
+Set `strictDevtools: true` to harden devtools:
+
+- `nojs:devtools` events and the context registry are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
+- Store snapshots show context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`. Keys are matched as substrings, so `keyboard` and `author` are redacted too.
+- `get:config` and the `config` getter return `headers` as an object with sensitive headers redacted per key, and `csrf.token` as `[REDACTED]`.
+- `fetch:success` and `fetch:error` devtools events carry the URL without its `#fragment` and with sensitive query values (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`.
+
+```html
+<script>
+  NoJS.config({ devtools: true, strictDevtools: true });
+</script>
+```
+
+### Opt-in hardening flags
+
+Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()` before or after `init()`.
+
+| Flag | Default | When `true` |
+|------|---------|-------------|
+| `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
+| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. |
+| `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
+| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
+| `strictPersist` | `false` | On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$router`, `$refs`, `$parent`, `$i18n`, `$watch`, `$set`, `$notify`, `$form`, `$sse`, or a plugin global) is skipped unless the state declares it or `persist-fields` lists it. |
+| `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot add keys or end the string. By default the v1.21.1 output is kept whenever it is valid JSON. See [Head Management](head-management.md#page-jsonld). |
+| `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
+| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
+| `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in `supportedLocales` is ignored when `NoJS.i18n()` restores it. |
+
+```html
+<script>
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+</script>
+```
 
 ---
 
@@ -153,7 +199,7 @@ NoJS.config({
 
 When `sanitizeHtml` is set to a function, the built-in sanitizer is bypassed entirely and the provided function is used for all `bind-html` content. Set `dangerouslyDisableSanitize: true` to disable sanitization entirely (not recommended — see [Security](#security)).
 
-> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes (and stay locked after `NoJS.dispose()`). Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
+> **Note:** The `sanitize`, `dangerouslyDisableSanitize`, and `sanitizeHtml` config keys are **locked after `init()`** completes. Calling `NoJS.config()` after initialization will not change these values — this prevents plugins or late-running scripts from weakening the security posture.
 
 The built-in sanitizer blocks the following tags by default: `script`, `style`, `iframe`, `object`, `embed`, `base`, `form`, `meta`, `link`, `noscript`. It also strips `on*` event handler attributes and `javascript:`/`vbscript:` scheme attributes on any element, and `data:` URIs on URL attributes (`href`, `src`, `action`) unless they are safe image types.
 

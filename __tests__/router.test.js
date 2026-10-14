@@ -3426,7 +3426,27 @@ describe('Router — page-jsonld value escaping', () => {
   const ldText = () =>
     document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
 
-  test('a $route.query value cannot inject properties into the JSON-LD', async () => {
+  test('with strictJsonld, a $route.query value cannot inject properties into the JSON-LD', async () => {
+    _config.strictJsonld = true;
+    try {
+      document.body.innerHTML = `
+        <div route-view></div>
+        <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
+          <p>search</p>
+        </template>
+      `;
+      const router = _createRouter();
+      await router.init();
+      await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
+      const data = JSON.parse(ldText());
+      expect(data['@type']).toBe('SearchResultsPage');
+      expect(data.name).toBe('x","@type":"Organization');
+    } finally {
+      _config.strictJsonld = false;
+    }
+  });
+
+  test('by default, a $route.query value whose v1.21.1 output is valid JSON is emitted as in v1.21.1', async () => {
     document.body.innerHTML = `
       <div route-view></div>
       <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
@@ -3435,10 +3455,27 @@ describe('Router — page-jsonld value escaping', () => {
     `;
     const router = _createRouter();
     await router.init();
-    await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
-    const data = JSON.parse(ldText());
-    expect(data['@type']).toBe('SearchResultsPage');
-    expect(data.name).toBe('x","@type":"Organization');
+    await router.push('/search?q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(ldText()).toBe('{"@type":"SearchResultsPage","name":"Say \\"hi\\""}');
+    expect(JSON.parse(ldText()).name).toBe('Say "hi"');
+  });
+
+  test('with strictJsonld, a pre-escaped $route.query value is escaped as data', async () => {
+    _config.strictJsonld = true;
+    try {
+      document.body.innerHTML = `
+        <div route-view></div>
+        <template route="/search" page-jsonld='{"name":"{$route.query.q}","n":{$route.query.n}}'>
+          <p>search</p>
+        </template>
+      `;
+      const router = _createRouter();
+      await router.init();
+      await router.push('/search?n=4&q=' + encodeURIComponent('Say \\"hi\\"'));
+      expect(JSON.parse(ldText())).toEqual({ name: 'Say \\"hi\\"', n: 4 });
+    } finally {
+      _config.strictJsonld = false;
+    }
   });
 
   test('a $route.query value containing </script> cannot terminate the script element', async () => {
@@ -3453,5 +3490,189 @@ describe('Router — page-jsonld value escaping', () => {
     await router.push('/item?n=' + encodeURIComponent('a"</script><b>'));
     expect(ldText()).not.toContain('<');
     expect(JSON.parse(ldText()).name).toBe('a"</script><b>');
+  });
+
+  test('a raw (unquoted) JSON fragment is emitted verbatim, as in v1.21.1', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/p" page-jsonld='{"@type":"Product","offers":{$route.query.o}}'>
+        <p>p</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/p?o=' + encodeURIComponent('{"price":5,"name":"A \\"B\\""}'));
+    expect(ldText()).toBe('{"@type":"Product","offers":{"price":5,"name":"A \\"B\\""}}');
+    expect(JSON.parse(ldText())).toEqual({ '@type': 'Product', offers: { price: 5, name: 'A "B"' } });
+  });
+
+  test('raw numbers are unchanged and quoted values in the same template are escaped', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/r/:n" page-jsonld='{"position":{$route.params.n},"name":"{$route.query.q}"}'>
+        <p>r</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(ldText()).toBe('{"position":3,"name":"x\\"\\\\y\\nz"}');
+    expect(JSON.parse(ldText())).toEqual({ position: 3, name: 'x"\\y\nz' });
+  });
+
+  test('a raw $route.query value containing </script> cannot terminate the script element', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/x" page-jsonld='{"offers":{$route.query.o}}'>
+        <p>x</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/x?o=' + encodeURIComponent('{"n":"</script><b>"}'));
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText())).toEqual({ offers: { n: '</script><b>' } });
+  });
+});
+
+describe('Router — route template src resolution (base= / baseApiUrl / templates.pageRelative)', () => {
+  const urls = () => global.fetch.mock.calls.map((c) => c[0]);
+
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', templates: '', ext: '.tpl' };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+    setRouterInstance(null);
+    _templateHtmlCache.clear();
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url.endsWith('/layout.tpl')
+        ? '<p class="route-content">Layout</p><template src="./part.tpl"></template><template src="extra.tpl"></template>'
+        : '<p class="route-content">Loaded</p>'),
+    }));
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    _config.baseApiUrl = '';
+    _config.templates.pageRelative = false;
+    document.body.removeAttribute('base');
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    _templateHtmlCache.clear();
+    delete global.fetch;
+  });
+
+  function declaredRoute(path, src) {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+    const tpl = document.createElement('template');
+    tpl.setAttribute('route', path);
+    tpl.setAttribute('src', src);
+    document.body.appendChild(tpl);
+    const router = _createRouter();
+    setRouterInstance(router);
+    router.register(path, tpl);
+    return { router, outlet };
+  }
+
+  function fileRoute(srcFolder) {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    outlet.setAttribute('src', srcFolder);
+    document.body.appendChild(outlet);
+    const router = _createRouter();
+    setRouterInstance(router);
+    return { router, outlet };
+  }
+
+  test('default: declared <template route src> goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = declaredRoute('/about', 'pages/about.tpl');
+
+    await router.push('/about');
+
+    expect(urls()).toEqual(['/api/pages/about.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('default: nested templates of a route resolve against the based folder', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = declaredRoute('/layout', '/views/layout.tpl');
+
+    await router.push('/layout');
+
+    expect([...new Set(urls())].sort()).toEqual([
+      '/api/extra.tpl',
+      '/api/views/layout.tpl',
+      '/api/views/part.tpl',
+    ]);
+    expect(outlet.querySelectorAll('.route-content')).toHaveLength(3);
+  });
+
+  test('default: file-based route-view src goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = fileRoute('./pages/');
+
+    await router.push('/analytics');
+
+    expect(urls()).toEqual(['/api/pages/analytics.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('default: file-based routes use a base= on <body>', async () => {
+    document.body.setAttribute('base', 'https://api.example.com/v1');
+    const { router } = fileRoute('/pages/');
+
+    await router.push('/');
+
+    expect(urls()).toEqual(['https://api.example.com/v1/pages/index.tpl']);
+  });
+
+  test('default: without base= or baseApiUrl, route src is fetched as written', async () => {
+    const { router } = fileRoute('./pages/');
+
+    await router.push('/analytics');
+
+    expect(urls()).toEqual(['pages/analytics.tpl']);
+  });
+
+  test('pageRelative: declared route src ignores baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    const { router, outlet } = declaredRoute('/about', 'pages/about.tpl');
+
+    await router.push('/about');
+
+    expect(urls()).toEqual(['pages/about.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('pageRelative: nested ./ keeps the parent folder, plain src is page-relative', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    const { router, outlet } = declaredRoute('/layout', '/views/layout.tpl');
+
+    await router.push('/layout');
+
+    expect([...new Set(urls())].sort()).toEqual([
+      '/views/layout.tpl',
+      '/views/part.tpl',
+      'extra.tpl',
+    ]);
+    expect(outlet.querySelectorAll('.route-content')).toHaveLength(3);
+  });
+
+  test('pageRelative: file-based routes ignore base= on <body> and baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    document.body.setAttribute('base', 'https://api.example.com/v1');
+    const { router } = fileRoute('/pages/');
+
+    await router.push('/');
+
+    expect(urls()).toEqual(['/pages/index.tpl']);
   });
 });

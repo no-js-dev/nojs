@@ -32,7 +32,7 @@ import {
   _stripBase,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale, _notifyI18n } from "./i18n.js";
-import { createContext } from "./context.js";
+import { createContext, _wakeGlobalWatchers } from "./context.js";
 import { evaluate, resolve, _execStatement, parseExpression, parseStatements, segmentPipes } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
 import { registerDirective, processTree, _removeCoreDirective, _disposeChildren, _disposeTree } from "./registry.js";
@@ -91,6 +91,12 @@ function _isUnsafeGlobalValue(value) {
 }
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+// JSON.parse reviver for global() copies: drop own "__proto__" keys
+const _dropProtoKey = (k, v) => (k === "__proto__" ? undefined : v);
+
+// Global name → unwatch for the app-wide wake registered by global()
+const _globalUnwatch = Object.create(null);
 
 // Built-in filter names — prevent user code from overwriting core filters
 const _BUILTIN_FILTER_NAMES = new Set([
@@ -202,6 +208,8 @@ const NoJS = {
     if (opts.i18n) {
       _config.i18n = { ...prevI18n, ...opts.i18n };
       _i18n.locale = opts.i18n.defaultLocale || _i18n.locale;
+      // Re-render active t directives when the flag flips after init()
+      if (_initPromise && !!prevI18n.escapeParams !== !!_config.i18n.escapeParams) _notifyI18n();
     }
     if (opts.stores) {
       for (const [name, data] of Object.entries(opts.stores)) {
@@ -277,7 +285,7 @@ const NoJS = {
   },
 
   // ─── Plugin globals ───────────────────────────────────────────────────
-  global(name, value) {
+  global(name, value, opts) {
     if (typeof name !== "string" || !name) {
       _warn("NoJS.global() requires a non-empty string name.");
       return;
@@ -312,20 +320,61 @@ const NoJS = {
       _warn(`Global "$${name}" owned by "${_globalOwners[name]}" is being overwritten.`);
     }
 
-    // Objects are published by reference (no copy): methods, Dates and the
-    // plugin's own handle reach templates. Reject values holding forbidden keys
-    // or nested eval/Function refs (a reactive proxy lists its target's keys).
-    if (value && typeof value === "object") {
+    if (value && typeof value === "object" && opts && opts.byRef === true) {
+      // Opt-in: publish the plugin's own object (methods, Dates, identity).
+      // Reject values holding forbidden keys or nested eval/Function refs
+      // (a reactive proxy lists its target's keys).
       try {
         _deepCheckUnsafe(value);
       } catch (safetyErr) {
         if (safetyErr.message === "unsafe_global") return;
         // Other errors pass through
       }
+    } else if (value && typeof value === "object" && !value.__isProxy) {
+      // Sanitize object values to strip __proto__ keys
+      try {
+        value = JSON.parse(JSON.stringify(value), _dropProtoKey);
+      } catch {
+        // Non-serializable objects — check for dangerous function references
+        try {
+          _deepCheckUnsafe(value);
+        } catch (safetyErr) {
+          if (safetyErr.message === "unsafe_global") return;
+          // Other errors pass through
+        }
+      }
+      // Wrap in reactive context for deep reactivity
+      value = createContext(value);
+    } else if (value && typeof value === "object" && value.__isProxy) {
+      // Already a reactive proxy — sanitization branch above is skipped, so run the
+      // recursive unsafe-reference / prototype-pollution check on the raw target
+      // to avoid storing nested eval/Function refs or polluted prototypes verbatim.
+      try {
+        _deepCheckUnsafe(value.__raw ?? value);
+      } catch (safetyErr) {
+        if (safetyErr.message === "unsafe_global") return;
+        // Other errors pass through
+      }
     }
 
+    if (_globalUnwatch[name]) {
+      _globalUnwatch[name]();
+      delete _globalUnwatch[name];
+    }
     _globals[name] = value;
     if (_currentPluginName) _globalOwners[name] = _currentPluginName;
+
+    // Globals are read app-wide: a write through the context ($x.$set, a
+    // proxy write from plugin code) wakes every scope's "$" bindings. The
+    // wake queues them on the batch, so a binding that writes back runs in
+    // the next drain round instead of recursing.
+    if (value && typeof value === "object" && value.__isProxy) {
+      const wake = () => _wakeGlobalWatchers();
+      _globalUnwatch[name] = value.$watch(wake);
+      // $watch ties the listener to the element being processed; a global
+      // outlives any element.
+      wake._el = null;
+    }
 
     // Notify all store watchers since globals are scope-wide
     _notifyStoreWatchers();
@@ -363,6 +412,10 @@ const NoJS = {
         }
       }
       _plugins.clear();
+      for (const k in _globalUnwatch) {
+        _globalUnwatch[k]();
+        delete _globalUnwatch[k];
+      }
       for (const k in _globals) delete _globals[k];
       for (const k in _globalOwners) delete _globalOwners[k];
 
@@ -379,7 +432,8 @@ const NoJS = {
       // Clean up devtools listener
       destroyDevtools();
 
-      // _configLocked intentionally stays set: rendered bindings keep using _config after dispose()
+      _configLocked = false;
+
       _initPromise = null;
       _log("Disposed.");
     } finally {
@@ -483,6 +537,9 @@ const NoJS = {
     if (Array.isArray(opts.supportedLocales)) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
+    const prevEscapeParams = !!_config.i18n.escapeParams;
+    if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
+    if (opts.strictLocale != null) _config.i18n.strictLocale = opts.strictLocale;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 
@@ -495,9 +552,10 @@ const NoJS = {
       try {
         const saved = localStorage.getItem("nojs-locale");
         const supported = _config.i18n.supportedLocales;
-        // Same allow-list as the locale setter: ignore a stale or foreign value
-        if (saved && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
-          _warn(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+        // Opt-in (i18n.strictLocale): apply the locale setter's allow-list and
+        // ignore a stale or foreign value. Default restores it as in v1.21.1.
+        if (saved && _config.i18n.strictLocale && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _log(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
         } else if (saved) {
           _i18n._locale = saved;
           localeRestored = true;
@@ -525,7 +583,7 @@ const NoJS = {
     if (_initPromise) {
       if (_config.i18n.loadPath && !_i18n.locales[_i18n._locale]) {
         _loadI18nForLocale(_i18n._locale).then(() => _notifyI18n());
-      } else if (opts.locales) {
+      } else if (opts.locales || prevEscapeParams !== !!_config.i18n.escapeParams) {
         _notifyI18n();
       }
     }

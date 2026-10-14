@@ -74,7 +74,8 @@ describe('plugin trust-boundary hardening', () => {
     expect(evaluate('typeof $w.localStorage', createContext({}))).toBe('undefined');
   });
 
-  test('API-010 — dispose() does not lift the sanitize config lock', async () => {
+  // v1.21.1: dispose() lifts the lock so the app can be reconfigured and re-initialised
+  test('API-010 — dispose() lifts the sanitize config lock, as in v1.21.1', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     NoJS._initialized = false;
     _config.sanitize = true; _config.dangerouslyDisableSanitize = false; _config.sanitizeHtml = null;
@@ -83,6 +84,34 @@ describe('plugin trust-boundary hardening', () => {
     await NoJS.dispose();
     NoJS.config({ dangerouslyDisableSanitize: true });
     warn.mockRestore();
-    expect(_config.dangerouslyDisableSanitize).toBe(false);
+    expect(_config.dangerouslyDisableSanitize).toBe(true);
+    _config.dangerouslyDisableSanitize = false;
+  });
+
+  test('API-010 — dispose → config(sanitize) → init applies the new config and re-locks it', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _config.sanitize = true; _config.dangerouslyDisableSanitize = false; _config.sanitizeHtml = null;
+    document.body.innerHTML = '<div id="app"></div>';
+    await NoJS.init();
+
+    NoJS.config({ sanitizeHtml: (html) => html.toUpperCase() });
+    expect(_config.sanitizeHtml).toBeNull(); // locked while initialised
+
+    await NoJS.dispose();
+    const custom = (html) => html.replace(/<em>/g, '<strong>').replace(/<\/em>/g, '</strong>');
+    NoJS.config({ sanitizeHtml: custom });
+    expect(_config.sanitizeHtml).toBe(custom);
+
+    document.body.innerHTML = `<div state="{ h: '<em>hi</em>' }"><p id="out" bind-html="h"></p></div>`;
+    await NoJS.init();
+    expect(document.querySelector('#out strong').textContent).toBe('hi');
+
+    NoJS.config({ sanitizeHtml: null });
+    expect(_config.sanitizeHtml).toBe(custom); // locked again after the new init()
+
+    await NoJS.dispose();
+    NoJS.config({ sanitizeHtml: null });
+    warn.mockRestore();
+    expect(_config.sanitizeHtml).toBeNull();
   });
 });

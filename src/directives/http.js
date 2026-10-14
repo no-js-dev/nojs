@@ -21,8 +21,8 @@ import {
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet, _redactUrlParams } from "../fetch.js";
+import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { _doFetch, _cacheGet, _cacheSet, _redactUrlParams, _eventUrl, _devtoolsUrl } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateEncoded(bodyAttr, ctx);
           }
         }
         const cacheKey =
@@ -431,7 +431,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolate(bodyAttr, ctx);
+            const interpolated = _interpolateEncoded(bodyAttr, ctx);
             try {
               reqBody = JSON.parse(interpolated);
             } catch {
@@ -661,8 +661,8 @@ for (const method of HTTP_METHODS) {
           if (redirectPath && _routerInstance)
             _routerInstance.push(redirectPath);
 
-          _emitEvent("fetch:success", { url: resolvedUrl, data: _effectiveData });
-          _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
+          _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data: _effectiveData });
+          _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
         } catch (err) {
           // SwitchMap: silently ignore aborted requests
           if (err.name === "AbortError") return;
@@ -673,9 +673,9 @@ for (const method of HTTP_METHODS) {
             `${method.toUpperCase()} ${safeUrl} failed:`,
             err.message,
           );
-          _emitEvent("fetch:error", { url: safeUrl, error: err });
-          _emitEvent("error", { url: safeUrl, error: err });
-          _devtoolsEmit("fetch:error", { method, url: safeUrl, error: err.message });
+          _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
+          _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
+          _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
 
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);

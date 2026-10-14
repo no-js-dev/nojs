@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat — devtools (strictDevtools) — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+  </style>
+  <!-- Record the devtools protocol events (window CustomEvent "nojs:devtools")
+       before No.JS loads, so the very first ctx:created events are captured. -->
+  <script>
+    window.__devtoolsEvents = [];
+    window.addEventListener('nojs:devtools', function (e) { window.__devtoolsEvents.push(e.detail); });
+  </script>
+  <script src="https://cdn.no-js.dev/"></script>
+  <!-- ?strict=1 opts into strictDevtools; without it the v1.21.1 defaults apply. -->
+  <script>
+    NoJS.config({
+      devtools: true,
+      strictDevtools: new URLSearchParams(location.search).get('strict') === '1',
+      headers: { Authorization: 'Bearer E2E_SECRET', 'X-Custom': 'visible' },
+      csrf: { token: 'CSRF_E2E_SECRET', header: 'X-CSRF-Token' },
+      stores: { prefs: { keyboard: 'dvorak', author: 'ann', theme: 'dark' } }
+    });
+  </script>
+</head>
+<body>
+  <main>
+    <h1>Devtools compatibility</h1>
+
+    <!-- Local context: each click mutates it and emits ctx:updated -->
+    <section state="{ count: 0 }">
+      <p class="test-label">Local context counter</p>
+      <button type="button" data-test="counter-inc" on:click="count++">Increment</button>
+      <output data-test="counter-value" bind="count"></output>
+    </section>
+
+    <!-- Global store whose keys over-match the substring redaction list -->
+    <section>
+      <p class="test-label">Store "prefs"</p>
+      <p>Keyboard: <span data-test="store-keyboard" bind="$store.prefs.keyboard"></span></p>
+      <p>Author: <span data-test="store-author" bind="$store.prefs.author"></span></p>
+      <p>Theme: <span data-test="store-theme" bind="$store.prefs.theme"></span></p>
+    </section>
+  </main>
+</body>
+</html>

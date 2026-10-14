@@ -81,7 +81,25 @@
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is ignored with a console warning: no `window.__NOJS_DEVTOOLS__`, no context registry, and no `nojs:devtools` events. Sensitive values (auth headers, the CSRF token, and context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session`, matched as substrings, so e.g. `keywords` is also redacted) are shown as `[REDACTED]`.
+> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
+
+### `strictDevtools`
+
+**Type:** `boolean` | **Default:** `false`
+
+By default, the localhost restriction above applies to `window.__NOJS_DEVTOOLS__` and its command listener only, as in v1.21.1. `nojs:devtools` events and the context registry follow `devtools` on any host. Store snapshots (`__NOJS_DEVTOOLS__.stores`, `inspect:store`) show every key, the `config` getter returns `headers` and `csrf` as configured, and the `get:config` command returns `headers` as the string `'[REDACTED]'` with `csrf.token` redacted.
+
+Set `strictDevtools: true` to harden devtools:
+
+- `nojs:devtools` events and the context registry are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
+- Store snapshots show context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`. Keys are matched as substrings, so `keyboard` and `author` are redacted too.
+- `get:config` and the `config` getter return `headers` as an object with sensitive headers redacted per key, and `csrf.token` as `[REDACTED]`.
+
+```html
+<script>
+  NoJS.config({ devtools: true, strictDevtools: true });
+</script>
+```
 
 ### Opt-in hardening flags
 

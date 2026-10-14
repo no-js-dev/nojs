@@ -106,16 +106,29 @@ placeholders for dynamic values:
 > **Note:** `<script>` elements are skipped by No.JS processing. Always use
 > `<div hidden page-jsonld>` as the host element.
 
-**Placeholder escaping depends on where the placeholder sits:**
+**Placeholder escaping.** By default `page-jsonld` keeps the v1.21.1 output:
+each placeholder is replaced with its value as text, and when the result is
+valid JSON it is used as-is. Existing templates, including values that were
+pre-escaped for JSON, produce the same data. Only `<` inside values is written
+as `\u003c`. That keeps the data unchanged and means a value can never close
+the `<script>` element.
+
+When the result would not be valid JSON, escaping depends on where the
+placeholder sits:
 
 - **Inside a JSON string** (`"name":"{product.name}"`): the value is escaped as
-  JSON string content, so `"`, `\` and newlines in the value keep the JSON valid.
+  JSON string content, so `"`, `\` and newlines keep the JSON valid. A value
+  that is already valid JSON string content is kept as-is.
 - **Outside a string** (`"offers":{offersJson}`, `"price":{product.price}`): the
   value is inserted as-is, so numbers, booleans and pre-serialized JSON
   fragments work unchanged.
 
-In both cases `<` is written as `<`, so a value can never close the
-`<script>` element.
+> **Warning:** By default a value can still change the JSON structure, as in
+> v1.21.1. For example, a quoted value `x","@type":"Organization` adds a key.
+> Keep untrusted data (URL params, user input) in quoted placeholders and set
+> `NoJS.config({ strictJsonld: true })`, which always escapes quoted values as
+> data. Placeholders outside a string are inserted as-is even then, so
+> serialize untrusted data first: `"name":{JSON.stringify($route.query.q)}`.
 
 The `data-nojs` marker distinguishes the managed tag from any hand-written
 JSON-LD blocks already in `<head>` — they coexist safely.

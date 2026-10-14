@@ -121,6 +121,65 @@ describe('_isLoopElement with spaced list expressions', () => {
     expect(_isLoopElement(output)).toBe(false);
   });
 
+  test.each([
+    'x in y z',
+    'sum in totals ',
+    'total in qty price',
+    'a in b\nc',
+  ])('native output/label for="%s" is not a loop', (value) => {
+    for (const tag of ['output', 'label']) {
+      const el = document.createElement(tag);
+      el.setAttribute('for', value);
+      expect(_isLoopElement(el)).toBe(false);
+    }
+  });
+
+  test('native output/label with a spaced for value keep rendering', () => {
+    render(`<div state="{}">
+      <output for="x in y z">calc</output>
+      <output for="sum in totals ">sum</output>
+      <label for="first in last name">Name</label>
+    </div>`);
+    const outputs = document.querySelectorAll('output');
+    expect([...outputs].map((o) => o.textContent)).toEqual(['calc', 'sum']);
+    expect(outputs[0].getAttribute('for')).toBe('x in y z');
+    expect(outputs[1].getAttribute('for')).toBe('sum in totals ');
+    expect(document.querySelector('label').textContent).toBe('Name');
+  });
+
+  test('native output/label keep the v1.21.1 loop shape "item in path"', () => {
+    render(`<div state="{ items: ['a', 'b'] }">
+      <label for="item in items" class="l" bind="item"></label>
+      <output for="item in items" class="o" bind="item"></output>
+    </div>`);
+    expect(texts('label.l')).toEqual(['a', 'b']);
+    expect(texts('output.o')).toEqual(['a', 'b']);
+  });
+
+  test('foreach/each on output still accept spaced list expressions', () => {
+    render(`<div state="{}"><output foreach="n in [1, 2]" bind="n"></output></div>`);
+    expect(texts('output')).toEqual(['1', '2']);
+  });
+
+  test('for on other elements accepts leading whitespace', () => {
+    render(`<ul state="{}"><li for="
+      x in ['a', 'b']" bind="x"></li></ul>`);
+    expect(texts('li')).toEqual(['a', 'b']);
+  });
+
+  test('matching stays linear on long whitespace runs', () => {
+    const el = document.createElement('li');
+    const ws = ' '.repeat(100000);
+    const t0 = Date.now();
+    el.setAttribute('for', 'x in items' + ws + 'z' + ws);
+    expect(_isLoopElement(el)).toBe(true);
+    el.setAttribute('for', 'x' + ws + 'y');
+    expect(_isLoopElement(el)).toBe(false);
+    el.setAttribute('for', 'x in' + ws);
+    expect(_isLoopElement(el)).toBe(false);
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
+
   test('native label for is left untouched by processTree', () => {
     render(`<div state="{}"><label for="email">Email</label><input id="email"></div>`);
     const label = document.querySelector('label');

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat — t-html params (i18n.escapeParams) — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    a { color: #1a4fb5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>t-html params: raw by default, escaped with i18n.escapeParams</h1>
+
+    <!-- 1. A link passed as a t-html param (v1.21.1 behavior: real <a>) -->
+    <section aria-label="Link param">
+      <h2 class="test-label">Link passed as a param</h2>
+      <p data-test="link-param" t="readTerms" t-html t-link="'<a href=/terms>' + $i18n.terms + '</a>'"></p>
+    </section>
+
+    <!-- 2. Link in the translation string, label passed as a param -->
+    <section aria-label="Link in translation">
+      <h2 class="test-label">Link in the translation, label param</h2>
+      <p data-test="link-in-translation" t="acceptTerms" t-html t-label="$store.payloads.label"></p>
+    </section>
+
+    <!-- 3. Markup from reactive state -->
+    <section aria-label="Markup from state" state="{ count: 3 }">
+      <h2 class="test-label">Markup from state</h2>
+      <p data-test="state-markup" t="inbox" t-html t-count="'<strong>' + count + '</strong>'"></p>
+      <button data-test="state-inc" on:click="count++">Add message</button>
+    </section>
+
+    <!-- 4. XSS payloads in params must stay inert -->
+    <section aria-label="XSS payloads">
+      <h2 class="test-label">XSS payloads</h2>
+      <p data-test="xss-script" t="hello" t-html t-name="$store.payloads.script"></p>
+      <p data-test="xss-onerror" t="hello" t-html t-name="$store.payloads.onerror"></p>
+      <p data-test="xss-js-url" t="hello" t-html t-name="$store.payloads.jsUrl"></p>
+      <p data-test="xss-iframe" t="hello" t-html t-name="$store.payloads.iframe"></p>
+    </section>
+
+    <!-- 5. Plain t (no t-html) always renders params as text -->
+    <section aria-label="Plain t">
+      <h2 class="test-label">Plain t</h2>
+      <p data-test="plain-t" t="readTerms" t-link="'<a href=/terms>terms</a>'"></p>
+    </section>
+
+    <!-- 6. Locale switch re-renders t-html params -->
+    <section aria-label="Locale switch">
+      <h2 class="test-label">Locale switch</h2>
+      <p>Active locale: <span data-test="locale" state="{}" bind="$i18n.locale"></span></p>
+      <button data-test="to-pt" on:click="$i18n.setLocale('pt')">Português</button>
+      <button data-test="to-en" on:click="$i18n.setLocale('en')">English</button>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    // ?escapeParams=1 opts into escaping t-html params (hardening flag)
+    var escapeParams = new URLSearchParams(location.search).get('escapeParams') === '1';
+    NoJS.config({
+      stores: {
+        payloads: {
+          label: '<em>terms</em> & conditions',
+          script: '<b>Ann</b><script>window.__pwned = "script"<\/script>',
+          onerror: '<img src="/missing.png" alt="" onerror="window.__pwned = \'onerror\'">',
+          jsUrl: '<a href="javascript:window.__pwned = \'js-url\'" data-test="js-url-link">click me</a>',
+          iframe: '<iframe src="javascript:parent.__pwned = \'iframe\'" title="x"></iframe>'
+        }
+      }
+    });
+    NoJS.i18n({
+      defaultLocale: 'en',
+      fallbackLocale: 'en',
+      supportedLocales: ['en', 'pt'],
+      escapeParams: escapeParams,
+      locales: {
+        en: {
+          terms: 'terms',
+          readTerms: 'Read the {link}.',
+          acceptTerms: 'I accept the <a href="/terms">{label}</a>.',
+          inbox: 'You have {count} messages.',
+          hello: 'Hello, {name}!'
+        },
+        pt: {
+          terms: 'termos',
+          readTerms: 'Leia os {link}.',
+          acceptTerms: 'Eu aceito os <a href="/terms">{label}</a>.',
+          inbox: 'Você tem {count} mensagens.',
+          hello: 'Olá, {name}!'
+        }
+      }
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

@@ -67,7 +67,44 @@ Load templates from external HTML files:
 <template id="footer" src="/templates/footer.html"></template>
 ```
 
-Relative `src` paths resolve against the page URL (a `./` path inside a remote template resolves against that template's folder). The `base` attribute and `baseApiUrl` apply only to HTTP directives, never to template files.
+#### How `src` is resolved
+
+A `./` path inside a remote template resolves against that template's folder. Every other `src` is resolved the same way as an HTTP directive URL:
+
+| `src` | Result |
+|-------|--------|
+| `https://…`, `http://…`, `//…` | Fetched as written |
+| `/templates/header.html`, `templates/header.html`, top-level `./header.html` | Prefixed with the nearest ancestor `base` attribute, else with `baseApiUrl`, else fetched as written (relative to the page) |
+
+```html
+<script>NoJS.config({ baseApiUrl: '/api' });</script>
+
+<!-- fetches /api/parts/header.tpl -->
+<template src="parts/header.tpl"></template>
+
+<div base="https://cdn.example.com">
+  <!-- fetches https://cdn.example.com/parts/nav.tpl -->
+  <template src="/parts/nav.tpl"></template>
+</div>
+```
+
+This also applies to route templates (`<template route src>`) and file-based routing.
+
+To keep templates on the page origin while HTTP directives use `base` / `baseApiUrl`, opt in to page-relative resolution:
+
+```html
+<script>
+  NoJS.config({
+    baseApiUrl: 'https://api.example.com/v1',
+    templates: { pageRelative: true }
+  });
+</script>
+
+<!-- fetches /templates/header.html from the page origin -->
+<template src="/templates/header.html"></template>
+```
+
+With `templates.pageRelative: true`, `base` and `baseApiUrl` are ignored for every template `src`. Absolute URLs and `./` paths inside a remote template behave the same in both modes.
 
 ### Recursive Loading
 

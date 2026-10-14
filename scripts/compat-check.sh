@@ -10,6 +10,10 @@
 #   - unit: __tests__/compat-v1-21*.test.js, copied into the ref's worktree and
 #           run against the ref's src/
 #
+# The caller's working tree is never modified: the only git commands run here are
+# rev-parse, ls-remote, fetch (objects only), and worktree add/remove of the
+# throwaway worktree. No checkout, switch, reset, stash or merge, ever.
+#
 # The suite always comes from THIS checkout, so any ref can be checked against
 # the latest expectations. Every test must pass: a failure is a behavior that
 # worked on v1.21.1 and no longer does.
@@ -113,8 +117,10 @@ else
   if [[ "$REF" =~ ^pr:([0-9]+)$ ]]; then
     PR="${BASH_REMATCH[1]}"
     echo "▸ Fetching PR #$PR head…"
-    git fetch --quiet origin "pull/$PR/head"
-    SHA="$(git rev-parse FETCH_HEAD)"
+    SHA="$(git ls-remote origin "refs/pull/$PR/head" | cut -f1)"
+    [[ -n "$SHA" ]] || { echo "PR #$PR not found on origin" >&2; exit 1; }
+    # Fetch the object only: no FETCH_HEAD, no ref or HEAD change in this checkout
+    git fetch --quiet --no-write-fetch-head origin "$SHA"
   else
     SHA="$(git rev-parse --verify --quiet "$REF^{commit}")" || { echo "Unknown ref: $REF" >&2; exit 1; }
   fi

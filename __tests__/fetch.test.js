@@ -1,5 +1,5 @@
 import { _config, _interceptors, _cache, _plugins } from '../src/globals.js';
-import { resolveUrl, _doFetch, _cacheGet, _cacheSet } from '../src/fetch.js';
+import { resolveUrl, _doFetch, _cacheGet, _cacheSet, _redactUrlParams } from '../src/fetch.js';
 
 describe('URL Resolution', () => {
   afterEach(() => {
@@ -968,12 +968,17 @@ describe('Sensitive header handling around interceptors', () => {
   });
 });
 
-describe('Untrusted interceptor redaction consistency', () => {
+describe('Untrusted interceptor redaction consistency (strictRedaction: true)', () => {
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
   afterEach(() => {
     _plugins.delete('analytics');
     _interceptors.request.length = 0;
     _interceptors.response.length = 0;
     _config.csrf = null;
+    _config.strictRedaction = false;
   });
 
   test('configured CSRF header name is withheld from untrusted request interceptors', async () => {
@@ -1037,7 +1042,7 @@ describe('Untrusted interceptor redaction consistency', () => {
   });
 });
 
-describe('URL seen by untrusted request interceptors', () => {
+describe('URL seen by untrusted request interceptors (strictRedaction: true)', () => {
   const seenUrl = async (url) => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
     let seen;
@@ -1047,9 +1052,14 @@ describe('URL seen by untrusted request interceptors', () => {
     return seen;
   };
 
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
   afterEach(() => {
     _plugins.delete('analytics');
     _interceptors.request.length = 0;
+    _config.strictRedaction = false;
   });
 
   test('is the real url, byte for byte, when no parameter is sensitive', async () => {
@@ -1073,7 +1083,7 @@ describe('URL seen by untrusted request interceptors', () => {
   });
 });
 
-describe('Global headers origin scoping', () => {
+describe('Global headers origin scoping (scopeHeaders: true)', () => {
   const sent = () => global.fetch.mock.calls[0][1].headers;
 
   beforeEach(() => {
@@ -1083,11 +1093,13 @@ describe('Global headers origin scoping', () => {
     });
     _config.headers = { Authorization: 'Bearer SECRET' };
     _config.baseApiUrl = 'https://api.myapp.com/v1';
+    _config.scopeHeaders = true;
   });
 
   afterEach(() => {
     _config.headers = {};
     _config.baseApiUrl = '';
+    _config.scopeHeaders = false;
   });
 
   test('global headers are not sent to a foreign absolute URL', async () => {
@@ -1131,5 +1143,280 @@ describe('Global headers origin scoping', () => {
     global.fetch.mockClear();
     await _doFetch('https://other-api.com/abs', 'GET', null, {}, el);
     expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+});
+
+describe('v1.21.1 defaults (scopeHeaders and strictRedaction off)', () => {
+  const okFetch = () => jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  afterEach(() => {
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _config.headers = {};
+    _config.baseApiUrl = '';
+    _config.csrf = null;
+    _config.debug = false;
+  });
+
+  test('flags default to false', () => {
+    expect(_config.scopeHeaders).toBe(false);
+    expect(_config.strictRedaction).toBe(false);
+  });
+
+  test('global headers are sent to a foreign absolute URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    await _doFetch('https://other-api.com/data', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to a protocol-relative foreign URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('per-request headers override global ones on a foreign URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-App': 'a' };
+    await _doFetch('https://other-api.com/data', 'GET', null, { 'X-App': 'b' });
+    expect(sent()).toEqual({ Authorization: 'Bearer SECRET', 'X-App': 'b' });
+  });
+
+  test('an app request interceptor sees the full url, unredacted', async () => {
+    global.fetch = okFetch();
+    let seen;
+    _interceptors.request.push((url) => { seen = url; });
+    await _doFetch('/api/search?author=ann&keyword=x&token=abc', 'GET');
+    expect(seen).toBe('/api/search?author=ann&keyword=x&token=abc');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/search?author=ann&keyword=x&token=abc');
+  });
+
+  test('an app response interceptor sees X-Api-Version and Authorization response headers', async () => {
+    let seen;
+    _interceptors.response.push((res) => {
+      seen = {
+        version: res.headers.get('x-api-version'),
+        auth: res.headers.get('authorization'),
+        cookie: res.headers.get('set-cookie'),
+        challenge: res.headers.get('www-authenticate'),
+      };
+      return res;
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({
+        'x-api-version': '2',
+        authorization: 'Bearer NEXT',
+        'www-authenticate': 'Basic',
+        'x-auth-token': 'T',
+      }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen.version).toBe('2');
+    expect(seen.auth).toBe('Bearer NEXT');
+    // v1.21.1 always stripped the fixed response list
+    expect(seen.challenge).toBeNull();
+    expect(seen.cookie).toBeNull();
+  });
+
+  test('a custom csrf header is visible to and settable by an app request interceptor', async () => {
+    global.fetch = okFetch();
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => {
+      seen = opts.headers['X-XSRF-TOKEN'];
+      return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } };
+    });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen).toBe('CSRF-1');
+    expect(sent()['X-XSRF-TOKEN']).toBe('CSRF-2');
+  });
+
+  test('the default X-CSRF-Token header is still withheld from app request interceptors', async () => {
+    global.fetch = okFetch();
+    _config.csrf = { token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => { seen = { ...opts.headers }; });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen['X-CSRF-Token']).toBeUndefined();
+    expect(sent()['X-CSRF-Token']).toBe('CSRF-1');
+  });
+
+  describe('cross-origin global headers debug log', () => {
+    let log;
+    beforeEach(() => {
+      log = jest.spyOn(console, 'log').mockImplementation(() => {});
+      global.fetch = okFetch();
+      _config.headers = { Authorization: 'Bearer SECRET' };
+    });
+    afterEach(() => log.mockRestore());
+
+    const hints = () => log.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('Global headers sent to cross-origin'));
+
+    test('logs once per foreign origin in debug mode', async () => {
+      _config.debug = true;
+      await _doFetch('https://log-a.example/x', 'GET');
+      await _doFetch('https://log-a.example/y', 'GET');
+      await _doFetch('https://log-b.example/x', 'GET');
+      expect(hints()).toEqual([
+        '[No.JS] Global headers sent to cross-origin https://log-a.example. Set scopeHeaders: true to limit them to the page, baseApiUrl and base= origins.',
+        '[No.JS] Global headers sent to cross-origin https://log-b.example. Set scopeHeaders: true to limit them to the page, baseApiUrl and base= origins.',
+      ]);
+    });
+
+    test('does not log outside debug mode, for trusted origins, or without global headers', async () => {
+      await _doFetch('https://log-c.example/x', 'GET');
+      _config.debug = true;
+      await _doFetch('/same-origin', 'GET');
+      _config.headers = {};
+      await _doFetch('https://log-d.example/x', 'GET');
+      expect(hints()).toEqual([]);
+    });
+
+    test('does not log when scopeHeaders is on', async () => {
+      _config.debug = true;
+      _config.scopeHeaders = true;
+      try {
+        await _doFetch('https://log-e.example/x', 'GET');
+      } finally {
+        _config.scopeHeaders = false;
+      }
+      expect(hints()).toEqual([]);
+      expect(sent().Authorization).toBeUndefined();
+    });
+  });
+});
+
+describe('strictRedaction: true', () => {
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
+  afterEach(() => {
+    _config.strictRedaction = false;
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _config.csrf = null;
+  });
+
+  test('app request interceptors see sensitive query values redacted', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seen;
+    _interceptors.request.push((url) => { seen = url; });
+    await _doFetch('/api/search?author=ann&keyword=x&token=abc', 'GET');
+    expect(seen).toBe('/api/search?author=[REDACTED]&keyword=[REDACTED]&token=[REDACTED]');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/search?author=ann&keyword=x&token=abc');
+  });
+
+  test('app response interceptors do not see Authorization or X-Api-* response headers', async () => {
+    let seen;
+    _interceptors.response.push((res) => {
+      seen = { version: res.headers.get('x-api-version'), auth: res.headers.get('authorization'), ct: res.headers.get('content-type') };
+      return res;
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({ 'x-api-version': '2', authorization: 'Bearer NEXT', 'content-type': 'application/json' }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen).toEqual({ version: null, auth: null, ct: 'application/json' });
+  });
+
+  test('a custom csrf header cannot be read or overridden by an app request interceptor', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => {
+      seen = opts.headers['X-XSRF-TOKEN'];
+      return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } };
+    });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen).toBeUndefined();
+    expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-1');
+  });
+});
+
+// Response interceptors receive (redactedResponse, url). Untrusted ones (app
+// NoJS.interceptor() and plugins without { trusted: true }) get the URL and
+// res.url through v1.21.1's URL-object redaction by default.
+describe('v1.21.1 defaults: response interceptor URL bytes', () => {
+  const RESPONSE_URL_CASES = [
+    ['/api/users?token=abc&page=2', '/api/users?token=%5BREDACTED%5D&page=2'],
+    ['api/users', '/api/users'],
+    ['/api/users#frag', '/api/users'],
+    ['/api/users?token=x#frag', '/api/users?token=%5BREDACTED%5D'],
+    ['/api/users?q=a%20b&token=x', '/api/users?q=a+b&token=%5BREDACTED%5D'],
+    ['/x?%74oken%ZZ=sek', '/x?token%25ZZ=%5BREDACTED%5D'],
+    ['/api/x?token', '/api/x?token=%5BREDACTED%5D'],
+    ['//cdn.test/x?token=1', '/x?token=%5BREDACTED%5D'],
+    ['http://API.test:80/x?token=1#h', 'http://api.test/x?token=%5BREDACTED%5D#h'],
+    ['http://api.test/x?a=1&a=2&token=t&token=u', 'http://api.test/x?a=1&a=2&token=%5BREDACTED%5D'],
+    ['/api/users', '/api/users'],
+  ];
+
+  const run = async (url, responseUrl) => {
+    const seen = [];
+    const record = (res, u) => { seen.push({ url: u, resUrl: res.url }); };
+    _interceptors.response.push(record);
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.response.push({ fn: record, pluginName: 'untrusted' });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: responseUrl,
+      headers: new Headers(),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch(url, 'GET');
+    return seen;
+  };
+
+  afterEach(() => {
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.strictRedaction = false;
+  });
+
+  test.each(RESPONSE_URL_CASES)('url %s is seen as %s by app and untrusted plugin interceptors', async (url, expected) => {
+    const seen = await run(url, '');
+    expect(seen.map((s) => s.url)).toEqual([expected, expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(url);
+  });
+
+  test('res.url is redacted with the v1.21.1 bytes', async () => {
+    const seen = await run('/api/users?q=a%20b&token=x', 'http://localhost/api/users?q=a%20b&token=x');
+    expect(seen.map((s) => s.resUrl)).toEqual([
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+    ]);
+  });
+
+  test('with strictRedaction the string-level redactor is used, and a malformed key is still redacted', async () => {
+    _config.strictRedaction = true;
+    const seen = await run('/x?%74oken%ZZ=sek&q=a%20b', 'http://localhost/x?%74oken%ZZ=sek&q=a%20b');
+    expect(seen).toEqual([
+      { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
+      { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
+    ]);
+  });
+});
+
+describe('_redactUrlParams (strictRedaction redactor)', () => {
+  test('matches keys whose escapes are partly malformed', () => {
+    expect(_redactUrlParams('/x?%74oken%ZZ=S&p%61ssword%G1=P&q=1')).toBe('/x?%74oken%ZZ=[REDACTED]&p%61ssword%G1=[REDACTED]&q=1');
+  });
+
+  test('leaves non-sensitive malformed keys unchanged', () => {
+    expect(_redactUrlParams('/x?a%ZZ=1&page=2')).toBe('/x?a%ZZ=1&page=2');
   });
 });

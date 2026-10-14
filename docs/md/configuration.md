@@ -7,7 +7,7 @@
   NoJS.config({
     // API
     baseApiUrl: 'https://api.myapp.com/v1',
-    headers: { 'Authorization': 'Bearer xxx' },  // same-origin / baseApiUrl / base only
+    headers: { 'Authorization': 'Bearer xxx' },
     timeout: 10000,
     retries: 2,
     retryDelay: 1000,
@@ -94,6 +94,7 @@ Set `strictDevtools: true` to harden devtools:
 - `nojs:devtools` events and the context registry are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
 - Store snapshots show context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`. Keys are matched as substrings, so `keyboard` and `author` are redacted too.
 - `get:config` and the `config` getter return `headers` as an object with sensitive headers redacted per key, and `csrf.token` as `[REDACTED]`.
+- `fetch:success` and `fetch:error` devtools events carry the URL with sensitive query values (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`.
 
 ```html
 <script>
@@ -108,9 +109,9 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | Flag | Default | When `true` |
 |------|---------|-------------|
 | `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
-| `strictRedaction` | `false` | Untrusted interceptors and event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. |
+| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. |
 | `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
-| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, and `get:config` returns per-key redacted headers. |
+| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
 | `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
 | `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in `supportedLocales` is ignored when `NoJS.i18n()` restores it. |

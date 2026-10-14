@@ -3524,4 +3524,33 @@ describe('fetch event and devtools URLs per flag (get and call)', () => {
     expect(fail.events).toEqual([['fetch:error', RAW], ['error', RAW]]);
     expect(fail.devtools).toEqual([['fetch:error', RED]]);
   });
+
+  describe('URL fragments', () => {
+    const RAW_H = '/api/ev?access_token=TOKEN-SECRET&page=2#access_token=TOKEN-SECRET';
+    const RED_H = '/api/ev?access_token=[REDACTED]&page=2';
+    const GET_H = `<div get="/api/ev?access_token={t}&page=2#access_token={t}" as="r"></div>`;
+    const CALL_H = `<button call="/api/ev?access_token={t}&page=2#access_token={t}">go</button>`;
+
+    test.each([['get', GET_H], ['call', CALL_H]])('%s: defaults keep the fragment in events and devtools (v1.21.1)', async (_, markup) => {
+      const ok = await run(markup, true);
+      expect(ok.events).toEqual([['fetch:success', RAW_H]]);
+      expect(ok.devtools).toEqual([['fetch:success', RAW_H]]);
+      const fail = await run(markup, false);
+      expect(fail.events).toEqual([['fetch:error', RAW_H], ['error', RAW_H]]);
+      expect(fail.devtools).toEqual([['fetch:error', RAW_H]]);
+    });
+
+    test.each([['get', GET_H], ['call', CALL_H]])('%s: strictRedaction + strictDevtools drop the fragment from events, devtools and the warning', async (_, markup) => {
+      _config.strictRedaction = true;
+      _config.strictDevtools = true;
+      const ok = await run(markup, true);
+      expect(ok.events).toEqual([['fetch:success', RED_H]]);
+      expect(ok.devtools).toEqual([['fetch:success', RED_H]]);
+      const fail = await run(markup, false);
+      expect(fail.events).toEqual([['fetch:error', RED_H], ['error', RED_H]]);
+      expect(fail.devtools).toEqual([['fetch:error', RED_H]]);
+      expect(fail.warnings[0]).toContain(RED_H + ' failed');
+      expect(fail.warnings.join('\n')).not.toContain('TOKEN-SECRET');
+    });
+  });
 });

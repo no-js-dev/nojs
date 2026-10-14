@@ -378,9 +378,9 @@ Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens wh
 
 - The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
 - Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
-- Untrusted request interceptors receive the URL with the values of sensitive query parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`. The request itself still goes to the real URL.
-- Untrusted response interceptors and the response proxy's `url` get the same string-level redaction: only sensitive values change, the rest of the URL is kept as written. Without the flag they get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
-- The `url` in `fetch:success`, `fetch:error` and `error` event payloads, and in the `call` failure warning, is redacted the same way, for the HTTP verb directives and `call`.
+- URLs are redacted at the string level. The `#fragment` is removed, since it can carry tokens and is never sent to the server. In the query, the values of sensitive parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) become `[REDACTED]`. Everything else stays exactly as written. The request itself always goes to the real URL.
+- This redacted URL is what untrusted request interceptors, untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the `call` failure warning and the insecure-HTTP warning.
+- Without the flag, request interceptors and event payloads get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
 
 ---
 

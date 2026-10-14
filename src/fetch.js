@@ -46,22 +46,24 @@ function _isSensitiveHeader(name) {
   );
 }
 
-// URL param redaction helper. String-level: only the values of sensitive
-// query parameters are replaced, everything else is preserved byte-for-byte.
+// String-level URL redaction (strict consumers and the failure warning).
+// The #fragment is dropped: it may carry tokens (e.g. OAuth implicit flow)
+// and never reaches the server. In the query, only the values of sensitive
+// parameters are replaced; everything else is preserved byte-for-byte.
 export function _redactUrlParams(url) {
   if (typeof url !== "string") return url;
+  const h = url.indexOf("#");
+  if (h !== -1) url = url.slice(0, h);
   const q = url.indexOf("?");
   if (q === -1) return url;
-  const h = url.indexOf("#", q);
-  const end = h === -1 ? url.length : h;
-  const query = url.slice(q + 1, end).split("&").map((pair) => {
+  const query = url.slice(q + 1).split("&").map((pair) => {
     const eq = pair.indexOf("=");
     if (eq === -1) return pair;
     return /token|key|secret|auth|password|credential/i.test(_decodeKey(pair.slice(0, eq)))
       ? pair.slice(0, eq + 1) + "[REDACTED]"
       : pair;
   }).join("&");
-  return url.slice(0, q + 1) + query + url.slice(end);
+  return url.slice(0, q + 1) + query;
 }
 
 // Decode a query key for matching. A malformed escape (e.g. "%ZZ") must not
@@ -206,7 +208,7 @@ export async function _doFetch(
 ) {
   const fullUrl = resolveUrl(url, el);
   if (_config.credentials !== "omit" && fullUrl.startsWith("http://")) {
-    _warn("Credentials sent over insecure HTTP:", fullUrl);
+    _warn("Credentials sent over insecure HTTP:", _eventUrl(fullUrl));
   }
   const upperMethod = method.toUpperCase();
   let opts = {

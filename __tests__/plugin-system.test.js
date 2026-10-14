@@ -16,6 +16,7 @@ import {
   _REPLACE,
   _setDisposing,
   _setCurrentPluginName,
+  _validators,
 } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { evaluate, _execStatement } from '../src/evaluate.js';
@@ -486,6 +487,61 @@ describe('Interceptor Sentinels', () => {
     expect(NoJS.CANCEL).toBe(_CANCEL);
     expect(NoJS.RESPOND).toBe(_RESPOND);
     expect(NoJS.REPLACE).toBe(_REPLACE);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  describe('NoJS.validator() reserved names')
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NoJS.validator() reserved names', () => {
+  const IMPLEMENTED = ['required', 'email', 'url', 'min', 'max'];
+  const UNIMPLEMENTED = [
+    'minlength', 'maxlength', 'pattern', 'match',
+    'number', 'integer', 'alpha', 'alphanumeric',
+  ];
+
+  afterEach(() => {
+    for (const name of [...IMPLEMENTED, ...UNIMPLEMENTED]) delete _validators[name];
+  });
+
+  test.each(UNIMPLEMENTED)('"%s" registers, runs, and reaches plugins via internals', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const fn = jest.fn((value, arg) => (String(value).length >= Number(arg) ? true : `${name} failed`));
+
+    NoJS.validator(name, fn);
+
+    expect(_validators[name]).toBe(fn);
+    expect(NoJS.internals.validators[name]).toBe(fn);
+    expect(_validators[name]('ab', '3')).toBe(`${name} failed`);
+    expect(_validators[name]('abcd', '3')).toBe(true);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expectNoWarning(warnSpy, 'cannot be overridden');
+    warnSpy.mockRestore();
+  });
+
+  test.each(IMPLEMENTED)('"%s" is refused with the built-in warning', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    NoJS.validator(name, () => 'overridden');
+
+    expect(_validators[name]).toBeUndefined();
+    expect(NoJS.internals.validators[name]).toBeUndefined();
+    expectWarning(warnSpy, `NoJS.validator(): "${name}" is a built-in validator and cannot be overridden.`);
+    warnSpy.mockRestore();
+  });
+
+  test('re-registering an unimplemented name replaces the previous handler', () => {
+    const first = () => 'first';
+    const second = () => 'second';
+    NoJS.validator('pattern', first);
+    NoJS.validator('pattern', second);
+    expect(_validators.pattern).toBe(second);
+  });
+
+  test('argument validation still applies to every name', () => {
+    expect(() => NoJS.validator('', () => true)).toThrow(TypeError);
+    expect(() => NoJS.validator('minlength', 'not a function')).toThrow(TypeError);
   });
 });
 

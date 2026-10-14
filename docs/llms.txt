@@ -64,7 +64,7 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 - `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. Core directives are frozen after `init()` — plugins can add new ones but not override built-ins.
 - `NoJS.filter(name: string, fn: function): void` — Register a custom filter for pipe syntax (`value | filterName`). Built-in filter names cannot be overridden. Throws `TypeError` if name or fn is invalid.
-- `NoJS.validator(name: string, fn: function): void` — Register a custom form validation rule. Built-in validator names (`required`, `email`, `url`, `min`, `max`, `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha`, `alphanumeric`) cannot be overridden. Throws `TypeError` if name or fn is invalid.
+- `NoJS.validator(name: string, fn: function): void` — Register a custom form validation rule. The names of the built-in `validate` rules (`required`, `email`, `url`, `min`, `max`) cannot be overridden; every other name, including `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha` and `alphanumeric`, can be registered. Throws `TypeError` if name or fn is invalid.
 
 ### Internationalization
 

@@ -10,6 +10,9 @@ import { registerDirective } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
 import { _isLoopElement } from "./loops.js";
 
+const _hasOwn = Object.prototype.hasOwnProperty;
+const _emptyPersistFieldsWarned = new WeakSet();
+
 registerDirective("state", {
   priority: 0,
   init(el, name, value) {
@@ -37,13 +40,13 @@ registerDirective("state", {
             ? sessionStorage
             : null;
       if (store) {
-        // A present persist-fields is always an allow-list, even when empty
-        // (persist nothing) — never fall back to "persist everything".
-        const persistFields = el.hasAttribute("persist-fields")
-          ? new Set(el.getAttribute("persist-fields").split(",").map((f) => f.trim()).filter(Boolean))
+        const persistFieldsAttr = el.getAttribute("persist-fields");
+        const persistFields = persistFieldsAttr
+          ? new Set(persistFieldsAttr.split(",").map((f) => f.trim()))
           : null;
-        if (persistFields && persistFields.size === 0) {
-          _warn('persist-fields is empty: no fields will be persisted.');
+        if (persistFieldsAttr === "" && !_emptyPersistFieldsWarned.has(el)) {
+          _emptyPersistFieldsWarned.add(el);
+          _warn('persist-fields is empty: all fields will be persisted. List the fields to persist or remove the attribute.');
         }
         const storeKey = "nojs_" + (_config.appId || "") + "state_" + persistKey;
         try {
@@ -58,10 +61,11 @@ registerDirective("state", {
               // vectors. Crafted localStorage could otherwise inject internal
               // keys (e.g. __collectKeysCache, __devtoolsId) into the context.
               if (k.startsWith("__")) continue;
-              // Only plain top-level keys: dotted keys would walk into nested
-              // members via $set (e.g. $refs.x.innerHTML) and `$` keys would
-              // shadow built-ins ($store, $route, …).
-              if (k.includes(".") || k.startsWith("$")) continue;
+              // Dotted keys would walk into nested members via $set (e.g.
+              // $refs.x.innerHTML). Undeclared `$` keys would shadow built-ins
+              // ($store, $route, …); `$` keys declared in the state are kept.
+              if (k.includes(".")) continue;
+              if (k.startsWith("$") && !_hasOwn.call(Object(initialState), k)) continue;
               if (!persistFields || persistFields.has(k)) {
                 if (schemaCheck) {
                   if (!(k in initialState)) { _warn('persist-schema: ignoring unknown key "' + k + '"'); continue; }

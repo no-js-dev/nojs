@@ -1,9 +1,10 @@
 /**
- * persist restore validation / fail-closed persist-fields allow-list.
+ * persist restore validation / persist-fields allow-list.
  *
  * Keys read back from storage were passed to ctx.$set() unchecked (dotted
- * keys walk into $refs/$store, `$` keys shadow built-ins), and an empty
- * persist-fields attribute persisted every field.
+ * keys walk into $refs/$store, undeclared `$` keys shadow built-ins). An
+ * empty persist-fields keeps the v1.21.1 behavior (persist every field)
+ * and only warns.
  */
 import { _refs, _stores } from '../src/globals.js';
 import { processTree } from '../src/registry.js';
@@ -64,20 +65,27 @@ describe('persist restore validation', () => {
   });
 });
 
-describe('persist-fields allow-list fails closed', () => {
+describe('persist-fields empty allow-list (v1.21.1 compat)', () => {
+  let warnSpy;
   beforeEach(() => {
     document.body.innerHTML = '';
     localStorage.clear();
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
+  afterEach(() => warnSpy.mockRestore());
 
-  test('persist-fields="" persists nothing', () => {
+  const emptyWarnings = () =>
+    warnSpy.mock.calls.filter((c) => String(c[1]).startsWith('persist-fields is empty'));
+
+  test('persist-fields="" persists all fields and warns', () => {
     const el = mount({ 'persist-key': 'pf1', 'persist-fields': '' });
     el.__ctx.theme = 'light';
     const saved = JSON.parse(localStorage.getItem('nojs_state_pf1') || '{}');
-    expect(saved).toEqual({});
+    expect(saved).toEqual({ theme: 'light', token: 'secret-123' });
+    expect(emptyWarnings()).toHaveLength(1);
   });
 
-  test('bare persist-fields attribute persists nothing', () => {
+  test('bare persist-fields attribute persists all fields and warns', () => {
     const el = document.createElement('div');
     el.setAttribute('state', '{ theme: "dark", token: "secret-123" }');
     el.setAttribute('persist', 'localStorage');
@@ -87,7 +95,8 @@ describe('persist-fields allow-list fails closed', () => {
     processTree(el);
     el.__ctx.theme = 'light';
     const saved = JSON.parse(localStorage.getItem('nojs_state_pf2') || '{}');
-    expect(saved).toEqual({});
+    expect(saved).toEqual({ theme: 'light', token: 'secret-123' });
+    expect(emptyWarnings()).toHaveLength(1);
   });
 
   test('non-empty persist-fields still persists listed fields only', () => {

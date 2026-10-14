@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persist compatibility (v1.21.1) — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.75rem; color: #444; }
+    button { padding: 0.25rem 0.75rem; margin-right: 0.25rem; cursor: pointer; }
+    input[type="text"] { padding: 0.25rem 0.5rem; border: 1px solid #767676; border-radius: 3px; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Persist compatibility with v1.21.1</h1>
+
+  <!-- 1. Empty persist-fields="" persists all fields (localStorage) -->
+  <section state="{ a: 1, b: 2 }" persist="localStorage" persist-key="cp-empty" persist-fields="">
+    <h2>1. Empty persist-fields (localStorage)</h2>
+    <button data-test="empty-set" on:click="a = 5">Set a to 5</button>
+    a: <span class="value" data-test="empty-a" bind="a"></span>
+    b: <span class="value" data-test="empty-b" bind="b"></span>
+  </section>
+
+  <!-- 2. Bare persist-fields persists all fields (localStorage) -->
+  <section state="{ a: 1, b: 2 }" persist="localStorage" persist-key="cp-bare" persist-fields>
+    <h2>2. Bare persist-fields (localStorage)</h2>
+    <button data-test="bare-set" on:click="a = 5">Set a to 5</button>
+    a: <span class="value" data-test="bare-a" bind="a"></span>
+    b: <span class="value" data-test="bare-b" bind="b"></span>
+  </section>
+
+  <!-- 3. Explicit persist-fields persists only the listed fields (localStorage) -->
+  <section state="{ a: 1, b: 2 }" persist="localStorage" persist-key="cp-explicit" persist-fields="a">
+    <h2>3. Explicit persist-fields="a" (localStorage)</h2>
+    <button data-test="explicit-set" on:click="a = 5; b = 9">Set a to 5 and b to 9</button>
+    a: <span class="value" data-test="explicit-a" bind="a"></span>
+    b: <span class="value" data-test="explicit-b" bind="b"></span>
+  </section>
+
+  <!-- 4. Empty persist-fields persists all fields (sessionStorage) -->
+  <section state="{ a: 1, b: 2 }" persist="sessionStorage" persist-key="cp-session-empty" persist-fields="">
+    <h2>4. Empty persist-fields (sessionStorage)</h2>
+    <button data-test="session-empty-set" on:click="a = 5">Set a to 5</button>
+    a: <span class="value" data-test="session-empty-a" bind="a"></span>
+    b: <span class="value" data-test="session-empty-b" bind="b"></span>
+  </section>
+
+  <!-- 5. Explicit persist-fields (sessionStorage) -->
+  <section state="{ a: 1, b: 2 }" persist="sessionStorage" persist-key="cp-session-explicit" persist-fields="b">
+    <h2>5. Explicit persist-fields="b" (sessionStorage)</h2>
+    <button data-test="session-explicit-set" on:click="a = 5; b = 7">Set a to 5 and b to 7</button>
+    a: <span class="value" data-test="session-explicit-a" bind="a"></span>
+    b: <span class="value" data-test="session-explicit-b" bind="b"></span>
+  </section>
+
+  <!-- 6. Declared $ key is restored. Statement handlers cannot assign `$`
+       identifiers (v1.21.1 included), so the value is changed from JS. -->
+  <section id="cp-dollar" state="{ $tab: 0, label: 'tabs' }" persist="localStorage" persist-key="cp-dollar">
+    <h2>6. Declared $tab</h2>
+    Active tab: <span class="value" data-test="dollar-tab" bind="$tab"></span>
+    Label: <span class="value" data-test="dollar-label" bind="label"></span>
+  </section>
+
+  <!-- 7. Model input with empty persist-fields -->
+  <section state="{ name: '', note: 'draft' }" persist="localStorage" persist-key="cp-model" persist-fields="">
+    <h2>7. Model input with empty persist-fields</h2>
+    <label for="cp-model-name">Name</label>
+    <input id="cp-model-name" type="text" data-test="model-input" model="name" />
+    Name: <span class="value" data-test="model-name" bind="name"></span>
+    Note: <span class="value" data-test="model-note" bind="note"></span>
+  </section>
+</main>
+
+  <script src="/__local__/no.js"></script>
+</body>
+</html>

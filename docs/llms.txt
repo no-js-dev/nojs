@@ -51,17 +51,17 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 
 ### Opt-in Hardening Flags
 
-All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config()` before or after `init()`.
+All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config()`. Most take effect immediately, before or after `init()`; `strictPersist` and `strictDirectives` apply to restores and registrations made after they are set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale.
 
 - `scopeHeaders` — Global `config({ headers })` are sent only to trusted origins (the page, `baseApiUrl`, the nearest `base`). Default: sent with every request.
-- `strictRedaction` — Untrusted interceptors and `fetch:success` / `fetch:error` / `error` payloads get string-level redacted URLs (the `#fragment` is dropped, sensitive query values become `[REDACTED]`); the `csrf.header` name is withheld and cannot be overridden; request-sensitive headers are also stripped from responses. Default: request interceptors and event payloads get the raw URL; response interceptors get the URL with sensitive query values redacted.
+- `strictRedaction` — Untrusted interceptors and `fetch:success` / `fetch:error` / `error` payloads get string-level redacted URLs (the `#fragment` is dropped, sensitive query values become `[REDACTED]`); the `csrf.header` name is withheld and cannot be overridden; request-sensitive headers are also stripped from responses. Default: request interceptors and event payloads get the raw URL; response interceptors get the URL re-serialized by the `URL` API with sensitive query values set to `%5BREDACTED%5D`.
 - `strictDirectives` — `NoJS.directive()` rejects names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). Applies to every registration made while it is set, because the registry is frozen at load.
 - `strictDevtools` — Devtools events and the context registry are also limited to local hosts; store snapshots and `get:config` redact sensitive keys; devtools fetch URLs are redacted. Default: only `window.__NOJS_DEVTOOLS__` is local-host-only.
-- `strictPersist` — On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$refs`, a plugin global, …) is skipped unless declared or listed in `persist-fields`. Default: every stored key except dotted keys (`a.b`) is restored; an empty `persist-fields` persists all fields.
+- `strictPersist` — On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$refs`, a plugin global, …) is skipped unless declared or listed in `persist-fields`. Default: every stored `$` key is restored (restore still skips dotted keys, `__`-prefixed keys and `__proto__` / `constructor` / `prototype`, and applies `persist-fields` / `persist-schema`). Independently of the flag, an empty `persist-fields` persists all fields.
 - `strictJsonld` — `page-jsonld` placeholders inside JSON strings are always JSON-escaped. Default: the v1.21.1 output is kept when it is valid JSON.
 - `templates.pageRelative` — `<template src>` ignores `base` and `baseApiUrl` and resolves against the page.
 - `i18n.escapeParams` — HTML-escape `t-*` params in `t-html`.
-- `i18n.strictLocale` — Ignore a persisted locale that is not in `supportedLocales`.
+- `i18n.strictLocale` — Ignore a persisted locale that is not in a non-empty `supportedLocales`. Read only by the `NoJS.i18n()` call that restores the locale: pass it there (or set it with `config()` before that call).
 
 ### Lifecycle
 

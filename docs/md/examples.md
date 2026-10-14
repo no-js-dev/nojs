@@ -225,13 +225,13 @@ the body; responses are cached with a body-aware key, and no CSRF token is added
     <option value="top">Top rated</option>
   </select>
 
-  <!-- Multi-value facets serialize into the request body, not the URL -->
-  <label><input type="checkbox" name="tags" value="sale"> On sale</label>
-  <label><input type="checkbox" name="tags" value="new"> New arrivals</label>
+  <!-- Each named field becomes one key of the JSON body -->
+  <label><input type="checkbox" name="sale" value="true"> On sale</label>
+  <label><input type="checkbox" name="new" value="true"> New arrivals</label>
 
   <button type="submit">Search</button>
 
-  <p show="!results.length">No matches</p>
+  <p show="results && !results.length">No matches</p>
   <article each="item in results" key="item.id">
     <h3 bind="item.name"></h3>
     <span bind="item.price | currency"></span>
@@ -239,12 +239,17 @@ the body; responses are cached with a body-aware key, and no CSRF token is added
 </form>
 ```
 
-On a **non-form** element, `query` behaves like `get` — it auto-fires on mount and
-re-fetches reactively — but sends the interpolated `body`, with `query-trigger`,
-`query-trigger-label`, and `query-threshold` mirroring their `get-*` counterparts:
+Field names must be unique: the form is serialized to a JSON object, so for a repeated name only the last checked value is sent.
+
+On a **non-form** element, `query` behaves like `get`: it auto-fires on mount and
+re-fetches when a placeholder in its URL changes. It sends the interpolated `body`
+(URL-encoded, since `body` placeholders are URL placeholders), and `query-trigger`
+(`visible`, `hover`, `none`) and `query-threshold` mirror their `get-*` counterparts:
 
 ```html
-<div query="/reports" body='{"range":"{range}"}'
+<div query="/reports"
+     headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+     body="range={range}"
      query-trigger="visible" as="report">
   <h2 bind="report.title"></h2>
 </div>

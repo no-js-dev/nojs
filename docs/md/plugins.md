@@ -205,7 +205,7 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <span bind="$user.name"></span>
 ```
 
-The value is a JSON copy of the object you pass: changing the original afterwards does not change the global, methods are dropped, and `Date` values become ISO strings. Own `__proto__` keys are dropped from the copy. A value that cannot be serialized to JSON (for example, one with a circular reference or a `BigInt`) gets a shallow copy instead: its top-level properties, methods included, are copied, and nested objects are shared with the original. A value that is already a reactive context is published as is. The global itself is a reactive context, so it has `$watch`, `$set` and `$notify`:
+The value is a JSON copy of the object you pass: changing the original afterwards does not change the global, methods are dropped, and `Date` values become ISO strings. Own `__proto__` keys are dropped from the copy. A value that cannot be serialized to JSON (for example, one with a circular reference or a `BigInt`) gets a shallow copy instead: its own enumerable properties are copied (functions stored directly on the object included, methods inherited from a class prototype lost), and nested objects are shared with the original. A value that is already a reactive context is published as is. The global itself is a reactive context, so it has `$watch`, `$set` and `$notify`:
 
 ```js
 app.global('cart', { count: 0 });
@@ -346,7 +346,7 @@ Return an object with `[NoJS.REPLACE]: data` from a **response** interceptor to 
 
 ## Trusted Interceptors
 
-By default, interceptors receive **redacted** copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) are stripped. In the URL that **response** interceptors receive, the values of query parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`. **Request** interceptors receive the raw URL unless [`strictRedaction`](#with-strictredaction-true) is set.
+By default, interceptors receive **redacted** copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) are stripped. In the URL that **response** interceptors receive, the values of query parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced; the URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. **Request** interceptors receive the raw URL unless [`strictRedaction`](#with-strictredaction-true) is set.
 
 Auth plugins that need access to the real headers can be installed with `{ trusted: true }`:
 

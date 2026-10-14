@@ -13,7 +13,7 @@ Complete reference of every No.JS directive.
 | `patch` | `patch="/users/1"` | Partial update (PATCH) |
 | `delete` | `delete="/users/1"` | Delete data (DELETE) |
 | `as` | `as="users"` | Name for fetched data in context |
-| `body` | `body='{"key":"val"}'` | Request body |
+| `body` | `body="key={expr}"` | Request body (`{expr}` values are URL-encoded; for JSON, use a `<form>` with named fields) |
 | `headers` | `headers='{"Auth":"Bearer x"}'` | Request headers |
 | `params` | `params="{ page: 1 }"` | Query parameters |
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |

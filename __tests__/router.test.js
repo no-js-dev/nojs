@@ -3454,6 +3454,48 @@ describe('Router — page-jsonld value escaping', () => {
     expect(ldText()).not.toContain('<');
     expect(JSON.parse(ldText()).name).toBe('a"</script><b>');
   });
+
+  test('a raw (unquoted) JSON fragment is emitted verbatim, as in v1.21.1', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/p" page-jsonld='{"@type":"Product","offers":{$route.query.o}}'>
+        <p>p</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/p?o=' + encodeURIComponent('{"price":5,"name":"A \\"B\\""}'));
+    expect(ldText()).toBe('{"@type":"Product","offers":{"price":5,"name":"A \\"B\\""}}');
+    expect(JSON.parse(ldText())).toEqual({ '@type': 'Product', offers: { price: 5, name: 'A "B"' } });
+  });
+
+  test('raw numbers are unchanged and quoted values in the same template are escaped', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/r/:n" page-jsonld='{"position":{$route.params.n},"name":"{$route.query.q}"}'>
+        <p>r</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(ldText()).toBe('{"position":3,"name":"x\\"\\\\y\\nz"}');
+    expect(JSON.parse(ldText())).toEqual({ position: 3, name: 'x"\\y\nz' });
+  });
+
+  test('a raw $route.query value containing </script> cannot terminate the script element', async () => {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/x" page-jsonld='{"offers":{$route.query.o}}'>
+        <p>x</p>
+      </template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    await router.push('/x?o=' + encodeURIComponent('{"n":"</script><b>"}'));
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText())).toEqual({ offers: { n: '</script><b>' } });
+  });
 });
 
 describe('Router — route template src resolution (base= / baseApiUrl / templates.pageRelative)', () => {

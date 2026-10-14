@@ -722,6 +722,12 @@ it skips `{` starting with `"` or `'` so JSON structural braces are not consumed
 </template>
 ```
 
+A placeholder inside a JSON string (`"name":"{$route.params.id}"`) is escaped
+as JSON string content. A placeholder outside a string (`"position":{n}`) is
+inserted as-is, so numbers and pre-serialized JSON fragments stay valid. In
+both cases `<` is written as `<` so a value cannot close the `<script>`
+element. See [Head Management → `page-jsonld`](head-management.md#page-jsonld).
+
 The `data-nojs` marker on the injected script tag distinguishes it from
 hand-written JSON-LD blocks — both can coexist in `<head>`.
 

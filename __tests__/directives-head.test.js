@@ -517,3 +517,132 @@ describe('page-jsonld value escaping', () => {
     expect(JSON.parse(ldText()).name).toBe('</script><b>x');
   });
 });
+
+// ─── page-jsonld context-aware escaping (raw vs quoted placeholders) ─────────
+
+describe('page-jsonld context-aware escaping', () => {
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  test('a raw (unquoted) JSON fragment is emitted verbatim, as in v1.21.1', () => {
+    document.body.innerHTML = `
+      <div state='{"o":"{\\"price\\":5}"}'>
+        <div hidden page-jsonld>{"@type":"Product","offers":{o}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).toBe('{"@type":"Product","offers":{"price":5}}');
+    expect(JSON.parse(ldText())).toEqual({ '@type': 'Product', offers: { price: 5 } });
+  });
+
+  test('a raw array fragment containing escaped strings stays valid JSON', () => {
+    document.body.innerHTML = `
+      <div state='{"o":"[{\\"@type\\":\\"Offer\\",\\"name\\":\\"A \\\\\\"B\\\\\\"\\"}]"}'>
+        <div hidden page-jsonld>{"offers":{o}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ offers: [{ '@type': 'Offer', name: 'A "B"' }] });
+  });
+
+  test('raw numbers and booleans are unchanged', () => {
+    document.body.innerHTML = `
+      <div state='{"p":5.5,"s":true,"n":0}'>
+        <div hidden page-jsonld>{"price":{p},"inStock":{s},"count":{n}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).toBe('{"price":5.5,"inStock":true,"count":0}');
+  });
+
+  test('pretty-printed template with raw and quoted placeholders', () => {
+    document.body.innerHTML = `
+      <div state='{"o":"{\\"price\\":5}","name":"27\\" \\\\ Monitor\\nPro"}'>
+        <div hidden page-jsonld>
+          {
+            "name": "{name}",
+            "offers": { o }
+          }
+        </div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ name: '27" \\ Monitor\nPro', offers: { price: 5 } });
+  });
+
+  test('quoted values containing ", \\ and newlines produce valid JSON after a raw placeholder', () => {
+    document.body.innerHTML = `
+      <div state='{"n":3,"v":"a\\"b\\\\c\\nd"}'>
+        <div hidden page-jsonld>{"count":{n},"name":"{v}","alt":"x {v} y"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ count: 3, name: 'a"b\\c\nd', alt: 'x a"b\\c\nd y' });
+  });
+
+  test('escaped quotes in the template text do not flip the string context', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"q\\"q","n":7}'>
+        <div hidden page-jsonld>{"a":"say \\"hi\\" {v}","b":{n}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ a: 'say "hi" q"q', b: 7 });
+  });
+
+  test('quotes inside other placeholders are ignored when detecting context', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"x","w":"q\\"q"}'>
+        <div hidden page-jsonld>{"a":"{v + '"'}","b":"{w}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(JSON.parse(ldText())).toEqual({ a: 'x"', b: 'q"q' });
+  });
+
+  test('a raw value containing </script> cannot terminate the script element', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"\\"</script><b>x\\""}'>
+        <div hidden page-jsonld>{"name":{v}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText()).name).toBe('</script><b>x');
+  });
+
+  test('a raw non-JSON value containing < is still neutralised', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"1</script><img src=x>"}'>
+        <div hidden page-jsonld>{"n":{v}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).not.toContain('<');
+    expect(ldText()).toBe('{"n":1\\u003c/script>\\u003cimg src=x>}');
+  });
+
+  test('a quoted value containing a quote and </script> cannot terminate the script element', () => {
+    document.body.innerHTML = `
+      <div state='{"v":"a\\"</script><script>alert(1)</script>"}'>
+        <div hidden page-jsonld>{"name":"{v}"}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).not.toContain('<');
+    expect(JSON.parse(ldText()).name).toBe('a"</script><script>alert(1)</script>');
+  });
+
+  test('a raw placeholder re-renders reactively', () => {
+    document.body.innerHTML = `
+      <div state='{"p":1}'>
+        <div hidden page-jsonld>{"price":{p}}</div>
+      </div>
+    `;
+    processTree(document.body);
+    expect(ldText()).toBe('{"price":1}');
+    const ctx = findContext(document.querySelector('[page-jsonld]'));
+    ctx.p = 42;
+    expect(ldText()).toBe('{"price":42}');
+  });
+});

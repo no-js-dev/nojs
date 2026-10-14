@@ -2372,6 +2372,34 @@ export function _interpolate(str, ctx) {
   });
 }
 
+// Interpolate {expr} placeholders in a page-jsonld template. Escaping depends
+// on where the placeholder sits: inside a JSON string (odd count of unescaped
+// '"' in the template text before it, other placeholders ignored) the value is
+// escaped as JSON string content; in raw context (e.g. "offers":{o}) the value
+// is emitted verbatim so JSON fragments stay valid. "<" is escaped in both
+// contexts so a value can never close the <script> element.
+export function _interpolateJsonld(str, ctx, re) {
+  let last = 0;
+  let inString = false;
+  return str.replace(re, (match, expr, offset) => {
+    for (let i = last, esc = false; i < offset; i++) {
+      const ch = str[i];
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inString = !inString;
+    }
+    last = offset + match.length;
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      if (val == null) return "";
+      const out = inString ? JSON.stringify(String(val)).slice(1, -1) : String(val);
+      return out.replace(/</g, "\\u003c");
+    } catch (_) {
+      return "";
+    }
+  });
+}
+
 // ── Compiler-support surface (ADR-024, NoJS-Server) ───────────────────
 // Thin wrappers exposing the parser for static analysis by external tools
 // (e.g. @no-js-dev/server compiler). These operate on the raw AST layer

@@ -4,21 +4,13 @@
 
 import { _config, _stores, _log, _warn, _notifyRouteWatchers, _stripBase } from "./globals.js";
 import { createContext } from "./context.js";
-import { evaluate } from "./evaluate.js";
+import { evaluate, _interpolateJsonld } from "./evaluate.js";
 
 // Interpolates {expr} placeholders in a raw string (used for page-jsonld).
 // Uses the same JSON-safe regex as the head-management directive — skips
 // { starting with " or ' to avoid consuming JSON structural braces.
-// Values are escaped as JSON string content (and "<" so they cannot close the <script>).
 function _interpolateRaw(str, ctx) {
-  return str.replace(/\{([^}"'{][^}]*)\}/g, (_, expr) => {
-    try {
-      const val = evaluate(expr.trim(), ctx);
-      return val != null
-        ? JSON.stringify(String(val)).slice(1, -1).replace(/</g, "\\u003c")
-        : "";
-    } catch (_) { return ""; }
-  });
+  return _interpolateJsonld(str, ctx, /\{([^}"'{][^}]*)\}/g);
 }
 import { findContext, _clearDeclared, _loadTemplateElement, _processTemplateIncludes } from "./dom.js";
 

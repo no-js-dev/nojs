@@ -106,6 +106,17 @@ placeholders for dynamic values:
 > **Note:** `<script>` elements are skipped by No.JS processing. Always use
 > `<div hidden page-jsonld>` as the host element.
 
+**Placeholder escaping depends on where the placeholder sits:**
+
+- **Inside a JSON string** (`"name":"{product.name}"`): the value is escaped as
+  JSON string content, so `"`, `\` and newlines in the value keep the JSON valid.
+- **Outside a string** (`"offers":{offersJson}`, `"price":{product.price}`): the
+  value is inserted as-is, so numbers, booleans and pre-serialized JSON
+  fragments work unchanged.
+
+In both cases `<` is written as `<`, so a value can never close the
+`<script>` element.
+
 The `data-nojs` marker distinguishes the managed tag from any hand-written
 JSON-LD blocks already in `<head>` — they coexist safely.
 

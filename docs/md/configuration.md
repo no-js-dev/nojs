@@ -83,6 +83,30 @@ Enables the No.JS browser devtools integration. When `true`, framework state, di
 
 > **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is ignored with a console warning: no `window.__NOJS_DEVTOOLS__`, no context registry, and no `nojs:devtools` events. Sensitive values (auth headers, the CSRF token, and context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session`, matched as substrings, so e.g. `keywords` is also redacted) are shown as `[REDACTED]`.
 
+### Opt-in hardening flags
+
+Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()` before or after `init()`.
+
+| Flag | Default | When `true` |
+|------|---------|-------------|
+| `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
+| `strictRedaction` | `false` | Untrusted interceptors and event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. |
+| `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
+| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, and `get:config` returns per-key redacted headers. |
+| `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
+| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. |
+
+```html
+<script>
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+</script>
+```
+
 ---
 
 ## Pre-initializing Stores

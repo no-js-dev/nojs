@@ -483,6 +483,7 @@ const NoJS = {
     if (Array.isArray(opts.supportedLocales)) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
+    if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 

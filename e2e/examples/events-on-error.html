@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Events on:error — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Image that fails to load -->
+  <section state="{ failed: false }">
+    <p class="test-label">Test 1: Image that fails to load</p>
+    <img data-test="broken-img" src="/missing.png" alt="Missing image" on:error="failed = true">
+    <span class="value" data-test="img-failed" bind="failed"></span>
+  </section>
+
+  <!-- 2. Image that may fail before No.JS starts -->
+  <section state="{ fails: 0 }">
+    <p class="test-label">Test 2: Image that may fail before No.JS starts</p>
+    <img data-test="early-img" src="/missing-early.png" alt="Missing early image" on:error="fails++">
+    <span class="value" data-test="early-fails" bind="fails"></span>
+  </section>
+
+  <!-- 3. Uncaught error elsewhere on the page -->
+  <section state="{ caught: 0 }">
+    <p class="test-label">Test 3: Uncaught error elsewhere on the page</p>
+    <div data-test="error-box" on:error="caught++">No errors expected here</div>
+    <span class="value" data-test="error-caught" bind="caught"></span>
+  </section>
+
+  <script src="/__local__/no.js"></script>
+  <script>NoJS.init();</script>
+</body>
+</html>

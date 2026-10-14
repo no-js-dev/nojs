@@ -20,7 +20,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 ## Interaction
 
-- [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:error`, `on:unmounted`); `$event` and `$el` references; `;`-separated statements with handler-local `const`/`let` bindings (never written to state; reassigning a `const` throws)
+- [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:unmounted`); `$event` and `$el` references; `;`-separated statements with handler-local `const`/`let` bindings (never written to state; reassigning a `const` throws)
 - [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `min`, `max`, `pattern`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](https://no-js.dev/#/actions-refs): `call` (trigger HTTP from any element), `trigger` (dispatch custom events), `ref` (name an element), `$refs` (access named elements)
 

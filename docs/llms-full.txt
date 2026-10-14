@@ -2085,7 +2085,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 | `on:mounted` | Element inserted into visible DOM |
 | `on:updated` | DOM mutation observed (childList, attributes, characterData) |
 | `on:unmounted` | Element removed from DOM |
-| `on:error` | Any error in this element's subtree |
+
+> `on:error` is a regular DOM event, not a lifecycle hook: it runs when the element itself fires `error` (for example an `<img>` that fails to load), with `$event` like any other event. Load errors do not bubble, so put `on:error` on the element that loads the resource. If an `<img>` with a `src` already failed before No.JS processed it, its `on:error` handlers get the error replayed once (`$event.isTrusted` is `false`); inline `onerror`, other listeners and `error-boundary` are not notified again. For other elements an error fired before that point is not seen.
 
 ---
 
@@ -5545,7 +5546,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `on:unmounted` | `on:unmounted="cleanup()"` | Lifecycle: unmounted |
 | `on:init` | `on:init="setup()"` | Lifecycle: first processed |
 | `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM mutation observed |
-| `on:error` | `on:error="log($error)"` | Lifecycle: error in subtree |
+| `on:error` | `on:error="log($event)"` | Element's own `error` event (e.g. image failed to load) |
 
 ## Styling
 

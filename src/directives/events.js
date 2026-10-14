@@ -7,7 +7,31 @@ import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _onDispose } from "../globals.js";
 
-const _LIFECYCLE_EVENTS = new Set(["mounted", "init", "updated", "error", "unmounted"]);
+const _LIFECYCLE_EVENTS = new Set(["mounted", "init", "updated", "unmounted"]);
+
+// An <img> in the initial HTML often fails to load before No.JS attaches
+// on:error, and the browser never fires that error again. Replay it to this
+// on:error handler only (not to inline onerror, other listeners or an
+// error-boundary), at most once per attribute. Deferred, and skipped if the
+// browser's own event (still queued at init) arrives first.
+function _replayImgError(el, name, handler, opts) {
+  if (el.tagName !== "IMG" || !el.complete || el.naturalWidth !== 0 || !el.getAttribute("src")) return;
+  let seen = false;
+  const onError = () => { seen = true; };
+  el.addEventListener("error", onError);
+  const id = setTimeout(() => {
+    el.removeEventListener("error", onError);
+    const done = el.__errorReplayed || (el.__errorReplayed = new Set());
+    if (seen || done.has(name) || !el.isConnected) return;
+    done.add(name);
+    const e = new Event("error");
+    Object.defineProperty(e, "target", { value: el });
+    Object.defineProperty(e, "currentTarget", { value: el });
+    if (opts && opts.once) el.removeEventListener("error", handler, opts);
+    handler(e);
+  }, 0);
+  _onDispose(() => { clearTimeout(id); el.removeEventListener("error", onError); });
+}
 
 registerDirective("on:*", {
   priority: 20,
@@ -31,6 +55,7 @@ registerDirective("on:*", {
         // Element-local listener: skippable when the subtree is discarded.
         dispose._elOnly = true;
         _onDispose(dispose);
+        if (fastEvent === "error") _replayImgError(el, name, fastHandler);
         return;
       }
     }
@@ -70,16 +95,6 @@ registerDirective("on:*", {
       });
       updatedObserver.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
       _onDispose(() => updatedObserver.disconnect());
-      return;
-    }
-    if (event === "error") {
-      const errorHandler = (e) => {
-        if (el.contains(e.target) || e.target === el) {
-          _execStatement(expr, ctx, { $el: el, $error: e.error || e.message });
-        }
-      };
-      window.addEventListener("error", errorHandler);
-      _onDispose(() => window.removeEventListener("error", errorHandler));
       return;
     }
     if (event === "unmounted") {
@@ -208,6 +223,7 @@ registerDirective("on:*", {
       dispose._elOnly = true;
       _onDispose(dispose);
     }
+    if (event === "error") _replayImgError(el, name, handler, opts);
   },
 });
 

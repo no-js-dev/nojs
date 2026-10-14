@@ -153,7 +153,7 @@
         "self": "Only fires if event target is the element itself",
         "backspace": "Key modifier for Backspace key",
         "onUpdated": "Lifecycle: DOM mutation observed",
-        "onError": "Lifecycle: error in subtree"
+        "onError": "Element's own error event (e.g. image failed to load)"
       },
       "styling": {
         "title": "Styling",
@@ -414,7 +414,7 @@
         "onMounted": "Element inserted into visible DOM",
         "onUpdated": "DOM mutation observed (via MutationObserver)",
         "onUnmounted": "Element removed from DOM",
-        "onError": "Error in this element's subtree"
+        "onError": "Not a lifecycle hook: the element's own error event (e.g. an image that fails to load)"
       },
       "keyModifiers": {
         "title": "Key Modifiers",

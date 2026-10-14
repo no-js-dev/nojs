@@ -92,7 +92,7 @@ The element with the loop directive IS the repeating template. It is removed fro
 | `on:unmounted` | `on:unmounted="cleanup()"` | Lifecycle: unmounted |
 | `on:init` | `on:init="setup()"` | Lifecycle: first processed |
 | `on:updated` | `on:updated="refresh()"` | Lifecycle: DOM mutation observed |
-| `on:error` | `on:error="log($error)"` | Lifecycle: error in subtree |
+| `on:error` | `on:error="log($event)"` | Element's own `error` event (e.g. image failed to load) |
 
 ## Styling
 

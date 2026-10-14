@@ -14,6 +14,8 @@ function stored(page: Page, storage: 'localStorage' | 'sessionStorage', key: str
 
 test.describe('Persist compatibility with v1.21.1', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/cp-items', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[1,2,3]' }));
     await page.goto(URL);
     await expect(page.getByTestId('empty-a')).toHaveText('1');
   });
@@ -82,17 +84,17 @@ test.describe('Persist compatibility with v1.21.1', () => {
     await expect(page.getByTestId('dollar-label')).toHaveText('tabs');
   });
 
-  test('7 — a declared $tab saved by an earlier session is restored, undeclared $ keys are not', async ({ page }) => {
+  test('7 — $ keys saved by an earlier session are restored, declared or not', async ({ page }) => {
     await page.evaluate(() => localStorage.setItem('nojs_state_cp-dollar', JSON.stringify({
       $tab: 3,
       label: 'saved',
-      $store: { injected: true },
+      $extra: 'kept',
     })));
     await page.reload();
     await expect(page.getByTestId('dollar-tab')).toHaveText('3');
     await expect(page.getByTestId('dollar-label')).toHaveText('saved');
-    const keys = await page.evaluate(() => Object.keys((document.getElementById('cp-dollar') as any).__ctx.__raw));
-    expect(keys).not.toContain('$store');
+    const extra = await page.evaluate(() => (document.getElementById('cp-dollar') as any).__ctx.$extra);
+    expect(extra).toBe('kept');
   });
 
   test('8 — model input with empty persist-fields restores every field', async ({ page }) => {
@@ -106,7 +108,17 @@ test.describe('Persist compatibility with v1.21.1', () => {
     await expect(page.getByTestId('model-note')).toHaveText('draft');
   });
 
-  test('9 — empty persist-fields warns once per element and does not throw', async ({ page }) => {
+  test('9 — as="$items" keeps the persisted list on reload while offline', async ({ page }) => {
+    await expect(page.getByTestId('items-count')).toHaveText('3');
+    expect(JSON.parse((await stored(page, 'localStorage', 'cp-items')) || '{}')).toEqual({ page: 1, $items: [1, 2, 3] });
+
+    await page.unroute('**/api/cp-items');
+    await page.route('**/api/cp-items', (route) => route.abort());
+    await page.reload();
+    await expect(page.getByTestId('items-count')).toHaveText('3');
+  });
+
+  test('10 — empty persist-fields warns once per element and does not throw', async ({ page }) => {
     const warnings: string[] = [];
     const errors: string[] = [];
     page.on('console', (msg) => {
@@ -126,7 +138,7 @@ test.describe('Persist compatibility with v1.21.1', () => {
     expect(errors).toEqual([]);
   });
 
-  test('10 — accessibility: no critical or serious violations', async ({ page }) => {
+  test('11 — accessibility: no critical or serious violations', async ({ page }) => {
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
       .analyze();

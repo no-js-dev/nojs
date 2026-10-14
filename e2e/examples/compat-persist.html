@@ -74,6 +74,12 @@
     Name: <span class="value" data-test="model-name" bind="name"></span>
     Note: <span class="value" data-test="model-note" bind="note"></span>
   </section>
+
+  <!-- 8. `$`-named fetch result on a persisted state element -->
+  <section id="cp-items" state="{ page: 1 }" persist="localStorage" persist-key="cp-items" get="/api/cp-items" as="$items">
+    <h2>8. get with as="$items"</h2>
+    Items: <span class="value" data-test="items-count" bind="$items ? $items.length : 'none'"></span>
+  </section>
 </main>
 
   <script src="/__local__/no.js"></script>

@@ -27,6 +27,7 @@ export const _config = {
   strictRedaction: false,
   strictDirectives: false,
   strictDevtools: false,
+  strictPersist: false,
 };
 
 export const _interceptors = { request: [], response: [] };

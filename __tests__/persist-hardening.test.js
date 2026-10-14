@@ -2,11 +2,12 @@
  * persist restore validation / persist-fields allow-list.
  *
  * Keys read back from storage were passed to ctx.$set() unchecked (dotted
- * keys walk into $refs/$store, undeclared `$` keys shadow built-ins). An
+ * keys walk into $refs/$store, reserved `$` keys shadow built-ins). Dotted
+ * keys are always skipped; reserved `$` keys only under strictPersist. An
  * empty persist-fields keeps the v1.21.1 behavior (persist every field)
  * and only warns.
  */
-import { _refs, _stores } from '../src/globals.js';
+import { _config, _refs, _stores } from '../src/globals.js';
 import { processTree } from '../src/registry.js';
 
 import '../src/filters.js';
@@ -42,13 +43,19 @@ describe('persist restore validation', () => {
     expect(toast.innerHTML).toBe('');
   });
 
-  test('$-prefixed keys from storage do not shadow built-ins', () => {
+  test('strictPersist: $-prefixed keys from storage do not shadow built-ins', () => {
     localStorage.setItem('nojs_state_pv2', JSON.stringify({
       theme: 'light',
       $store: { auth: { role: 'admin' } },
     }));
-    const el = mount({ 'persist-key': 'pv2' });
-    expect(Object.keys(el.__ctx.__raw)).not.toContain('$store');
+    _config.strictPersist = true;
+    try {
+      const el = mount({ 'persist-key': 'pv2' });
+      expect(Object.keys(el.__ctx.__raw)).not.toContain('$store');
+      expect(el.__ctx.theme).toBe('light');
+    } finally {
+      _config.strictPersist = false;
+    }
   });
 
   test('undeclared plain keys are still restored (backwards compat)', () => {

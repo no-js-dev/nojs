@@ -179,6 +179,8 @@ Use `persist-fields` to control exactly which fields are saved and restored. Fie
 
 An empty `persist-fields` (`persist-fields=""` or a bare `persist-fields` attribute) behaves like omitting it: all fields are persisted, and a console warning is logged once per element. List the fields to persist or remove the attribute.
 
+On restore, every stored key is set back on the state, including `$` keys such as a `get` result stored with `as="$items"`. Keys containing `.` are ignored. To stop stored data from shadowing built-ins like `$store` or `$route`, set [`strictPersist: true`](configuration.md#opt-in-hardening-flags): reserved `$` names are then restored only when the state declares them or `persist-fields` lists them.
+
 | Attribute | Description |
 |-----------|-------------|
 | `persist` | Storage backend: `"localStorage"` or `"sessionStorage"` |

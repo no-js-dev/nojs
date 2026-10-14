@@ -7,7 +7,7 @@
 
 import { createContext } from "../context.js";
 import { _watchExpr, _warn, _currentEl, _setCurrentEl } from "../globals.js";
-import { evaluate, resolve, _isCompleteExpr } from "../evaluate.js";
+import { evaluate, resolve, _parseCompleteExpr } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import {
   registerDirective, processTree, _disposeTree,
@@ -52,7 +52,8 @@ const _PATH_LOOP_RE = /^(\w+)\s+in\s+(\S+)$/;
 // attribute, so values that were not loops before stay plain attributes:
 // label/output only accept the narrow shape; other elements also accept a
 // spaced list when the value has no surrounding whitespace and the list
-// side parses completely (`x in y z` does not).
+// side parses completely (`x in y z` does not) to something other than a
+// top-level `in` (`a in b in c` does not).
 function _matchLoopExpr(el, name, expr) {
   if (name !== "for") return expr.trim().match(_LOOP_EXPR_RE);
   const narrow = expr.match(_PATH_LOOP_RE);
@@ -60,7 +61,9 @@ function _matchLoopExpr(el, name, expr) {
   const tag = el.localName;
   if (tag === "label" || tag === "output" || expr !== expr.trim()) return null;
   const m = expr.match(_LOOP_EXPR_RE);
-  return m && _isCompleteExpr(m[2]) ? m : null;
+  if (!m) return null;
+  const ast = _parseCompleteExpr(m[2]);
+  return ast && !(ast.type === "BinaryExpr" && ast.op === "in") ? m : null;
 }
 
 // Collects managed clones between the start and end comment markers.

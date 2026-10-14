@@ -2453,21 +2453,20 @@ export function parseExpression(str) {
   return _parseExpr(_tokenize(str));
 }
 
-// Syntax-only check, never evaluates and never touches the caches: true when
-// the expression part parses with no leftover tokens and every pipe segment
-// is non-empty. Linear in the input length.
-export function _isCompleteExpr(str) {
-  if (typeof str !== "string") return false;
+// Syntax-only parse, never evaluates and never touches the caches: returns
+// the AST of the expression part when it parses with no leftover tokens and
+// every pipe segment is non-empty, otherwise null. Linear in the input length.
+export function _parseCompleteExpr(str) {
+  if (typeof str !== "string") return null;
   try {
     const pipes = _parsePipes(str);
-    if (!pipes[0]) return false;
-    for (let i = 1; i < pipes.length; i++) if (!pipes[i].trim()) return false;
+    if (!pipes[0]) return null;
+    for (let i = 1; i < pipes.length; i++) if (!pipes[i].trim()) return null;
     const tokens = _tokenize(pipes[0]);
-    if (tokens.length === 0) return false;
-    _parseExpr(tokens, true);
-    return true;
+    if (tokens.length === 0) return null;
+    return _parseExpr(tokens, true);
   } catch {
-    return false;
+    return null;
   }
 }
 

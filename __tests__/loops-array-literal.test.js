@@ -14,7 +14,7 @@ import '../src/directives/binding.js';
 import '../src/directives/conditionals.js';
 import '../src/directives/events.js';
 import { _isLoopElement } from '../src/directives/loops.js';
-import { _isCompleteExpr } from '../src/evaluate.js';
+import { _parseCompleteExpr } from '../src/evaluate.js';
 
 function render(html) {
   document.body.innerHTML = html;
@@ -224,7 +224,12 @@ describe('for attribute keeps v1.21.1 parity outside spaced list expressions', (
     [' a in b', false],
     ['x in items oops', false],
     ['total in qty price', false],
+    ['a in b in c', false],
+    ['a in (b in c)', false],
+    ['k in b in c | json', false],
     ['item in items', true],
+    ["w in ['sign in', 'log in']", true],
+    ["x in (flag ? 'a' in o : []) || [1, 2]", true],
     ["x in ['a', 'b']", true],
     ['y in items | reverse', true],
     ['n in items.slice(0, 2)', true],
@@ -243,6 +248,19 @@ describe('for attribute keeps v1.21.1 parity outside spaced list expressions', (
     expect(texts('my-tip')).toEqual(['tip', 'pad']);
     expect(document.querySelector('my-tip').getAttribute('for')).toBe('x in y z');
     expect(texts('div div')).toEqual(['div']);
+  });
+
+  test('for="a in b in c" stays a plain element, as on v1.21.1 (F05)', () => {
+    render(`<ul state="{ b: 'k', c: { k: 1 } }"><li for="a in b in c" bind="a">raw</li></ul>`);
+    const lis = document.querySelectorAll('li');
+    expect(lis.length).toBe(1);
+    expect(lis[0].getAttribute('for')).toBe('a in b in c');
+    expect(lis[0].textContent).toBe('');
+  });
+
+  test('each/foreach keep the full expression form for "a in b in c"', () => {
+    render(`<ul state="{ b: 'k', c: { k: 1 } }"><li each="a in b in c" bind="a">raw</li></ul>`);
+    expect(document.querySelectorAll('li').length).toBe(0);
   });
 
   test('custom elements with a spaced list expression loop', () => {
@@ -269,18 +287,25 @@ describe('for attribute keeps v1.21.1 parity outside spaced list expressions', (
   });
 });
 
-describe('_isCompleteExpr', () => {
+describe('_parseCompleteExpr', () => {
   test.each([
     ["['a', 'b']", true],
     ['items | reverse', true],
     ["items | where:'on':true", true],
     ['a.b[0]', true],
+    ['b in c', true],
     ['y z', false],
     ['qty price', false],
     ['items |', false],
     ['', false],
     ['   ', false],
-  ])('%j → %s', (expr, expected) => {
-    expect(_isCompleteExpr(expr)).toBe(expected);
+  ])('%j parses completely: %s', (expr, expected) => {
+    expect(_parseCompleteExpr(expr) !== null).toBe(expected);
+  });
+
+  test('returns the AST so callers can inspect the top-level node', () => {
+    expect(_parseCompleteExpr('b in c')).toMatchObject({ type: 'BinaryExpr', op: 'in' });
+    expect(_parseCompleteExpr('(b in c)')).toMatchObject({ type: 'BinaryExpr', op: 'in' });
+    expect(_parseCompleteExpr('[1, 2]')).toMatchObject({ type: 'ArrayExpr' });
   });
 });

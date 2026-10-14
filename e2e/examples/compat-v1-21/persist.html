@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — persist — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: state persistence</h1>
+
+    <!-- 1. persist-fields="" persists every field -->
+    <section state="{ a: 1, b: 2 }" persist="localStorage" persist-key="compat-empty" persist-fields="">
+      <h2>1. persist-fields=""</h2>
+      <span data-test="p-empty-a" bind="a"></span>
+      <span data-test="p-empty-b" bind="b"></span>
+      <button data-test="p-empty-bump" on:click="a = a + 10; b = b + 20">Bump</button>
+    </section>
+
+    <!-- 2. Bare persist-fields persists every field -->
+    <section state="{ a: 1, b: 2 }" persist="localStorage" persist-key="compat-bare" persist-fields>
+      <h2>2. bare persist-fields</h2>
+      <span data-test="p-bare-a" bind="a"></span>
+      <span data-test="p-bare-b" bind="b"></span>
+      <button data-test="p-bare-bump" on:click="a = a + 10; b = b + 20">Bump</button>
+    </section>
+
+    <!-- 3. A declared $-prefixed key ($tab) is persisted and restored -->
+    <section data-test="p-tab-section" state="{ $tab: 'one', n: 0 }" persist="localStorage" persist-key="compat-tab">
+      <h2>3. $tab persisted and restored</h2>
+      <span data-test="p-tab" bind="$tab"></span>
+      <span data-test="p-tab-n" bind="n"></span>
+      <button data-test="p-tab-bump" on:click="n = n + 1">Bump n</button>
+      <!-- App code switches the tab through the context API (statements cannot assign $ keys) -->
+      <button type="button" data-test="p-tab-two">Tab two</button>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    document.querySelector('[data-test="p-tab-two"]').addEventListener('click', () => {
+      NoJS.findContext(document.querySelector('[data-test="p-tab-section"]')).$set('$tab', 'two');
+    });
+  </script>
+</body>
+</html>

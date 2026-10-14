@@ -674,6 +674,7 @@
         "title": "post, put, patch, delete — Richieste di Mutazione",
         "text": "Usati nei form o attivati tramite call.",
         "formSubmissionTitle": "Invio del Form",
+        "formResetNote": "Dopo un invio riuscito, il template <code>success</code> sostituisce il contenuto del form. Senza <code>success</code>, i figli del form vengono renderizzati di nuovo dal markup originale, quindi i campi senza <code>model</code> tornano ai valori iniziali; i campi collegati con <code>model</code> mantengono il loro stato. Lo stesso vale per <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -976,7 +977,7 @@
         "dirty": "true se un campo è stato modificato",
         "touched": "true se un campo ha ricevuto e perso il focus",
         "submitting": "true mentre la richiesta è in corso",
-        "pending": "true mentre i validatori asincroni sono in esecuzione",
+        "pending": "Sempre false: i validatori asincroni non sono supportati",
         "errors": "Mappa dei nomi dei campi → messaggi di errore",
         "values": "Valori correnti del form",
         "firstError": "Messaggio di errore del primo campo invalido (ordine del DOM)",

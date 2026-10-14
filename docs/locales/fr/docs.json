@@ -674,6 +674,7 @@
         "title": "post, put, patch, delete — Requêtes de mutation",
         "text": "Utilisées sur des formulaires ou déclenchées via call.",
         "formSubmissionTitle": "Soumission de formulaire",
+        "formResetNote": "Après une soumission réussie, le template <code>success</code> remplace le contenu du formulaire. Sans <code>success</code>, les enfants du formulaire sont rendus à nouveau à partir de leur balisage d'origine : les champs sans <code>model</code> reviennent à leurs valeurs initiales, tandis que les champs liés avec <code>model</code> conservent leur état. Il en va de même pour <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -976,7 +977,7 @@
         "dirty": "true si un champ a été modifié",
         "touched": "true si un champ a reçu puis perdu le focus",
         "submitting": "true pendant que la requête est en cours",
-        "pending": "true pendant que les validateurs asynchrones s'exécutent",
+        "pending": "Toujours false : les validateurs asynchrones ne sont pas pris en charge",
         "errors": "Map des noms de champs → messages d'erreur",
         "values": "Valeurs courantes du formulaire",
         "firstError": "Message d'erreur du premier champ invalide (ordre du DOM)",

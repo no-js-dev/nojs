@@ -674,6 +674,7 @@
         "title": "post, put, patch, delete — Mutating Requests",
         "text": "Used on forms or triggered via call.",
         "formSubmissionTitle": "Form Submission",
+        "formResetNote": "After a successful submit, the <code>success</code> template replaces the form's content. Without <code>success</code>, the form's children are rendered again from their original markup, so fields without <code>model</code> go back to their initial values; fields bound with <code>model</code> keep their state. The same applies to <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -976,7 +977,7 @@
         "dirty": "true if any field has been modified",
         "touched": "true if any field has been focused and blurred",
         "submitting": "true while the request is in flight",
-        "pending": "true while async validators are running",
+        "pending": "Always false: async validators are not supported",
         "errors": "Map of field names → error messages",
         "values": "Current form values",
         "firstError": "Error message of the first invalid field (DOM order)",

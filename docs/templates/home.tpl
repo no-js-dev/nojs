@@ -134,7 +134,8 @@
       <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'home.directives.s3Badge', nameKey: 'home.directives.s3Name', descKey: 'home.directives.s3Desc', filename: 'list-rendering.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">li</span> <span class="tok-attr">foreach</span><span class="tok-punc">=</span><span class="tok-str">"user in users"</span><span class="tok-punc">&gt;</span>
-    <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"$index + 1"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>. <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"user.name"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
+    <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"$index + 1"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>.
+    <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"user.name"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;/</span><span class="tok-tag">li</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span></code></pre>
       </div>

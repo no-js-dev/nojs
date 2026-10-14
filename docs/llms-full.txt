@@ -2326,13 +2326,7 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-Per-rule templates work too:
-
-```html
-<input name="user" required validate="custom:checkAvailability"
-       error-required="#reqTpl"
-       error-custom="#customTpl" />
-```
+Only the generic `error` attribute accepts a template reference. An `error-{rule}` value is always used as message text, so `error-required="#reqTpl"` shows the text `#reqTpl`.
 
 ---
 
@@ -2364,7 +2358,7 @@ Inside any `<form>` with the `validate` attribute, `$form` provides:
 | `$form.dirty` | `boolean` | `true` if any field has been modified |
 | `$form.touched` | `boolean` | `true` if any field has been focused and blurred |
 | `$form.submitting` | `boolean` | `true` while the request is in flight |
-| `$form.pending` | `boolean` | `true` while async validators are running |
+| `$form.pending` | `boolean` | Always `false`: async validators are not supported |
 | `$form.errors` | `object` | Map of field names → error messages |
 | `$form.values` | `object` | Current form values |
 | `$form.firstError` | `string\|null` | Error message of the first invalid field (DOM order) |

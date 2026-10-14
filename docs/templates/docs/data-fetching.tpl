@@ -138,6 +138,7 @@
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"loginError"</span> <span class="hl-attr">var</span>=<span class="hl-str">"err"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;p</span> <span class="hl-attr">class</span>=<span class="hl-str">"error"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
+    <p class="doc-text" t="docs.dataFetching.mutations.formResetNote" t-html></p>
 
     <h3 class="doc-title" id="data-fetching-put-patch-delete" t="docs.dataFetching.mutations.putPatchDeleteTitle"></h3>
     <div class="code-block"><pre><span class="hl-tag">&lt;form</span> <span class="hl-attr">put</span>=<span class="hl-str">"/users/{user.id}"</span> <span class="hl-attr">success</span>=<span class="hl-str">"#updateSuccess"</span><span class="hl-tag">&gt;</span>

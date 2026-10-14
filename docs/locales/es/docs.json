@@ -674,6 +674,7 @@
         "title": "post, put, patch, delete — Solicitudes de Mutación",
         "text": "Se usan en formularios o se disparan vía call.",
         "formSubmissionTitle": "Envío de Formulario",
+        "formResetNote": "Tras un envío exitoso, la plantilla <code>success</code> reemplaza el contenido del formulario. Sin <code>success</code>, los hijos del formulario se renderizan de nuevo a partir de su marcado original, así que los campos sin <code>model</code> vuelven a sus valores iniciales; los campos enlazados con <code>model</code> conservan su estado. Lo mismo aplica a <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -976,7 +977,7 @@
         "dirty": "true si algún campo ha sido modificado",
         "touched": "true si algún campo ha recibido y perdido el foco",
         "submitting": "true mientras la solicitud está en curso",
-        "pending": "true mientras los validadores asíncronos están en ejecución",
+        "pending": "Siempre false: los validadores asíncronos no son compatibles",
         "errors": "Mapa de nombres de campo → mensajes de error",
         "values": "Valores actuales del formulario",
         "firstError": "Mensaje de error del primer campo inválido (orden del DOM)",

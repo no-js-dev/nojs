@@ -71,6 +71,20 @@
         <p>Other scope user: <span class="value" data-test="session-user-2" bind="$session.user"></span></p>
       </div>
     </section>
+
+    <!-- 7. A watcher that always writes its global back is cut by the update cap -->
+    <section>
+      <h2 class="test-label">Test 7: Unbounded global write-back</h2>
+      <div state="{}">
+        <div watch="$loop.n" on:change="$loop.n = $new + 1"></div>
+        <p>Loop value: <span class="value" data-test="loop-n" bind="$loop.n"></span></p>
+      </div>
+      <div state="{ clicks: 0 }">
+        <button data-test="loop-kick" on:click="$loop.$set('n', 1)">Start the loop</button>
+        <button data-test="loop-after" on:click="clicks++">Click after the loop</button>
+        <p>Clicks: <span class="value" data-test="loop-clicks" bind="clicks"></span></p>
+      </div>
+    </section>
   </main>
 
   <script src="/__local__/no.js"></script>
@@ -93,6 +107,7 @@
       install(app) {
         app.global('cart', { count: 0 });
         app.global('profile', { name: 'Ada', since: new Date(Date.UTC(2020, 0, 1)), greet() {}, constructor: 'person', kind: 'person' });
+        app.global('loop', { n: 0 });
       },
       init(app) {
         const cart = app.evaluate('$cart', app.createContext({}));

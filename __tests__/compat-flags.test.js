@@ -11,7 +11,7 @@ import '../src/directives/state.js';
 //  wiping sibling keys of nested config objects.
 // ═══════════════════════════════════════════════════════════════════════
 
-const TOP_LEVEL_FLAGS = ['scopeHeaders', 'strictRedaction', 'strictDirectives', 'strictDevtools'];
+const TOP_LEVEL_FLAGS = ['scopeHeaders', 'strictRedaction', 'strictDirectives', 'strictDevtools', 'strictPersist'];
 
 let snapshot;
 
@@ -92,6 +92,7 @@ describe('Compat flags — settable through NoJS.config()', () => {
       strictRedaction: true,
       strictDirectives: true,
       strictDevtools: true,
+      strictPersist: true,
       templates: { pageRelative: true },
       i18n: { escapeParams: true },
     });

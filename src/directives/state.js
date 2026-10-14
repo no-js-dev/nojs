@@ -2,13 +2,24 @@
 //  DIRECTIVES: state, store, computed, watch
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _log, _warn, _watchExpr, _onDispose } from "../globals.js";
+import { _config, _stores, _globals, _log, _warn, _watchExpr, _onDispose } from "../globals.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
 import { _isLoopElement } from "./loops.js";
+
+const _hasOwn = Object.prototype.hasOwnProperty;
+const _emptyPersistFieldsWarned = new WeakSet();
+const _RESERVED_KEYS = new Set([
+  "$store", "$route", "$router", "$refs", "$parent", "$i18n",
+  "$watch", "$set", "$notify", "$form", "$sse",
+]);
+
+function _isReservedKey(k) {
+  return k.startsWith("$") && (_RESERVED_KEYS.has(k) || k.slice(1) in _globals);
+}
 
 registerDirective("state", {
   priority: 0,
@@ -37,13 +48,13 @@ registerDirective("state", {
             ? sessionStorage
             : null;
       if (store) {
-        // A present persist-fields is always an allow-list, even when empty
-        // (persist nothing) — never fall back to "persist everything".
-        const persistFields = el.hasAttribute("persist-fields")
-          ? new Set(el.getAttribute("persist-fields").split(",").map((f) => f.trim()).filter(Boolean))
+        const persistFieldsAttr = el.getAttribute("persist-fields");
+        const persistFields = persistFieldsAttr
+          ? new Set(persistFieldsAttr.split(",").map((f) => f.trim()))
           : null;
-        if (persistFields && persistFields.size === 0) {
-          _warn('persist-fields is empty: no fields will be persisted.');
+        if (persistFieldsAttr === "" && !_emptyPersistFieldsWarned.has(el)) {
+          _emptyPersistFieldsWarned.add(el);
+          _warn('persist-fields is empty: all fields will be persisted. List the fields to persist or remove the attribute.');
         }
         const storeKey = "nojs_" + (_config.appId || "") + "state_" + persistKey;
         try {
@@ -52,16 +63,25 @@ registerDirective("state", {
             const parsed = JSON.parse(saved);
             const schemaCheck = el.hasAttribute("persist-schema");
             const _forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
+            const declared = Object(initialState);
             for (const [k, v] of Object.entries(parsed)) {
               if (_forbiddenKeys.has(k)) continue;
               // Block ALL dunder keys, not just the three prototype-pollution
               // vectors. Crafted localStorage could otherwise inject internal
               // keys (e.g. __collectKeysCache, __devtoolsId) into the context.
               if (k.startsWith("__")) continue;
-              // Only plain top-level keys: dotted keys would walk into nested
-              // members via $set (e.g. $refs.x.innerHTML) and `$` keys would
-              // shadow built-ins ($store, $route, …).
-              if (k.includes(".") || k.startsWith("$")) continue;
+              // Dotted keys would walk into nested members via $set (e.g.
+              // $refs.x.innerHTML).
+              if (k.includes(".")) continue;
+              // strictPersist: a reserved `$` name ($store, $route, plugin
+              // globals, …) would shadow the built-in. Skip it unless the
+              // state declares it or persist-fields lists it.
+              if (
+                _config.strictPersist &&
+                _isReservedKey(k) &&
+                !_hasOwn.call(declared, k) &&
+                !(persistFields && persistFields.has(k))
+              ) continue;
               if (!persistFields || persistFields.has(k)) {
                 if (schemaCheck) {
                   if (!(k in initialState)) { _warn('persist-schema: ignoring unknown key "' + k + '"'); continue; }

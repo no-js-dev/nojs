@@ -2374,6 +2374,61 @@ export function _interpolate(str, ctx) {
   });
 }
 
+// Interpolate {expr} placeholders in a page-jsonld template.
+// Default: when the v1.21.1 output (String(val) for every placeholder, "" for
+// null/undefined/errors) is valid JSON it is kept, so existing apps get the same
+// data. Only "<" in placeholder values is escaped; in valid JSON it can appear
+// only inside strings, so the parsed data is unchanged and a value can never
+// close the <script> element.
+// Otherwise (or always with strictJsonld) escaping depends on where the
+// placeholder sits: inside a JSON string (odd count of unescaped '"' in the
+// template text before it, other placeholders ignored) the value is escaped as
+// JSON string content; in raw context (e.g. "offers":{o}) it is emitted as-is.
+// Without strictJsonld, a string-context value that is already valid JSON
+// string content (e.g. pre-escaped for v1.21.1) is kept as-is.
+export function _interpolateJsonld(str, ctx, re) {
+  const vals = [];
+  const legacy = str.replace(re, (_, expr) => {
+    let s = "";
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      if (val != null) s = String(val);
+    } catch (_) { /* v1.21.1: evaluation errors render as "" */ }
+    vals.push(s);
+    return s;
+  });
+  const strict = _config.strictJsonld;
+  if (!strict) {
+    try {
+      JSON.parse(legacy);
+      let k = 0;
+      return str.replace(re, () => vals[k++].replace(/</g, "\\u003c"));
+    } catch (_) { /* v1.21.1 output is invalid JSON — escape by context */ }
+  }
+  let i = 0;
+  let last = 0;
+  let inString = false;
+  return str.replace(re, (match, _expr, offset) => {
+    for (let j = last, esc = false; j < offset; j++) {
+      const ch = str[j];
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inString = !inString;
+    }
+    last = offset + match.length;
+    const s = vals[i++];
+    let out = s;
+    if (inString) {
+      let verbatim = false;
+      if (!strict) {
+        try { verbatim = typeof JSON.parse('"' + s + '"') === "string"; } catch (_) { verbatim = false; }
+      }
+      if (!verbatim) out = JSON.stringify(s).slice(1, -1);
+    }
+    return out.replace(/</g, "\\u003c");
+  });
+}
+
 // ── Compiler-support surface (ADR-024, NoJS-Server) ───────────────────
 // Thin wrappers exposing the parser for static analysis by external tools
 // (e.g. @no-js-dev/server compiler). These operate on the raw AST layer

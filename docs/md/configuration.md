@@ -113,6 +113,7 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
 | `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
 | `strictPersist` | `false` | On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$router`, `$refs`, `$parent`, `$i18n`, `$watch`, `$set`, `$notify`, `$form`, `$sse`, or a plugin global) is skipped unless the state declares it or `persist-fields` lists it. |
+| `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot add keys or end the string. By default the v1.21.1 output is kept whenever it is valid JSON. See [Head Management](head-management.md#page-jsonld). |
 | `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
 | `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in `supportedLocales` is ignored when `NoJS.i18n()` restores it. |

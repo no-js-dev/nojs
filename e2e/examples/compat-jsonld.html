@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>page-jsonld context-aware escaping (v1.21.1 raw fragments) — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    code { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <!--
+    The page owns a single managed <script type="application/ld+json" data-nojs>,
+    so only one scenario emits JSON-LD per load: ?s=<name> selects it through
+    an `if` on the page-jsonld host. Open with ?s=route#/product/7 for the
+    route-level (router.js) path. Add &strict=1 to set strictJsonld.
+  -->
+  <main>
+    <h1>page-jsonld context-aware escaping</h1>
+
+    <!-- 1. Raw (unquoted) JSON object fragment — v1.21.1 output -->
+    <section data-test="s-raw-object" state='{ "o": "{\"price\":5,\"priceCurrency\":\"USD\"}" }'>
+      <h2 class="test-label">Raw object fragment: "offers":{o}</h2>
+      <p>o = <code data-test="raw-object-value" bind="o"></code></p>
+      <div if="$store.e2e.s === 'raw-object'" hidden page-jsonld>{"@context":"https://schema.org","@type":"Product","offers":{o}}</div>
+    </section>
+
+    <!-- 2. Raw array fragment with escaped strings -->
+    <section data-test="s-raw-array" state='{ "o": "[{\"@type\":\"Offer\",\"name\":\"A \\\"B\\\"\"},{\"@type\":\"Offer\",\"price\":\"1.00\"}]" }'>
+      <h2 class="test-label">Raw array fragment: "offers":{o}</h2>
+      <p>o = <code bind="o"></code></p>
+      <div if="$store.e2e.s === 'raw-array'" hidden page-jsonld>{"@type":"Product","offers":{o}}</div>
+    </section>
+
+    <!-- 3. Raw numbers and booleans -->
+    <section data-test="s-raw-scalars" state='{ "p": 5.5, "n": 0, "b": true, "f": false }'>
+      <h2 class="test-label">Raw numbers and booleans</h2>
+      <div if="$store.e2e.s === 'raw-scalars'" hidden page-jsonld>{"price":{p},"count":{n},"inStock":{b},"used":{f}}</div>
+    </section>
+
+    <!-- 4. Quoted values containing ", \ and a newline -->
+    <section data-test="s-quoted" state='{ "v": "27\" \\ Monitor\nPro" }'>
+      <h2 class="test-label">Quoted values with quote, backslash and newline</h2>
+      <p>v = <code bind="v"></code></p>
+      <div if="$store.e2e.s === 'quoted'" hidden page-jsonld>{"name":"{v}","description":"Buy the {v} today"}</div>
+    </section>
+
+    <!-- 5. Pretty-printed template mixing raw and quoted placeholders -->
+    <section data-test="s-mixed" state='{ "o": "{\"price\":5}", "v": "say \"hi\"", "p": 3 }'>
+      <h2 class="test-label">Pretty-printed, raw and quoted placeholders mixed</h2>
+      <div if="$store.e2e.s === 'mixed'" hidden page-jsonld>
+        {
+          "name": "{v}",
+          "note": "escaped \"quotes\" in the template",
+          "offers": { o },
+          "position": {p}
+        }
+      </div>
+    </section>
+
+    <!-- 6. Raw value carrying </script> cannot close the script element -->
+    <section data-test="s-raw-script" state='{ "o": "{\"n\":\"</script><b data-test=\\\"pwned-raw\\\">x</b>\"}" }'>
+      <h2 class="test-label">Raw fragment containing &lt;/script&gt;</h2>
+      <div if="$store.e2e.s === 'raw-script'" hidden page-jsonld>{"@type":"Thing","data":{o}}</div>
+    </section>
+
+    <!-- 7. Quoted value carrying a quote and </script> -->
+    <section data-test="s-quoted-script" state='{ "v": "a\"</script><b data-test=\"pwned-quoted\">x</b>" }'>
+      <h2 class="test-label">Quoted value containing a quote and &lt;/script&gt;</h2>
+      <div if="$store.e2e.s === 'quoted-script'" hidden page-jsonld>{"@type":"Thing","name":"{v}"}</div>
+    </section>
+
+    <!-- 8. Raw placeholder re-renders reactively -->
+    <section data-test="s-reactive" state='{ "p": 1 }'>
+      <h2 class="test-label">Reactive raw placeholder</h2>
+      <button type="button" data-test="inc" on:click="p = p + 1">Increase price</button>
+      <span data-test="price" bind="p"></span>
+      <div if="$store.e2e.s === 'reactive'" hidden page-jsonld>{"@type":"Offer","price":{p}}</div>
+    </section>
+
+    <!-- 10. Values pre-escaped for v1.21.1 (valid v1.21.1 output is kept unless ?strict=1) -->
+    <section data-test="s-pre-escaped" state='{ "v": "Say \\\"hi\\\"", "list": ["https://a.example", "https://b.example"] }'>
+      <h2 class="test-label">Pre-escaped value and list.join pattern</h2>
+      <p>v = <code data-test="pre-escaped-value" bind="v"></code></p>
+      <div if="$store.e2e.s === 'pre-escaped'" hidden page-jsonld>{"name":"{v}","sameAs":["{list.join('","')}"]}</div>
+    </section>
+
+    <!-- 9. Route-level page-jsonld (router.js path) -->
+    <section data-test="s-route">
+      <h2 class="test-label">Route template page-jsonld (hash mode)</h2>
+      <nav>
+        <a route="/" data-test="nav-home">Home</a>
+        <a route="/product/7" data-test="nav-product">Product 7</a>
+      </nav>
+      <div route-view data-test="outlet"></div>
+    </section>
+  </main>
+
+  <template route="/">
+    <p data-test="page-home">Home</p>
+  </template>
+
+  <template route="/product/:n"
+    page-jsonld='{"@type":"Product","position":{$route.params.n},"offers":{$store.e2e.offers},"name":"{$store.e2e.name}"}'>
+    <p data-test="page-product">Product</p>
+  </template>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({
+      router: { useHash: true, suppressHashWarning: true },
+      strictJsonld: new URLSearchParams(location.search).has('strict'),
+      stores: {
+        e2e: {
+          s: new URLSearchParams(location.search).get('s') || '',
+          offers: '[{"@type":"Offer","price":"9.99","name":"<\/script><i data-test=\\"pwned-route\\">x</i>"}]',
+          name: 'Route "quoted" \\ name'
+        }
+      }
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

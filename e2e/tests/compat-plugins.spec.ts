@@ -129,3 +129,27 @@ test.describe('Plugin compatibility with strictDirectives', () => {
     await expect(page.getByTestId('sidebar-count')).toHaveText('1');
   });
 });
+
+// v1.21.1 cut a never-settling write-back at the batch's 100-round cap with
+// one warning. A global's cross-scope wake must keep that bound instead of
+// recursing until the stack overflows.
+test.describe('Plugin global write-back cycles', () => {
+  test('12 — an unbounded global write-back stops at the update cap; the page stays responsive', async ({ page }) => {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    page.on('console', (msg) => { if (msg.type() === 'warning') warnings.push(msg.text()); });
+    page.on('pageerror', (err) => errors.push(err.message));
+    await page.goto(FIXTURE);
+    await expect(page.getByTestId('loop-n')).toHaveText('0');
+
+    await page.getByTestId('loop-kick').click();
+    await expect(page.getByTestId('loop-n')).toHaveText('100');
+
+    await page.getByTestId('loop-after').click();
+    await expect(page.getByTestId('loop-clicks')).toHaveText('1');
+
+    expect(warnings.filter((w) => w.includes('batch drain exceeded 100 rounds — possible update cycle; aborting drain'))).toHaveLength(1);
+    expect(warnings.filter((w) => /call stack|too much recursion|RangeError/.test(w))).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});

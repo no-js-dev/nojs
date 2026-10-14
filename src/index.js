@@ -32,7 +32,7 @@ import {
   _stripBase,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale, _notifyI18n } from "./i18n.js";
-import { createContext } from "./context.js";
+import { createContext, _wakeGlobalWatchers } from "./context.js";
 import { evaluate, resolve, _execStatement, parseExpression, parseStatements, segmentPipes } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
 import { registerDirective, processTree, _removeCoreDirective, _disposeChildren, _disposeTree } from "./registry.js";
@@ -366,10 +366,10 @@ const NoJS = {
 
     // Globals are read app-wide: a write through the context ($x.$set, a
     // proxy write from plugin code) wakes every scope's "$" bindings. The
-    // wake runs from the batch drain, so a binding that writes back queues
-    // the next round instead of recursing.
+    // wake queues them on the batch, so a binding that writes back runs in
+    // the next drain round instead of recursing.
     if (value && typeof value === "object" && value.__isProxy) {
-      const wake = () => _notifyStoreWatchers("$");
+      const wake = () => _wakeGlobalWatchers();
       _globalUnwatch[name] = value.$watch(wake);
       // $watch ties the listener to the element being processed; a global
       // outlives any element.

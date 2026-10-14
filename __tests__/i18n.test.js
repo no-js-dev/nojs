@@ -2138,37 +2138,30 @@ describe('t-html params — i18n.escapeParams: true', () => {
 //  Persisted locale validation
 // ═══════════════════════════════════════════════════════════════════════
 
-describe('persisted locale validation', () => {
+describe('persisted locale — v1.21.1 default and i18n.strictLocale', () => {
   afterEach(() => {
     _config.i18n.persist = false;
     _config.i18n.supportedLocales = [];
+    _config.i18n.strictLocale = false;
     _config.debug = false;
+    _i18n._locale = 'en';
     localStorage.clear();
     document.body.innerHTML = '';
     jest.restoreAllMocks();
   });
 
-  test('persisted locale outside supportedLocales is ignored silently', async () => {
-    const { default: NoJS } = await import('../src/index.js');
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
-    _i18n._locale = 'en';
-    localStorage.setItem('nojs-locale', 'xx-evil');
-    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en' });
-    expect(_i18n.locale).toBe('en');
-    expect(warn).not.toHaveBeenCalled();
-    expect(log).not.toHaveBeenCalled();
+  test('strictLocale defaults to false', () => {
+    expect(_config.i18n.strictLocale).toBe(false);
   });
 
-  test('ignored persisted locale is logged in debug mode', async () => {
+  test('persisted locale outside supportedLocales is restored by default (v1.21.1)', async () => {
     const { default: NoJS } = await import('../src/index.js');
-    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
-    _config.debug = true;
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     _i18n._locale = 'en';
-    localStorage.setItem('nojs-locale', 'xx-evil');
-    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en' });
-    expect(_i18n.locale).toBe('en');
-    expect(log).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('xx-evil'));
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('fr');
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test('persisted locale is restored when supportedLocales is unset (v1.21.1)', async () => {
@@ -2179,11 +2172,102 @@ describe('persisted locale validation', () => {
     expect(_i18n.locale).toBe('fr');
   });
 
-  test('persisted locale inside supportedLocales is still restored', async () => {
+  test('strictLocale: persisted locale outside supportedLocales is ignored silently', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_config.i18n.strictLocale).toBe(true);
+    expect(_i18n.locale).toBe('en');
+    expect(warn).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  test('strictLocale: ignored persisted locale is logged in debug mode', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _config.debug = true;
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'xx-evil');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('en');
+    expect(log).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('xx-evil'));
+  });
+
+  test('strictLocale via NoJS.config() before NoJS.i18n()', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    NoJS.config({ i18n: { strictLocale: true } });
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('en');
+  });
+
+  test('strictLocale: persisted locale inside supportedLocales is still restored', async () => {
     const { default: NoJS } = await import('../src/index.js');
     _i18n._locale = 'en';
     localStorage.setItem('nojs-locale', 'es');
-    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en' });
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
     expect(_i18n.locale).toBe('es');
+  });
+
+  test('strictLocale with empty supportedLocales restores any persisted locale', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('fr');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  i18n.escapeParams changed after init() re-renders t-html
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('i18n.escapeParams after init()', () => {
+  let NoJS;
+
+  beforeEach(async () => {
+    NoJS = (await import('../src/index.js')).default;
+    await NoJS.init(document.createElement('div'));
+    _i18n._locale = 'en';
+    _i18n.locales = { en: { msg: 'Read {link}' } };
+    _config.i18n.fallbackLocale = 'en';
+    _config.i18n.escapeParams = false;
+  });
+
+  afterEach(() => {
+    _config.i18n.escapeParams = false;
+    _i18n.locales = {};
+    document.body.innerHTML = '';
+  });
+
+  test('NoJS.config({ i18n: { escapeParams } }) re-renders immediately', () => {
+    const el = renderT('msg', { link: "'<a href=/terms>terms</a>'" });
+    expect(el.querySelector('a')).not.toBeNull();
+    NoJS.config({ i18n: { escapeParams: true } });
+    expect(el.querySelector('a')).toBeNull();
+    expect(el.textContent).toBe('Read <a href=/terms>terms</a>');
+    NoJS.config({ i18n: { escapeParams: false } });
+    expect(el.querySelector('a').getAttribute('href')).toBe('/terms');
+  });
+
+  test('NoJS.i18n({ escapeParams }) re-renders immediately', () => {
+    const el = renderT('msg', { link: "'<a href=/terms>terms</a>'" });
+    NoJS.i18n({ escapeParams: true });
+    expect(el.querySelector('a')).toBeNull();
+    NoJS.i18n({ escapeParams: false });
+    expect(el.querySelector('a')).not.toBeNull();
+  });
+
+  test('config without an escapeParams change does not notify', () => {
+    const listener = jest.fn();
+    _i18nListeners.add(listener);
+    NoJS.config({ i18n: { cache: true } });
+    NoJS.i18n({ cache: true });
+    expect(listener).not.toHaveBeenCalled();
+    _i18nListeners.delete(listener);
   });
 });

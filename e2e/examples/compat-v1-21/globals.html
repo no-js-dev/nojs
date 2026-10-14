@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — NoJS.global() — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: plugin globals</h1>
+
+    <!-- 1. A global object is a reactive proxy: $set from a template updates bindings -->
+    <section state="{}">
+      <h2>1. $theme.$set updates bind</h2>
+      <span data-test="g-mode" bind="$theme.mode"></span>
+      <button data-test="g-set-dark" on:click="$theme.$set('mode', 'dark')">Dark</button>
+    </section>
+
+    <!-- 2. $watch / $notify exist on the global and $watch fires on change -->
+    <section>
+      <h2>2. $watch fires, $notify exists</h2>
+      <span data-test="g-has-watch"></span>
+      <span data-test="g-has-notify"></span>
+      <span data-test="g-watch-count">0</span>
+      <span data-test="g-watch-mode"></span>
+    </section>
+
+    <!-- 3. A global holding a Date is JSON-cloned: the Date becomes an ISO string -->
+    <section state="{}">
+      <h2>3. Date is JSON-cloned to a string</h2>
+      <span data-test="g-date" bind="$stamp.at"></span>
+      <span data-test="g-date-type"></span>
+    </section>
+
+    <!-- 4. Data with a "constructor" field is accepted -->
+    <section state="{}">
+      <h2>4. constructor field accepted</h2>
+      <span data-test="g-ctor-name" bind="$meta.name"></span>
+    </section>
+
+    <!-- 5. The global is a copy: mutating the source object later does not change it -->
+    <section state="{}">
+      <h2>5. Global is a copy</h2>
+      <span data-test="g-copy" bind="$cfg.title"></span>
+      <span data-test="g-copy-source"></span>
+    </section>
+
+    <!-- 6. A plugin-registered global behaves the same way -->
+    <section state="{}">
+      <h2>6. Plugin global $set</h2>
+      <span data-test="g-plugin-count" bind="$counter.n"></span>
+      <button data-test="g-plugin-inc" on:click="$counter.$set('n', $counter.n + 1)">Inc</button>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    const out = (id, v) => { document.querySelector('[data-test="' + id + '"]').textContent = String(v); };
+
+    NoJS.global('theme', { mode: 'light' });
+    NoJS.global('stamp', { at: new Date(Date.UTC(2020, 0, 2, 3, 4, 5)) });
+    NoJS.global('meta', { name: 'x', constructor: 'y' });
+
+    const cfg = { title: 'orig' };
+    NoJS.global('cfg', cfg);
+    cfg.title = 'mutated';
+    out('g-copy-source', cfg.title);
+
+    NoJS.use({
+      name: 'compat-counter',
+      install(nojs) { nojs.global('counter', { n: 0 }); },
+    });
+
+    // Read the published globals through the public evaluate()/createContext() API
+    const probe = NoJS.createContext({});
+    const theme = NoJS.evaluate('$theme', probe);
+    out('g-has-watch', typeof (theme && theme.$watch));
+    out('g-has-notify', typeof (theme && theme.$notify));
+    const stamp = NoJS.evaluate('$stamp', probe);
+    out('g-date-type', stamp ? typeof stamp.at : 'missing');
+
+    let watchCount = 0;
+    try {
+      theme.$watch(() => {
+        watchCount++;
+        out('g-watch-count', watchCount);
+        out('g-watch-mode', theme.mode);
+      });
+    } catch (e) {
+      out('g-watch-count', 'error: ' + e.message);
+    }
+  </script>
+</body>
+</html>

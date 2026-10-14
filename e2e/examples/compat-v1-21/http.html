@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — HTTP — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: HTTP headers, interceptors, bodies, retries</h1>
+
+    <!-- 1. Global config headers are sent to an absolute URL on another origin -->
+    <section>
+      <h2>1. Config headers on a cross-origin GET</h2>
+      <div get="https://api.other.test/x" as="ext">
+        <span data-test="h-ext" bind="ext.source"></span>
+      </div>
+    </section>
+
+    <!-- 2. Control: config headers on a same-origin GET -->
+    <section>
+      <h2>2. Config headers on a same-origin GET</h2>
+      <div get="/compat/same" as="same">
+        <span data-test="h-same" bind="same.source"></span>
+      </div>
+    </section>
+
+    <!-- 3. App-level request interceptor sees the full URL, query tokens included -->
+    <!--    (mounted on demand: v1.21.1 skips request interceptors for requests that
+             start while another request's interceptor chain is running) -->
+    <section state="{ showSearch: false }">
+      <h2>3. Request interceptor URL</h2>
+      <button data-test="i-search-show" on:click="showSearch = true">Search</button>
+      <div if="showSearch">
+        <div get="/compat/search?author=ann&amp;keyword=x&amp;token=abc" as="search">
+          <span data-test="i-search-data" bind="search.source"></span>
+        </div>
+      </div>
+      <span data-test="i-req-url"></span>
+    </section>
+
+    <!-- 4. App-level response interceptor sees X-Api-Version and Authorization response headers -->
+    <section>
+      <h2>4. Response interceptor headers</h2>
+      <div get="/compat/versioned" as="versioned">
+        <span data-test="i-versioned-data" bind="versioned.source"></span>
+      </div>
+      <span data-test="i-res-api-version"></span>
+      <span data-test="i-res-authorization"></span>
+    </section>
+
+    <!-- 5. A custom csrf.header is visible to and settable by the request interceptor -->
+    <section state="{ csrfDone: 'no' }">
+      <h2>5. Custom CSRF header in the interceptor</h2>
+      <button data-test="i-csrf-send" post="/compat/csrf" as="csrfRes" then="csrfDone = 'yes'">Send</button>
+      <span data-test="i-csrf-seen"></span>
+      <span data-test="i-csrf-done" bind="csrfDone"></span>
+    </section>
+
+    <!-- 6. fetch:error payload carries the raw URL -->
+    <section>
+      <h2>6. fetch:error payload URL</h2>
+      <div get="/compat/fail?author=ann&amp;token=abc" as="failed">
+        <span bind="failed"></span>
+      </div>
+      <span data-test="i-error-url"></span>
+    </section>
+
+    <!-- 7-9. Request body bytes produced by body="{...}" interpolation -->
+    <section state="{ v: '..', n: 'a&b=c d', msg: 'hello world 100%', sent: '' }">
+      <h2>7-9. body= interpolation</h2>
+      <button data-test="b-dots" post="/compat/body/dots" body="{v}" then="sent = 'dots'">Dots</button>
+      <button data-test="b-form" post="/compat/body/form" body="name={n}&amp;x=1" then="sent = 'form'">Form</button>
+      <button data-test="b-msg" post="/compat/body/msg" body="{msg}" then="sent = 'msg'">Msg</button>
+      <span data-test="b-sent" bind="sent"></span>
+    </section>
+
+    <!-- 10. retry="2" on a 404 GET: 3 attempts, then the error template -->
+    <section>
+      <h2>10. Retries</h2>
+      <div get="/compat/missing" retry="2" retry-delay="10" error="#retry-error" as="missing">
+        <span bind="missing"></span>
+      </div>
+      <template id="retry-error"><span data-test="r-error" bind="err.status"></span></template>
+    </section>
+
+    <!-- 11. NoJS.CANCEL from a request interceptor is silent: no error template -->
+    <section state="{ cancelState: 'idle' }">
+      <h2>11. CANCEL is silent</h2>
+      <button data-test="c-send" post="/compat/cancel" error="#cancel-error" then="cancelState = 'sent'">Send</button>
+      <span data-test="c-state" bind="cancelState"></span>
+      <span data-test="c-interceptor"></span>
+      <template id="cancel-error"><span data-test="c-error">cancel error</span></template>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    const out = (id, v) => { document.querySelector('[data-test="' + id + '"]').textContent = String(v); };
+
+    NoJS.config({
+      headers: { Authorization: 'Bearer t' },
+      csrf: { header: 'X-App-Csrf', token: 'csrf-1' },
+    });
+
+    NoJS.interceptor('request', (url, opts) => {
+      if (url.includes('/compat/search')) out('i-req-url', url);
+      if (url.includes('/compat/csrf')) {
+        out('i-csrf-seen', opts.headers['X-App-Csrf'] === undefined ? 'absent' : opts.headers['X-App-Csrf']);
+        return { headers: { 'X-App-Csrf': 'csrf-2' } };
+      }
+      if (url.includes('/compat/cancel')) {
+        out('c-interceptor', 'cancelled');
+        return { [NoJS.CANCEL]: true };
+      }
+    });
+
+    NoJS.interceptor('response', (response, url) => {
+      if (url.includes('/compat/versioned')) {
+        out('i-res-api-version', response.headers.get('X-Api-Version') ?? 'absent');
+        out('i-res-authorization', response.headers.get('Authorization') ?? 'absent');
+      }
+    });
+
+    NoJS.on('fetch:error', (payload) => {
+      if (payload && String(payload.url).includes('/compat/fail')) out('i-error-url', payload.url);
+    });
+  </script>
+</body>
+</html>

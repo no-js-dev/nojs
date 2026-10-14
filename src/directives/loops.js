@@ -41,6 +41,10 @@ function _stripLoopAttrs(clone, stripElse) {
   if (stripElse !== false) clone.removeAttribute("else");
 }
 
+// "<item> in <list expression>". The list side is any expression, so it may
+// contain whitespace: `col in ['name', 'email']`, `n in [1, 2, 3]`.
+const _LOOP_EXPR_RE = /^(\w+)\s+in\s+(\S[\s\S]*?)\s*$/;
+
 // Collects managed clones between the start and end comment markers.
 // Returns a snapshot (array) of element nodes in the managed range.
 function _getManagedClones(startMarker, endMarker) {
@@ -98,7 +102,7 @@ export function _isLoopElement(el) {
   if (el.hasAttribute("foreach") || el.hasAttribute("each")) return true;
   if (!el.hasAttribute("for")) return false;
   const v = el.getAttribute("for") || "";
-  if (/^\w+\s+in\s+\S+$/.test(v)) return true;
+  if (_LOOP_EXPR_RE.test(v)) return true;
   return el.hasAttribute("from") && /^\w+$/.test(v);
 }
 
@@ -148,7 +152,7 @@ const _loopHandler = {
   init(el, name, expr) {
     const ctx = findContext(el);
     let itemName, listPath;
-    const match = expr.match(/^(\w+)\s+in\s+(\S+)$/);
+    const match = expr.match(_LOOP_EXPR_RE);
     if (match) {
       [, itemName, listPath] = match;
     } else {

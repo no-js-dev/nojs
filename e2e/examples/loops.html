@@ -181,6 +181,25 @@
     </ul>
   </section>
 
+  <!-- 21. Array literals with spaces in the list expression -->
+  <section state="{}">
+    <p class="test-label">Test 21: array literals with spaces</p>
+    <table>
+      <thead>
+        <tr><th data-test="m21-th" foreach="col in ['name', 'email', 'role']" bind="col"></th></tr>
+      </thead>
+    </table>
+    <ul data-test="m21-each">
+      <li data-test="m21-each-item" each="s in ['a, b', 'c']" bind="s"></li>
+    </ul>
+    <ul data-test="m21-for">
+      <li data-test="m21-for-item" for="u in [{ id: 1, name: 'Ann' }, { id: 2, name: 'Bob' }]" key="u.id" bind="u.name"></li>
+    </ul>
+    <div data-test="m21-nested">
+      <p data-test="m21-row" foreach="row in [[1, 2], [3, 4]]"><span data-test="m21-cell" each="c in row" bind="c"></span></p>
+    </div>
+  </section>
+
   <script src="../../dist/iife/no.js"></script>
   <!--
     WORKAROUND: processTree(document.body) breaks when a self-repeating loop

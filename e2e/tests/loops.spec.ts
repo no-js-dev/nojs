@@ -300,4 +300,12 @@ test.describe('Loops', () => {
     await page.getByTestId('m350-move').click();
     await expect(items).toHaveText(['b', 'c', 'a']);
   });
+
+  test('21 — Array literals with spaces render with foreach, each and for', async ({ page }) => {
+    await expect(page.getByTestId('m21-th')).toHaveText(['name', 'email', 'role']);
+    await expect(page.getByTestId('m21-each-item')).toHaveText(['a, b', 'c']);
+    await expect(page.getByTestId('m21-for-item')).toHaveText(['Ann', 'Bob']);
+    await expect(page.getByTestId('m21-row')).toHaveCount(2);
+    await expect(page.getByTestId('m21-cell')).toHaveText(['1', '2', '3', '4']);
+  });
 });

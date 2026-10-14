@@ -21,7 +21,7 @@ import {
   _plugins,
 } from '../src/globals.js';
 import { processTree } from '../src/registry.js';
-import { _execStatement, _interpolate } from '../src/evaluate.js';
+import * as evaluateModule from '../src/evaluate.js';
 import { _doFetch } from '../src/fetch.js';
 import { createContext } from '../src/context.js';
 import { initDevtools, destroyDevtools } from '../src/devtools.js';
@@ -100,7 +100,7 @@ describe('compat v1.21.1 — NoJS.global() (#379)', () => {
     processTree(document.body);
     const span = document.querySelector('span');
     expect(span.textContent).toBe('light');
-    _execStatement("$theme.$set('mode', 'dark')", document.querySelector('div').__ctx);
+    evaluateModule._execStatement("$theme.$set('mode', 'dark')", document.querySelector('div').__ctx);
     expect(span.textContent).toBe('dark');
   });
 
@@ -200,32 +200,52 @@ describe('compat v1.21.1 — interceptors (#366)', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-//  #369 — body= / URL placeholder interpolation bytes
+//  #369 — body= interpolation bytes
+//
+//  Only the request BODY is pinned. URL-path placeholders intentionally
+//  diverge from v1.21.1: a "." / ".." path value is escaped (%252E) so it
+//  can no longer re-target the request to a parent path. No legitimate app
+//  relies on that, so the URL interpolator is deliberately not pinned here.
 // ═══════════════════════════════════════════════════════════════════════
 
-describe('compat v1.21.1 — placeholder interpolation (#369)', () => {
+describe('compat v1.21.1 — body= interpolation (#369)', () => {
   const ctx = () => createContext({ v: '..', dot: '.', n: 'a&b=c d', msg: 'hello world 100%' });
+  // The body interpolator: _interpolateEncoded on later refs; in v1.21.1 the
+  // body went through _interpolate (no separate body helper existed yet).
+  const bodyInterpolate = (str, c) => (evaluateModule._interpolateEncoded || evaluateModule._interpolate)(str, c);
 
-  test('"{v}" with v=".." interpolates to ".."', () => {
-    expect(_interpolate('{v}', ctx())).toBe('..');
-    expect(_interpolate('{dot}', ctx())).toBe('.');
-  });
-
-  test('"name={n}&x=1" percent-encodes the placeholder value only', () => {
-    expect(_interpolate('name={n}&x=1', ctx())).toBe('name=a%26b%3Dc%20d&x=1');
-  });
-
-  test('"{msg}" percent-encodes spaces and %', () => {
-    expect(_interpolate('{msg}', ctx())).toBe('hello%20world%20100%25');
-  });
-
-  test('post body="{v}" sends ".." on the wire', async () => {
-    document.body.innerHTML = `<button state="{ v: '..' }" post="/compat/body" body="{v}">Send</button>`;
+  const sendBody = async (state, body) => {
+    document.body.innerHTML = `<button state="${state}" post="/compat/body" body="${body}">Send</button>`;
     processTree(document.body);
     document.querySelector('button').click();
     await flush();
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch.mock.calls[0][1].body).toBe('..');
+    return global.fetch.mock.calls[0][1].body;
+  };
+
+  test('body "{v}" with v=".." interpolates to ".." (and "." to ".")', () => {
+    expect(bodyInterpolate('{v}', ctx())).toBe('..');
+    expect(bodyInterpolate('{dot}', ctx())).toBe('.');
+  });
+
+  test('body "name={n}&x=1" percent-encodes the placeholder value only', () => {
+    expect(bodyInterpolate('name={n}&x=1', ctx())).toBe('name=a%26b%3Dc%20d&x=1');
+  });
+
+  test('body "{msg}" percent-encodes spaces and %', () => {
+    expect(bodyInterpolate('{msg}', ctx())).toBe('hello%20world%20100%25');
+  });
+
+  test('post body="{v}" sends ".." on the wire', async () => {
+    expect(await sendBody("{ v: '..' }", '{v}')).toBe('..');
+  });
+
+  test('post body="name={n}&x=1" sends name=a%26b%3Dc%20d&x=1 on the wire', async () => {
+    expect(await sendBody("{ n: 'a&amp;b=c d' }", 'name={n}&amp;x=1')).toBe('name=a%26b%3Dc%20d&x=1');
+  });
+
+  test('post body="{msg}" sends hello%20world%20100%25 on the wire', async () => {
+    expect(await sendBody("{ msg: 'hello world 100%' }", '{msg}')).toBe('hello%20world%20100%25');
   });
 });
 

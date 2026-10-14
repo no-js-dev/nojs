@@ -9,11 +9,14 @@ import { evaluate } from "./evaluate.js";
 // Interpolates {expr} placeholders in a raw string (used for page-jsonld).
 // Uses the same JSON-safe regex as the head-management directive — skips
 // { starting with " or ' to avoid consuming JSON structural braces.
+// Values are escaped as JSON string content (and "<" so they cannot close the <script>).
 function _interpolateRaw(str, ctx) {
   return str.replace(/\{([^}"'{][^}]*)\}/g, (_, expr) => {
     try {
       const val = evaluate(expr.trim(), ctx);
-      return val != null ? String(val) : "";
+      return val != null
+        ? JSON.stringify(String(val)).slice(1, -1).replace(/</g, "\\u003c")
+        : "";
     } catch (_) { return ""; }
   });
 }
@@ -1134,12 +1137,13 @@ export function _createRouter() {
             }
             return;
           }
-          navigate(path, true, true); // history pop → backward direction
+          // Keep ?query and #hash: the base is stripped from the pathname only
+          navigate(path + window.location.search + window.location.hash, true, true); // history pop → backward direction
         };
         window.addEventListener("popstate", _popstateHandler);
         _globalHandlers.push(() => window.removeEventListener("popstate", _popstateHandler));
         const path = _stripBase(window.location.pathname);
-        await navigate(path, true);
+        await navigate(path + window.location.search + window.location.hash, true);
       }
 
       // Prefetch route templates declared via <a route> links

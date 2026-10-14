@@ -137,10 +137,13 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
         init(el, name, value) { /* ... */ }
       });
       app.directive('bind', { /* ... */ }); // ❌ core directive — warning, ignored
+      app.directive('bind-href', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
     }
   };
 </script>
 ```
+
+The same applies to any name matched by a core wildcard directive: `on:*`, `bind-*`, `class-*` and `style-*`.
 
 ---
 
@@ -174,7 +177,7 @@ Prototype pollution vectors (`__proto__`, `constructor`, `prototype`) are also b
 
 ### Reactivity
 
-Object values passed to `NoJS.global()` are automatically wrapped in a reactive context. Mutations trigger DOM updates just like store or state changes:
+Globals are app-wide: every binding that reads `$name`, in any scope, updates when a template expression writes through it (`$user.name = 'Ada'`, `$user.logout()`) or when `NoJS.global()` publishes a new value, just like store changes:
 
 ```html
 <script>
@@ -184,6 +187,19 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <!-- Updates reactively when $user.name changes -->
 <span bind="$user.name"></span>
 ```
+
+Object values are published by reference, not copied: templates see the plugin's own object, with its methods and `Date` values. When plugin code mutates that object from JavaScript, call `NoJS.notify()` to update the DOM (as with `NoJS.store`):
+
+```js
+const user = { name: 'Guest', logout() { this.name = 'Guest'; } };
+app.global('user', user);
+
+// later, e.g. after a login request in plugin code:
+user.name = 'Ada';
+app.notify();
+```
+
+Values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
 
 ### Ownership Tracking
 
@@ -300,13 +316,15 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 Trusted interceptors receive the full, unredacted request options and response object.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
+>
+> Trust is fixed when `NoJS.use()` is called; changing the options object afterwards has no effect. Only interceptors registered from inside a plugin's `install()` can be trusted, and `NoJS.interceptor()` takes a plain function (a caller-supplied `pluginName` is ignored).
 
 ### Redacted Headers
 
 **Request** (stripped before passing to untrusted interceptors):
 `authorization`, `x-api-key`, `x-auth-token`, `cookie`, `proxy-authorization`, `set-cookie`, `x-csrf-token`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted. The header name configured in `csrf.header` is redacted as well.
 
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
@@ -385,7 +403,7 @@ app.on('ready', fn);
 
 ### Never Use `eval` or `Function`
 
-Values passed to `NoJS.global()` are checked for dangerous references. `eval` and `Function` are blocked:
+Values passed to `NoJS.global()` are checked for dangerous references. `eval`, `Function` (including bound copies), and the `window`, `document` and `globalThis` objects are blocked:
 
 ```js
 // ❌ Rejected

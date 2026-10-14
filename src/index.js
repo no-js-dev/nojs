@@ -84,7 +84,10 @@ const _DANGEROUS_REFS = typeof window !== "undefined"
   : new Set();
 
 function _isUnsafeGlobalValue(value) {
-  return _DANGEROUS_REFS.has(value);
+  if (_DANGEROUS_REFS.has(value)) return true;
+  // Bound eval/Function are distinct objects; the real window/document bypass the expression allow-list
+  if (typeof value === "function") return /^(bound )+(eval|Function)$/.test(value.name);
+  return typeof window !== "undefined" && (value === window || value === document || value === globalThis);
 }
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -252,6 +255,9 @@ const NoJS = {
       _warn(`WARNING: Plugin "${plugin.name}" installed with trusted access to sensitive HTTP headers.`);
     }
 
+    // Snapshot options so install() or later code cannot change `trusted` on the stored copy
+    const snapshot = Object.freeze({ ...options });
+
     // Set current plugin name for interceptor tracking
     _setCurrentPluginName(plugin.name);
     try {
@@ -260,7 +266,7 @@ const NoJS = {
       _setCurrentPluginName(null);
     }
 
-    _plugins.set(plugin.name, { plugin, options });
+    _plugins.set(plugin.name, { plugin, options: snapshot });
 
     // If already initialized and plugin has init, await then call
     if (_initPromise && plugin.init) {
@@ -306,27 +312,12 @@ const NoJS = {
       _warn(`Global "$${name}" owned by "${_globalOwners[name]}" is being overwritten.`);
     }
 
-    // Sanitize object values to strip __proto__ keys
-    if (value && typeof value === "object" && !value.__isProxy) {
+    // Objects are published by reference (no copy): methods, Dates and the
+    // plugin's own handle reach templates. Reject values holding forbidden keys
+    // or nested eval/Function refs (a reactive proxy lists its target's keys).
+    if (value && typeof value === "object") {
       try {
-        value = JSON.parse(JSON.stringify(value));
-      } catch {
-        // Non-serializable objects — check for dangerous function references
-        try {
-          _deepCheckUnsafe(value);
-        } catch (safetyErr) {
-          if (safetyErr.message === "unsafe_global") return;
-          // Other errors pass through
-        }
-      }
-      // Wrap in reactive context for deep reactivity
-      value = createContext(value);
-    } else if (value && typeof value === "object" && value.__isProxy) {
-      // Already a reactive proxy — sanitization branch above is skipped, so run the
-      // recursive unsafe-reference / prototype-pollution check on the raw target
-      // to avoid storing nested eval/Function refs or polluted prototypes verbatim.
-      try {
-        _deepCheckUnsafe(value.__raw ?? value);
+        _deepCheckUnsafe(value);
       } catch (safetyErr) {
         if (safetyErr.message === "unsafe_global") return;
         // Other errors pass through
@@ -388,8 +379,7 @@ const NoJS = {
       // Clean up devtools listener
       destroyDevtools();
 
-      _configLocked = false;
-
+      // _configLocked intentionally stays set: rendered bindings keep using _config after dispose()
       _initPromise = null;
       _log("Disposed.");
     } finally {
@@ -504,7 +494,14 @@ const NoJS = {
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        if (saved) { _i18n._locale = saved; localeRestored = true; }
+        const supported = _config.i18n.supportedLocales;
+        // Same allow-list as the locale setter: ignore a stale or foreign value
+        if (saved && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _warn(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+        } else if (saved) {
+          _i18n._locale = saved;
+          localeRestored = true;
+        }
       } catch (_) {}
     }
 
@@ -557,6 +554,12 @@ const NoJS = {
     }
     if (!_interceptors[type]) {
       _warn(`NoJS.interceptor(): unknown type "${type}" (expected "request" or "response").`);
+      return;
+    }
+    // Unwrap caller-supplied { fn, pluginName }: plugin identity comes only from install()
+    if (fn && typeof fn === "object") fn = fn.fn;
+    if (typeof fn !== "function") {
+      _warn("NoJS.interceptor(): handler must be a function.");
       return;
     }
     _interceptors[type].push(

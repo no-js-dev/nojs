@@ -3125,3 +3125,205 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
     expect(headers['X-CSRF-Token']).toBeUndefined();
   });
 });
+
+describe('HTTP failure warning redaction', () => {
+  test('failure warning redacts sensitive query parameter values but keeps the path', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }"><div get="/api/me?access_token={t}&page=2"></div></div>`;
+    processTree(document.body);
+    await new Promise((r) => setTimeout(r, 50));
+    const line = spy.mock.calls.map((c) => c.join(' ')).find((l) => l.includes('failed'));
+    spy.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    expect(line).toContain('/api/me');
+    expect(line).toContain('page=2');
+    expect(line).not.toContain('TOKEN-SECRET');
+  });
+
+  test('fetch:error, error and devtools payloads carry the redacted url', async () => {
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    const onFetchError = jest.fn();
+    const onError = jest.fn();
+    const onDevtools = jest.fn();
+    _eventBus['fetch:error'] = [onFetchError];
+    _eventBus['error'] = [onError];
+    _config.devtools = true;
+    window.addEventListener('nojs:devtools', onDevtools);
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }"><div get="/api/me?access_token={t}&page=2"></div></div>`;
+    processTree(document.body);
+    await new Promise((r) => setTimeout(r, 50));
+    window.removeEventListener('nojs:devtools', onDevtools);
+    _config.devtools = false;
+    delete _eventBus['fetch:error'];
+    delete _eventBus['error'];
+    spy.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    const errDetail = onDevtools.mock.calls.map((c) => c[0].detail).find((d) => d.type === 'fetch:error');
+    for (const url of [onFetchError.mock.calls[0][0].url, onError.mock.calls[0][0].url, errDetail.data.url]) {
+      expect(url).toContain('/api/me');
+      expect(url).toContain('page=2');
+      expect(url).not.toContain('TOKEN-SECRET');
+    }
+  });
+});
+
+describe('NOJS-HTTP-001 — form fields are read before the loading template renders', () => {
+  beforeEach(httpSetup);
+  afterEach(httpTeardown);
+
+  // Login form from docs/md/data-fetching.md ("Form Submission").
+  function mountLoginForm(withLoading) {
+    document.body.innerHTML = `
+      <div state="{}">
+        <form post="/login"
+              success="#loginSuccess"
+              error="#loginError"
+              ${withLoading ? 'loading="#loginLoading"' : ''}>
+          <input type="text" name="email" />
+          <input type="password" name="password" />
+          <button type="submit">Login</button>
+        </form>
+      </div>
+      <template id="loginSuccess" var="result">
+        <p>Welcome, <span bind="result.user.name"></span>!</p>
+      </template>
+      <template id="loginError" var="err">
+        <p class="error" bind="err.message"></p>
+      </template>
+      <template id="loginLoading"><p>Signing in...</p></template>`;
+    processTree(document.body);
+    const form = document.querySelector('form');
+    form.querySelector('[name="email"]').value = 'a@b.c';
+    form.querySelector('[name="password"]').value = 'hunter2';
+    return form;
+  }
+
+  test('form with loading= sends the typed field values', async () => {
+    const form = mountLoginForm(true);
+    let formTextAtFetch;
+    global.fetch.mockImplementation(() => {
+      formTextAtFetch = form.textContent;
+      return Promise.resolve(mockJsonResponse({ user: { name: 'Ada' } }));
+    });
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    // The loading template had replaced the inputs when the request went out.
+    expect(formTextAtFetch).toContain('Signing in...');
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      email: 'a@b.c',
+      password: 'hunter2',
+    });
+  });
+
+  test('control: same form without loading= sends the typed field values', async () => {
+    const form = mountLoginForm(false);
+    global.fetch.mockResolvedValue(mockJsonResponse({ user: { name: 'Ada' } }));
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      email: 'a@b.c',
+      password: 'hunter2',
+    });
+  });
+});
+
+describe('HTTP URL placeholders: dot-segment values', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  // The placeholder must stay a non-empty child segment of /api/users/ (not
+  // the parent collection, not a sibling) and a warning must be emitted.
+  const cases = [
+    ['get', '/api/users/{id}/avatar', ['', 'api', 'users', null, 'avatar']],
+    ['delete', '/api/users/{id}', ['', 'api', 'users', null]],
+  ];
+
+  test.each(
+    ['.', '..'].flatMap((id) => cases.map((c) => [id, ...c]))
+  )('placeholder value "%s" in %s="%s" cannot re-target the request', async (id, method, url, shape) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ id }));
+    const el = document.createElement(method === 'get' ? 'div' : 'button');
+    el.setAttribute(method, url);
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    if (method !== 'get') el.click();
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const requested = global.fetch.mock.calls[0][0];
+    const segs = new URL(requested, 'http://localhost').pathname.split('/');
+    expect(segs.length).toBe(shape.length);
+    shape.forEach((expected, i) => {
+      if (expected === null) expect(segs[i]).not.toBe('');
+      else expect(segs[i]).toBe(expected);
+    });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  // Regression guard: query values are not path segments and stay unchanged.
+  test.each(['.', '..'])('query placeholder value "%s" is sent unchanged', async (q) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ q }));
+    const el = document.createElement('div');
+    el.setAttribute('get', '/s?q={q}');
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(global.fetch.mock.calls[0][0]).toBe('/s?q=' + q);
+  });
+});

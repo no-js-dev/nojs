@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Routing (history mode, query and hash) — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    nav a { margin-right: 1rem; color: #333; }
+  </style>
+</head>
+<body>
+  <!-- History mode needs an SPA fallback: the spec serves this file via page.route() for every /history-query/* URL -->
+
+  <!-- Test 1–2: Navigation -->
+  <section>
+    <p class="test-label">Test 1–2: History-mode navigation</p>
+    <nav data-test="nav">
+      <a route="/" data-test="nav-home">Home</a>
+      <a route="/search?x=1#frag" data-test="nav-search">Search</a>
+      <a route="/other" data-test="nav-other">Other</a>
+    </nav>
+  </section>
+
+  <!-- Test 1–2: Route outlet -->
+  <section>
+    <p class="test-label">Test 1–2: Route outlet</p>
+    <div route-view data-test="outlet"></div>
+  </section>
+
+  <template route="/">
+    <div data-test="page-home">
+      <h2>Home Page</h2>
+    </div>
+  </template>
+
+  <template route="/search">
+    <div data-test="page-search">
+      <h2>Search Page</h2>
+      <p>x = <span data-test="query-x" bind="$route.query.x"></span></p>
+      <p>hash = <span data-test="route-hash" bind="$route.hash"></span></p>
+      <p id="frag">Fragment target</p>
+    </div>
+  </template>
+
+  <template route="/other">
+    <div data-test="page-other">
+      <h2>Other Page</h2>
+    </div>
+  </template>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({ router: { base: '/history-query', templates: '' } });
+    NoJS.init();
+  </script>
+</body>
+</html>

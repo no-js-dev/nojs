@@ -175,13 +175,15 @@ Use `persist-fields` to control exactly which fields are saved and restored. Fie
 </div>
 ```
 
-`persist-fields` accepts a comma-separated list of field names. Whitespace around each name is trimmed, so `"theme, sidebar"` and `"theme,sidebar"` are equivalent.
+`persist-fields` accepts a comma-separated list of field names. Whitespace around each name is trimmed, so `"theme, sidebar"` and `"theme,sidebar"` are equivalent. An empty `persist-fields` (or a bare attribute) is an empty allow-list: nothing is persisted.
+
+On restore, keys containing `.` or starting with `$` are ignored.
 
 | Attribute | Description |
 |-----------|-------------|
 | `persist` | Storage backend: `"localStorage"` or `"sessionStorage"` |
 | `persist-key` | Unique storage key. **Required** when `persist` is set |
-| `persist-fields` | Comma-separated list of fields to persist. Omit to persist all fields |
+| `persist-fields` | Comma-separated list of fields to persist. Omit to persist all fields. A present but empty value persists nothing |
 
 ### `persist-schema` — Validate Restored State
 

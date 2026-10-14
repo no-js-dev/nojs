@@ -670,6 +670,17 @@ describe('Expression Evaluator', () => {
       expect(result).toBe('/api/users/..%2Fadmin');  // .. + encoded /
     });
 
+    test.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const result = _interpolate('/a/{id}/b', createContext({ id }));
+      const segs = new URL(result, 'http://localhost').pathname.split('/');
+      expect(segs.length).toBe(4);
+      expect(segs[2]).not.toBe('');
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+      expect(_interpolate('/a/{id}', createContext({ id: 'a.b' }))).toBe('/a/a.b');
+    });
+
     test('encodes spaces and special characters in interpolated values', () => {
       const ctx = createContext({ q: 'hello world' });
       expect(_interpolate('/search?q={q}', ctx)).toBe('/search?q=hello%20world');
@@ -2165,5 +2176,39 @@ describe('Batch drain safety', () => {
     warnSpy.mockRestore();
 
     expect(warned).toBe(true);
+  });
+});
+
+describe('_collectKeys cache retention', () => {
+  // Every cache reachable from ctx by following cached vals back into an
+  // older cache (the shape the leak builds).
+  function cacheChain(ctx) {
+    const links = [];
+    for (let c = ctx.__raw.__collectKeysCache; c; c = c.result.vals.__collectKeysCache) links.push(c);
+    return links;
+  }
+
+  test('statements do not chain old caches or pin replaced state values', () => {
+    const ctx = createContext({ q: '', results: [] });
+    const firstResults = ctx.results;
+    for (let i = 0; i < 50; i++) {
+      ctx.results = [i];
+      _execStatement("q = q + 'a'", ctx);
+    }
+    const links = cacheChain(ctx);
+    expect(links.length).toBeLessThanOrEqual(1);
+    expect(links.some((c) => c.result.vals.results === firstResults)).toBe(false);
+  });
+
+  test('a child cache does not capture its own or its parent cache', () => {
+    const parent = createContext({ x: 0 });
+    const child = createContext({ y: 0 }, parent);
+    for (let i = 1; i <= 5; i++) {
+      parent.x = i;
+      _collectKeys(parent);
+      _collectKeys(child);
+    }
+    expect(cacheChain(child).length).toBeLessThanOrEqual(1);
+    expect(cacheChain(parent).length).toBeLessThanOrEqual(1);
   });
 });

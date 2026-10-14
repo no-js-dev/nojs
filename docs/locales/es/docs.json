@@ -1649,7 +1649,7 @@
         "reservedText": "Los siguientes nombres no pueden usarse con NoJS.global():",
         "reservedProto": "Los vectores de contaminación de prototipos (__proto__, constructor, prototype) también están bloqueados.",
         "reactivityTitle": "Reactividad",
-        "reactivityText": "Los valores de objeto pasados a NoJS.global() se envuelven automáticamente en un contexto reactivo. Las mutaciones disparan actualizaciones del DOM igual que los cambios de store o state.",
+        "reactivityText": "Los valores de objeto pasados a NoJS.global() se publican por referencia, no se copian: las plantillas ven el propio objeto del plugin, con sus métodos y valores Date. Las expresiones que modifican un global actualizan el DOM en todas partes; cuando el código del plugin modifica el objeto desde JavaScript, llama a NoJS.notify().",
         "ownershipTitle": "Seguimiento de Propiedad",
         "ownershipText": "Cuando un plugin registra un global durante su fase install, se convierte en el propietario. Si un plugin diferente sobrescribe ese global, se registra una advertencia."
       },

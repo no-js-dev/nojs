@@ -4,7 +4,7 @@
 
 import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
+import { _devtoolsEmit, _devtoolsEnabled, _ctxRegistry } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -231,7 +231,7 @@ const _sharedHandler = {
 export function createContext(data = {}, parent = null) {
   const raw = {};
   Object.assign(raw, data);
-  if (_config.devtools) raw.__devtoolsId = ++_ctxId;
+  if (_devtoolsEnabled()) raw.__devtoolsId = ++_ctxId;
 
   const meta = {
     parent,
@@ -270,6 +270,9 @@ export function _collectKeys(ctx) {
   while (c && c.__isProxy) {
     const raw = c.__raw;
     for (const k of Object.keys(raw)) {
+      // Skip the cache itself: copying it into vals would make each new cache
+      // hold the previous one, an unbounded chain pinning every old value.
+      if (k === "__collectKeysCache") continue;
       if (!allKeys.has(k)) {
         allKeys.add(k);
         allVals[k] = raw[k];

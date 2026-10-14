@@ -2069,6 +2069,9 @@ _setExprRootKeysFn(_exprRootKeys);
 //    proxies that live OUTSIDE the context chain, so the per-key write-back
 //    can never see them — they need an explicit keyless wake (NOJS
 //    plugin-system e2e 2). Such a root also forces roots = null.
+//
+//  dollarRoots — names of those roots without the "$", so the write-back can
+//    tell whether one is a published plugin global.
 const _REGISTRY_ROOTS = new Set(["$store", "$route", "$i18n"]);
 const _STMT_LOCALS = new Set(["$event", "$el", "$error"]);
 const _stmtScanCache = new Map();
@@ -2076,7 +2079,7 @@ const _stmtScanCache = new Map();
 function _stmtScan(expr) {
   let hit = _stmtScanCache.get(expr);
   if (hit !== undefined) return hit;
-  hit = { roots: null, hasGlobalRoot: false };
+  hit = { roots: null, hasGlobalRoot: false, dollarRoots: [] };
   const roots = new Set();
   let precise = true;
   try {
@@ -2095,6 +2098,7 @@ function _stmtScan(expr) {
         if (_STMT_LOCALS.has(t.value)) continue;
         if (!_REGISTRY_ROOTS.has(t.value)) {
           hit.hasGlobalRoot = true;
+          hit.dollarRoots.push(t.value.slice(1));
           precise = false;
           continue;
         }
@@ -2314,6 +2318,9 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         c.$notify();
         c = c.$parent;
       }
+      // A published plugin global is read app-wide: also wake its bindings
+      // in other scopes (the "$" store partition, see _watchExpr)
+      if (stmtScan.dollarRoots.some((k) => k in _globals)) _notifyStoreWatchers("$");
     }
   } catch (e) {
     _warn("Expression error:", expr, e.message);
@@ -2340,10 +2347,19 @@ export function resolve(path, ctx) {
 // "/" as "%2F". Path segments that intentionally contain "/" must be passed
 // as pre-encoded strings or concatenated outside of {} placeholders.
 export function _interpolate(str, ctx) {
-  return str.replace(/\{([^}]+)\}/g, (_, expr) => {
+  return str.replace(/\{([^}]+)\}/g, (_, expr, offset) => {
     const val = evaluate(expr.trim(), ctx);
     if (val == null) return "";
-    return encodeURIComponent(String(val));
+    const enc = encodeURIComponent(String(val));
+    // In the path part, "." / ".." survive encodeURIComponent and URL parsers
+    // collapse them (and their %2E forms) as dot-segments, re-targeting the
+    // request. Double-encode so the segment stays a literal child segment
+    // (the server decodes it to "%2E%2E"). Query/fragment values are unaffected.
+    if ((enc === "." || enc === "..") && !/[?#]/.test(str.slice(0, offset).replace(/\{[^}]*\}/g, ""))) {
+      _warn("Dot-segment value escaped in {" + expr.trim() + "}");
+      return enc.replace(/\./g, "%252E");
+    }
+    return enc;
   });
 }
 

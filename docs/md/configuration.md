@@ -112,7 +112,8 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
 | `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, and `get:config` returns per-key redacted headers. |
 | `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
-| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. |
+| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
+| `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in `supportedLocales` is ignored when `NoJS.i18n()` restores it. |
 
 ```html
 <script>

@@ -202,6 +202,8 @@ const NoJS = {
     if (opts.i18n) {
       _config.i18n = { ...prevI18n, ...opts.i18n };
       _i18n.locale = opts.i18n.defaultLocale || _i18n.locale;
+      // Re-render active t directives when the flag flips after init()
+      if (_initPromise && !!prevI18n.escapeParams !== !!_config.i18n.escapeParams) _notifyI18n();
     }
     if (opts.stores) {
       for (const [name, data] of Object.entries(opts.stores)) {
@@ -483,7 +485,9 @@ const NoJS = {
     if (Array.isArray(opts.supportedLocales)) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
+    const prevEscapeParams = !!_config.i18n.escapeParams;
     if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
+    if (opts.strictLocale != null) _config.i18n.strictLocale = opts.strictLocale;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 
@@ -496,9 +500,10 @@ const NoJS = {
       try {
         const saved = localStorage.getItem("nojs-locale");
         const supported = _config.i18n.supportedLocales;
-        // Same allow-list as the locale setter: ignore a stale or foreign value
-        if (saved && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
-          _warn(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+        // Opt-in (i18n.strictLocale): apply the locale setter's allow-list and
+        // ignore a stale or foreign value. Default restores it as in v1.21.1.
+        if (saved && _config.i18n.strictLocale && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _log(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
         } else if (saved) {
           _i18n._locale = saved;
           localeRestored = true;
@@ -526,7 +531,7 @@ const NoJS = {
     if (_initPromise) {
       if (_config.i18n.loadPath && !_i18n.locales[_i18n._locale]) {
         _loadI18nForLocale(_i18n._locale).then(() => _notifyI18n());
-      } else if (opts.locales) {
+      } else if (opts.locales || prevEscapeParams !== !!_config.i18n.escapeParams) {
         _notifyI18n();
       }
     }

@@ -3426,7 +3426,27 @@ describe('Router — page-jsonld value escaping', () => {
   const ldText = () =>
     document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
 
-  test('a $route.query value cannot inject properties into the JSON-LD', async () => {
+  test('with strictJsonld, a $route.query value cannot inject properties into the JSON-LD', async () => {
+    _config.strictJsonld = true;
+    try {
+      document.body.innerHTML = `
+        <div route-view></div>
+        <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
+          <p>search</p>
+        </template>
+      `;
+      const router = _createRouter();
+      await router.init();
+      await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
+      const data = JSON.parse(ldText());
+      expect(data['@type']).toBe('SearchResultsPage');
+      expect(data.name).toBe('x","@type":"Organization');
+    } finally {
+      _config.strictJsonld = false;
+    }
+  });
+
+  test('by default, a $route.query value whose v1.21.1 output is valid JSON is emitted as in v1.21.1', async () => {
     document.body.innerHTML = `
       <div route-view></div>
       <template route="/search" page-jsonld='{"@type":"SearchResultsPage","name":"{$route.query.q}"}'>
@@ -3435,10 +3455,27 @@ describe('Router — page-jsonld value escaping', () => {
     `;
     const router = _createRouter();
     await router.init();
-    await router.push('/search?q=' + encodeURIComponent('x","@type":"Organization'));
-    const data = JSON.parse(ldText());
-    expect(data['@type']).toBe('SearchResultsPage');
-    expect(data.name).toBe('x","@type":"Organization');
+    await router.push('/search?q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(ldText()).toBe('{"@type":"SearchResultsPage","name":"Say \\"hi\\""}');
+    expect(JSON.parse(ldText()).name).toBe('Say "hi"');
+  });
+
+  test('with strictJsonld, a pre-escaped $route.query value is escaped as data', async () => {
+    _config.strictJsonld = true;
+    try {
+      document.body.innerHTML = `
+        <div route-view></div>
+        <template route="/search" page-jsonld='{"name":"{$route.query.q}","n":{$route.query.n}}'>
+          <p>search</p>
+        </template>
+      `;
+      const router = _createRouter();
+      await router.init();
+      await router.push('/search?n=4&q=' + encodeURIComponent('Say \\"hi\\"'));
+      expect(JSON.parse(ldText())).toEqual({ name: 'Say \\"hi\\"', n: 4 });
+    } finally {
+      _config.strictJsonld = false;
+    }
   });
 
   test('a $route.query value containing </script> cannot terminate the script element', async () => {

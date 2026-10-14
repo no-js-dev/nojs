@@ -16,7 +16,7 @@
     The page owns a single managed <script type="application/ld+json" data-nojs>,
     so only one scenario emits JSON-LD per load: ?s=<name> selects it through
     an `if` on the page-jsonld host. Open with ?s=route#/product/7 for the
-    route-level (router.js) path.
+    route-level (router.js) path. Add &strict=1 to set strictJsonld.
   -->
   <main>
     <h1>page-jsonld context-aware escaping</h1>
@@ -81,6 +81,13 @@
       <div if="$store.e2e.s === 'reactive'" hidden page-jsonld>{"@type":"Offer","price":{p}}</div>
     </section>
 
+    <!-- 10. Values pre-escaped for v1.21.1 (valid v1.21.1 output is kept unless ?strict=1) -->
+    <section data-test="s-pre-escaped" state='{ "v": "Say \\\"hi\\\"", "list": ["https://a.example", "https://b.example"] }'>
+      <h2 class="test-label">Pre-escaped value and list.join pattern</h2>
+      <p>v = <code data-test="pre-escaped-value" bind="v"></code></p>
+      <div if="$store.e2e.s === 'pre-escaped'" hidden page-jsonld>{"name":"{v}","sameAs":["{list.join('","')}"]}</div>
+    </section>
+
     <!-- 9. Route-level page-jsonld (router.js path) -->
     <section data-test="s-route">
       <h2 class="test-label">Route template page-jsonld (hash mode)</h2>
@@ -105,6 +112,7 @@
   <script>
     NoJS.config({
       router: { useHash: true, suppressHashWarning: true },
+      strictJsonld: new URLSearchParams(location.search).has('strict'),
       stores: {
         e2e: {
           s: new URLSearchParams(location.search).get('s') || '',

@@ -2,6 +2,7 @@ import { _stores, _config } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { processTree, _disposeTree } from '../src/registry.js';
 import { findContext } from '../src/dom.js';
+import { evaluate } from '../src/evaluate.js';
 
 import '../src/filters.js';
 import '../src/directives/state.js';
@@ -484,16 +485,31 @@ describe('page-jsonld value escaping', () => {
     expect(JSON.parse(ldText())).toEqual({ '@type': 'Product', name: '27" Monitor' });
   });
 
-  test('a value cannot inject extra properties', () => {
+  test('a value whose v1.21.1 output is valid JSON is emitted as in v1.21.1 by default', () => {
     document.body.innerHTML = `
       <div state='{"q":"x\\",\\"@type\\":\\"Organization"}'>
         <div hidden page-jsonld>{"@type":"SearchResultsPage","name":"{q}"}</div>
       </div>
     `;
     processTree(document.body);
-    const data = JSON.parse(ldText());
-    expect(data['@type']).toBe('SearchResultsPage');
-    expect(data.name).toBe('x","@type":"Organization');
+    expect(ldText()).toBe('{"@type":"SearchResultsPage","name":"x","@type":"Organization"}');
+  });
+
+  test('with strictJsonld, a value cannot inject extra properties', () => {
+    _config.strictJsonld = true;
+    try {
+      document.body.innerHTML = `
+        <div state='{"q":"x\\",\\"@type\\":\\"Organization"}'>
+          <div hidden page-jsonld>{"@type":"SearchResultsPage","name":"{q}"}</div>
+        </div>
+      `;
+      processTree(document.body);
+      const data = JSON.parse(ldText());
+      expect(data['@type']).toBe('SearchResultsPage');
+      expect(data.name).toBe('x","@type":"Organization');
+    } finally {
+      _config.strictJsonld = false;
+    }
   });
 
   test('backslashes and newlines in a value are escaped', () => {
@@ -644,5 +660,129 @@ describe('page-jsonld context-aware escaping', () => {
     const ctx = findContext(document.querySelector('[page-jsonld]'));
     ctx.p = 42;
     expect(ldText()).toBe('{"price":42}');
+  });
+});
+
+// ─── page-jsonld v1.21.1 parity (default) and strictJsonld ──────────────────
+
+describe('page-jsonld v1.21.1 parity and strictJsonld', () => {
+  const U = '\\' + 'u';
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+  const attr = (s) => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+
+  // v1.21.1 head.js _interpolateRaw plus its "</" post-pass, verbatim.
+  function v1211(tpl, data) {
+    const ctx = createContext(data);
+    return tpl.replace(/\{\s*([^}"'{\s][^}]*)\}/g, (_, expr) => {
+      try {
+        const val = evaluate(expr.trim(), ctx);
+        return val != null ? String(val) : '';
+      } catch (_) {
+        return '';
+      }
+    }).replace(/<\//g, '<\\/');
+  }
+
+  function emit(tpl, data) {
+    document.body.innerHTML =
+      `<div state='${attr(JSON.stringify(data))}'><div hidden page-jsonld>${attr(tpl)}</div></div>`;
+    processTree(document.body);
+    return ldText();
+  }
+
+  afterEach(() => {
+    _config.strictJsonld = false;
+  });
+
+  const parity = [
+    ['a pre-escaped quoted value', '{"name":"{v}"}', { v: 'Say \\"hi\\"' }],
+    ['a quoted value with \\n text', '{"d":"{v}"}', { v: 'line\\nbreak' }],
+    ['a quoted value with a unicode escape as text', '{"n":"{v}"}', { v: 'caf' + U + '00e9' }],
+    ['a quoted value with \\/ text', '{"u":"{v}"}', { v: 'a\\/b' }],
+    ['a quoted value with an escaped backslash', '{"p":"{v}"}', { v: 'C:\\\\dir' }],
+    ['the list.join(\'","\') pattern', '{"sameAs":["{list.join(\'","\')}"]}', { list: ['https://a.example', 'https://b.example'] }],
+    ['a raw JSON fragment', '{"@type":"Product","offers":{o}}', { o: '{"price":5,"name":"A \\"B\\""}' }],
+    ['raw numbers and booleans', '{"p":{p},"n":{n},"b":{b}}', { p: 5.5, n: 0, b: false }],
+    ['a pre-escaped value next to a raw fragment', '{"name":"{v}","offers":{o}}', { v: 'Say \\"hi\\"', o: '[1,2]' }],
+  ];
+
+  test.each(parity)('default: %s equals the v1.21.1 output exactly', (_, tpl, data) => {
+    const expected = v1211(tpl, data);
+    expect(() => JSON.parse(expected)).not.toThrow();
+    const out = emit(tpl, data);
+    expect(out).toBe(expected);
+    expect(JSON.parse(out)).toEqual(JSON.parse(expected));
+  });
+
+  test('default: the list.join pattern keeps v1.21.1 data', () => {
+    const out = emit('{"sameAs":["{list.join(\'","\')}"]}', { list: ['https://a.example', 'https://b.example'] });
+    expect(JSON.parse(out)).toEqual({ sameAs: ['https://a.example', 'https://b.example'] });
+  });
+
+  test('default: a pre-escaped quoted value keeps its v1.21.1 data', () => {
+    expect(JSON.parse(emit('{"name":"{v}"}', { v: 'Say \\"hi\\"' }))).toEqual({ name: 'Say "hi"' });
+    expect(JSON.parse(emit('{"n":"{v}"}', { v: 'caf' + U + '00e9' }))).toEqual({ n: 'café' });
+  });
+
+  test('default: "<" in a value of valid v1.21.1 output is escaped without changing the data', () => {
+    const tpl = '{"name":"{v}","o":{o}}';
+    const data = { v: 'a</script><b>', o: '{"x":"<i>"}' };
+    const out = emit(tpl, data);
+    expect(out).not.toContain('<');
+    expect(JSON.parse(out)).toEqual(JSON.parse(v1211(tpl, data)));
+  });
+
+  const previouslyInvalid = [
+    ['an unescaped quote', '{"name":"{v}"}', { v: 'He said "hi"' }, { name: 'He said "hi"' }],
+    ['a lone backslash', '{"p":"{v}"}', { v: 'C:\\dir' }, { p: 'C:\\dir' }],
+    ['a real newline', '{"d":"{v}"}', { v: 'a\nb' }, { d: 'a\nb' }],
+    ['a value that would close the string', '{"n":"{v}"}', { v: 'a","b' }, { n: 'a","b' }],
+    [
+      'a pre-escaped value beside an unescaped one',
+      '{"a":"{p}","b":"{q}","o":{o}}',
+      { p: 'Say \\"hi\\"', q: 'He said "hi"', o: '{"k":1}' },
+      { a: 'Say "hi"', b: 'He said "hi"', o: { k: 1 } },
+    ],
+  ];
+
+  test.each(previouslyInvalid)('default: %s (invalid on v1.21.1) now yields valid JSON', (_, tpl, data, parsed) => {
+    expect(() => JSON.parse(v1211(tpl, data))).toThrow();
+    expect(JSON.parse(emit(tpl, data))).toEqual(parsed);
+  });
+
+  test('strictJsonld: a pre-escaped quoted value is escaped as data', () => {
+    _config.strictJsonld = true;
+    expect(JSON.parse(emit('{"name":"{v}"}', { v: 'Say \\"hi\\"' }))).toEqual({ name: 'Say \\"hi\\"' });
+  });
+
+  test('strictJsonld: the list.join pattern stays inside one string', () => {
+    _config.strictJsonld = true;
+    const out = emit('{"sameAs":["{list.join(\'","\')}"]}', { list: ['https://a.example', 'https://b.example'] });
+    expect(JSON.parse(out)).toEqual({ sameAs: ['https://a.example","https://b.example'] });
+  });
+
+  test('strictJsonld: raw fragments, numbers and booleans are still emitted as-is', () => {
+    _config.strictJsonld = true;
+    const out = emit('{"offers":{o},"p":{p},"b":{b}}', { o: '{"price":5}', p: 1.5, b: true });
+    expect(out).toBe('{"offers":{"price":5},"p":1.5,"b":true}');
+  });
+
+  test('strictJsonld: quoted and raw values cannot close the script element', () => {
+    _config.strictJsonld = true;
+    const out = emit('{"name":"{v}","o":{o}}', { v: 'a"</script>', o: '{"x":"</script>"}' });
+    expect(out).not.toContain('<');
+    expect(JSON.parse(out)).toEqual({ name: 'a"</script>', o: { x: '</script>' } });
+  });
+
+  test('strictJsonld can be turned on after the first render and applies on the next update', () => {
+    const tpl = '{"name":"{v}","p":{p}}';
+    document.body.innerHTML =
+      `<div state='${attr(JSON.stringify({ v: 'Say \\"hi\\"', p: 1 }))}'><div hidden page-jsonld>${tpl}</div></div>`;
+    processTree(document.body);
+    expect(JSON.parse(ldText()).name).toBe('Say "hi"');
+    _config.strictJsonld = true;
+    findContext(document.querySelector('[page-jsonld]')).p = 2;
+    expect(JSON.parse(ldText())).toEqual({ name: 'Say \\"hi\\"', p: 2 });
   });
 });

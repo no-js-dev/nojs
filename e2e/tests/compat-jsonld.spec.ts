@@ -148,3 +148,31 @@ test.describe('page-jsonld — accessibility', () => {
     expect(serious).toEqual([]);
   });
 });
+
+test.describe('page-jsonld — v1.21.1 parity and strictJsonld', () => {
+  const TPL_OUT = '{"name":"Say \\"hi\\"","sameAs":["https://a.example","https://b.example"]}';
+
+  test('12 — Default: values pre-escaped for v1.21.1 and list.join keep the v1.21.1 bytes', async ({ page }) => {
+    const text = await emitted(page, '?s=pre-escaped');
+    expect(text).toBe(TPL_OUT);
+    expect(JSON.parse(text)).toEqual({
+      name: 'Say "hi"',
+      sameAs: ['https://a.example', 'https://b.example'],
+    });
+  });
+
+  test('13 — strictJsonld: quoted values are always escaped as data', async ({ page }) => {
+    const text = await emitted(page, '?s=pre-escaped&strict=1');
+    expect(JSON.parse(text)).toEqual({
+      name: 'Say \\"hi\\"',
+      sameAs: ['https://a.example","https://b.example'],
+    });
+  });
+
+  test('14 — strictJsonld: raw fragments are still emitted verbatim', async ({ page }) => {
+    const text = await emitted(page, '?s=raw-object&strict=1');
+    expect(text).toBe(
+      '{"@context":"https://schema.org","@type":"Product","offers":{"price":5,"priceCurrency":"USD"}}',
+    );
+  });
+});

@@ -14,6 +14,7 @@ import '../src/directives/binding.js';
 import '../src/directives/conditionals.js';
 import '../src/directives/events.js';
 import { _isLoopElement } from '../src/directives/loops.js';
+import { _isCompleteExpr } from '../src/evaluate.js';
 
 function render(html) {
   document.body.innerHTML = html;
@@ -80,9 +81,16 @@ describe.each(['foreach', 'each', 'for'])('%s with array literals', (dir) => {
     expect(texts('li')).toEqual(['one', 'two']);
   });
 
-  test('trailing whitespace after the list expression', () => {
-    render(`<ul state="{ items: ['a', 'b'] }"><li ${dir}="i in items  " bind="i"></li></ul>`);
-    expect(texts('li')).toEqual(['a', 'b']);
+  test('surrounding whitespace around the expression', () => {
+    render(`<ul state="{ items: ['a', 'b'] }"><li ${dir}="  i in items  " bind="i"></li></ul>`);
+    if (dir === 'for') {
+      // `for` keeps v1.21.1 parity: a padded value is not a loop.
+      const li = document.querySelector('li');
+      expect(document.querySelectorAll('li').length).toBe(1);
+      expect(li.getAttribute('for')).toBe('  i in items  ');
+    } else {
+      expect(texts('li')).toEqual(['a', 'b']);
+    }
   });
 
   test('empty literal with spaces renders the else template', () => {
@@ -161,29 +169,118 @@ describe('_isLoopElement with spaced list expressions', () => {
     expect(texts('output')).toEqual(['1', '2']);
   });
 
-  test('for on other elements accepts leading whitespace', () => {
-    render(`<ul state="{}"><li for="
-      x in ['a', 'b']" bind="x"></li></ul>`);
-    expect(texts('li')).toEqual(['a', 'b']);
-  });
-
-  test('matching stays linear on long whitespace runs', () => {
-    const el = document.createElement('li');
-    const ws = ' '.repeat(100000);
-    const t0 = Date.now();
-    el.setAttribute('for', 'x in items' + ws + 'z' + ws);
-    expect(_isLoopElement(el)).toBe(true);
-    el.setAttribute('for', 'x' + ws + 'y');
-    expect(_isLoopElement(el)).toBe(false);
-    el.setAttribute('for', 'x in' + ws);
-    expect(_isLoopElement(el)).toBe(false);
-    expect(Date.now() - t0).toBeLessThan(500);
-  });
-
   test('native label for is left untouched by processTree', () => {
     render(`<div state="{}"><label for="email">Email</label><input id="email"></div>`);
     const label = document.querySelector('label');
     expect(label.getAttribute('for')).toBe('email');
     expect(label.textContent).toBe('Email');
+  });
+});
+
+describe('for attribute keeps v1.21.1 parity outside spaced list expressions', () => {
+  const XHTML = 'http://www.w3.org/1999/xhtml';
+  const SVG = 'http://www.w3.org/2000/svg';
+
+  function forEl(tag, value, doc = document, ns) {
+    const el = ns ? doc.createElementNS(ns, tag) : doc.createElement(tag);
+    el.setAttribute('for', value);
+    return el;
+  }
+
+  test('XHTML label/output (lowercase tagName) keep the native carve-out', () => {
+    const xml = new DOMParser().parseFromString(`<html xmlns="${XHTML}"><body/></html>`, 'application/xhtml+xml');
+    const output = forEl('output', 'x in y z', xml, XHTML);
+    const label = forEl('label', 'sum in totals ', xml, XHTML);
+    expect(output.tagName).toBe('output');
+    expect(_isLoopElement(output)).toBe(false);
+    expect(_isLoopElement(label)).toBe(false);
+    expect(_isLoopElement(forEl('label', "x in ['a', 'b']", xml, XHTML))).toBe(false);
+    expect(_isLoopElement(forEl('label', 'item in items', xml, XHTML))).toBe(true);
+  });
+
+  test('XHTML document: native output/label render, spaced each still loops', () => {
+    const xml = new DOMParser().parseFromString(
+      `<html xmlns="${XHTML}"><body><div id="root" state="{ items: ['a', 'b'] }">` +
+        `<output for="x in y z">calc</output><label for="sum in totals ">lab</label>` +
+        `<ul><li each="i in items | reverse" bind="i"></li></ul>` +
+      `</div></body></html>`,
+      'application/xhtml+xml',
+    );
+    const root = xml.getElementById('root');
+    processTree(root);
+    expect(root.querySelector('output').textContent).toBe('calc');
+    expect(root.querySelector('label').textContent).toBe('lab');
+    expect([...root.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['b', 'a']);
+  });
+
+  test('SVG-namespace label/output keep the native carve-out', () => {
+    expect(_isLoopElement(forEl('label', 'x in y z', document, SVG))).toBe(false);
+    expect(_isLoopElement(forEl('output', 'a in b c', document, SVG))).toBe(false);
+  });
+
+  test.each([
+    ['x in y z', false],
+    ['a in b ', false],
+    [' a in b', false],
+    ['x in items oops', false],
+    ['total in qty price', false],
+    ['item in items', true],
+    ["x in ['a', 'b']", true],
+    ['y in items | reverse', true],
+    ['n in items.slice(0, 2)', true],
+    ['u in [{ id: 1 }, { id: 2 }]', true],
+  ])('custom element for="%s" is a loop: %s', (value, expected) => {
+    expect(_isLoopElement(forEl('my-tip', value))).toBe(expected);
+    expect(_isLoopElement(forEl('li', value))).toBe(expected);
+  });
+
+  test('custom elements with a non-loop for value keep rendering', () => {
+    render(`<div state="{}">
+      <my-tip for="x in y z">tip</my-tip>
+      <my-tip for="sum in totals ">pad</my-tip>
+      <div for="a in b c">div</div>
+    </div>`);
+    expect(texts('my-tip')).toEqual(['tip', 'pad']);
+    expect(document.querySelector('my-tip').getAttribute('for')).toBe('x in y z');
+    expect(texts('div div')).toEqual(['div']);
+  });
+
+  test('custom elements with a spaced list expression loop', () => {
+    render(`<div state="{}">
+      <my-row for="x in [1, 2]" bind="x">raw</my-row>
+      <my-row for="y in ['a', 'b'] | reverse" class="r" bind="y">raw</my-row>
+    </div>`);
+    expect(texts('my-row:not(.r)')).toEqual(['1', '2']);
+    expect(texts('my-row.r')).toEqual(['b', 'a']);
+  });
+
+  test('matching stays linear on long whitespace runs', () => {
+    const ws = ' '.repeat(100000);
+    const t0 = Date.now();
+    expect(_isLoopElement(forEl('li', 'x in items' + ws + 'z'))).toBe(false);
+    expect(_isLoopElement(forEl('li', 'x in [' + ws + '1]'))).toBe(true);
+    expect(_isLoopElement(forEl('li', 'x' + ws + 'y'))).toBe(false);
+    expect(_isLoopElement(forEl('li', 'x in' + ws))).toBe(false);
+    expect(_isLoopElement(forEl('li', ws + 'x in xs' + ws))).toBe(false);
+    expect(_isLoopElement(forEl('output', 'x' + ws + 'in' + ws + 'y z'))).toBe(false);
+    render(`<ul state="{}"><li foreach="${ws}x in [${ws}1, 2]${ws}" bind="x"></li></ul>`);
+    expect(texts('li')).toEqual(['1', '2']);
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
+});
+
+describe('_isCompleteExpr', () => {
+  test.each([
+    ["['a', 'b']", true],
+    ['items | reverse', true],
+    ["items | where:'on':true", true],
+    ['a.b[0]', true],
+    ['y z', false],
+    ['qty price', false],
+    ['items |', false],
+    ['', false],
+    ['   ', false],
+  ])('%j → %s', (expr, expected) => {
+    expect(_isCompleteExpr(expr)).toBe(expected);
   });
 });

@@ -7,7 +7,7 @@
 
 import { createContext } from "../context.js";
 import { _watchExpr, _warn, _currentEl, _setCurrentEl } from "../globals.js";
-import { evaluate, resolve } from "../evaluate.js";
+import { evaluate, resolve, _isCompleteExpr } from "../evaluate.js";
 import { findContext, _cloneTemplate } from "../dom.js";
 import {
   registerDirective, processTree, _disposeTree,
@@ -41,20 +41,26 @@ function _stripLoopAttrs(clone, stripElse) {
   if (stripElse !== false) clone.removeAttribute("else");
 }
 
-// "<item> in <list expression>", matched against the trimmed value. The list
-// side is any expression, so it may contain whitespace:
-// `col in ['name', 'email']`, `n in [1, 2, 3]`.
+// "<item> in <list expression>". The list side is any expression, so it may
+// contain whitespace: `col in ['name', 'email']`, `n in [1, 2, 3]`.
 const _LOOP_EXPR_RE = /^(\w+)\s+in\s+([\s\S]+)$/;
-// <label for> and <output for> are native HTML attributes. Only the narrow
-// whitespace-free shape is claimed as a loop there, so native values such as
-// `<output for="x in y z">` keep rendering.
-const _NATIVE_FOR_LOOP_RE = /^(\w+)\s+in\s+(\S+)$/;
+// The whitespace-free shape every release up to v1.21.1 accepted.
+const _PATH_LOOP_RE = /^(\w+)\s+in\s+(\S+)$/;
 
+// `foreach`/`each` are NoJS-only, so their trimmed value takes any list
+// expression. `for` is also a native (label/output) or custom-element
+// attribute, so values that were not loops before stay plain attributes:
+// label/output only accept the narrow shape; other elements also accept a
+// spaced list when the value has no surrounding whitespace and the list
+// side parses completely (`x in y z` does not).
 function _matchLoopExpr(el, name, expr) {
-  if (name === "for" && (el.tagName === "LABEL" || el.tagName === "OUTPUT")) {
-    return expr.match(_NATIVE_FOR_LOOP_RE);
-  }
-  return expr.trim().match(_LOOP_EXPR_RE);
+  if (name !== "for") return expr.trim().match(_LOOP_EXPR_RE);
+  const narrow = expr.match(_PATH_LOOP_RE);
+  if (narrow) return narrow;
+  const tag = el.localName;
+  if (tag === "label" || tag === "output" || expr !== expr.trim()) return null;
+  const m = expr.match(_LOOP_EXPR_RE);
+  return m && _isCompleteExpr(m[2]) ? m : null;
 }
 
 // Collects managed clones between the start and end comment markers.

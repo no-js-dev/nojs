@@ -94,7 +94,7 @@ Set `strictDevtools: true` to harden devtools:
 - `nojs:devtools` events and the context registry are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
 - Store snapshots show context/store keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`. Keys are matched as substrings, so `keyboard` and `author` are redacted too.
 - `get:config` and the `config` getter return `headers` as an object with sensitive headers redacted per key, and `csrf.token` as `[REDACTED]`.
-- `fetch:success` and `fetch:error` devtools events carry the URL with sensitive query values (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`.
+- `fetch:success` and `fetch:error` devtools events carry the URL without its `#fragment` and with sensitive query values (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`.
 
 ```html
 <script>

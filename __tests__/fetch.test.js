@@ -1062,16 +1062,28 @@ describe('URL seen by untrusted request interceptors (strictRedaction: true)', (
     _config.strictRedaction = false;
   });
 
-  test('is the real url, byte for byte, when no parameter is sensitive', async () => {
-    for (const u of ['//cdn.example.com/a?x=1', 'HTTP://h.com/a?q=a%20b#frag', 'api/x?a=1&b=a+b', '/p', 'https://h.com/a?page=2']) {
+  test('is the real url, byte for byte, when no parameter is sensitive and there is no fragment', async () => {
+    for (const u of ['//cdn.example.com/a?x=1', 'HTTP://h.com/a?q=a%20b', 'api/x?a=1&b=a+b', '/p', 'https://h.com/a?page=2']) {
       expect(await seenUrl(u)).toBe(u);
+      _interceptors.request.length = 0;
+    }
+  });
+
+  test('drops the fragment', async () => {
+    const cases = [
+      ['HTTP://h.com/a?q=a%20b#frag', 'HTTP://h.com/a?q=a%20b'],
+      ['/api/x#access_token=SEKH', '/api/x'],
+      ['/api/x?q=1#a?token=b', '/api/x?q=1'],
+    ];
+    for (const [real, expected] of cases) {
+      expect(await seenUrl(real)).toBe(expected);
       _interceptors.request.length = 0;
     }
   });
 
   test('differs from the real url only in sensitive values, replaced by a literal [REDACTED]', async () => {
     const cases = [
-      ['//cdn.example.com/a?x=a%20b&access_token=S3&y=1#frag', '//cdn.example.com/a?x=a%20b&access_token=[REDACTED]&y=1#frag'],
+      ['//cdn.example.com/a?x=a%20b&access_token=S3&y=1#frag', '//cdn.example.com/a?x=a%20b&access_token=[REDACTED]&y=1'],
       ['HTTP://h.com/a?API_KEY=S&q=a+b', 'HTTP://h.com/a?API_KEY=[REDACTED]&q=a+b'],
       ['api/x?password=p&q=%20b', 'api/x?password=[REDACTED]&q=%20b'],
       ['/a?token=1&token=2', '/a?token=[REDACTED]&token=[REDACTED]'],
@@ -1421,6 +1433,58 @@ describe('v1.21.1 defaults: response interceptor URL bytes', () => {
     const seen = await run(url, 'http://localhost/api/x?q=1');
     expect(seen.map((s) => s.url)).toEqual([expected, expected]);
     expect(global.fetch.mock.calls[0][0]).toBe(url);
+  });
+});
+
+describe('URL fragments: request vs response interceptors and the insecure-HTTP warning', () => {
+  const URL_H = 'http://api.test/x?token=t&q=1#access_token=SEKH';
+
+  async function run() {
+    const seen = [];
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.request.push((u) => { seen.push(['app:req', u]); });
+    _interceptors.request.push({ fn: (u) => { seen.push(['plugin:req', u]); }, pluginName: 'untrusted' });
+    _interceptors.response.push((res, u) => { seen.push(['app:res', u]); });
+    _interceptors.response.push({ fn: (res, u) => { seen.push(['plugin:res', u]); }, pluginName: 'untrusted' });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, url: '', headers: new Headers(), text: () => Promise.resolve('{}') });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await _doFetch(URL_H, 'GET');
+    const warnings = warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('insecure HTTP'));
+    warn.mockRestore();
+    return { seen, warnings };
+  }
+
+  afterEach(() => {
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.strictRedaction = false;
+  });
+
+  test('defaults match v1.21.1: raw request URL, URL-object response URL, raw warning', async () => {
+    const { seen, warnings } = await run();
+    expect(seen).toEqual([
+      ['app:req', URL_H],
+      ['plugin:req', URL_H],
+      ['app:res', 'http://api.test/x?token=%5BREDACTED%5D&q=1#access_token=SEKH'],
+      ['plugin:res', 'http://api.test/x?token=%5BREDACTED%5D&q=1#access_token=SEKH'],
+    ]);
+    expect(warnings).toEqual(['[No.JS] Credentials sent over insecure HTTP: ' + URL_H]);
+    expect(global.fetch.mock.calls[0][0]).toBe(URL_H);
+  });
+
+  test('with strictRedaction every untrusted stage sees the same URL, without fragment or secrets', async () => {
+    _config.strictRedaction = true;
+    const { seen, warnings } = await run();
+    const expected = 'http://api.test/x?token=[REDACTED]&q=1';
+    expect(seen).toEqual([
+      ['app:req', expected],
+      ['plugin:req', expected],
+      ['app:res', expected],
+      ['plugin:res', expected],
+    ]);
+    expect(warnings).toEqual(['[No.JS] Credentials sent over insecure HTTP: ' + expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(URL_H);
   });
 });
 

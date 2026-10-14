@@ -387,7 +387,7 @@ function _tokenize(expr) {
   }
   return tokens;
 }
-function _parseExpr(tokens) {
+function _parseExpr(tokens, strict) {
   if (!tokens || tokens.length === 0) return { type: "Literal", value: void 0 };
   let pos = 0;
   function peek() {
@@ -828,6 +828,9 @@ function _parseExpr(tokens) {
     return expr;
   }
   const ast = parseTopLevel();
+  if (strict && pos < tokens.length) {
+    throw new SyntaxError(`Unexpected token "${tokens[pos].value}"`);
+  }
   return ast;
 }
 var _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };

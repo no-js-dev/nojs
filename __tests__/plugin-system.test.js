@@ -1220,13 +1220,13 @@ describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', ()
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Plugin globals are app-wide and published by reference (NOJS-API-001/006)
+//  Plugin globals are app-wide (NOJS-API-001)
 // ─────────────────────────────────────────────────────────────────────────
 // A global is read from unrelated scopes (header, sidebar, root bindings).
 // Every binding that reads it must follow a re-publish, a template write
 // from any scope, and a plugin-side mutation flushed with NoJS.notify().
-// Templates must see the plugin's own object: methods, Dates and identity.
-describe('plugin globals across scopes and by reference', () => {
+// This holds for the default reactive copy and for { byRef: true }.
+describe('plugin globals across scopes', () => {
   const flush = () => new Promise((r) => setTimeout(r, 0));
   const texts = () => ['a', 'b', 'c'].map((id) => document.getElementById(id).textContent);
 
@@ -1239,90 +1239,65 @@ describe('plugin globals across scopes and by reference', () => {
     NoJS.processTree(document.body);
   }
 
-  // NOJS-API-001
-  test('re-publishing with NoJS.global() updates every scope', async () => {
-    NoJS.global('flags', { beta: false });
-    render("$flags.beta ? 'on' : 'off'");
-    expect(texts()).toEqual(['off', 'off', 'off']);
+  describe.each([
+    ['default reactive copy', undefined],
+    ['byRef', { byRef: true }],
+  ])('%s', (_label, opts) => {
+    test('re-publishing with NoJS.global() updates every scope', async () => {
+      NoJS.global('flags', { beta: false }, opts);
+      render("$flags.beta ? 'on' : 'off'");
+      expect(texts()).toEqual(['off', 'off', 'off']);
 
-    NoJS.global('flags', { beta: true });
-    await flush();
-    expect(texts()).toEqual(['on', 'on', 'on']);
-  });
+      NoJS.global('flags', { beta: true }, opts);
+      await flush();
+      expect(texts()).toEqual(['on', 'on', 'on']);
+    });
 
-  // NOJS-API-001
-  test('a global first published after render updates every scope', async () => {
-    render("$late ? $late.v : 'none'");
-    expect(texts()).toEqual(['none', 'none', 'none']);
+    test('a global first published after render updates every scope', async () => {
+      render("$late ? $late.v : 'none'");
+      expect(texts()).toEqual(['none', 'none', 'none']);
 
-    NoJS.global('late', { v: 'yes' });
-    await flush();
-    expect(texts()).toEqual(['yes', 'yes', 'yes']);
-  });
+      NoJS.global('late', { v: 'yes' }, opts);
+      await flush();
+      expect(texts()).toEqual(['yes', 'yes', 'yes']);
+    });
 
-  // NOJS-API-001
-  test('in-place mutation followed by NoJS.notify() updates every scope', async () => {
-    NoJS.global('theme', { mode: 'dark' });
-    render('$theme.mode');
+    test('in-place mutation followed by NoJS.notify() updates every scope', async () => {
+      NoJS.global('theme', { mode: 'dark' }, opts);
+      render('$theme.mode');
 
-    _globals.theme.mode = 'light';
-    NoJS.notify();
-    await flush();
-    expect(texts()).toEqual(['light', 'light', 'light']);
-  });
+      _globals.theme.mode = 'light';
+      NoJS.notify();
+      await flush();
+      expect(texts()).toEqual(['light', 'light', 'light']);
+    });
 
-  // NOJS-API-001
-  test('a template write in one scope updates every scope', async () => {
-    NoJS.global('theme', { mode: 'dark' });
-    render('$theme.mode', `<button id="btn" on:click="$theme.mode = 'light'">t</button>`);
+    test('a template write in one scope updates every scope', async () => {
+      NoJS.global('theme', { mode: 'dark' }, opts);
+      render('$theme.mode', `<button id="btn" on:click="$theme.mode = 'light'">t</button>`);
 
-    document.getElementById('btn').click();
-    await flush();
-    expect(texts()).toEqual(['light', 'light', 'light']);
-  });
+      document.getElementById('btn').click();
+      await flush();
+      expect(texts()).toEqual(['light', 'light', 'light']);
+    });
 
-  // NOJS-API-006
-  test('object globals keep methods and Dates', () => {
-    const since = new Date(0);
-    NoJS.global('auth', { user: 'guest', since, logout() { this.user = null; } });
+    test('a nested write through a template updates every scope', async () => {
+      NoJS.global('acct', { profile: { name: 'guest' } }, opts);
+      render('$acct.profile.name', `<button id="btn" on:click="$acct.profile.name = 'ada'">t</button>`);
 
-    const ctx = createContext({});
-    expect(evaluate('typeof $auth.logout', ctx)).toBe('function');
-    expect(evaluate('$auth.since', ctx)).toBe(since);
-  });
+      document.getElementById('btn').click();
+      await flush();
+      expect(texts()).toEqual(['ada', 'ada', 'ada']);
+    });
 
-  // NOJS-API-006
-  test('templates see the published object itself', async () => {
-    const auth = { user: 'guest' };
-    NoJS.global('auth', auth);
-    render('$auth.user');
-    expect(evaluate('$auth', createContext({}))).toBe(auth);
+    // The safety check keeps nested eval/Function away from templates
+    test('nested eval in an object global never reaches templates', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      NoJS.global('evil', { run: eval }, opts);
 
-    auth.user = 'alice'; // the plugin updates its own object
-    NoJS.notify();
-    await flush();
-    expect(texts()).toEqual(['alice', 'alice', 'alice']);
-  });
-
-  // NOJS-API-006
-  test('a method called from a template updates every scope', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    NoJS.global('auth', { user: 'alice', logout() { this.user = 'guest'; } });
-    render('$auth.user', '<button id="btn" on:click="$auth.logout()">x</button>');
-
-    document.getElementById('btn').click();
-    await flush();
-    warnSpy.mockRestore();
-    expect(texts()).toEqual(['guest', 'guest', 'guest']);
-  });
-
-  // The safety check must still keep nested eval/Function away from templates
-  test('nested eval in an object global never reaches templates', () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    NoJS.global('evil', { run: eval });
-
-    expect(evaluate('$evil && $evil.run', createContext({}))).toBeUndefined();
-    warnSpy.mockRestore();
+      expect(evaluate('$evil && $evil.run', createContext({}))).toBeUndefined();
+      warnSpy.mockRestore();
+    });
   });
 
   // Hot paths: loop $-variables must not count as globals, and a statement
@@ -1349,7 +1324,373 @@ describe('plugin globals across scopes and by reference', () => {
   });
 });
 
-describe('Directive freeze — names covered by core wildcard directives', () => {
+// ─────────────────────────────────────────────────────────────────────────
+//  Default NoJS.global(): reactive copy, as in v1.21.1
+// ─────────────────────────────────────────────────────────────────────────
+// Plain objects are JSON-copied and wrapped in a reactive context, so
+// templates and plugin code get $watch/$set/$notify on the global.
+describe('NoJS.global() default — reactive copy (v1.21.1)', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const texts = () => ['a', 'b', 'c'].map((id) => document.getElementById(id).textContent);
+
+  function render(expr, extra = '') {
+    document.body.innerHTML =
+      `<div state="{}"><span id="a" bind="${expr}"></span>${extra}</div>` +
+      `<div state="{}"><span id="b" bind="${expr}"></span></div>` +
+      `<span id="c" bind="${expr}"></span>`;
+    NoJS.processTree(document.body);
+  }
+
+  test('a plain object is published as a reactive proxy', () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    expect(_globals.prefs.__isProxy).toBe(true);
+    expect(typeof _globals.prefs.$watch).toBe('function');
+    expect(typeof _globals.prefs.$set).toBe('function');
+    expect(typeof _globals.prefs.$notify).toBe('function');
+  });
+
+  test('$x.$set from a template on:click updates every scope', async () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    render('$prefs.theme', `<button id="btn" on:click="$prefs.$set('theme', 'light')">t</button>`);
+    expect(texts()).toEqual(['dark', 'dark', 'dark']);
+
+    document.getElementById('btn').click();
+    await flush();
+    expect(_globals.prefs.theme).toBe('light');
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  test('$x.$watch fires on writes from templates and from JavaScript', async () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    const seen = jest.fn();
+    const unwatch = _globals.prefs.$watch(seen);
+    render('$prefs.theme', `<button id="btn" on:click="$prefs.theme = 'light'">t</button>`);
+
+    document.getElementById('btn').click();
+    await flush();
+    expect(seen).toHaveBeenCalledTimes(1);
+
+    _globals.prefs.$set('theme', 'blue');
+    expect(seen).toHaveBeenCalledTimes(2);
+
+    unwatch();
+    _globals.prefs.theme = 'red';
+    expect(seen).toHaveBeenCalledTimes(2);
+  });
+
+  test('$x.$watch and $x.$notify are reachable from a template expression', () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    expect(evaluate('typeof $prefs.$watch', createContext({}))).toBe('function');
+    expect(evaluate('typeof $prefs.$notify', createContext({}))).toBe('function');
+  });
+
+  test('JS-side $x.$set wakes every scope without NoJS.notify()', async () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    render('$prefs.theme');
+
+    _globals.prefs.$set('theme', 'light');
+    await flush();
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  test('JS-side proxy write wakes every scope without NoJS.notify()', async () => {
+    NoJS.global('prefs', { theme: 'dark' });
+    render('$prefs.theme');
+
+    _globals.prefs.theme = 'light';
+    await flush();
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  test('$x.$notify() after a nested JS mutation wakes every scope', async () => {
+    NoJS.global('acct', { profile: { name: 'guest' } });
+    render('$acct.profile.name');
+
+    _globals.acct.profile.name = 'ada';
+    _globals.acct.$notify();
+    await flush();
+    expect(texts()).toEqual(['ada', 'ada', 'ada']);
+  });
+
+  test('a Date value becomes its JSON string', () => {
+    const since = new Date(0);
+    NoJS.global('auth', { since });
+    expect(_globals.auth.since).toBe(since.toJSON());
+    expect(evaluate('$auth.since', createContext({}))).toBe('1970-01-01T00:00:00.000Z');
+  });
+
+  test('methods are dropped from the copy', () => {
+    NoJS.global('auth', { user: 'guest', logout() {} });
+    expect(evaluate('typeof $auth.logout', createContext({}))).toBe('undefined');
+    expect(evaluate('$auth.user', createContext({}))).toBe('guest');
+  });
+
+  test('constructor and prototype data keys are accepted', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('item', { name: 'x', constructor: 'y', prototype: 'z' });
+    expectNoWarning(warnSpy, 'forbidden key');
+    warnSpy.mockRestore();
+
+    expect(_globals.item.__isProxy).toBe(true);
+    expect(evaluate('$item.name', createContext({}))).toBe('x');
+    // The evaluator still blocks access to the forbidden members
+    expect(evaluate('$item.constructor', createContext({}))).toBeUndefined();
+  });
+
+  test('own __proto__ keys are dropped from the copy', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const value = JSON.parse('{"a":1,"nested":{"__proto__":{"polluted":true},"b":2},"__proto__":{"polluted":true}}');
+    NoJS.global('data', value);
+    warnSpy.mockRestore();
+
+    const raw = _globals.data.__raw;
+    expect(Object.prototype.hasOwnProperty.call(raw, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(raw.nested, '__proto__')).toBe(false);
+    expect(raw.a).toBe(1);
+    expect(raw.nested.b).toBe(2);
+    expect({}.polluted).toBeUndefined();
+  });
+
+  test('mutating the original object does not change the global', () => {
+    const original = { count: 1, nested: { v: 1 } };
+    NoJS.global('stats', original);
+    original.count = 99;
+    original.nested.v = 99;
+    expect(_globals.stats).not.toBe(original);
+    expect(evaluate('$stats.count', createContext({}))).toBe(1);
+    expect(evaluate('$stats.nested.v', createContext({}))).toBe(1);
+  });
+
+  test('a reactive proxy is published as-is', () => {
+    const proxy = createContext({ a: 1 });
+    NoJS.global('ctxGlobal', proxy);
+    expect(_globals.ctxGlobal).toBe(proxy);
+  });
+
+  test('a non-serialisable value keeps the forbidden-key check', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('big', { n: 1n, constructor: 'x' });
+    expectWarning(warnSpy, 'forbidden key');
+    warnSpy.mockRestore();
+    expect('big' in _globals).toBe(false);
+  });
+
+  test('re-publishing detaches the wake from the previous value', async () => {
+    let reads = 0;
+    NoJS.filter('countGlobalReads', (v) => { reads++; return v; });
+    NoJS.global('prefs', { theme: 'dark' });
+    const previous = _globals.prefs;
+    render('$prefs.theme | countGlobalReads');
+
+    NoJS.global('prefs', { theme: 'light' });
+    await flush();
+    const before = reads;
+    previous.theme = 'stale';
+    await flush();
+    expect(reads).toBe(before);
+    expect(texts()).toEqual(['light', 'light', 'light']);
+  });
+
+  test('dispose() detaches the wake', async () => {
+    let reads = 0;
+    NoJS.filter('countDisposedReads', (v) => { reads++; return v; });
+    NoJS.global('prefs', { theme: 'dark' });
+    const previous = _globals.prefs;
+    render('$prefs.theme | countDisposedReads');
+
+    await NoJS.dispose();
+    const before = reads;
+    previous.theme = 'stale';
+    await flush();
+    expect(reads).toBe(before);
+  });
+
+  test('a binding that writes the global back settles instead of recursing', async () => {
+    NoJS.global('loop', { n: 0 });
+    NoJS.filter('bumpLoop', (v) => {
+      if (_globals.loop.n < 3) _globals.loop.n = _globals.loop.n + 1;
+      return v;
+    });
+    render('$loop.n | bumpLoop');
+
+    _globals.loop.n = 1;
+    await flush();
+    expect(_globals.loop.n).toBe(3);
+    expect(texts()).toEqual(['3', '3', '3']);
+  });
+
+  test('a plugin publishes in install() and templates mutate it via $set', async () => {
+    document.body.innerHTML = `
+      <header><span id="hdr" bind="$cart.count"></span></header>
+      <main state="{}"><button id="add" on:click="$cart.$set('count', $cart.count + 1)">add</button></main>`;
+    let watched = 0;
+    NoJS.use({
+      name: 'cart-plugin',
+      install(app) {
+        app.global('cart', { count: 0 });
+      },
+      init() {
+        _globals.cart.$watch(() => { watched++; });
+      },
+    });
+    await NoJS.init();
+    await flush();
+    expect(document.getElementById('hdr').textContent).toBe('0');
+
+    document.getElementById('add').click();
+    await flush();
+    expect(document.getElementById('hdr').textContent).toBe('1');
+    expect(watched).toBe(1);
+    await NoJS.dispose();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+//  NoJS.global(name, value, { byRef: true }) — opt-in by reference
+// ─────────────────────────────────────────────────────────────────────────
+describe('NoJS.global() with { byRef: true }', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const texts = () => ['a', 'b', 'c'].map((id) => document.getElementById(id).textContent);
+
+  function render(expr, extra = '') {
+    document.body.innerHTML =
+      `<div state="{}"><span id="a" bind="${expr}"></span>${extra}</div>` +
+      `<div state="{}"><span id="b" bind="${expr}"></span></div>` +
+      `<span id="c" bind="${expr}"></span>`;
+    NoJS.processTree(document.body);
+  }
+
+  test('object globals keep methods and Dates', () => {
+    const since = new Date(0);
+    NoJS.global('auth', { user: 'guest', since, logout() { this.user = null; } }, { byRef: true });
+
+    const ctx = createContext({});
+    expect(evaluate('typeof $auth.logout', ctx)).toBe('function');
+    expect(evaluate('$auth.since', ctx)).toBe(since);
+  });
+
+  test('templates see the published object itself', async () => {
+    const auth = { user: 'guest' };
+    NoJS.global('auth', auth, { byRef: true });
+    render('$auth.user');
+    expect(evaluate('$auth', createContext({}))).toBe(auth);
+
+    auth.user = 'alice'; // the plugin updates its own object
+    NoJS.notify();
+    await flush();
+    expect(texts()).toEqual(['alice', 'alice', 'alice']);
+  });
+
+  test('a method called from a template updates every scope', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('auth', { user: 'alice', logout() { this.user = 'guest'; } }, { byRef: true });
+    render('$auth.user', '<button id="btn" on:click="$auth.logout()">x</button>');
+
+    document.getElementById('btn').click();
+    await flush();
+    warnSpy.mockRestore();
+    expect(texts()).toEqual(['guest', 'guest', 'guest']);
+  });
+
+  test('Map and array values keep their identity', () => {
+    const tags = ['a', 'b'];
+    const index = new Map([['k', 1]]);
+    NoJS.global('tags', tags, { byRef: true });
+    NoJS.global('index', index, { byRef: true });
+    expect(_globals.tags).toBe(tags);
+    expect(_globals.index).toBe(index);
+    expect(evaluate('$index.get("k")', createContext({}))).toBe(1);
+  });
+
+  test('forbidden keys are rejected', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('bad', { name: 'x', constructor: 'y' }, { byRef: true });
+    expectWarning(warnSpy, 'forbidden key');
+    warnSpy.mockRestore();
+    expect('bad' in _globals).toBe(false);
+  });
+
+  test('nested Function is rejected', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.global('bad', { deep: { make: Function } }, { byRef: true });
+    expectWarning(warnSpy, 'forbidden reference');
+    warnSpy.mockRestore();
+    expect('bad' in _globals).toBe(false);
+  });
+
+  test('byRef: false and other truthy values keep the default copy', () => {
+    NoJS.global('a1', { v: 1 }, { byRef: false });
+    NoJS.global('a2', { v: 1 }, { byRef: 'yes' });
+    expect(_globals.a1.__isProxy).toBe(true);
+    expect(_globals.a2.__isProxy).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Directive names covered by core wildcard directives
+// ─────────────────────────────────────────────────────────────────────────
+// v1.21.1 lets plugins register on:*, class-*, bind-* and style-* names; the
+// exact name wins over the core wildcard for that attribute only.
+// strictDirectives: true rejects them.
+describe('Directive freeze — wildcard-covered names (default)', () => {
+  test.each([
+    ['on:clickoutside', 'on:*'],
+    ['class-x', 'class-*'],
+    ['bind-chart', 'bind-*'],
+    ['style-glow', 'style-*'],
+  ])('"%s" registers, runs, and the core %s handler still serves other attributes', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.directive(name, { init });
+    expectNoWarning(warnSpy, 'Cannot override');
+    warnSpy.mockRestore();
+
+    const host = document.createElement('div');
+    host.innerHTML =
+      `<div state="{ n: 0, on: true, c: 'red' }">` +
+      `<button id="el" ${name}="n" on:click="n = n + 1" class-active="on" bind-title="'t'" style-color="c"></button>` +
+      `<span id="out" bind="n"></span></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    const el = host.querySelector('#el');
+    expect(init).toHaveBeenCalledTimes(1);
+    expect(init.mock.calls[0][0]).toBe(el);
+    expect(init.mock.calls[0][1]).toBe(name);
+    expect(init.mock.calls[0][2]).toBe('n');
+
+    el.click();
+    expect(host.querySelector('#out').textContent).toBe('1');
+    expect(el.classList.contains('active')).toBe(true);
+    expect(el.getAttribute('title')).toBe('t');
+    expect(el.style.color).toBe('red');
+  });
+
+  test('the shadowing is logged in debug mode', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _config.debug = true;
+    NoJS.directive('bind-sparkline', { init() {} });
+    _config.debug = false;
+    expect(logSpy.mock.calls.some((args) =>
+      args.some((a) => typeof a === 'string' && a.includes('Directive "bind-sparkline" shadows core "bind-*" for that attribute.'))
+    )).toBe(true);
+    logSpy.mockRestore();
+  });
+
+  test('exact core names are still rejected', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    registerDirective('bind', { init() {} });
+    registerDirective('on:*', { init() {} });
+    expectWarning(warnSpy, 'Cannot override core directive "bind"');
+    expectWarning(warnSpy, 'Cannot override core directive "on:*"');
+    warnSpy.mockRestore();
+  });
+});
+
+describe('Directive freeze — wildcard-covered names with strictDirectives', () => {
+  beforeEach(() => { _config.strictDirectives = true; });
+  afterEach(() => { _config.strictDirectives = false; });
+
   test.each(['bind-href', 'on:click', 'class-active', 'style-color'])(
     'registering "%s" after freeze is rejected and the core handler stays active',
     (name) => {
@@ -1376,6 +1717,21 @@ describe('Directive freeze — names covered by core wildcard directives', () =>
     warnSpy.mockRestore();
   });
 
+  test('a plugin wildcard-named directive never runs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.directive('class-strictonly', { init });
+    warnSpy.mockRestore();
+
+    const host = document.createElement('div');
+    host.innerHTML = `<div state="{ on: true }"><p class-strictonly="on"></p></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(init).not.toHaveBeenCalled();
+    expect(host.querySelector('p').classList.contains('strictonly')).toBe(true);
+  });
+
   test('names not covered by a core directive still register', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const init = jest.fn();
@@ -1387,3 +1743,4 @@ describe('Directive freeze — names covered by core wildcard directives', () =>
     warnSpy.mockRestore();
   });
 });
+

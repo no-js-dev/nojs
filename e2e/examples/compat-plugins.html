@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plugin compatibility — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; text-align: center; }
+    .menu { border: 1px dashed #999; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Plugin compatibility</h1>
+
+    <!-- 1. A global published by a plugin, read in two unrelated scopes -->
+    <section>
+      <h2 class="test-label">Test 1: Plugin global read in several scopes</h2>
+      <p>Header count: <span class="value" data-test="header-count" bind="$cart.count"></span></p>
+      <div state="{ local: 1 }">
+        <p>Sidebar count: <span class="value" data-test="sidebar-count" bind="$cart.count"></span></p>
+      </div>
+    </section>
+
+    <!-- 2. Templates mutate the global through $set -->
+    <section state="{ step: 1 }">
+      <h2 class="test-label">Test 2: Template writes through $cart.$set</h2>
+      <button data-test="add-btn" on:click="$cart.$set('count', $cart.count + step)">Add to cart</button>
+      <p>Same-scope count: <span class="value" data-test="local-count" bind="$cart.count"></span></p>
+    </section>
+
+    <!-- 3. Plugin-side $watch and JavaScript $set -->
+    <section>
+      <h2 class="test-label">Test 3: Plugin $watch and JavaScript $set</h2>
+      <p>Watch calls: <span class="value" data-test="watch-calls">0</span></p>
+      <button data-test="js-set-btn" type="button" id="js-set-btn">Set count to 100 from JavaScript</button>
+      <p>Has $notify: <span class="value" data-test="has-notify" bind="typeof $cart.$notify"></span></p>
+    </section>
+
+    <!-- 4. Default globals are reactive copies -->
+    <section>
+      <h2 class="test-label">Test 4: Default globals are copies</h2>
+      <p>Since: <span class="value" data-test="profile-since" bind="$profile.since"></span></p>
+      <p>Greet method: <span class="value" data-test="profile-greet" bind="typeof $profile.greet"></span></p>
+      <p>Name: <span class="value" data-test="profile-name" bind="$profile.name"></span></p>
+      <p>Constructor data: <span class="value" data-test="profile-kind" bind="$profile.kind"></span></p>
+    </section>
+
+    <!-- 5. Plugin directives named under core wildcards -->
+    <section state="{ open: true, theme: 'pie' }">
+      <h2 class="test-label">Test 5: Wildcard-named plugin directives</h2>
+      <div class="menu" data-test="menu" on:clickoutside="open = false" class-x="open" bind-chart="theme">
+        <p>Menu open: <span class="value" data-test="menu-open" bind="open"></span></p>
+      </div>
+      <button data-test="outside-btn" type="button">Click outside the menu</button>
+      <p>Directive calls: <span class="value" data-test="directive-calls"></span></p>
+    </section>
+
+    <!-- 6. Opt-in byRef global keeps methods, Dates and Maps -->
+    <section>
+      <h2 class="test-label">Test 6: byRef global</h2>
+      <p>User: <span class="value" data-test="session-user" bind="$session.user"></span></p>
+      <p>Year: <span class="value" data-test="session-year" bind="$session.since.getUTCFullYear()"></span></p>
+      <p>Roles: <span class="value" data-test="session-roles" bind="$session.roles.size"></span></p>
+      <button data-test="login-btn" on:click="$session.login('ada')">Log in</button>
+      <div state="{}">
+        <p>Other scope user: <span class="value" data-test="session-user-2" bind="$session.user"></span></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    // ?strict=1 turns on the opt-in directive hardening before plugins install
+    if (new URLSearchParams(location.search).get('strict') === '1') {
+      NoJS.config({ strictDirectives: true });
+    }
+
+    window.__directiveCalls = [];
+    const record = (name) => {
+      window.__directiveCalls.push(name);
+      const out = document.querySelector('[data-test="directive-calls"]');
+      if (out) out.textContent = window.__directiveCalls.join(',');
+    };
+
+    // ── Plugin: cart (default reactive global) ──
+    NoJS.use({
+      name: 'cart',
+      install(app) {
+        app.global('cart', { count: 0 });
+        app.global('profile', { name: 'Ada', since: new Date(Date.UTC(2020, 0, 1)), greet() {}, constructor: 'person', kind: 'person' });
+      },
+      init(app) {
+        const cart = app.evaluate('$cart', app.createContext({}));
+        let calls = 0;
+        cart.$watch(() => {
+          calls++;
+          document.querySelector('[data-test="watch-calls"]').textContent = String(calls);
+        });
+        document.getElementById('js-set-btn').addEventListener('click', () => cart.$set('count', 100));
+      },
+    });
+
+    // ── Plugin: session (byRef global) ──
+    NoJS.use({
+      name: 'session',
+      install(app) {
+        app.global('session', {
+          user: 'guest',
+          since: new Date(Date.UTC(2021, 5, 1)),
+          roles: new Map([['reader', true], ['writer', true]]),
+          login(name) { this.user = name; },
+        }, { byRef: true });
+      },
+    });
+
+    // ── Plugin: directives under core wildcard names ──
+    NoJS.use({
+      name: 'ui-directives',
+      install(app) {
+        app.directive('on:clickoutside', {
+          init(el, name, expr) {
+            record(name);
+            const onDoc = (e) => {
+              if (el.contains(e.target)) return;
+              app.findContext(el).$set('open', false);
+            };
+            document.addEventListener('click', onDoc);
+          },
+        });
+        app.directive('class-x', {
+          init(el, name) { record(name); el.dataset.x = 'custom'; },
+        });
+        app.directive('bind-chart', {
+          init(el, name, expr) {
+            record(name);
+            el.dataset.chart = app.evaluate(expr, app.findContext(el));
+          },
+        });
+      },
+    });
+  </script>
+</body>
+</html>

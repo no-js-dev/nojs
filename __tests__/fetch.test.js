@@ -1362,6 +1362,7 @@ describe('v1.21.1 defaults: response interceptor URL bytes', () => {
     ['http://API.test:80/x?token=1#h', 'http://api.test/x?token=%5BREDACTED%5D#h'],
     ['http://api.test/x?a=1&a=2&token=t&token=u', 'http://api.test/x?a=1&a=2&token=%5BREDACTED%5D'],
     ['/api/users', '/api/users'],
+    ['/api/x#access_token=SEKH', '/api/x'],
   ];
 
   const run = async (url, responseUrl) => {
@@ -1408,6 +1409,18 @@ describe('v1.21.1 defaults: response interceptor URL bytes', () => {
       { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
       { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
     ]);
+  });
+
+  test.each([
+    ['/api/x#access_token=SEKH', '/api/x'],
+    ['/api/x?token=t&q=1#access_token=SEKH', '/api/x?token=[REDACTED]&q=1'],
+    ['http://api.test/x?q=1#frag', 'http://api.test/x?q=1'],
+    ['/api/x?q=1', '/api/x?q=1'],
+  ])('with strictRedaction the fragment is dropped: %s is seen as %s', async (url, expected) => {
+    _config.strictRedaction = true;
+    const seen = await run(url, 'http://localhost/api/x?q=1');
+    expect(seen.map((s) => s.url)).toEqual([expected, expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(url);
   });
 });
 

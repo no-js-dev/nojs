@@ -94,8 +94,12 @@ function _redactUrlParamsLegacy(url) {
   }
 }
 
+// Strict mode drops the fragment: it may carry tokens (e.g. OAuth implicit
+// flow) and never reaches the server.
 function _redactInterceptorUrl(url) {
-  return _config.strictRedaction ? _redactUrlParams(url) : _redactUrlParamsLegacy(url);
+  if (!_config.strictRedaction) return _redactUrlParamsLegacy(url);
+  const h = typeof url === "string" ? url.indexOf("#") : -1;
+  return _redactUrlParams(h === -1 ? url : url.slice(0, h));
 }
 
 // URL for fetch:success / fetch:error / error event payloads.

@@ -81,7 +81,15 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-Only the generic `error` attribute accepts a template reference. An `error-{rule}` value is always used as message text, so `error-required="#reqTpl"` shows the text `#reqTpl`.
+`error-{rule}="#tplId"` also renders that template when that rule fails, with `$rule` and inside the same `aria-live` wrapper. The message, though, both `$error` inside the template and `$form.errors`, is the literal text `#tplId`. Write the message in the template itself, or use the generic `error="#tplId"` with `$rule`:
+
+```html
+<input name="user" required error-required="#reqTpl" />
+
+<template id="reqTpl">
+  <span class="field-error">Please choose a username</span>
+</template>
+```
 
 ---
 

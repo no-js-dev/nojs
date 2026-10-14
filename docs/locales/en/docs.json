@@ -707,7 +707,7 @@
       },
       "urlEncoding": {
         "title": "URL Interpolation and Encoding",
-        "text": "Since v1.10, all <code>{placeholder}</code> values in URL attributes are automatically passed through <code>encodeURIComponent()</code>. This is safe for query parameters and single-level path segments, but will break multi-segment paths that contain slashes — because <code>/</code> becomes <code>%2F</code>. If your value contains path separators, concatenate outside the braces instead."
+        "text": "Since v1.10, all <code>&#123;placeholder&#125;</code> values in URL attributes are automatically passed through <code>encodeURIComponent()</code>. This is safe for query parameters and single-level path segments, but will break multi-segment paths that contain slashes — because <code>/</code> becomes <code>%2F</code>. If your value contains path separators, use one placeholder per path segment instead."
       },
       "skeleton": {
         "title": "Skeleton Placeholders",
@@ -1507,7 +1507,7 @@
         "title": "error-boundary — Catch Errors in Subtree",
         "text": "Wrap a section of your page with error-boundary to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:",
         "type1": "Event handler errors — when an event handler statement (for example on:click) throws, No.JS dispatches a nojs:error CustomEvent that bubbles up from the element. A failing bind or other read-only expression does not trigger the boundary: it logs a warning and evaluates to undefined.",
-        "type2": "Window-level errors — uncaught JS errors and resource load failures (e.g. an <img> 404) that originate from elements inside the boundary.",
+        "type2": "Window-level errors — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an <img> 404) on elements inside the boundary.",
         "httpCaveat": "error-boundary does NOT catch failed HTTP requests made by get/post/put/patch/delete directives. Use the error attribute on the fetch element for per-request error handling, or NoJS.on('fetch:error', ...) for global HTTP error handling."
       },
       "boundaryEvents": {

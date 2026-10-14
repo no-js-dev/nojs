@@ -2326,7 +2326,15 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-Only the generic `error` attribute accepts a template reference. An `error-{rule}` value is always used as message text, so `error-required="#reqTpl"` shows the text `#reqTpl`.
+`error-{rule}="#tplId"` also renders that template when that rule fails, with `$rule` and inside the same `aria-live` wrapper. The message, though, both `$error` inside the template and `$form.errors`, is the literal text `#tplId`. Write the message in the template itself, or use the generic `error="#tplId"` with `$rule`:
+
+```html
+<input name="user" required error-required="#reqTpl" />
+
+<template id="reqTpl">
+  <span class="field-error">Please choose a username</span>
+</template>
+```
 
 ---
 
@@ -4776,7 +4784,7 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
 
 1. **Event handler errors** — when an event handler statement (for example an `on:click` expression) throws, No.JS dispatches a `nojs:error` CustomEvent that bubbles up from the element. A failing `bind` or other read-only expression does not trigger the boundary: it logs a warning and evaluates to `undefined` (see [Expression Errors](#expression-errors)).
-2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
+2. **Window-level errors** — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an `<img>` 404) on elements inside the boundary.
 
 > **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 

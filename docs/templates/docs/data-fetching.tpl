@@ -234,7 +234,7 @@
   <!-- URL Interpolation and Encoding -->
   <div class="doc-section">
     <h2 class="doc-title" id="data-fetching-url-encoding" t="docs.dataFetching.urlEncoding.title"></h2>
-    <p class="doc-text" t="docs.dataFetching.urlEncoding.text"></p>
+    <p class="doc-text" t="docs.dataFetching.urlEncoding.text" t-html></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Safe — query value, encoding is correct --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/search?q={query}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
 

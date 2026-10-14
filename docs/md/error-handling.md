@@ -47,7 +47,7 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
 
 1. **Event handler errors** — when an event handler statement (for example an `on:click` expression) throws, No.JS dispatches a `nojs:error` CustomEvent that bubbles up from the element. A failing `bind` or other read-only expression does not trigger the boundary: it logs a warning and evaluates to `undefined` (see [Expression Errors](#expression-errors)).
-2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
+2. **Window-level errors** — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an `<img>` 404) on elements inside the boundary.
 
 > **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 

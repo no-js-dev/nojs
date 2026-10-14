@@ -707,7 +707,7 @@
       },
       "urlEncoding": {
         "title": "Interpolation de URL e Encoding",
-        "text": "Desde a v1.10, todos os valores <code>{placeholder}</code> em atributos de URL passam automaticamente por <code>encodeURIComponent()</code>. Isso e seguro para query parameters e segmentos de path de nivel unico, mas vai quebrar paths multi-segmento que contenham barras — porque <code>/</code> vira <code>%2F</code>. Se seu valor contiver separadores de path, concatene fora das chaves."
+        "text": "Desde a v1.10, todos os valores <code>&#123;placeholder&#125;</code> em atributos de URL passam automaticamente por <code>encodeURIComponent()</code>. Isso e seguro para query parameters e segmentos de path de nivel unico, mas vai quebrar paths multi-segmento que contenham barras — porque <code>/</code> vira <code>%2F</code>. Se seu valor contiver separadores de path, use um placeholder por segmento de path."
       },
       "skeleton": {
         "title": "Skeleton Placeholders",
@@ -1502,7 +1502,7 @@
         "title": "error-boundary — Capturar Erros na Subárvore",
         "text": "Envolva uma seção da sua página com error-boundary para capturar erros que ocorrem na sua subárvore. O boundary intercepta dois tipos de erros:",
         "type1": "Erros de event handlers — quando um statement de event handler (por exemplo on:click) lança um erro, o No.JS dispara um CustomEvent nojs:error que propaga a partir do elemento. Um bind ou outra expressão só de leitura que falha não aciona o boundary: registra um warning e resulta em undefined.",
-        "type2": "Erros de nível window — erros JS não capturados e falhas de carregamento de recursos (ex: um <img> 404) originados de elementos dentro do boundary.",
+        "type2": "Erros de nível window — qualquer erro JS não capturado na página, mesmo um lançado fora do boundary (todo boundary na página mostra seu fallback), e falhas de carregamento de recursos (ex: um <img> 404) em elementos dentro do boundary.",
         "httpCaveat": "error-boundary NÃO captura requisições HTTP com falha feitas pelas diretivas get/post/put/patch/delete. Use o atributo error no elemento fetch para tratamento de erro por requisição, ou NoJS.on('fetch:error', ...) para tratamento global de erros HTTP."
       },
       "retry": {

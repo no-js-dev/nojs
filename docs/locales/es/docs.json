@@ -707,7 +707,7 @@
       },
       "urlEncoding": {
         "title": "Interpolación de URL y Encoding",
-        "text": "Desde v1.10, todos los valores <code>{placeholder}</code> en atributos de URL se pasan automáticamente por <code>encodeURIComponent()</code>. Esto es seguro para parámetros de query y segmentos de ruta de un solo nivel, pero romperá rutas de múltiples segmentos que contengan barras — porque <code>/</code> se convierte en <code>%2F</code>. Si tu valor contiene separadores de ruta, concatena fuera de las llaves."
+        "text": "Desde v1.10, todos los valores <code>&#123;placeholder&#125;</code> en atributos de URL se pasan automáticamente por <code>encodeURIComponent()</code>. Esto es seguro para parámetros de query y segmentos de ruta de un solo nivel, pero romperá rutas de múltiples segmentos que contengan barras — porque <code>/</code> se convierte en <code>%2F</code>. Si tu valor contiene separadores de ruta, usa un placeholder por segmento de ruta."
       },
       "skeleton": {
         "title": "Skeleton Placeholders",
@@ -1502,7 +1502,7 @@
         "title": "error-boundary — Capturar Errores en el Subárbol",
         "text": "Envuelve una sección de tu página con error-boundary para capturar errores que ocurren dentro de su subárbol. El boundary intercepta dos tipos de errores:",
         "type1": "Errores de handlers de eventos — cuando una sentencia de un handler de evento (por ejemplo on:click) lanza un error, No.JS dispara un CustomEvent nojs:error que se propaga desde el elemento. Un bind u otra expresión de solo lectura que falla no activa el boundary: registra una advertencia y devuelve undefined.",
-        "type2": "Errores de nivel window — errores JS no capturados y fallos de carga de recursos (ej: un <img> 404) que se originan en elementos dentro del boundary.",
+        "type2": "Errores de nivel window — cualquier error JS no capturado en la página, incluso uno lanzado fuera del boundary (cada boundary de la página muestra su fallback), y fallos de carga de recursos (ej: un <img> 404) en elementos dentro del boundary.",
         "httpCaveat": "error-boundary NO captura solicitudes HTTP fallidas hechas por las directivas get/post/put/patch/delete. Usa el atributo error en el elemento fetch para manejo de errores por solicitud, o NoJS.on('fetch:error', ...) para manejo global de errores HTTP."
       },
       "retry": {

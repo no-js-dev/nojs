@@ -4,13 +4,15 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { _i18n, _loadI18nNamespace, _notifyI18n } from "../i18n.js";
-import { _watchExpr, _watchI18n } from "../globals.js";
+import { _config, _log, _watchExpr, _watchI18n } from "../globals.js";
 import { evaluate } from "../evaluate.js";
 import { findContext, _sanitizeHtml } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 
 const _escapeHtml = (v) =>
   String(v).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+
+let _rawParamHintLogged = false;
 
 registerDirective("t", {
   priority: 20,
@@ -35,8 +37,13 @@ registerDirective("t", {
         if (attr.name.startsWith("t-") && attr.name !== "t" && attr.name !== "t-html") {
           const paramName = attr.name.replace("t-", "");
           const value = evaluate(attr.value, ctx) ?? attr.value;
-          // The translation string is trusted markup; param values are data.
-          params[paramName] = useHtml ? _escapeHtml(value) : value;
+          // t-html params are inserted raw (v1.21.1 behavior); the final string
+          // is still sanitized below. i18n.escapeParams opts into escaping them.
+          if (useHtml && _config.debug && !_config.i18n.escapeParams && !_rawParamHintLogged && typeof value === "string" && value.includes("<")) {
+            _rawParamHintLogged = true;
+            _log("i18n: t-html params are inserted as sanitized HTML. Set i18n.escapeParams: true to render them as text.");
+          }
+          params[paramName] = useHtml && _config.i18n.escapeParams ? _escapeHtml(value) : value;
         }
       }
       const text = _i18n.t(key, params);

@@ -4,6 +4,7 @@
 
 import { _config, _log, _warn } from "./globals.js";
 import { createContext } from "./context.js";
+import { resolveUrl } from "./fetch.js";
 
 // ─── Template HTML cache: url → html string ────────────────────────────────
 // Avoids re-fetching the same .tpl file on repeat navigation.
@@ -211,12 +212,17 @@ export function _sanitizeHtml(html) {
   return doc.body.innerHTML;
 }
 
-// Resolve a template src path. Templates are page assets: the API base
-// (`base=` attribute / `baseApiUrl`) is for HTTP directives and never applies.
+// Resolve a template src path.
 // - "./foo.tpl"  → relative to the parent template's folder (__srcBase)
-// - "/foo.tpl"   → absolute from server root (kept as-is for fetch)
-// - "foo.tpl"    → relative to page URL (kept as-is for fetch)
+// - "/foo.tpl"   → absolute from server root
+// - "foo.tpl"    → relative to page URL
+// By default "/foo.tpl", "foo.tpl" and a "./foo.tpl" with no parent template
+// go through resolveUrl, so the nearest ancestor `base=` or `baseApiUrl` is
+// prepended (v1.21.1 behavior). With `templates.pageRelative` they are
+// fetched as written and the browser resolves them against the page URL.
+let _templateBaseHintLogged = false;
 function _resolveTemplateSrc(src, tpl) {
+  let path = src;
   if (src.startsWith("./")) {
     // Walk up to find the nearest ancestor with __srcBase
     let node = tpl.parentNode;
@@ -226,13 +232,16 @@ function _resolveTemplateSrc(src, tpl) {
       }
       node = node.parentNode;
     }
-    // No ancestor base found — strip "./" and let fetch resolve from page.
-    // A page-relative URL shares the page's protocol, so it never needs
-    // _warnIfInsecureTemplateUrl's http:// check.
-    return src.slice(2);
+    // No ancestor base found — strip "./"
+    path = src.slice(2);
   }
-  // Absolute or plain relative — fetch resolves it against the page URL
-  return src;
+  if (_config.templates?.pageRelative) return path;
+  const resolved = resolveUrl(path, tpl);
+  if (resolved !== path && _config.debug && !_templateBaseHintLogged) {
+    _templateBaseHintLogged = true;
+    _log('Template "' + src + '" resolved to "' + resolved + '" via base= / baseApiUrl. Set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page instead.');
+  }
+  return resolved;
 }
 
 // Warn when a template URL uses plain HTTP from an HTTPS page (mixed content / MITM risk).

@@ -120,11 +120,8 @@ manipulation.
   <!-- GET fires 300ms after the user stops typing -->
   <div get="/products?q={query}"
        debounce="300"
-       as="results">
-
-    <p show="!results.length && query">
-      No results for <strong bind="query"></strong>
-    </p>
+       as="results"
+       empty="#noResults">
 
     <p each="item in results">
       <span bind="item.name"></span>
@@ -133,9 +130,15 @@ manipulation.
 
   </div>
 </div>
+
+<template id="noResults">
+  <p show="query">No results for <strong bind="query"></strong></p>
+</template>
 ```
 
-**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `show`
+An empty response (`[]`, `null` or `""`) does not update `results`; it renders the `empty` template in place of the list instead. The next non-empty response restores the list.
+
+**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `empty` template
 
 ---
 
@@ -230,8 +233,6 @@ the body; responses are cached with a body-aware key, and no CSRF token is added
   <label><input type="checkbox" name="new" value="true"> New arrivals</label>
 
   <button type="submit">Search</button>
-
-  <p show="results && !results.length">No matches</p>
   <article each="item in results" key="item.id">
     <h3 bind="item.name"></h3>
     <span bind="item.price | currency"></span>
@@ -240,6 +241,11 @@ the body; responses are cached with a body-aware key, and no CSRF token is added
 ```
 
 Field names must be unique: the form is serialized to a JSON object, so for a repeated name only the last checked value is sent.
+
+Two things to know about this form:
+
+- An empty response (`[]`, `null` or `""`) does not update `results`, so the results of the previous search stay on screen. An `empty` template would replace the form's own content (its inputs included), so this example does not use one.
+- After a successful search, the form's children are rendered again from their original markup, so the fields go back to their initial values. Bind a field with `model` (to state outside the form) to keep what the user typed.
 
 On a **non-form** element, `query` behaves like `get`: it auto-fires on mount and
 re-fetches when a placeholder in its URL changes. It sends the interpolated `body`

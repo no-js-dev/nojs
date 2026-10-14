@@ -342,6 +342,8 @@ Used on forms or triggered via `call`.
 </template>
 ```
 
+After a successful submit, the `success` template replaces the form's content. Without `success`, the form's children are rendered again from their original markup, so fields without `model` go back to their initial values; fields bound with `model` keep their state. The same applies to `<form query>`.
+
 ### PUT / PATCH / DELETE
 
 ```html
@@ -4797,7 +4799,7 @@ The `nojs:error` CustomEvent that an event handler error dispatches bubbles past
 </div>
 ```
 
-> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` is a different hook: it handles window `error` events whose target is inside the element (exposed as `$error`), and it does not receive `nojs:error`.
+> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` does not receive `nojs:error`; use `on:nojs:error`. (Currently `on:error` runs only for bubbling `error` events dispatched on the element or a descendant; resource load errors such as an `<img>` 404 do not reach it.)
 
 ---
 
@@ -5968,7 +5970,7 @@ Complete reference of every No.JS directive.
 | `patch` | `patch="/users/1"` | Partial update (PATCH) |
 | `delete` | `delete="/users/1"` | Delete data (DELETE) |
 | `as` | `as="users"` | Name for fetched data in context |
-| `body` | `body="key={expr}"` | Request body (`{expr}` values are URL-encoded; for JSON, use a `<form>` with named fields) |
+| `body` | `body="key={expr}"` | Request body (`{expr}` values are URL-encoded; send it with `headers='{"Content-Type": "application/x-www-form-urlencoded"}'`; for JSON, use a `<form>` with named fields) |
 | `headers` | `headers='{"Auth":"Bearer x"}'` | Request headers |
 | `params` | `params="{ page: 1 }"` | Query parameters |
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |
@@ -6302,11 +6304,8 @@ manipulation.
   <!-- GET fires 300ms after the user stops typing -->
   <div get="/products?q={query}"
        debounce="300"
-       as="results">
-
-    <p show="!results.length && query">
-      No results for <strong bind="query"></strong>
-    </p>
+       as="results"
+       empty="#noResults">
 
     <p each="item in results">
       <span bind="item.name"></span>
@@ -6315,9 +6314,15 @@ manipulation.
 
   </div>
 </div>
+
+<template id="noResults">
+  <p show="query">No results for <strong bind="query"></strong></p>
+</template>
 ```
 
-**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `show`
+An empty response (`[]`, `null` or `""`) does not update `results`; it renders the `empty` template in place of the list instead. The next non-empty response restores the list.
+
+**Key concepts:** `model` · `debounce` · dynamic `get` with interpolation · `empty` template
 
 ---
 

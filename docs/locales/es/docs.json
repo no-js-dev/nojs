@@ -66,7 +66,7 @@
         "delete": "Eliminar datos (DELETE)",
         "query": "Lectura con cuerpo (QUERY, RFC 10008)",
         "as": "Nombre para los datos obtenidos en el contexto",
-        "body": "Cuerpo de la solicitud",
+        "body": "Cuerpo de la solicitud (codificado para URL; envíalo con un encabezado Content-Type: application/x-www-form-urlencoded)",
         "headers": "Encabezados de la solicitud",
         "params": "Parámetros de consulta",
         "cached": "Cachear respuestas (memory/local/session)",
@@ -1512,7 +1512,7 @@
       "boundaryEvents": {
         "title": "Eventos de Error Boundary",
         "text": "El CustomEvent nojs:error que dispara un error de handler se propaga más allá del boundary, así que puedes escucharlo con on:nojs:error en el boundary o en cualquier ancestro, por ejemplo para registrar errores o mostrar una notificación.",
-        "callout": "$event.detail contiene message (string) y error (el objeto Error original). Los errores de window también muestran el fallback del boundary, pero no disparan nojs:error. El boundary no dispara ningún evento, y on:error es otro hook (eventos error de window que vienen del interior del elemento, expuestos como $error)."
+        "callout": "$event.detail contiene message (string) y error (el objeto Error original). Los errores de window también muestran el fallback del boundary, pero no disparan nojs:error. El boundary no dispara ningún evento. on:error no recibe nojs:error; usa on:nojs:error. (Actualmente on:error solo se ejecuta para eventos error que se propagan (bubbling), disparados en el elemento o en un descendiente; los errores de carga de recursos, como un <img> con 404, no le llegan.)"
       },
       "expressionErrors": {
         "title": "Errores de Expresión",

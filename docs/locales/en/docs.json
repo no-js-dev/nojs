@@ -66,7 +66,7 @@
         "delete": "Delete data (DELETE)",
         "query": "Read with a body (QUERY, RFC 10008)",
         "as": "Name for fetched data in context",
-        "body": "Request body",
+        "body": "Request body (URL-encoded; send it with a Content-Type: application/x-www-form-urlencoded header)",
         "headers": "Request headers",
         "params": "Query parameters",
         "cached": "Cache responses (memory/local/session)",
@@ -1512,7 +1512,7 @@
       "boundaryEvents": {
         "title": "Error Boundary Events",
         "text": "The nojs:error CustomEvent dispatched by an event handler error bubbles past the boundary, so you can listen for it with on:nojs:error on the boundary or on any ancestor, for example to log errors or show a notification.",
-        "callout": "$event.detail contains message (string) and error (the original Error object). Window-level errors also show the boundary's fallback but do not dispatch nojs:error. The boundary itself dispatches no event, and on:error is a different hook (window error events from inside the element, exposed as $error)."
+        "callout": "$event.detail contains message (string) and error (the original Error object). Window-level errors also show the boundary's fallback but do not dispatch nojs:error. The boundary itself dispatches no event. on:error does not receive nojs:error; use on:nojs:error. (Currently on:error runs only for bubbling error events dispatched on the element or a descendant; resource load errors such as an <img> 404 do not reach it.)"
       },
       "expressionErrors": {
         "title": "Expression Errors",

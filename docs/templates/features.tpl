@@ -46,7 +46,7 @@
       <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'features.showcase3.badge', nameKey: 'features.showcase3.title', descKey: 'features.showcase3.highlights', filename: 'event-handling.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ count: 0 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"count++"</span><span class="tok-punc">&gt;</span>
-    Clicked: <span class="tok-mustache">{{ count }}</span>
+    Clicked: <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"count"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>

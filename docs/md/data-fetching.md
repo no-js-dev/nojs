@@ -182,6 +182,8 @@ Used on forms or triggered via `call`.
 </template>
 ```
 
+After a successful submit, the `success` template replaces the form's content. Without `success`, the form's children are rendered again from their original markup, so fields without `model` go back to their initial values; fields bound with `model` keep their state. The same applies to `<form query>`.
+
 ### PUT / PATCH / DELETE
 
 ```html

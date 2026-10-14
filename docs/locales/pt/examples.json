@@ -46,7 +46,7 @@
     "formPost": {
       "badge": "Formulários",
       "name": "Envio de Formulário",
-      "desc": "Envie dados de formulário com <code>post</code> e <code>body</code>. Combine com <code>model</code> para campos reativos e validação inline."
+      "desc": "Envie um formulário com <code>post</code>: todo campo com <code>name</code> é enviado como um objeto JSON. Combine com <code>model</code> para mostrar o valor do campo ao vivo."
     },
     "pagination": {
       "badge": "Paginação",

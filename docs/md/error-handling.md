@@ -81,7 +81,7 @@ The `nojs:error` CustomEvent that an event handler error dispatches bubbles past
 </div>
 ```
 
-> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` is a different hook: it handles window `error` events whose target is inside the element (exposed as `$error`), and it does not receive `nojs:error`.
+> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` does not receive `nojs:error`; use `on:nojs:error`. (Currently `on:error` runs only for bubbling `error` events dispatched on the element or a descendant; resource load errors such as an `<img>` 404 do not reach it.)
 
 ---
 

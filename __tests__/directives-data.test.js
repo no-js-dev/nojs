@@ -3149,8 +3149,9 @@ describe('HTTP failure warning redaction', () => {
     expect(line).not.toContain('TOKEN-SECRET');
   });
 
-  test('with strictRedaction, fetch:error, error and devtools payloads carry the redacted url', async () => {
+  test('with strictRedaction and strictDevtools, fetch:error, error and devtools payloads carry the redacted url', async () => {
     _config.strictRedaction = true;
+    _config.strictDevtools = true;
     const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const originalFetch = global.fetch;
     global.fetch = jest.fn().mockResolvedValue({
@@ -3173,6 +3174,7 @@ describe('HTTP failure warning redaction', () => {
     window.removeEventListener('nojs:devtools', onDevtools);
     _config.devtools = false;
     _config.strictRedaction = false;
+    _config.strictDevtools = false;
     delete _eventBus['fetch:error'];
     delete _eventBus['error'];
     spy.mockRestore();
@@ -3400,7 +3402,7 @@ describe('v1.21.1 defaults: request body interpolation bytes', () => {
 });
 
 describe('v1.21.1 defaults: fetch:error payload url', () => {
-  test('fetch:error and error carry the raw url; the console warning and devtools stay redacted', async () => {
+  test('fetch:error, error and devtools carry the raw url; the console warning stays redacted', async () => {
     const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const originalFetch = global.fetch;
     global.fetch = jest.fn().mockResolvedValue({
@@ -3431,7 +3433,95 @@ describe('v1.21.1 defaults: fetch:error payload url', () => {
     expect(onFetchError.mock.calls[0][0].url).toBe('/api/me?access_token=TOKEN-SECRET&page=2');
     expect(onError.mock.calls[0][0].url).toBe('/api/me?access_token=TOKEN-SECRET&page=2');
     const errDetail = onDevtools.mock.calls.map((c) => c[0].detail).find((d) => d.type === 'fetch:error');
-    expect(errDetail.data.url).toBe('/api/me?access_token=[REDACTED]&page=2');
+    expect(errDetail.data.url).toBe('/api/me?access_token=TOKEN-SECRET&page=2');
     expect(line).not.toContain('TOKEN-SECRET');
+  });
+});
+
+describe('fetch event and devtools URLs per flag (get and call)', () => {
+  const RAW = '/api/ev?access_token=TOKEN-SECRET&page=2';
+  const RED = '/api/ev?access_token=[REDACTED]&page=2';
+  let warn;
+  let originalFetch;
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_eventBus).forEach((k) => delete _eventBus[k]);
+    _config.devtools = false;
+    _config.strictRedaction = false;
+    _config.strictDevtools = false;
+  });
+
+  async function run(markup, ok) {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok,
+      status: ok ? 200 : 500,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    const events = [];
+    for (const name of ['fetch:success', 'fetch:error', 'error']) {
+      _eventBus[name] = [(p) => events.push([name, p.url])];
+    }
+    const devtools = [];
+    const onDevtools = (e) => { if (/^fetch:/.test(e.detail.type)) devtools.push([e.detail.type, e.detail.data.url]); };
+    _config.devtools = true;
+    window.addEventListener('nojs:devtools', onDevtools);
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }">${markup}</div>`;
+    processTree(document.body);
+    const btn = document.querySelector('button');
+    if (btn) btn.click();
+    await new Promise((r) => setTimeout(r, 50));
+    window.removeEventListener('nojs:devtools', onDevtools);
+    const warnings = warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('failed'));
+    return { events, devtools, warnings };
+  }
+
+  const GET = `<div get="/api/ev?access_token={t}&page=2" as="r"></div>`;
+  const CALL = `<button call="/api/ev?access_token={t}&page=2">go</button>`;
+
+  test.each([['get', GET], ['call', CALL]])('%s: defaults carry the raw URL in events and devtools (v1.21.1)', async (_, markup) => {
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RAW]]);
+    expect(ok.devtools).toEqual([['fetch:success', RAW]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RAW], ['error', RAW]]);
+    expect(fail.devtools).toEqual([['fetch:error', RAW]]);
+  });
+
+  test('call: the failure warning keeps the raw URL by default (v1.21.1)', async () => {
+    const { warnings } = await run(CALL, false);
+    expect(warnings[0]).toContain(RAW);
+  });
+
+  test.each([['get', GET], ['call', CALL]])('%s: strictRedaction redacts event URLs and the warning, not devtools', async (_, markup) => {
+    _config.strictRedaction = true;
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RED]]);
+    expect(ok.devtools).toEqual([['fetch:success', RAW]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RED], ['error', RED]]);
+    expect(fail.devtools).toEqual([['fetch:error', RAW]]);
+    expect(fail.warnings[0]).toContain(RED);
+  });
+
+  test.each([['get', GET], ['call', CALL]])('%s: strictDevtools redacts devtools URLs only', async (_, markup) => {
+    _config.strictDevtools = true;
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RAW]]);
+    expect(ok.devtools).toEqual([['fetch:success', RED]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RAW], ['error', RAW]]);
+    expect(fail.devtools).toEqual([['fetch:error', RED]]);
   });
 });

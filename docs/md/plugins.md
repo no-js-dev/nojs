@@ -336,7 +336,8 @@ Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens wh
 - The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
 - Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
 - Untrusted request interceptors receive the URL with the values of sensitive query parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`. The request itself still goes to the real URL.
-- The `url` in `fetch:error` / `error` event payloads is redacted the same way.
+- Untrusted response interceptors and the response proxy's `url` get the same string-level redaction: only sensitive values change, the rest of the URL is kept as written. Without the flag they get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
+- The `url` in `fetch:success`, `fetch:error` and `error` event payloads, and in the `call` failure warning, is redacted the same way, for the HTTP verb directives and `call`.
 
 ---
 

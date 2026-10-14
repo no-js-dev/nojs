@@ -2342,7 +2342,7 @@ export function resolve(path, ctx) {
   }, ctx);
 }
 
-// Interpolate strings like '{"name":"{user.name}"}' (request bodies).
+// Interpolate request bodies like "name={user.name}&page={page}".
 // Every placeholder value is encoded with encodeURIComponent. `_hook` is
 // internal: _interpolate uses it to post-process URL placeholders.
 export function _interpolateEncoded(str, ctx, _hook) {

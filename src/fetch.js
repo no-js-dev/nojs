@@ -57,13 +57,55 @@ export function _redactUrlParams(url) {
   const query = url.slice(q + 1, end).split("&").map((pair) => {
     const eq = pair.indexOf("=");
     if (eq === -1) return pair;
-    let key = pair.slice(0, eq);
-    try { key = decodeURIComponent(key.replace(/\+/g, " ")); } catch { /* keep raw key */ }
-    return /token|key|secret|auth|password|credential/i.test(key)
+    return /token|key|secret|auth|password|credential/i.test(_decodeKey(pair.slice(0, eq)))
       ? pair.slice(0, eq + 1) + "[REDACTED]"
       : pair;
   }).join("&");
   return url.slice(0, q + 1) + query + url.slice(end);
+}
+
+// Decode a query key for matching. A malformed escape (e.g. "%ZZ") must not
+// hide the rest of the key, so fall back to decoding each valid %XX alone.
+function _decodeKey(raw) {
+  const key = raw.replace(/\+/g, " ");
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key.replace(/%[0-9a-f]{2}/gi, (m) => {
+      try { return decodeURIComponent(m); } catch { return m; }
+    });
+  }
+}
+
+// v1.21.1 URL redaction (URL-object based). Default for the URL handed to
+// untrusted response interceptors and the redacted response shell.
+function _redactUrlParamsLegacy(url) {
+  try {
+    const u = new URL(url, "http://localhost");
+    for (const key of [...u.searchParams.keys()]) {
+      if (/token|key|secret|auth|password|credential/i.test(key)) {
+        u.searchParams.set(key, "[REDACTED]");
+      }
+    }
+    // Return just the path+search if it was a relative URL
+    return url.startsWith("http") ? u.href : u.pathname + u.search;
+  } catch {
+    return url;
+  }
+}
+
+function _redactInterceptorUrl(url) {
+  return _config.strictRedaction ? _redactUrlParams(url) : _redactUrlParamsLegacy(url);
+}
+
+// URL for fetch:success / fetch:error / error event payloads.
+export function _eventUrl(url) {
+  return _config.strictRedaction ? _redactUrlParams(url) : url;
+}
+
+// URL for nojs:devtools fetch events.
+export function _devtoolsUrl(url) {
+  return _config.strictDevtools ? _redactUrlParams(url) : url;
 }
 
 // Response redaction helper for untrusted interceptors
@@ -77,7 +119,7 @@ function _redactResponse(response) {
       if (_isSensitiveHeader(h)) redactedHeaders.delete(h);
     }
   }
-  const redactedUrl = _redactUrlParams(response.url);
+  const redactedUrl = _redactInterceptorUrl(response.url);
   const redacted = Object.freeze({
     status: response.status,
     ok: response.ok,
@@ -142,7 +184,7 @@ function _globalHeadersFor(fullUrl, el) {
     return _isTrustedOrigin(fullUrl, el) ? headers : {};
   }
   if (_config.debug && Object.keys(headers).length > 0 && !_isTrustedOrigin(fullUrl, el)) {
-    const origin = _originOf(fullUrl) || fullUrl;
+    const origin = _originOf(fullUrl) || "(unparseable URL)";
     if (!_crossOriginHeaderLogged.has(origin)) {
       _crossOriginHeaderLogged.add(origin);
       _log(`Global headers sent to cross-origin ${origin}. Set scopeHeaders: true to limit them to the page, baseApiUrl and base= origins.`);
@@ -198,16 +240,8 @@ export async function _doFetch(
   // and uppercase-scheme (HTTP://evil.com) URLs cannot be misclassified as
   // same-origin. A parse failure is treated as NOT same-origin.
   if (_config.csrf && upperMethod !== "GET" && upperMethod !== "QUERY") {
-    let isSameOrigin = false;
-    if (typeof window !== "undefined") {
-      try {
-        isSameOrigin =
-          new URL(fullUrl.replace(/\\/g, "/"), window.location.href).origin ===
-          window.location.origin;
-      } catch {
-        isSameOrigin = false;
-      }
-    }
+    const isSameOrigin =
+      typeof window !== "undefined" && _originOf(fullUrl) === window.location.origin;
     if (isSameOrigin) {
       opts.headers[_config.csrf.header || "X-CSRF-Token"] =
         _config.csrf.token || "";
@@ -324,7 +358,7 @@ export async function _doFetch(
         const isTrusted = entry.pluginName && _plugins.get(entry.pluginName)?.options?.trusted === true;
 
         const interceptorResponse = isTrusted ? response : _redactResponse(response);
-        const interceptorUrl = isTrusted ? fullUrl : _redactUrlParams(fullUrl);
+        const interceptorUrl = isTrusted ? fullUrl : _redactInterceptorUrl(fullUrl);
 
         const result = await _withTimeout(
           Promise.resolve(fn(interceptorResponse, interceptorUrl)),

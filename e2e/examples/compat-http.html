@@ -39,7 +39,7 @@
     <!-- 4. Response headers seen by an app response interceptor -->
     <section>
       <h2 class="test-label">Response interceptor headers</h2>
-      <div get="/api/compat/me" as="me" success="me-tpl"></div>
+      <div get="/api/compat/me?q=a%20b&token=abc" as="me" success="me-tpl"></div>
       <template id="me-tpl"><span data-test="me-done">done</span></template>
     </section>
 
@@ -97,6 +97,8 @@
         var h = {};
         res.headers.forEach(function (v, k) { h[k] = v; });
         window.__obs.responseHeaders = h;
+        window.__obs.responseUrl = url;
+        window.__obs.responseResUrl = res.url;
       }
       return res;
     });

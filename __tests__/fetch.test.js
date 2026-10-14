@@ -1,5 +1,5 @@
 import { _config, _interceptors, _cache, _plugins } from '../src/globals.js';
-import { resolveUrl, _doFetch, _cacheGet, _cacheSet } from '../src/fetch.js';
+import { resolveUrl, _doFetch, _cacheGet, _cacheSet, _redactUrlParams } from '../src/fetch.js';
 
 describe('URL Resolution', () => {
   afterEach(() => {
@@ -1343,5 +1343,80 @@ describe('strictRedaction: true', () => {
     await _doFetch('/api/login', 'POST', { a: 1 });
     expect(seen).toBeUndefined();
     expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-1');
+  });
+});
+
+// Response interceptors receive (redactedResponse, url). Untrusted ones (app
+// NoJS.interceptor() and plugins without { trusted: true }) get the URL and
+// res.url through v1.21.1's URL-object redaction by default.
+describe('v1.21.1 defaults: response interceptor URL bytes', () => {
+  const RESPONSE_URL_CASES = [
+    ['/api/users?token=abc&page=2', '/api/users?token=%5BREDACTED%5D&page=2'],
+    ['api/users', '/api/users'],
+    ['/api/users#frag', '/api/users'],
+    ['/api/users?token=x#frag', '/api/users?token=%5BREDACTED%5D'],
+    ['/api/users?q=a%20b&token=x', '/api/users?q=a+b&token=%5BREDACTED%5D'],
+    ['/x?%74oken%ZZ=sek', '/x?token%25ZZ=%5BREDACTED%5D'],
+    ['/api/x?token', '/api/x?token=%5BREDACTED%5D'],
+    ['//cdn.test/x?token=1', '/x?token=%5BREDACTED%5D'],
+    ['http://API.test:80/x?token=1#h', 'http://api.test/x?token=%5BREDACTED%5D#h'],
+    ['http://api.test/x?a=1&a=2&token=t&token=u', 'http://api.test/x?a=1&a=2&token=%5BREDACTED%5D'],
+    ['/api/users', '/api/users'],
+  ];
+
+  const run = async (url, responseUrl) => {
+    const seen = [];
+    const record = (res, u) => { seen.push({ url: u, resUrl: res.url }); };
+    _interceptors.response.push(record);
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.response.push({ fn: record, pluginName: 'untrusted' });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: responseUrl,
+      headers: new Headers(),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch(url, 'GET');
+    return seen;
+  };
+
+  afterEach(() => {
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.strictRedaction = false;
+  });
+
+  test.each(RESPONSE_URL_CASES)('url %s is seen as %s by app and untrusted plugin interceptors', async (url, expected) => {
+    const seen = await run(url, '');
+    expect(seen.map((s) => s.url)).toEqual([expected, expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(url);
+  });
+
+  test('res.url is redacted with the v1.21.1 bytes', async () => {
+    const seen = await run('/api/users?q=a%20b&token=x', 'http://localhost/api/users?q=a%20b&token=x');
+    expect(seen.map((s) => s.resUrl)).toEqual([
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+    ]);
+  });
+
+  test('with strictRedaction the string-level redactor is used, and a malformed key is still redacted', async () => {
+    _config.strictRedaction = true;
+    const seen = await run('/x?%74oken%ZZ=sek&q=a%20b', 'http://localhost/x?%74oken%ZZ=sek&q=a%20b');
+    expect(seen).toEqual([
+      { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
+      { url: '/x?%74oken%ZZ=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%ZZ=[REDACTED]&q=a%20b' },
+    ]);
+  });
+});
+
+describe('_redactUrlParams (strictRedaction redactor)', () => {
+  test('matches keys whose escapes are partly malformed', () => {
+    expect(_redactUrlParams('/x?%74oken%ZZ=S&p%61ssword%G1=P&q=1')).toBe('/x?%74oken%ZZ=[REDACTED]&p%61ssword%G1=[REDACTED]&q=1');
+  });
+
+  test('leaves non-sensitive malformed keys unchanged', () => {
+    expect(_redactUrlParams('/x?a%ZZ=1&page=2')).toBe('/x?a%ZZ=1&page=2');
   });
 });

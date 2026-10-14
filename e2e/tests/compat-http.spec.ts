@@ -96,29 +96,35 @@ test.describe('HTTP compatibility — v1.21.1 defaults', () => {
     expect(obs.responseHeaders['www-authenticate']).toBeUndefined();
   });
 
-  test('4 — custom csrf header is visible to and settable by the app interceptor', async ({ page }) => {
+  test('4 — app response interceptor gets the v1.21.1 redacted URL bytes', async ({ page }) => {
+    const { obs } = await loadAndRunAll(page);
+    expect(obs.responseUrl).toBe('/api/compat/me?q=a+b&token=%5BREDACTED%5D');
+    expect(obs.responseResUrl).toMatch(/^http:\/\/localhost:\d+\/api\/compat\/me\?q=a\+b&token=%5BREDACTED%5D$/);
+  });
+
+  test('5 — custom csrf header is visible to and settable by the app interceptor', async ({ page }) => {
     const { requests, obs } = await loadAndRunAll(page);
     expect(obs.sawCsrf).toBe('CSRF-1');
     expect(find(requests, '/api/compat/login')!.headers['x-xsrf-token']).toBe('CSRF-2');
   });
 
-  test('5 — fetch:error and error payloads carry the raw URL', async ({ page }) => {
+  test('6 — fetch:error and error payloads carry the raw URL', async ({ page }) => {
     const { obs } = await loadAndRunAll(page);
     expect(obs.fetchError).toBe('/api/compat/fail?access_token=TOKEN-SECRET&page=2');
     expect(obs.error).toBe('/api/compat/fail?access_token=TOKEN-SECRET&page=2');
   });
 
-  test('6 — request bodies keep the v1.21.1 bytes', async ({ page }) => {
+  test('7 — request bodies keep the v1.21.1 bytes', async ({ page }) => {
     const { requests } = await loadAndRunAll(page);
     expectV1211Bodies(requests);
   });
 
-  test('7 — dot-segment value in a URL path stays escaped', async ({ page }) => {
+  test('8 — dot-segment value in a URL path stays escaped', async ({ page }) => {
     const { requests } = await loadAndRunAll(page);
     expect(find(requests, '/api/compat/users/')!.url).toContain('/api/compat/users/%252E%252E/avatar');
   });
 
-  test('8 — has no serious accessibility violations', async ({ page }) => {
+  test('9 — has no serious accessibility violations', async ({ page }) => {
     await loadAndRunAll(page);
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
     const serious = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
@@ -127,38 +133,44 @@ test.describe('HTTP compatibility — v1.21.1 defaults', () => {
 });
 
 test.describe('HTTP compatibility — scopeHeaders and strictRedaction on', () => {
-  test('9 — global headers are sent only to trusted origins', async ({ page }) => {
+  test('10 — global headers are sent only to trusted origins', async ({ page }) => {
     const { requests } = await loadAndRunAll(page, '?flags=1');
     expect(find(requests, 'api.compat-other.test/data')!.headers['authorization']).toBeUndefined();
     expect(find(requests, '/api/compat/same')!.headers['authorization']).toBe('Bearer COMPAT-SECRET');
   });
 
-  test('10 — app request interceptor sees sensitive query values redacted', async ({ page }) => {
+  test('11 — app request interceptor sees sensitive query values redacted', async ({ page }) => {
     const { requests, obs } = await loadAndRunAll(page, '?flags=1');
     expect(obs.requestUrls).toContain('/api/compat/search?author=[REDACTED]&keyword=[REDACTED]&token=[REDACTED]');
     expect(find(requests, '/api/compat/search')!.url).toContain('/api/compat/search?author=ann&keyword=x&token=abc');
   });
 
-  test('11 — app response interceptor does not see Authorization or X-Api-* headers', async ({ page }) => {
+  test('12 — app response interceptor does not see Authorization or X-Api-* headers', async ({ page }) => {
     const { obs } = await loadAndRunAll(page, '?flags=1');
     expect(obs.responseHeaders['x-api-version']).toBeUndefined();
     expect(obs.responseHeaders['authorization']).toBeUndefined();
     expect(obs.responseHeaders['content-type']).toBe('application/json');
   });
 
-  test('12 — custom csrf header is hidden from and not overridable by the app interceptor', async ({ page }) => {
+  test('13 — app response interceptor gets the string-level redacted URL', async ({ page }) => {
+    const { obs } = await loadAndRunAll(page, '?flags=1');
+    expect(obs.responseUrl).toBe('/api/compat/me?q=a%20b&token=[REDACTED]');
+    expect(obs.responseResUrl).toMatch(/^http:\/\/localhost:\d+\/api\/compat\/me\?q=a%20b&token=\[REDACTED\]$/);
+  });
+
+  test('14 — custom csrf header is hidden from and not overridable by the app interceptor', async ({ page }) => {
     const { requests, obs } = await loadAndRunAll(page, '?flags=1');
     expect(obs.sawCsrf).toBe('hidden');
     expect(find(requests, '/api/compat/login')!.headers['x-xsrf-token']).toBe('CSRF-1');
   });
 
-  test('13 — fetch:error and error payloads carry the redacted URL', async ({ page }) => {
+  test('15 — fetch:error and error payloads carry the redacted URL', async ({ page }) => {
     const { obs } = await loadAndRunAll(page, '?flags=1');
     expect(obs.fetchError).toBe('/api/compat/fail?access_token=[REDACTED]&page=2');
     expect(obs.error).toBe('/api/compat/fail?access_token=[REDACTED]&page=2');
   });
 
-  test('14 — request bodies are not affected by the flags', async ({ page }) => {
+  test('16 — request bodies are not affected by the flags', async ({ page }) => {
     const { requests } = await loadAndRunAll(page, '?flags=1');
     expectV1211Bodies(requests);
   });

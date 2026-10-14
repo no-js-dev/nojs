@@ -27,11 +27,11 @@ export function _isLocalHostname(hostname) {
   );
 }
 
-// ─── Activation gate ────────────────────────────────────────────────────────
-// Single check shared by init, event emission and the context registry:
-// devtools only runs when enabled AND on a local host.
+// ─── Instrumentation gate ───────────────────────────────────────────────────
+// Shared by event emission and the context registry. By default this follows
+// `devtools` alone (v1.21.1 behavior); `strictDevtools` also requires a local host.
 export function _devtoolsEnabled() {
-  return !!_config.devtools && _isLocalHostname();
+  return !!_config.devtools && (!_config.strictDevtools || _isLocalHostname());
 }
 
 // ─── Redaction helpers ──────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ function _safeSnapshot(proxy, seen) {
   for (const key of Object.keys(raw)) {
     if (key.startsWith("__")) continue;
     const val = raw[key];
-    if (_isSensitiveKey(key)) {
+    if (_config.strictDevtools && _isSensitiveKey(key)) {
       snapshot[key] = "[REDACTED]";
     } else if (val && typeof val === "object" && val.__isProxy) {
       snapshot[key] = _safeSnapshot(val, seen);
@@ -275,7 +275,13 @@ function _handleDevtoolsCommand(event) {
       result = _mutateStore(args.name, args.key, args.value);
       break;
     case "get:config":
-      result = _redactedConfig();
+      if (_config.strictDevtools) {
+        result = _redactedConfig();
+      } else {
+        result = { ..._config };
+        if (result.csrf) result.csrf = { ...result.csrf, token: '[REDACTED]' };
+        if (result.headers) result.headers = '[REDACTED]';
+      }
       break;
     case "get:routes":
       result = _routerInstance ? _routerInstance.routes || [] : [];
@@ -319,7 +325,7 @@ export function destroyDevtools() {
 export function initDevtools(nojs) {
   if (!_config.devtools || typeof window === "undefined") return;
 
-  if (!_devtoolsEnabled()) {
+  if (!_isLocalHostname()) {
     console.warn("[No.JS] devtools: true is ignored outside local environments. Remove devtools: true before deploying to production.");
     return;
   }
@@ -341,7 +347,14 @@ export function initDevtools(nojs) {
       );
     },
     get config() {
-      return _redactedConfig();
+      if (_config.strictDevtools) return _redactedConfig();
+      const c = { ..._config };
+      if (c.headers) c.headers = { ...c.headers };
+      if (c.router) c.router = { ...c.router };
+      if (c.cache) c.cache = { ...c.cache };
+      if (c.csrf) c.csrf = { ...c.csrf };
+      if (c.i18n) c.i18n = { ...c.i18n };
+      return c;
     },
     get refs() { return { ..._refs }; },
     router: _routerInstance,

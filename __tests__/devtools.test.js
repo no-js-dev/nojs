@@ -340,7 +340,7 @@ describe('DevTools Protocol', () => {
 
       const result = await sendCommand('get:config');
 
-      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
+      expect(result.headers).toBe('[REDACTED]');
 
       delete _config.headers;
     });
@@ -354,7 +354,7 @@ describe('DevTools Protocol', () => {
       expect(result.devtools).toBe(true);
       expect(result.baseApiUrl).toBe('');
       expect(result.csrf.token).toBe('[REDACTED]');
-      expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
+      expect(result.headers).toBe('[REDACTED]');
 
       delete _config.csrf;
       delete _config.headers;
@@ -661,13 +661,93 @@ describe('M12 — destroyDevtools cleanup', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Redaction on the window.__NOJS_DEVTOOLS__ surfaces
+//  Default (v1.21.1) devtools surfaces — no strictDevtools
 // ═══════════════════════════════════════════════════════════════════════
 
-describe('Devtools redaction', () => {
+describe('Devtools default surfaces (strictDevtools off)', () => {
   afterEach(() => {
     _config.headers = {};
     delete _config.csrf;
+    destroyDevtools();
+  });
+
+  test('strictDevtools defaults to false', () => {
+    expect(_config.strictDevtools).toBe(false);
+  });
+
+  test('config getter returns headers and csrf unredacted, as v1.21.1 did', () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };
+    const cfg = window.__NOJS_DEVTOOLS__.config;
+    expect(cfg.headers).toEqual({ Authorization: 'Bearer SECRET', 'X-Custom': 'visible' });
+    expect(cfg.csrf).toEqual({ token: 'CSRFSECRET', header: 'X-CSRF-Token' });
+  });
+
+  test('get:config returns headers as the string [REDACTED]', async () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    const res = await sendCommand('get:config');
+    expect(res.headers).toBe('[REDACTED]');
+  });
+
+  test('store snapshots keep every key, including keyboard/author/token', async () => {
+    initDevtools({ version: 'x' });
+    _stores.prefs = createContext({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc' });
+    expect(window.__NOJS_DEVTOOLS__.stores.prefs).toEqual({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc' });
+    const res = await sendCommand('inspect:store', { name: 'prefs' });
+    expect(res.data).toEqual({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc' });
+  });
+
+  test('ctx:updated still redacts sensitive keys (v1.21.1 behavior)', () => {
+    const { events, cleanup } = collectEvents('ctx:updated');
+    const ctx = createContext({ token: 'a' });
+    ctx.token = 'b';
+    cleanup();
+    expect(events[0].data.oldValue).toBe('[REDACTED]');
+    expect(events[0].data.newValue).toBe('[REDACTED]');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Redaction on the window.__NOJS_DEVTOOLS__ surfaces (strictDevtools)
+
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Devtools redaction (strictDevtools)', () => {
+  beforeEach(() => {
+    _config.strictDevtools = true;
+  });
+
+  afterEach(() => {
+    _config.strictDevtools = false;
+    _config.headers = {};
+    delete _config.csrf;
+    destroyDevtools();
+  });
+
+  test('get:config redacts headers per key', async () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer secret' };
+    const result = await sendCommand('get:config');
+    expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
+  });
+
+  test('get:config still returns non-sensitive config values', async () => {
+    initDevtools({ version: 'x' });
+    _config.csrf = { token: 'secret', header: 'X-CSRF' };
+    _config.headers = { Authorization: 'Bearer tok' };
+    const result = await sendCommand('get:config');
+    expect(result.devtools).toBe(true);
+    expect(result.baseApiUrl).toBe('');
+    expect(result.csrf.token).toBe('[REDACTED]');
+    expect(result.headers).toEqual({ Authorization: '[REDACTED]' });
+  });
+
+  test('store snapshots redact by substring (keyboard and author included)', () => {
+    initDevtools({ version: 'x' });
+    _stores.prefs = createContext({ keyboard: 'dvorak', author: 'ann', theme: 'dark' });
+    expect(window.__NOJS_DEVTOOLS__.stores.prefs).toEqual({ keyboard: '[REDACTED]', author: '[REDACTED]', theme: 'dark' });
   });
 
   test('config getter redacts sensitive headers and the csrf token', () => {

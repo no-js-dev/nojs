@@ -21,7 +21,7 @@ import {
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
 import { _doFetch, _cacheGet, _cacheSet, _redactUrlParams } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateEncoded(bodyAttr, ctx);
           }
         }
         const cacheKey =
@@ -431,7 +431,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolate(bodyAttr, ctx);
+            const interpolated = _interpolateEncoded(bodyAttr, ctx);
             try {
               reqBody = JSON.parse(interpolated);
             } catch {
@@ -673,8 +673,9 @@ for (const method of HTTP_METHODS) {
             `${method.toUpperCase()} ${safeUrl} failed:`,
             err.message,
           );
-          _emitEvent("fetch:error", { url: safeUrl, error: err });
-          _emitEvent("error", { url: safeUrl, error: err });
+          const eventUrl = _config.strictRedaction ? safeUrl : resolvedUrl;
+          _emitEvent("fetch:error", { url: eventUrl, error: err });
+          _emitEvent("error", { url: eventUrl, error: err });
           _devtoolsEmit("fetch:error", { method, url: safeUrl, error: err.message });
 
           if (errorTpl) {

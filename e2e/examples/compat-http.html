@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTTP compatibility defaults (v1.21.1) and hardening flags — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>HTTP compatibility defaults and hardening flags</h1>
+    <p>Open with <code>?flags=1</code> to enable <code>scopeHeaders</code> and <code>strictRedaction</code>.</p>
+
+    <!-- 1. Global headers on a cross-origin request -->
+    <section>
+      <h2 class="test-label">Global headers, cross-origin GET</h2>
+      <div get="https://api.compat-other.test/data" as="cross" success="cross-tpl"></div>
+      <template id="cross-tpl"><span data-test="cross-done">done</span></template>
+    </section>
+
+    <!-- 2. Global headers on a same-origin request -->
+    <section>
+      <h2 class="test-label">Global headers, same-origin GET</h2>
+      <div get="/api/compat/same" as="same" success="same-tpl"></div>
+      <template id="same-tpl"><span data-test="same-done">done</span></template>
+    </section>
+
+    <!-- 3. URL seen by an app request interceptor -->
+    <section>
+      <h2 class="test-label">Request interceptor URL</h2>
+      <div get="/api/compat/search?author=ann&keyword=x&token=abc" as="search" success="search-tpl"></div>
+      <template id="search-tpl"><span data-test="search-done">done</span></template>
+    </section>
+
+    <!-- 4. Response headers seen by an app response interceptor -->
+    <section>
+      <h2 class="test-label">Response interceptor headers</h2>
+      <div get="/api/compat/me" as="me" success="me-tpl"></div>
+      <template id="me-tpl"><span data-test="me-done">done</span></template>
+    </section>
+
+    <!-- 5. Custom csrf.header read and set by an app request interceptor -->
+    <section>
+      <h2 class="test-label">Custom CSRF header</h2>
+      <button post="/api/compat/login" body="a=1" success="login-tpl" data-test="login-btn">Log in</button>
+      <template id="login-tpl"><span data-test="login-done">done</span></template>
+    </section>
+
+    <!-- 6. URL in the fetch:error event payload -->
+    <section state="{ t: 'TOKEN-SECRET' }">
+      <h2 class="test-label">fetch:error payload</h2>
+      <div get="/api/compat/fail?access_token={t}&page=2" as="fail" error="fail-tpl"></div>
+      <template id="fail-tpl"><span data-test="fail-done">failed</span></template>
+    </section>
+
+    <!-- 7. Request body bytes -->
+    <section state="{ n: 'a&b=c d', msg: 'hello world 100%', v: '..' }">
+      <h2 class="test-label">Request bodies</h2>
+      <button post="/api/compat/body/form" body="name={n}&x=1" data-test="body-form-btn">Form-encoded body</button>
+      <button post="/api/compat/body/msg" body="{msg}" data-test="body-msg-btn">Text body</button>
+      <button post="/api/compat/body/dots" body="{v}" data-test="body-dots-btn">Dot-dot body</button>
+      <button call="/api/compat/body/call" method="post" body="v={v}&n={n}" data-test="body-call-btn">Call body</button>
+      <div query="/api/compat/body/query" body="{v}" as="qr"></div>
+    </section>
+
+    <!-- 8. Dot-segment value in a URL path stays escaped -->
+    <section state="{ v: '..' }">
+      <h2 class="test-label">Dot-segment in URL path</h2>
+      <div get="/api/compat/users/{v}/avatar" as="avatar" success="avatar-tpl"></div>
+      <template id="avatar-tpl"><span data-test="avatar-done">done</span></template>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    window.__obs = { requestUrls: [], responseHeaders: null, sawCsrf: 'unset', fetchError: null, error: null };
+    var strict = new URLSearchParams(location.search).get('flags') === '1';
+    NoJS.config({
+      headers: { Authorization: 'Bearer COMPAT-SECRET' },
+      csrf: { header: 'X-XSRF-TOKEN', token: 'CSRF-1' },
+      scopeHeaders: strict,
+      strictRedaction: strict
+    });
+    NoJS.interceptor('request', function (url, opts) {
+      window.__obs.requestUrls.push(url);
+      if (url.indexOf('/api/compat/login') !== -1) {
+        window.__obs.sawCsrf = opts.headers['X-XSRF-TOKEN'] === undefined ? 'hidden' : opts.headers['X-XSRF-TOKEN'];
+        return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } };
+      }
+    });
+    NoJS.interceptor('response', function (res, url) {
+      if (url.indexOf('/api/compat/me') !== -1) {
+        var h = {};
+        res.headers.forEach(function (v, k) { h[k] = v; });
+        window.__obs.responseHeaders = h;
+      }
+      return res;
+    });
+    NoJS.on('fetch:error', function (p) { window.__obs.fetchError = p.url; });
+    NoJS.on('error', function (p) { window.__obs.error = p.url; });
+    NoJS.init();
+  </script>
+</body>
+</html>

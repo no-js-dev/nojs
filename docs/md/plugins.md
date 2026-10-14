@@ -324,12 +324,19 @@ Trusted interceptors receive the full, unredacted request options and response o
 **Request** (stripped before passing to untrusted interceptors):
 `authorization`, `x-api-key`, `x-auth-token`, `cookie`, `proxy-authorization`, `set-cookie`, `x-csrf-token`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted. The header name configured in `csrf.header` is redacted as well.
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
 
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
 
-> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
+#### With `strictRedaction: true`
+
+Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens what untrusted interceptors and event payloads receive:
+
+- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
+- Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
+- Untrusted request interceptors receive the URL with the values of sensitive query parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) replaced by `[REDACTED]`. The request itself still goes to the real URL.
+- The `url` in `fetch:error` / `error` event payloads is redacted the same way.
 
 ---
 

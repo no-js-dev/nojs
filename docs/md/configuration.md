@@ -7,7 +7,7 @@
   NoJS.config({
     // API
     baseApiUrl: 'https://api.myapp.com/v1',
-    headers: { 'Authorization': 'Bearer xxx' },  // same-origin / baseApiUrl / base only
+    headers: { 'Authorization': 'Bearer xxx' },
     timeout: 10000,
     retries: 2,
     retryDelay: 1000,

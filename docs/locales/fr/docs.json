@@ -681,7 +681,7 @@
         "col1": "Attribut",
         "col2": "Description",
         "method": "URL de la requête",
-        "body": "Corps de la requête (chaîne JSON avec interpolation). Pour les formulaires, sérialise automatiquement les champs",
+        "body": "Chaîne du corps de la requête. Chaque placeholder {…} est remplacé par sa valeur encodée pour URL. Un résultat qui est du JSON valide est envoyé en application/json. Pour les formulaires, les champs sont sérialisés en objet JSON et body est ignoré",
         "success": "ID du template à afficher en cas de succès. Reçoit la réponse comme var",
         "error": "ID du template à afficher en cas d'erreur. Reçoit l'erreur comme var",
         "loading": "ID du template à afficher pendant la requête",
@@ -1401,7 +1401,7 @@
         "col3": "Description",
         "call": "URL de la requête (supporte l'interpolation {variable})",
         "method": "Méthode HTTP. Par défaut : \"get\"",
-        "body": "Corps de la requête (chaîne JSON avec interpolation {variable})",
+        "body": "Chaîne du corps de la requête. Chaque placeholder {…} est remplacé par sa valeur encodée pour URL. Un résultat qui est du JSON valide est envoyé en application/json",
         "headers": "Chaîne JSON d'en-têtes de requête supplémentaires",
         "as": "Nom à attribuer à la réponse dans le contexte. Par défaut : \"data\"",
         "into": "Écrire la réponse dans un store global nommé",
@@ -1601,6 +1601,23 @@
         "csrfTitle": "Protection CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS utilise un parser d'expressions personnalisé entièrement compatible CSP — aucun eval() ni constructeur Function() n'est utilisé. Aucune directive unsafe-eval n'est requise dans votre Content Security Policy."
+      },
+      "hardening": {
+        "title": "Flags de durcissement optionnels",
+        "text": "Les comportements de sécurité plus stricts sont optionnels, pour que les applications construites sur v1.21.1 continuent de fonctionner sans changement. Chaque flag vaut false par défaut (comportement de v1.21.1) et peut être défini via NoJS.config() avant ou après init().",
+        "colFlag": "Flag",
+        "colDefault": "Défaut",
+        "colWhenTrue": "Avec true",
+        "scopeHeaders": "Les en-têtes globaux de config({ headers }) ne sont envoyés qu'aux origines de confiance (la page, baseApiUrl et l'attribut base le plus proche) au lieu de chaque requête.",
+        "strictRedaction": "Les intercepteurs non fiables et les payloads des événements fetch:success / fetch:error / error reçoivent une expurgation plus stricte : le csrf.header est retenu, les en-têtes de réponse sensibles en tant qu'en-têtes de requête sont supprimés, et les URL perdent leur #fragment et les valeurs sensibles de la query.",
+        "strictDirectives": "NoJS.directive() rejette les noms couverts par un joker du cœur (on:*, bind-*, class-*, style-*). Le registre est figé dès le chargement de No.JS, donc le flag s'applique à chaque enregistrement fait pendant qu'il est actif. Définissez-le avant que les plugins n'enregistrent leurs directives.",
+        "strictDevtools": "Les événements devtools et le registre des contextes sont aussi limités aux hôtes locaux, les instantanés des stores masquent les clés sensibles, get:config renvoie les en-têtes expurgés clé par clé et les URL des événements fetch de devtools sont expurgées.",
+        "strictPersist": "À la restauration de persist, une clé $ stockée avec un nom réservé ($store, $route, $refs, un global de plugin, …) est ignorée, sauf si le state la déclare ou si persist-fields la liste.",
+        "strictJsonld": "Les placeholders page-jsonld dans les chaînes JSON sont toujours échappés comme contenu de chaîne JSON. Par défaut, la sortie de v1.21.1 est conservée dès qu'elle est un JSON valide.",
+        "pageRelative": "<template src> est résolu par rapport à la page et ignore base et baseApiUrl.",
+        "escapeParams": "Les paramètres t-* des traductions t-html sont échappés en HTML. Le modifier après init() réaffiche les traductions actives.",
+        "strictLocale": "Un nojs-locale persisté qui n'est pas dans supportedLocales est ignoré à la restauration.",
+        "byRefCallout": "NoJS.global(name, value, { byRef: true }) est une option par appel : elle publie l'objet lui-même au lieu d'une copie JSON réactive. Voir Plugins."
       }
     },
     "plugins": {
@@ -1675,7 +1692,7 @@
       },
       "trusted": {
         "title": "Intercepteurs de confiance",
-        "text": "Par défaut, les intercepteurs reçoivent des copies expurgées des requêtes et réponses — les en-têtes sensibles et les paramètres URL sont supprimés ou remplacés par [REDACTED].",
+        "text": "Par défaut, les intercepteurs reçoivent des copies expurgées des requêtes et réponses : les en-têtes sensibles sont supprimés, et les intercepteurs de réponse reçoivent l'URL avec les valeurs sensibles de la query remplacées par [REDACTED]. Les intercepteurs de requête reçoivent l'URL brute, sauf si strictRedaction est actif.",
         "fullAccess": "Les plugins d'authentification qui ont besoin d'accéder aux vrais en-têtes peuvent être installés avec { trusted: true }.",
         "callout": "Un avertissement en console est enregistré quand un plugin est installé avec un accès de confiance. N'accordez trusted qu'aux plugins que vous contrôlez ou avez audités.",
         "redactedTitle": "En-têtes expurgés",

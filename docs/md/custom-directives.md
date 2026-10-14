@@ -87,9 +87,9 @@ If your directive adds event listeners, observers, or timers, register cleanup v
 </script>
 ```
 
-> **Warning:** Custom directives cannot override built-in (core) directives — they are frozen after framework initialization. See [Plugins](plugins.md) for details.
+> **Warning:** Custom directives cannot override built-in (core) directives — they are frozen as soon as the framework loads, before `init()` runs. See [Plugins](plugins.md) for details.
 
-A custom directive may use a name that a core wildcard would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute keeps the core behavior. Set `NoJS.config({ strictDirectives: true })` to reject such names (see [Plugins — Directive Registry Freezing](plugins.md#directive-registry-freezing)).
+A custom directive may use a name that a core wildcard would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute keeps the core behavior. Set `NoJS.config({ strictDirectives: true })` before registering directives to reject such names (see [Plugins — Directive Registry Freezing](plugins.md#directive-registry-freezing)).
 
 ---
 

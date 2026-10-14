@@ -109,8 +109,8 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | Flag | Default | When `true` |
 |------|---------|-------------|
 | `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
-| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. |
-| `strictDirectives` | `false` | After `init()`, plugin directives whose names are covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`) are rejected. |
+| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. The URL `#fragment` is dropped. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors). |
+| `strictDirectives` | `false` | `NoJS.directive()` and `app.directive()` reject directive names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). The core registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set, before or after `init()`. Set it before plugins register their directives. |
 | `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
 | `strictPersist` | `false` | On `persist` restore, a stored `$` key with a reserved name (`$store`, `$route`, `$router`, `$refs`, `$parent`, `$i18n`, `$watch`, `$set`, `$notify`, `$form`, `$sse`, or a plugin global) is skipped unless the state declares it or `persist-fields` lists it. |
 | `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot add keys or end the string. By default the v1.21.1 output is kept whenever it is valid JSON. See [Head Management](head-management.md#page-jsonld). |

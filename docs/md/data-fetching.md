@@ -146,6 +146,13 @@ URLs that reference state variables re-fetch automatically when those values cha
 > <div get="'/files/' + path">...</div>
 > ```
 
+In the path part of a URL, a placeholder whose value is exactly `.` or `..` is escaped as `%252E` or `%252E%252E`, and a console warning is logged. Without this, URL parsers would collapse the value as a dot-segment and send the request to a different path. The server receives the literal segment `%2E%2E`. Values in the query string, values in the fragment, and request bodies are not affected.
+
+```html
+<!-- id = ".." → requests /users/%252E%252E/avatar, not /avatar -->
+<div get="/users/{id}/avatar">...</div>
+```
+
 ---
 
 ## `post`, `put`, `patch`, `delete` — Mutating Requests
@@ -178,10 +185,10 @@ Used on forms or triggered via `call`.
 ### PUT / PATCH / DELETE
 
 ```html
-<form put="/users/{user.id}"
-      body='{"name": "{user.name}", "role": "{selectedRole}"}'
-      success="#updateSuccess">
-  ...
+<form put="/users/{user.id}" success="#updateSuccess">
+  <input name="name" model="user.name" />
+  <select name="role" model="selectedRole">...</select>
+  <button type="submit">Save</button>
 </form>
 
 <button delete="/users/{user.id}"
@@ -197,7 +204,7 @@ Used on forms or triggered via `call`.
 | Attribute | Description |
 |-----------|-------------|
 | `post`, `put`, `patch`, `delete` | URL for the request |
-| `body` | Request body (JSON string with interpolation). For forms, auto-serializes fields |
+| `body` | Request body string. Each `{expression}` is replaced with its value encoded by `encodeURIComponent`, as in URLs (the URL dot-segment rule does not apply to bodies). A result that parses as JSON is sent as `application/json`. On a `<form>`, the fields are serialized to a JSON object and `body` is ignored |
 | `success` | Template ID to render on success. Receives response as `var` |
 | `error` | Template ID to render on error. Receives error as `var` |
 | `loading` | Template ID to show during request |
@@ -206,6 +213,16 @@ Used on forms or triggered via `call`.
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
 | `into` | Write response to a named global store |
 | `cached` | Cache responses (memory/local/session) |
+
+> **Note:** `body` placeholders use the URL interpolator, so a JSON object written in `body` is not sent as JSON: its own `{` is read as the start of a placeholder. To send dynamic JSON, use a `<form>` with named fields, which No.JS serializes to a JSON object. On a non-form element, send a URL-encoded body with a matching header:
+>
+> ```html
+> <button post="/login"
+>         headers='{"Content-Type": "application/x-www-form-urlencoded"}'
+>         body="email={email}&password={password}">
+>   Log in
+> </button>
+> ```
 
 ### Request Lifecycle
 
@@ -537,7 +554,7 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`. Request interceptors receive the raw URL unless [`strictRedaction`](configuration.md#opt-in-hardening-flags) is set.
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 

@@ -681,7 +681,7 @@
         "col1": "Attribute",
         "col2": "Description",
         "method": "URL for the request",
-        "body": "Request body (JSON string with interpolation). For forms, auto-serializes fields",
+        "body": "Request body string. Each {…} placeholder is replaced with its URL-encoded value. A result that parses as JSON is sent as application/json. On a form, the fields are serialized to a JSON object and body is ignored",
         "success": "Template ID to render on success. Receives response as var",
         "error": "Template ID to render on error. Receives error as var",
         "loading": "Template ID to show during request",
@@ -1401,7 +1401,7 @@
         "col3": "Description",
         "call": "URL for the request (supports {variable} interpolation)",
         "method": "HTTP method. Default: \"get\"",
-        "body": "Request body (JSON string with {variable} interpolation)",
+        "body": "Request body string. Each {…} placeholder is replaced with its URL-encoded value. A result that parses as JSON is sent as application/json",
         "headers": "JSON string of additional request headers",
         "as": "Name to assign the response in the context. Default: \"data\"",
         "into": "Write response to a named global store",
@@ -1601,6 +1601,23 @@
         "csrfTitle": "CSRF Protection",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS uses a custom expression parser that is fully CSP-compliant — no eval() or Function() constructor is used. No unsafe-eval directive is required in your Content Security Policy."
+      },
+      "hardening": {
+        "title": "Opt-in Hardening Flags",
+        "text": "Stricter security behaviors are opt-in, so apps built on v1.21.1 keep working unchanged. Every flag defaults to false (v1.21.1 behavior) and can be set through NoJS.config() before or after init().",
+        "colFlag": "Flag",
+        "colDefault": "Default",
+        "colWhenTrue": "When true",
+        "scopeHeaders": "Global config({ headers }) are sent only to trusted origins (the page, baseApiUrl and the nearest base attribute) instead of every request.",
+        "strictRedaction": "Untrusted interceptors and fetch:success / fetch:error / error event payloads get stricter redaction: the csrf.header is withheld, response headers that are sensitive as request headers are stripped, and URLs lose their #fragment and sensitive query values.",
+        "strictDirectives": "NoJS.directive() rejects names covered by a core wildcard (on:*, bind-*, class-*, style-*). The registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set. Set it before plugins register directives.",
+        "strictDevtools": "Devtools events and the context registry are also limited to local hosts, store snapshots redact sensitive keys, get:config returns per-key redacted headers, and devtools fetch URLs are redacted.",
+        "strictPersist": "On persist restore, a stored $ key with a reserved name ($store, $route, $refs, a plugin global, …) is skipped unless the state declares it or persist-fields lists it.",
+        "strictJsonld": "page-jsonld placeholders inside JSON strings are always escaped as JSON string content. By default, the v1.21.1 output is kept whenever it is valid JSON.",
+        "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
+        "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
+        "strictLocale": "A persisted nojs-locale that is not in supportedLocales is ignored on restore.",
+        "byRefCallout": "NoJS.global(name, value, { byRef: true }) is a per-call opt-in: it publishes the object itself instead of a reactive JSON copy. See Plugins."
       }
     },
     "plugins": {
@@ -1675,7 +1692,7 @@
       },
       "trusted": {
         "title": "Trusted Interceptors",
-        "text": "By default, interceptors receive redacted copies of requests and responses — sensitive headers and URL parameters are stripped or replaced with [REDACTED].",
+        "text": "By default, interceptors receive redacted copies of requests and responses: sensitive headers are stripped, and response interceptors get the URL with sensitive query values replaced by [REDACTED]. Request interceptors get the raw URL unless strictRedaction is set.",
         "fullAccess": "Auth plugins that need access to the real headers can be installed with { trusted: true }.",
         "callout": "A console warning is logged when a plugin is installed with trusted access. Only grant trusted to plugins you control or have audited.",
         "redactedTitle": "Redacted Headers",

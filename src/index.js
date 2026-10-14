@@ -92,6 +92,12 @@ function _isUnsafeGlobalValue(value) {
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+// JSON.parse reviver for global() copies: drop own "__proto__" keys
+const _dropProtoKey = (k, v) => (k === "__proto__" ? undefined : v);
+
+// Global name → unwatch for the app-wide wake registered by global()
+const _globalUnwatch = Object.create(null);
+
 // Built-in filter names — prevent user code from overwriting core filters
 const _BUILTIN_FILTER_NAMES = new Set([
   "uppercase", "lowercase", "capitalize", "truncate", "trim", "stripHtml",
@@ -279,7 +285,7 @@ const NoJS = {
   },
 
   // ─── Plugin globals ───────────────────────────────────────────────────
-  global(name, value) {
+  global(name, value, opts) {
     if (typeof name !== "string" || !name) {
       _warn("NoJS.global() requires a non-empty string name.");
       return;
@@ -314,20 +320,61 @@ const NoJS = {
       _warn(`Global "$${name}" owned by "${_globalOwners[name]}" is being overwritten.`);
     }
 
-    // Objects are published by reference (no copy): methods, Dates and the
-    // plugin's own handle reach templates. Reject values holding forbidden keys
-    // or nested eval/Function refs (a reactive proxy lists its target's keys).
-    if (value && typeof value === "object") {
+    if (value && typeof value === "object" && opts && opts.byRef === true) {
+      // Opt-in: publish the plugin's own object (methods, Dates, identity).
+      // Reject values holding forbidden keys or nested eval/Function refs
+      // (a reactive proxy lists its target's keys).
       try {
         _deepCheckUnsafe(value);
       } catch (safetyErr) {
         if (safetyErr.message === "unsafe_global") return;
         // Other errors pass through
       }
+    } else if (value && typeof value === "object" && !value.__isProxy) {
+      // Sanitize object values to strip __proto__ keys
+      try {
+        value = JSON.parse(JSON.stringify(value), _dropProtoKey);
+      } catch {
+        // Non-serializable objects — check for dangerous function references
+        try {
+          _deepCheckUnsafe(value);
+        } catch (safetyErr) {
+          if (safetyErr.message === "unsafe_global") return;
+          // Other errors pass through
+        }
+      }
+      // Wrap in reactive context for deep reactivity
+      value = createContext(value);
+    } else if (value && typeof value === "object" && value.__isProxy) {
+      // Already a reactive proxy — sanitization branch above is skipped, so run the
+      // recursive unsafe-reference / prototype-pollution check on the raw target
+      // to avoid storing nested eval/Function refs or polluted prototypes verbatim.
+      try {
+        _deepCheckUnsafe(value.__raw ?? value);
+      } catch (safetyErr) {
+        if (safetyErr.message === "unsafe_global") return;
+        // Other errors pass through
+      }
     }
 
+    if (_globalUnwatch[name]) {
+      _globalUnwatch[name]();
+      delete _globalUnwatch[name];
+    }
     _globals[name] = value;
     if (_currentPluginName) _globalOwners[name] = _currentPluginName;
+
+    // Globals are read app-wide: a write through the context ($x.$set, a
+    // proxy write from plugin code) wakes every scope's "$" bindings. The
+    // wake runs from the batch drain, so a binding that writes back queues
+    // the next round instead of recursing.
+    if (value && typeof value === "object" && value.__isProxy) {
+      const wake = () => _notifyStoreWatchers("$");
+      _globalUnwatch[name] = value.$watch(wake);
+      // $watch ties the listener to the element being processed; a global
+      // outlives any element.
+      wake._el = null;
+    }
 
     // Notify all store watchers since globals are scope-wide
     _notifyStoreWatchers();
@@ -365,6 +412,10 @@ const NoJS = {
         }
       }
       _plugins.clear();
+      for (const k in _globalUnwatch) {
+        _globalUnwatch[k]();
+        delete _globalUnwatch[k];
+      }
       for (const k in _globals) delete _globals[k];
       for (const k in _globalOwners) delete _globalOwners[k];
 
@@ -381,7 +432,8 @@ const NoJS = {
       // Clean up devtools listener
       destroyDevtools();
 
-      // _configLocked intentionally stays set: rendered bindings keep using _config after dispose()
+      _configLocked = false;
+
       _initPromise = null;
       _log("Disposed.");
     } finally {

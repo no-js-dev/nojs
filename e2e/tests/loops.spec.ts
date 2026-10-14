@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Loops', () => {
   test.beforeEach(async ({ page }) => {
@@ -299,5 +300,29 @@ test.describe('Loops', () => {
     await expect(items).toHaveText(['a', 'b', 'c']);
     await page.getByTestId('m350-move').click();
     await expect(items).toHaveText(['b', 'c', 'a']);
+  });
+
+  test('21 — Array literals with spaces render with foreach, each and for', async ({ page }) => {
+    await expect(page.getByTestId('m21-th')).toHaveText(['name', 'email', 'role']);
+    await expect(page.getByTestId('m21-each-item')).toHaveText(['a, b', 'c']);
+    await expect(page.getByTestId('m21-for-item')).toHaveText(['Ann', 'Bob']);
+    await expect(page.getByTestId('m21-row')).toHaveCount(2);
+    await expect(page.getByTestId('m21-cell')).toHaveText(['1', '2', '3', '4']);
+  });
+
+  test('21b — Native output and custom-element for values are not loops', async ({ page }) => {
+    await expect(page.getByTestId('m21-output')).toHaveText('calc');
+    await expect(page.getByTestId('m21-output-spaced')).toHaveText('sum');
+    await expect(page.getByTestId('m21-output-spaced')).toHaveAttribute('for', 'x in y z');
+    await expect(page.getByTestId('m21-custom')).toHaveText('tip');
+  });
+
+  test('21c — Accessibility: no axe violations in the array-literal scenario', async ({ page }) => {
+    await expect(page.getByTestId('m21-th')).toHaveCount(3);
+    const results = await new AxeBuilder({ page })
+      .include('[data-test="m21"]')
+      .withTags(['wcag2a', 'wcag2aa'])
+      .analyze();
+    expect(results.violations).toEqual([]);
   });
 });

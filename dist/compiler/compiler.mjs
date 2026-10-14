@@ -17,9 +17,9 @@ var _config = {
   credentials: "same-origin",
   csrf: null,
   cache: { strategy: "none", ttl: 3e5 },
-  templates: { cache: true },
+  templates: { cache: true, pageRelative: false },
   router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
-  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false },
+  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false, escapeParams: false, strictLocale: false },
   debug: false,
   devtools: false,
   sanitize: true,
@@ -27,7 +27,14 @@ var _config = {
   sanitizeHtml: null,
   exprCacheSize: 500,
   maxEventListeners: 100,
-  appId: ""
+  appId: "",
+  // Opt-in hardening flags. Defaults keep v1.21.1 behavior.
+  scopeHeaders: false,
+  strictRedaction: false,
+  strictDirectives: false,
+  strictDevtools: false,
+  strictPersist: false,
+  strictJsonld: false
 };
 var _stores = {};
 var _i18nListeners = /* @__PURE__ */ new Set();
@@ -118,7 +125,7 @@ var _i18n = {
         }
       }
       if (_config.i18n.loadPath) {
-        const allNs = /* @__PURE__ */ new Set([..._config.i18n.ns, ..._loadedNs]);
+        const allNs = _config.i18n.loadPath.includes("{ns}") ? /* @__PURE__ */ new Set([..._config.i18n.ns, ..._loadedNs]) : [null];
         Promise.all([...allNs].map((n) => _loadLocale(v, n))).then(() => _notifyI18n());
       } else {
         _notifyI18n();
@@ -380,7 +387,7 @@ function _tokenize(expr) {
   }
   return tokens;
 }
-function _parseExpr(tokens) {
+function _parseExpr(tokens, strict) {
   if (!tokens || tokens.length === 0) return { type: "Literal", value: void 0 };
   let pos = 0;
   function peek() {
@@ -821,6 +828,9 @@ function _parseExpr(tokens) {
     return expr;
   }
   const ast = parseTopLevel();
+  if (strict && pos < tokens.length) {
+    throw new SyntaxError(`Unexpected token "${tokens[pos].value}"`);
+  }
   return ast;
 }
 var _FORBIDDEN_PROPS = { __proto__: 1, constructor: 1, prototype: 1, alert: 1, confirm: 1, prompt: 1 };

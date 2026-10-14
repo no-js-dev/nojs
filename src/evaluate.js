@@ -195,7 +195,9 @@ function _tokenize(expr) {
 
 // ── Recursive-descent expression parser ────────────────────────────────
 
-function _parseExpr(tokens) {
+// `strict` (syntax checks only) throws when tokens are left unconsumed; the
+// default lenient mode ignores them.
+function _parseExpr(tokens, strict) {
   if (!tokens || tokens.length === 0) return { type: "Literal", value: undefined };
 
   let pos = 0;
@@ -716,6 +718,9 @@ function _parseExpr(tokens) {
   }
 
   const ast = parseTopLevel();
+  if (strict && pos < tokens.length) {
+    throw new SyntaxError(`Unexpected token "${tokens[pos].value}"`);
+  }
   return ast;
 }
 
@@ -2446,6 +2451,23 @@ export function parseExpression(str) {
     return { type: "Literal", value: undefined };
   }
   return _parseExpr(_tokenize(str));
+}
+
+// Syntax-only parse, never evaluates and never touches the caches: returns
+// the AST of the expression part when it parses with no leftover tokens and
+// every pipe segment is non-empty, otherwise null. Linear in the input length.
+export function _parseCompleteExpr(str) {
+  if (typeof str !== "string") return null;
+  try {
+    const pipes = _parsePipes(str);
+    if (!pipes[0]) return null;
+    for (let i = 1; i < pipes.length; i++) if (!pipes[i].trim()) return null;
+    const tokens = _tokenize(pipes[0]);
+    if (tokens.length === 0) return null;
+    return _parseExpr(tokens, true);
+  } catch {
+    return null;
+  }
 }
 
 // Parse a semicolon-delimited statement string into one AST node per

@@ -241,10 +241,10 @@ registerDirective("sse", {
     const hasInterpolation = /\{[^}]+\}/.test(url);
     if (hasInterpolation) {
       function onAncestorChange() {
-        const newUrl = _interpolate(url, ctx);
+        const newUrl = _interpolate(url, ctx, true);
         if (newUrl !== _lastResolvedUrl) {
           _log("SSE: URL changed, reconnecting", _lastResolvedUrl, "→", newUrl);
-          _openConnection(newUrl);
+          _openConnection(_interpolate(url, ctx));
         }
       }
 

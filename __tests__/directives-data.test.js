@@ -3192,3 +3192,185 @@ describe('NOJS-HTTP-001 — form fields are read before the loading template ren
   });
 });
 
+describe('HTTP URL placeholders: dot-segment values', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.timeout = 10000;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_stores).forEach((k) => delete _stores[k]);
+  });
+
+  // The placeholder must stay a non-empty child segment of /api/users/ (not
+  // the parent collection, not a sibling) and a warning must be emitted.
+  const cases = [
+    ['get', '/api/users/{id}/avatar', ['', 'api', 'users', null, 'avatar']],
+    ['delete', '/api/users/{id}', ['', 'api', 'users', null]],
+  ];
+
+  test.each(
+    ['.', '..'].flatMap((id) => cases.map((c) => [id, ...c]))
+  )('placeholder value "%s" in %s="%s" cannot re-target the request', async (id, method, url, shape) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ id }));
+    const el = document.createElement(method === 'get' ? 'div' : 'button');
+    el.setAttribute(method, url);
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    if (method !== 'get') el.click();
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const requested = global.fetch.mock.calls[0][0];
+    const segs = new URL(requested, 'http://localhost').pathname.split('/');
+    expect(segs.length).toBe(shape.length);
+    shape.forEach((expected, i) => {
+      if (expected === null) expect(segs[i]).not.toBe('');
+      else expect(segs[i]).toBe(expected);
+    });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  // Regression guard: query values are not path segments and stay unchanged.
+  test.each(['.', '..'])('query placeholder value "%s" is sent unchanged', async (q) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ q }));
+    const el = document.createElement('div');
+    el.setAttribute('get', '/s?q={q}');
+    el.setAttribute('as', 'r');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(global.fetch.mock.calls[0][0]).toBe('/s?q=' + q);
+  });
+
+  test('warns once per request, not on reactive re-checks of an unchanged URL', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+    const dotWarns = () => warn.mock.calls.filter((c) => c.join(' ').includes('Dot-segment')).length;
+    try {
+      const parent = document.createElement('div');
+      parent.setAttribute('state', JSON.stringify({ id: '..', other: 0 }));
+      const el = document.createElement('div');
+      el.setAttribute('get', '/api/users/{id}/avatar');
+      el.setAttribute('as', 'r');
+      parent.appendChild(el);
+      document.body.appendChild(parent);
+      processTree(parent);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(dotWarns()).toBe(1);
+
+      const ctx = findContext(parent);
+      for (let i = 1; i <= 3; i++) ctx.other = i;
+      await new Promise((r) => setTimeout(r, 20));
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(dotWarns()).toBe(1);
+
+      ctx.id = '.';
+      await new Promise((r) => setTimeout(r, 50));
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch.mock.calls[1][0]).toBe('/api/users/%252E/avatar');
+      expect(dotWarns()).toBe(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('v1.21.1 defaults: request body interpolation bytes', () => {
+  beforeEach(httpSetup);
+  afterEach(httpTeardown);
+
+  // Byte-for-byte what v1.21.1 sends for each body template.
+  const BODY_CASES = [
+    ['name={n}&x=1', { n: 'a&b=c d' }, 'name=a%26b%3Dc%20d&x=1'],
+    ['{msg}', { msg: 'hello world 100%' }, 'hello%20world%20100%25'],
+    ['{v}', { v: '..' }, '..'],
+    ['{v}', { v: '.' }, '.'],
+  ];
+
+  function mount(attrs, state) {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify(state));
+    const el = document.createElement('button');
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    return el;
+  }
+
+  test.each(BODY_CASES)('post body="%s" with %j sends %s', async (body, state, expected) => {
+    global.fetch.mockResolvedValue(mockJsonResponse({}));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ post: '/api/items', body }, state).click();
+    await flush(50);
+    expect(global.fetch.mock.calls[0][1].body).toBe(expected);
+    expect(warn.mock.calls.some((c) => c.join(' ').includes('Dot-segment'))).toBe(false);
+    warn.mockRestore();
+  });
+
+  test.each(BODY_CASES)('call body="%s" with %j sends %s', async (body, state, expected) => {
+    global.fetch.mockResolvedValue(mockJsonResponse({}));
+    mount({ call: '/api/items', method: 'post', body }, state).click();
+    await flush(50);
+    expect(global.fetch.mock.calls[0][1].body).toBe(expected);
+  });
+
+  test('query body="{v}" with ".." sends ".." and keys the cache on it', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({ results: [] }));
+    const parent = document.createElement('div');
+    parent.setAttribute('state', JSON.stringify({ v: '..' }));
+    const el = document.createElement('div');
+    el.setAttribute('query', '/api/search');
+    el.setAttribute('as', 'result');
+    el.setAttribute('cached', 'memory');
+    el.setAttribute('body', '{v}');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    await flush(50);
+    expect(global.fetch.mock.calls[0][1].body).toBe('..');
+    expect([..._cache.keys()]).toContain('query:/api/search:..');
+  });
+
+  test('a dot-segment value is escaped in the URL path but sent raw in the body', async () => {
+    global.fetch.mockResolvedValue(mockJsonResponse({}));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ post: '/api/users/{v}', body: 'id={v}' }, { v: '..' }).click();
+    await flush(50);
+    const [url, opts] = global.fetch.mock.calls[0];
+    expect(url).toBe('/api/users/%252E%252E');
+    expect(opts.body).toBe('id=..');
+    warn.mockRestore();
+  });
+});

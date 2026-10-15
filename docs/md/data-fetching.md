@@ -144,6 +144,8 @@ URLs that reference state variables re-fetch automatically when those values cha
 > <div get="'/files/' + path">...</div>
 > ```
 
+A placeholder in the path part whose whole value is `.` or `..` is escaped to `%252E` / `%252E%252E` (a literal child segment; the server decodes it to the text `%2E` / `%2E%2E`), so it cannot re-target the request to a parent path. A warning is logged once per request. Query-string and fragment values, and request bodies, are not affected.
+
 ---
 
 ## `post`, `put`, `patch`, `delete` — Mutating Requests

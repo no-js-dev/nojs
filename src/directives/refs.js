@@ -14,7 +14,7 @@ import {
 } from "../globals.js";
 import { _devtoolsEmit } from "../devtools.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate } from "../evaluate.js";
+import { evaluate, _execStatement, _interpolate, _interpolateEncoded } from "../evaluate.js";
 import { _doFetch } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
@@ -134,7 +134,7 @@ registerDirective("call", {
       try {
         let reqBody = null;
         if (bodyAttr) {
-          const interpolated = _interpolate(bodyAttr, ctx);
+          const interpolated = _interpolateEncoded(bodyAttr, ctx);
           try {
             reqBody = JSON.parse(interpolated);
           } catch {

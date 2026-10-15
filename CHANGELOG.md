@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Test and docs dev servers: the static-file path guard no longer accepts sibling directories that share the root's name prefix, and `docs/dev-server.js` now applies the same guard; `test-server.js` accepts `TEST_SERVER_HOST` (e.g. `127.0.0.1`) to bind loopback only and logs the bound address (#361, @evertonfraga)
 - Router (history mode): the first page load and Back/Forward now keep `?query` and `#hash`, so `$route.query`/`$route.hash` are filled in and the URL is no longer rewritten without them; a query value that contains `?` (e.g. `?next=/a?b=1`) is no longer truncated (#364, @evertonfraga)
+- HTTP and SSE URL placeholders (`get`/`post`/`put`/`patch`/`delete`, `call`, `sse`): a placeholder in the path part whose value is exactly `.` or `..` is now escaped to `%252E` / `%252E%252E`, so it can no longer re-target the request to a parent path (e.g. `/api/users/{id}` with `id = ".."` used to request `/api/`). On by default, with no opt-out; a warning is logged once per request. Query-string and fragment placeholders and request bodies are unchanged (#369, @evertonfraga)
 
 ### Docs
 

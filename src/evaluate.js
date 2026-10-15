@@ -2216,15 +2216,34 @@ export function resolve(path, ctx) {
   }, ctx);
 }
 
-// Interpolate strings like "/users/{user.id}?q={search}"
+// Interpolate request bodies like "name={user.name}&page={page}".
+// Every placeholder value is encoded with encodeURIComponent. `_hook` is
+// internal: _interpolate uses it to post-process URL placeholders.
+export function _interpolateEncoded(str, ctx, _hook) {
+  return str.replace(/\{([^}]+)\}/g, (_, expr, offset) => {
+    const val = evaluate(expr.trim(), ctx);
+    if (val == null) return "";
+    const enc = encodeURIComponent(String(val));
+    return _hook ? _hook(enc, expr, offset) : enc;
+  });
+}
+
+// Interpolate URLs like "/users/{user.id}?q={search}"
 // Note: interpolated values are encoded with encodeURIComponent, which encodes
 // "/" as "%2F". Path segments that intentionally contain "/" must be passed
 // as pre-encoded strings or concatenated outside of {} placeholders.
-export function _interpolate(str, ctx) {
-  return str.replace(/\{([^}]+)\}/g, (_, expr) => {
-    const val = evaluate(expr.trim(), ctx);
-    if (val == null) return "";
-    return encodeURIComponent(String(val));
+// `_quiet` skips the dot-segment warning (reactive URL change detection).
+export function _interpolate(str, ctx, _quiet) {
+  return _interpolateEncoded(str, ctx, (enc, expr, offset) => {
+    // In the path part, "." / ".." survive encodeURIComponent and URL parsers
+    // collapse them (and their %2E forms) as dot-segments, re-targeting the
+    // request. Double-encode so the segment stays a literal child segment
+    // (the server decodes it to "%2E%2E"). Query/fragment values are unaffected.
+    if ((enc === "." || enc === "..") && !/[?#]/.test(str.slice(0, offset).replace(/\{[^}]*\}/g, ""))) {
+      if (!_quiet) _warn("Dot-segment value escaped in {" + expr.trim() + "}");
+      return enc.replace(/\./g, "%252E");
+    }
+    return enc;
   });
 }
 

@@ -21,7 +21,7 @@ import {
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
 import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateEncoded(bodyAttr, ctx);
           }
         }
         const cacheKey =
@@ -431,7 +431,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolate(bodyAttr, ctx);
+            const interpolated = _interpolateEncoded(bodyAttr, ctx);
             try {
               reqBody = JSON.parse(interpolated);
             } catch {
@@ -991,7 +991,7 @@ for (const method of HTTP_METHODS) {
       const hasInterpolation = /\{[^}]+\}/.test(url);
       if (hasInterpolation && trigger !== "none") {
         const debounceMs = parseInt(el.getAttribute("debounce")) || 0;
-        let _lastResolvedUrl = _interpolate(url, ctx);
+        let _lastResolvedUrl = _interpolate(url, ctx, true);
         let _debounceTimer = null;
 
         // For pagination: strip the {page} or {cursor} token to detect
@@ -1005,17 +1005,17 @@ for (const method of HTTP_METHODS) {
             ? url.replace(/\{page\}/g, "__PAGE__")
             : null;
         let _lastNonPaginationUrl = _urlWithoutPagination
-          ? _interpolate(_urlWithoutPagination, ctx)
+          ? _interpolate(_urlWithoutPagination, ctx, true)
           : null;
 
         function onAncestorChange() {
-          const newUrl = _interpolate(url, ctx);
+          const newUrl = _interpolate(url, ctx, true);
           if (newUrl !== _lastResolvedUrl) {
             _lastResolvedUrl = newUrl;
 
             // Check if non-pagination URL parts changed (reset trigger)
             if (isPaginationTrigger && isInsertMode && _urlWithoutPagination) {
-              const newNonPaginationUrl = _interpolate(_urlWithoutPagination, ctx);
+              const newNonPaginationUrl = _interpolate(_urlWithoutPagination, ctx, true);
               if (newNonPaginationUrl !== _lastNonPaginationUrl) {
                 _lastNonPaginationUrl = newNonPaginationUrl;
                 if (_debounceTimer) clearTimeout(_debounceTimer);

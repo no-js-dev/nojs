@@ -76,10 +76,10 @@ describe('devtools on a non-local host', () => {
       expect(updates[1].data.newValue).toEqual({ token: 'other' });
     });
 
-    test('the context registry populates, as in v1.21.1', () => {
+    test('the unreachable context registry does not retain contexts', () => {
       _config.devtools = true;
       for (let i = 0; i < 1000; i++) createContext({ i });
-      expect(_ctxRegistry.size).toBe(1000);
+      expect(_ctxRegistry.size).toBe(0);
     });
 
     test('devtools: false still emits nothing and registers nothing', () => {

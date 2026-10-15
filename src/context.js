@@ -4,7 +4,7 @@
 
 import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _isSensitiveName, _warn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _devtoolsEmit, _devtoolsEnabled, _devtoolsValue, _ctxRegistry } from "./devtools.js";
+import { _devtoolsEmit, _devtoolsEnabled, _devtoolsValue, _ctxRegistry, _isLocalHostname } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -263,7 +263,9 @@ export function createContext(data = {}, parent = null) {
   meta.proxy = proxy;
 
   if (_config.devtools && raw.__devtoolsId) {
-    _ctxRegistry.set(raw.__devtoolsId, proxy);
+    // Only the local-host devtools API reads the registry, so keeping contexts
+    // in it elsewhere would only retain them in memory.
+    if (_isLocalHostname()) _ctxRegistry.set(raw.__devtoolsId, proxy);
     _devtoolsEmit("ctx:created", {
       id: raw.__devtoolsId,
       parentId: parent?.__raw?.__devtoolsId ?? null,

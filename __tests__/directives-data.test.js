@@ -3125,3 +3125,70 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
     expect(headers['X-CSRF-Token']).toBeUndefined();
   });
 });
+
+describe('NOJS-HTTP-001 — form fields are read before the loading template renders', () => {
+  beforeEach(httpSetup);
+  afterEach(httpTeardown);
+
+  // Login form from docs/md/data-fetching.md ("Form Submission").
+  function mountLoginForm(withLoading) {
+    document.body.innerHTML = `
+      <div state="{}">
+        <form post="/login"
+              success="#loginSuccess"
+              error="#loginError"
+              ${withLoading ? 'loading="#loginLoading"' : ''}>
+          <input type="text" name="email" />
+          <input type="password" name="password" />
+          <button type="submit">Login</button>
+        </form>
+      </div>
+      <template id="loginSuccess" var="result">
+        <p>Welcome, <span bind="result.user.name"></span>!</p>
+      </template>
+      <template id="loginError" var="err">
+        <p class="error" bind="err.message"></p>
+      </template>
+      <template id="loginLoading"><p>Signing in...</p></template>`;
+    processTree(document.body);
+    const form = document.querySelector('form');
+    form.querySelector('[name="email"]').value = 'a@b.c';
+    form.querySelector('[name="password"]').value = 'hunter2';
+    return form;
+  }
+
+  test('form with loading= sends the typed field values', async () => {
+    const form = mountLoginForm(true);
+    let formTextAtFetch;
+    global.fetch.mockImplementation(() => {
+      formTextAtFetch = form.textContent;
+      return Promise.resolve(mockJsonResponse({ user: { name: 'Ada' } }));
+    });
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    // The loading template had replaced the inputs when the request went out.
+    expect(formTextAtFetch).toContain('Signing in...');
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      email: 'a@b.c',
+      password: 'hunter2',
+    });
+  });
+
+  test('control: same form without loading= sends the typed field values', async () => {
+    const form = mountLoginForm(false);
+    global.fetch.mockResolvedValue(mockJsonResponse({ user: { name: 'Ada' } }));
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      email: 'a@b.c',
+      password: 'hunter2',
+    });
+  });
+});
+

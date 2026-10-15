@@ -6,7 +6,11 @@ const PORT = process.env.PORT || 3000;
 // TEST_SERVER_HOST: interface to bind (default: all interfaces, IPv4 + IPv6); 127.0.0.1 for loopback only
 const HOST = process.env.TEST_SERVER_HOST || undefined;
 const ROOT = __dirname;
-const LOCAL_BUILD = path.join(ROOT, 'dist/iife/no.js');
+// NOJS_BUILD_PATH: serve another no.js build at /__local__/no.js (scripts/compat-check.sh runs the
+// compat suite against a build of any git ref this way, without touching dist/)
+const LOCAL_BUILD = process.env.NOJS_BUILD_PATH
+  ? path.resolve(process.env.NOJS_BUILD_PATH)
+  : path.join(ROOT, 'dist/iife/no.js');
 // NOJS_ELEMENTS_PATH: override to point at a custom nojs-elements.js build (CI, worktrees, standalone clones)
 const LOCAL_ELEMENTS = process.env.NOJS_ELEMENTS_PATH || path.join(ROOT, '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
 const LOCAL_ELEMENTS_SCRIPT = '/__local__/nojs-elements.js';

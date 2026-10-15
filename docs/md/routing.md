@@ -57,6 +57,21 @@ Full client-side routing with no page reloads.
 </template>
 ```
 
+In history mode (the default), the query string and hash are kept on the first page load and on Back/Forward to the page.
+
+### Removing one-time tokens from the URL
+
+Because the query is kept, a callback URL such as `/auth/callback?token=abc123` (magic link, OAuth `?code=`) stays in the address bar and in the browser history until you replace it. Read the value, then replace the history entry with a different path:
+
+```html
+<!-- /auth/callback?token=abc123 (assumes an "auth" store) -->
+<template route="/auth/callback">
+  <div on:init="$store.auth.token = $route.query.token; $router.replace('/dashboard')"></div>
+</template>
+```
+
+`$router.replace()` swaps the current history entry, so Back does not return to the URL that carried the token. Replace with a different path: replacing with the same path without the query renders the route again, and `$route.query.token` is then empty.
+
 ---
 
 ## `$route` — Route Context

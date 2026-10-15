@@ -3144,3 +3144,147 @@ describe('Router — focusBehavior (M2)', () => {
     expect(document.activeElement).toBe(outlet);
   });
 });
+
+describe('Router — history mode keeps ?query and #hash on init and popstate', () => {
+  afterEach(() => {
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
+  });
+
+  test('initial load of /search?q=hello#frag keeps the URL and fills $route.query', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/search?q=hello#frag');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+
+  test('initial load strips the base from the pathname only', async () => {
+    _config.router = { useHash: false, base: '/app', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/app/search?q=hello');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(window.location.pathname + window.location.search).toBe('/app/search?q=hello');
+  });
+
+  test('Back to /search?q=hello#frag restores $route.query and keeps the URL', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/"><p>Home</p></template>
+      <template route="/search"><p>Search</p></template>
+      <template route="/other"><p>Other</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+    await router.push('/search?q=hello#frag');
+    await router.push('/other');
+    expect(router.current.path).toBe('/other');
+
+    window.history.back(); // jsdom fires popstate asynchronously
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+});
+
+describe('Router — query keeps everything after the first ?', () => {
+  let router;
+  const fullUrl = () => window.location.pathname + window.location.search + window.location.hash;
+
+  async function boot(startUrl, cfg = {}) {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top', ...cfg };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/"><p>Home</p></template>
+      <template route="/login"><p>Login</p></template>
+      <template route="/admin" guard="$route.query.ok" redirect="/login"><p>Admin</p></template>
+      <div route-view></div>
+    `;
+    window.history.replaceState({}, '', startUrl);
+    router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+  }
+
+  afterEach(() => {
+    if (router) router.destroy();
+    router = null;
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
+  });
+
+  test('history-mode initial load keeps a nested ? in the query value and the URL', async () => {
+    await boot('/login?next=/a?b=1');
+    expect(router.current.path).toBe('/login');
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(fullUrl()).toBe('/login?next=/a?b=1');
+  });
+
+  test('push() keeps a nested ? in the query value and the URL', async () => {
+    await boot('/');
+    await router.push('/login?next=/a?b=1#x');
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(router.current.hash).toBe('#x');
+    expect(fullUrl()).toBe('/login?next=/a?b=1#x');
+  });
+
+  test('hash-mode initial load keeps a nested ? in the query value and the URL', async () => {
+    await boot('/#/login?next=/a?b=1', { useHash: true, suppressHashWarning: true });
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(window.location.hash).toBe('#/login?next=/a?b=1');
+  });
+
+  test('guard sees $route.query on the initial load', async () => {
+    await boot('/admin?ok=1');
+    expect(router.current.path).toBe('/admin');
+  });
+
+  test('guard redirect on the initial load still lands on a clean redirect URL', async () => {
+    await boot('/admin?x=1#y');
+    expect(router.current.path).toBe('/login');
+    expect(fullUrl()).toBe('/login');
+  });
+
+  test('fragment-only popstate on the same path does not re-render', async () => {
+    await boot('/login');
+    Element.prototype.scrollIntoView = jest.fn();
+    const listener = jest.fn();
+    router.on(listener);
+    window.history.pushState({}, '', '/login#x');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(listener).not.toHaveBeenCalled();
+    expect(router.current.path).toBe('/login');
+    delete Element.prototype.scrollIntoView;
+  });
+});

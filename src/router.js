@@ -118,7 +118,9 @@ export function _createRouter() {
     const hashIdx = path.indexOf("#");
     const hash = hashIdx >= 0 ? path.slice(hashIdx + 1) : "";
     const withoutHash = hashIdx >= 0 ? path.slice(0, hashIdx) : path;
-    const [rawPath, search = ""] = withoutHash.split("?");
+    const queryIdx = withoutHash.indexOf("?");
+    const rawPath = queryIdx >= 0 ? withoutHash.slice(0, queryIdx) : withoutHash;
+    const search = queryIdx >= 0 ? withoutHash.slice(queryIdx + 1) : "";
     const cleanPath = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
 
     // Hash-only change — update state and scroll, skip re-render
@@ -1080,12 +1082,13 @@ export function _createRouter() {
             }
             return;
           }
-          navigate(path, true, true); // history pop → backward direction
+          // Keep ?query and #hash: the base is stripped from the pathname only
+          navigate(path + window.location.search + window.location.hash, true, true); // history pop → backward direction
         };
         window.addEventListener("popstate", _popstateHandler);
         _globalHandlers.push(() => window.removeEventListener("popstate", _popstateHandler));
         const path = _stripBase(window.location.pathname);
-        await navigate(path, true);
+        await navigate(path + window.location.search + window.location.hash, true);
       }
 
       // Prefetch route templates declared via <a route> links

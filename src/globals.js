@@ -61,6 +61,51 @@ export const _SENSITIVE_KEYS = new Set([
   'token', 'password', 'secret', 'key', 'auth', 'credential', 'session',
 ]);
 
+// Name matcher for the opt-in strict redaction paths (strictDevtools,
+// strictRedaction). The name is split into words (camelCase and any
+// non-alphanumeric separator) and matched by word, not by substring:
+// "accessToken", "api_key", "X-Session-Id" and "sessionid" match, while
+// "author", "keyboard", "keywords", "sort_key", "monkey", "tokenCount" and
+// "sessionCount" do not. The default paths keep _SENSITIVE_KEYS.
+const _SENSITIVE_LAST_WORDS = new Set([
+  'token', 'tokens', 'password', 'passwords', 'passwd', 'secret', 'secrets',
+  'auth', 'authorization', 'credential', 'credentials', 'cookie', 'cookies',
+  'jwt', 'session', 'signature',
+]);
+const _SENSITIVE_ANY_WORDS = new Set([
+  'password', 'passwords', 'passwd', 'secret', 'secrets', 'credential',
+  'credentials', 'authorization', 'apikey',
+]);
+const _SENSITIVE_KEY_QUALIFIERS = new Set([
+  'api', 'private', 'secret', 'access', 'signing', 'encryption', 'auth',
+  'session', 'license', 'client', 'master',
+]);
+const _SENSITIVE_WHOLE_NAMES = new Set([
+  'key', 'sig', 'apikey', 'sessionid', 'accesstoken', 'refreshtoken', 'idtoken',
+  'csrftoken', 'xsrftoken',
+]);
+
+export function _isSensitiveName(name) {
+  if (typeof name !== 'string' || !name) return false;
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (!words.length) return false;
+  const last = words[words.length - 1];
+  const prev = words.length > 1 ? words[words.length - 2] : '';
+  if (_SENSITIVE_WHOLE_NAMES.has(words.join(''))) return true;
+  if (_SENSITIVE_LAST_WORDS.has(last)) return true;
+  if (last === 'key' && _SENSITIVE_KEY_QUALIFIERS.has(prev)) return true;
+  if (last === 'id' && prev === 'session') return true;
+  for (const w of words) {
+    if (_SENSITIVE_ANY_WORDS.has(w)) return true;
+  }
+  return false;
+}
+
 export const _SENSITIVE_RESPONSE_HEADERS = new Set([
   'set-cookie', 'x-csrf-token', 'x-auth-token',
   'www-authenticate', 'proxy-authenticate',

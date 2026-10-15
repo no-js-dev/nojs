@@ -3374,3 +3374,113 @@ describe('v1.21.1 defaults: request body interpolation bytes', () => {
     warn.mockRestore();
   });
 });
+
+describe('fetch event, warning and devtools URLs per flag (get and call)', () => {
+  const RAW = '/api/ev?access_token=TOKEN-SECRET&page=2';
+  const RED = '/api/ev?access_token=[REDACTED]&page=2';
+  let warn;
+  let originalFetch;
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    originalFetch = global.fetch;
+    _config.retries = 0;
+    _config.baseApiUrl = '';
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    global.fetch = originalFetch;
+    document.body.innerHTML = '';
+    Object.keys(_eventBus).forEach((k) => delete _eventBus[k]);
+    _config.devtools = false;
+    _config.strictRedaction = false;
+    _config.strictDevtools = false;
+  });
+
+  async function run(markup, ok) {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok,
+      status: ok ? 200 : 500,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve('{}'),
+    });
+    const events = [];
+    for (const name of ['fetch:success', 'fetch:error', 'error']) {
+      _eventBus[name] = [(p) => events.push([name, p.url])];
+    }
+    const devtools = [];
+    const onDevtools = (e) => { if (/^fetch:/.test(e.detail.type)) devtools.push([e.detail.type, e.detail.data.url]); };
+    _config.devtools = true;
+    window.addEventListener('nojs:devtools', onDevtools);
+    document.body.innerHTML = `<div state="{ t: 'TOKEN-SECRET' }">${markup}</div>`;
+    processTree(document.body);
+    const btn = document.querySelector('button');
+    if (btn) btn.click();
+    await new Promise((r) => setTimeout(r, 50));
+    window.removeEventListener('nojs:devtools', onDevtools);
+    const warnings = warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('failed'));
+    return { events, devtools, warnings };
+  }
+
+  const GET = `<div get="/api/ev?access_token={t}&page=2" as="r"></div>`;
+  const CALL = `<button call="/api/ev?access_token={t}&page=2">go</button>`;
+
+  test.each([['get', GET], ['call', CALL]])('%s: defaults carry the raw URL in events, devtools and the failure warning (v1.21.1)', async (_, markup) => {
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RAW]]);
+    expect(ok.devtools).toEqual([['fetch:success', RAW]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RAW], ['error', RAW]]);
+    expect(fail.devtools).toEqual([['fetch:error', RAW]]);
+    expect(fail.warnings).toHaveLength(1);
+    expect(fail.warnings[0]).toContain(RAW + ' failed');
+  });
+
+  test.each([['get', GET], ['call', CALL]])('%s: strictRedaction redacts event URLs and the warning, not devtools', async (_, markup) => {
+    _config.strictRedaction = true;
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RED]]);
+    expect(ok.devtools).toEqual([['fetch:success', RAW]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RED], ['error', RED]]);
+    expect(fail.devtools).toEqual([['fetch:error', RAW]]);
+    expect(fail.warnings[0]).toContain(RED + ' failed');
+    expect(fail.warnings.join('\n')).not.toContain('TOKEN-SECRET');
+  });
+
+  test.each([['get', GET], ['call', CALL]])('%s: strictRedaction keeps non-sensitive names that only contain a sensitive substring', async (_, markup) => {
+    _config.strictRedaction = true;
+    const m = markup.replace('access_token={t}&page=2', 'author={t}&sort_key=k');
+    const fail = await run(m, false);
+    expect(fail.events).toEqual([['fetch:error', '/api/ev?author=TOKEN-SECRET&sort_key=k'], ['error', '/api/ev?author=TOKEN-SECRET&sort_key=k']]);
+  });
+
+  describe('URL fragments', () => {
+    const RAW_H = '/api/ev?access_token=TOKEN-SECRET&page=2#access_token=TOKEN-SECRET';
+    const RED_H = '/api/ev?access_token=[REDACTED]&page=2';
+    const GET_H = `<div get="/api/ev?access_token={t}&page=2#access_token={t}" as="r"></div>`;
+    const CALL_H = `<button call="/api/ev?access_token={t}&page=2#access_token={t}">go</button>`;
+
+    test.each([['get', GET_H], ['call', CALL_H]])('%s: defaults keep the fragment in events, devtools and the warning (v1.21.1)', async (_, markup) => {
+      const ok = await run(markup, true);
+      expect(ok.events).toEqual([['fetch:success', RAW_H]]);
+      expect(ok.devtools).toEqual([['fetch:success', RAW_H]]);
+      const fail = await run(markup, false);
+      expect(fail.events).toEqual([['fetch:error', RAW_H], ['error', RAW_H]]);
+      expect(fail.devtools).toEqual([['fetch:error', RAW_H]]);
+      expect(fail.warnings[0]).toContain(RAW_H + ' failed');
+    });
+
+    test.each([['get', GET_H], ['call', CALL_H]])('%s: strictRedaction drops the fragment from events and the warning', async (_, markup) => {
+      _config.strictRedaction = true;
+      const ok = await run(markup, true);
+      expect(ok.events).toEqual([['fetch:success', RED_H]]);
+      const fail = await run(markup, false);
+      expect(fail.events).toEqual([['fetch:error', RED_H], ['error', RED_H]]);
+      expect(fail.warnings[0]).toContain(RED_H + ' failed');
+      expect(fail.warnings.join('\n')).not.toContain('TOKEN-SECRET');
+    });
+  });
+});

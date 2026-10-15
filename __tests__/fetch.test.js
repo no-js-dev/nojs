@@ -1,5 +1,5 @@
-import { _config, _interceptors, _cache } from '../src/globals.js';
-import { resolveUrl, _doFetch, _cacheGet, _cacheSet } from '../src/fetch.js';
+import { _config, _interceptors, _cache, _plugins } from '../src/globals.js';
+import { resolveUrl, _doFetch, _cacheGet, _cacheSet, _redactUrlParams, _eventUrl } from '../src/fetch.js';
 
 describe('URL Resolution', () => {
   afterEach(() => {
@@ -1125,5 +1125,467 @@ describe('v1.21.1 defaults: global headers (scopeHeaders off)', () => {
     } finally {
       log.mockRestore();
     }
+  });
+});
+
+describe('Untrusted interceptor redaction consistency (strictRedaction: true)', () => {
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
+  afterEach(() => {
+    _plugins.delete('analytics');
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _config.csrf = null;
+    _config.strictRedaction = false;
+  });
+
+  test('configured CSRF header name is withheld from untrusted request interceptors', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-SECRET' };
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (url, opts) => { seen = { ...opts.headers }; }, pluginName: 'analytics' });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen['X-XSRF-TOKEN']).toBeUndefined();
+    expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-SECRET');
+  });
+
+  test('a trusted plugin still sees and can rotate the configured CSRF header', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-1' };
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: { trusted: true } });
+    _interceptors.request.push({
+      fn: (url, opts) => { seen = opts.headers['X-XSRF-TOKEN']; return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } }; },
+      pluginName: 'analytics',
+    });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen).toBe('CSRF-1');
+    expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-2');
+  });
+
+  test('x-auth-* / x-api-* response headers are withheld from untrusted response interceptors', async () => {
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.response.push({
+      fn: (res) => { seen = { refresh: res.headers.get('x-auth-refresh-token'), key: res.headers.get('x-api-secret'), ct: res.headers.get('content-type') }; return res; },
+      pluginName: 'analytics',
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({ 'x-auth-refresh-token': 'RT', 'x-api-secret': 'K', 'content-type': 'application/json' }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen.refresh).toBeNull();
+    expect(seen.key).toBeNull();
+    expect(seen.ct).toBe('application/json');
+  });
+
+  test('untrusted request interceptors get a redacted url while the request goes to the real url', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seenUrl;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (url) => { seenUrl = url; return { url }; }, pluginName: 'analytics' });
+    await _doFetch('/api/login?access_token=abc123&page=2', 'GET');
+    expect(seenUrl).toBe('/api/login?access_token=[REDACTED]&page=2');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/login?access_token=abc123&page=2');
+  });
+
+  test('trusted request interceptors receive the real url', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seenUrl;
+    _plugins.set('analytics', { plugin: {}, options: { trusted: true } });
+    _interceptors.request.push({ fn: (url) => { seenUrl = url; }, pluginName: 'analytics' });
+    await _doFetch('/api/login?access_token=abc123#frag', 'GET');
+    expect(seenUrl).toBe('/api/login?access_token=abc123#frag');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/login?access_token=abc123#frag');
+  });
+
+  test('non-string csrf.header does not throw during header redaction', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 42, token: 't' };
+    _interceptors.request.push({ fn: () => {}, pluginName: undefined });
+    await expect(_doFetch('/api/x', 'POST', { a: 1 })).resolves.toBeDefined();
+  });
+});
+
+describe('URL seen by untrusted request interceptors (strictRedaction: true)', () => {
+  const seenUrl = async (url) => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seen;
+    _plugins.set('analytics', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (u) => { seen = u; }, pluginName: 'analytics' });
+    await _doFetch(url, 'GET');
+    return seen;
+  };
+
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
+  afterEach(() => {
+    _plugins.delete('analytics');
+    _interceptors.request.length = 0;
+    _config.strictRedaction = false;
+  });
+
+  test('is the real url, byte for byte, when no parameter is sensitive and there is no fragment', async () => {
+    for (const u of ['//cdn.example.com/a?x=1', 'HTTP://h.com/a?q=a%20b', 'api/x?a=1&b=a+b', '/p', 'https://h.com/a?page=2']) {
+      expect(await seenUrl(u)).toBe(u);
+      _interceptors.request.length = 0;
+    }
+  });
+
+  test('drops the fragment', async () => {
+    const cases = [
+      ['HTTP://h.com/a?q=a%20b#frag', 'HTTP://h.com/a?q=a%20b'],
+      ['/api/x#access_token=SEKH', '/api/x'],
+      ['/api/x?q=1#a?token=b', '/api/x?q=1'],
+    ];
+    for (const [real, expected] of cases) {
+      expect(await seenUrl(real)).toBe(expected);
+      _interceptors.request.length = 0;
+    }
+  });
+
+  test('differs from the real url only in sensitive values, replaced by a literal [REDACTED]', async () => {
+    const cases = [
+      ['//cdn.example.com/a?x=a%20b&access_token=S3&y=1#frag', '//cdn.example.com/a?x=a%20b&access_token=[REDACTED]&y=1'],
+      ['HTTP://h.com/a?API_KEY=S&q=a+b', 'HTTP://h.com/a?API_KEY=[REDACTED]&q=a+b'],
+      ['api/x?password=p&q=%20b', 'api/x?password=[REDACTED]&q=%20b'],
+      ['/a?token=1&token=2', '/a?token=[REDACTED]&token=[REDACTED]'],
+    ];
+    for (const [real, expected] of cases) {
+      expect(await seenUrl(real)).toBe(expected);
+      _interceptors.request.length = 0;
+    }
+  });
+});
+
+describe('v1.21.1 defaults: interceptor redaction (strictRedaction off)', () => {
+  const okFetch = () => jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  afterEach(() => {
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.csrf = null;
+  });
+
+  test('strictRedaction defaults to false', () => {
+    expect(_config.strictRedaction).toBe(false);
+  });
+
+  test('an app request interceptor sees the full url, unredacted, fragment included', async () => {
+    global.fetch = okFetch();
+    let seen;
+    _interceptors.request.push((url) => { seen = url; });
+    await _doFetch('/api/search?author=ann&keyword=x&token=abc#access_token=H', 'GET');
+    expect(seen).toBe('/api/search?author=ann&keyword=x&token=abc#access_token=H');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/search?author=ann&keyword=x&token=abc#access_token=H');
+  });
+
+  test('an untrusted plugin request interceptor sees the full url, unredacted', async () => {
+    global.fetch = okFetch();
+    let seen;
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.request.push({ fn: (url) => { seen = url; }, pluginName: 'untrusted' });
+    await _doFetch('/api/x?access_token=abc', 'GET');
+    expect(seen).toBe('/api/x?access_token=abc');
+  });
+
+  test('an app response interceptor sees X-Api-Version and Authorization response headers', async () => {
+    let seen;
+    _interceptors.response.push((res) => {
+      seen = {
+        version: res.headers.get('x-api-version'),
+        auth: res.headers.get('authorization'),
+        refresh: res.headers.get('x-auth-refresh'),
+        xsrf: res.headers.get('x-xsrf-token'),
+        cookie: res.headers.get('set-cookie'),
+        challenge: res.headers.get('www-authenticate'),
+        authToken: res.headers.get('x-auth-token'),
+      };
+      return res;
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({
+        'x-api-version': '2',
+        authorization: 'Bearer NEXT',
+        'x-auth-refresh': 'RT-1',
+        'x-xsrf-token': 'CSRF-NEXT',
+        'www-authenticate': 'Basic',
+        'x-auth-token': 'T',
+      }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen.version).toBe('2');
+    expect(seen.auth).toBe('Bearer NEXT');
+    expect(seen.refresh).toBe('RT-1');
+    expect(seen.xsrf).toBe('CSRF-NEXT');
+    // v1.21.1 always stripped the fixed response list
+    expect(seen.challenge).toBeNull();
+    expect(seen.cookie).toBeNull();
+    expect(seen.authToken).toBeNull();
+  });
+
+  test('a custom csrf header is visible to and settable by an app request interceptor', async () => {
+    global.fetch = okFetch();
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => {
+      seen = opts.headers['X-XSRF-TOKEN'];
+      return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } };
+    });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen).toBe('CSRF-1');
+    expect(sent()['X-XSRF-TOKEN']).toBe('CSRF-2');
+  });
+
+  test('the default X-CSRF-Token header is still withheld from app request interceptors', async () => {
+    global.fetch = okFetch();
+    _config.csrf = { token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => { seen = { ...opts.headers }; });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen['X-CSRF-Token']).toBeUndefined();
+    expect(sent()['X-CSRF-Token']).toBe('CSRF-1');
+  });
+
+  test('_eventUrl returns the url unchanged', () => {
+    const u = '/api/x?access_token=abc#access_token=H';
+    expect(_eventUrl(u)).toBe(u);
+  });
+});
+
+describe('strictRedaction: true with app interceptors', () => {
+  beforeEach(() => {
+    _config.strictRedaction = true;
+  });
+
+  afterEach(() => {
+    _config.strictRedaction = false;
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _config.csrf = null;
+  });
+
+  test('app request interceptors see sensitive query values redacted, matched by word', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    let seen;
+    _interceptors.request.push((url) => { seen = url; });
+    await _doFetch('/api/search?author=ann&keyword=x&sort_key=name&token=abc', 'GET');
+    expect(seen).toBe('/api/search?author=ann&keyword=x&sort_key=name&token=[REDACTED]');
+    expect(global.fetch.mock.calls[0][0]).toBe('/api/search?author=ann&keyword=x&sort_key=name&token=abc');
+  });
+
+  test('app response interceptors do not see Authorization or X-Api-* response headers', async () => {
+    let seen;
+    _interceptors.response.push((res) => {
+      seen = { version: res.headers.get('x-api-version'), auth: res.headers.get('authorization'), ct: res.headers.get('content-type') };
+      return res;
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: '',
+      headers: new Headers({ 'x-api-version': '2', authorization: 'Bearer NEXT', 'content-type': 'application/json' }),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch('/api/me', 'GET');
+    expect(seen).toEqual({ version: null, auth: null, ct: 'application/json' });
+  });
+
+  test('a custom csrf header cannot be read or overridden by an app request interceptor', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+    _config.csrf = { header: 'X-XSRF-TOKEN', token: 'CSRF-1' };
+    let seen;
+    _interceptors.request.push((url, opts) => {
+      seen = opts.headers['X-XSRF-TOKEN'];
+      return { headers: { 'X-XSRF-TOKEN': 'CSRF-2' } };
+    });
+    await _doFetch('/api/login', 'POST', { a: 1 });
+    expect(seen).toBeUndefined();
+    expect(global.fetch.mock.calls[0][1].headers['X-XSRF-TOKEN']).toBe('CSRF-1');
+  });
+});
+
+// Response interceptors receive (redactedResponse, url). Untrusted ones (app
+// NoJS.interceptor() and plugins without { trusted: true }) get the URL and
+// res.url through v1.21.1's URL-object redaction by default.
+describe('v1.21.1 defaults: response interceptor URL bytes', () => {
+  const RESPONSE_URL_CASES = [
+    ['/api/users?token=abc&page=2', '/api/users?token=%5BREDACTED%5D&page=2'],
+    ['api/users', '/api/users'],
+    ['/api/users#frag', '/api/users'],
+    ['/api/users?token=x#frag', '/api/users?token=%5BREDACTED%5D'],
+    ['/api/users?q=a%20b&token=x', '/api/users?q=a+b&token=%5BREDACTED%5D'],
+    ['/x?%74oken%ZZ=sek', '/x?token%25ZZ=%5BREDACTED%5D'],
+    ['/api/x?token', '/api/x?token=%5BREDACTED%5D'],
+    ['//cdn.test/x?token=1', '/x?token=%5BREDACTED%5D'],
+    ['http://API.test:80/x?token=1#h', 'http://api.test/x?token=%5BREDACTED%5D#h'],
+    ['http://api.test/x?a=1&a=2&token=t&token=u', 'http://api.test/x?a=1&a=2&token=%5BREDACTED%5D'],
+    ['/api/users', '/api/users'],
+    ['/api/x#access_token=SEKH', '/api/x'],
+    ['/api/items?author=ann&keyword=x&sort_key=n', '/api/items?author=%5BREDACTED%5D&keyword=%5BREDACTED%5D&sort_key=%5BREDACTED%5D'],
+  ];
+
+  const run = async (url, responseUrl) => {
+    const seen = [];
+    const record = (res, u) => { seen.push({ url: u, resUrl: res.url }); };
+    _interceptors.response.push(record);
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.response.push({ fn: record, pluginName: 'untrusted' });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: responseUrl,
+      headers: new Headers(),
+      text: () => Promise.resolve('{}'),
+    });
+    await _doFetch(url, 'GET');
+    return seen;
+  };
+
+  afterEach(() => {
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.strictRedaction = false;
+  });
+
+  test.each(RESPONSE_URL_CASES)('url %s is seen as %s by app and untrusted plugin interceptors', async (url, expected) => {
+    const seen = await run(url, '');
+    expect(seen.map((s) => s.url)).toEqual([expected, expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(url);
+  });
+
+  test('res.url is redacted with the v1.21.1 bytes', async () => {
+    const seen = await run('/api/users?q=a%20b&token=x', 'http://localhost/api/users?q=a%20b&token=x');
+    expect(seen.map((s) => s.resUrl)).toEqual([
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+      'http://localhost/api/users?q=a+b&token=%5BREDACTED%5D',
+    ]);
+  });
+
+  test('with strictRedaction the string-level redactor is used, and a partly malformed key is still matched', async () => {
+    _config.strictRedaction = true;
+    const seen = await run('/x?%74oken%=sek&q=a%20b', 'http://localhost/x?%74oken%=sek&q=a%20b');
+    expect(seen).toEqual([
+      { url: '/x?%74oken%=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%=[REDACTED]&q=a%20b' },
+      { url: '/x?%74oken%=[REDACTED]&q=a%20b', resUrl: 'http://localhost/x?%74oken%=[REDACTED]&q=a%20b' },
+    ]);
+  });
+
+  test.each([
+    ['/api/x#access_token=SEKH', '/api/x'],
+    ['/api/x?token=t&q=1#access_token=SEKH', '/api/x?token=[REDACTED]&q=1'],
+    ['http://api.test/x?q=1#frag', 'http://api.test/x?q=1'],
+    ['/api/x?q=1', '/api/x?q=1'],
+  ])('with strictRedaction the fragment is dropped: %s is seen as %s', async (url, expected) => {
+    _config.strictRedaction = true;
+    const seen = await run(url, 'http://localhost/api/x?q=1');
+    expect(seen.map((s) => s.url)).toEqual([expected, expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(url);
+  });
+});
+
+describe('URL fragments: request vs response interceptors and the insecure-HTTP warning', () => {
+  const URL_H = 'http://api.test/x?token=t&q=1#access_token=SEKH';
+
+  async function run() {
+    const seen = [];
+    _plugins.set('untrusted', { plugin: {}, options: {} });
+    _interceptors.request.push((u) => { seen.push(['app:req', u]); });
+    _interceptors.request.push({ fn: (u) => { seen.push(['plugin:req', u]); }, pluginName: 'untrusted' });
+    _interceptors.response.push((res, u) => { seen.push(['app:res', u]); });
+    _interceptors.response.push({ fn: (res, u) => { seen.push(['plugin:res', u]); }, pluginName: 'untrusted' });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, url: '', headers: new Headers(), text: () => Promise.resolve('{}') });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await _doFetch(URL_H, 'GET');
+    const warnings = warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('insecure HTTP'));
+    warn.mockRestore();
+    return { seen, warnings };
+  }
+
+  afterEach(() => {
+    _interceptors.request.length = 0;
+    _interceptors.response.length = 0;
+    _plugins.delete('untrusted');
+    _config.strictRedaction = false;
+  });
+
+  test('defaults match v1.21.1: raw request URL, URL-object response URL, raw warning', async () => {
+    const { seen, warnings } = await run();
+    expect(seen).toEqual([
+      ['app:req', URL_H],
+      ['plugin:req', URL_H],
+      ['app:res', 'http://api.test/x?token=%5BREDACTED%5D&q=1#access_token=SEKH'],
+      ['plugin:res', 'http://api.test/x?token=%5BREDACTED%5D&q=1#access_token=SEKH'],
+    ]);
+    expect(warnings).toEqual(['[No.JS] Credentials sent over insecure HTTP: ' + URL_H]);
+    expect(global.fetch.mock.calls[0][0]).toBe(URL_H);
+  });
+
+  test('with strictRedaction every untrusted stage sees the same URL, without fragment or secrets', async () => {
+    _config.strictRedaction = true;
+    const { seen, warnings } = await run();
+    const expected = 'http://api.test/x?token=[REDACTED]&q=1';
+    expect(seen).toEqual([
+      ['app:req', expected],
+      ['plugin:req', expected],
+      ['app:res', expected],
+      ['plugin:res', expected],
+    ]);
+    expect(warnings).toEqual(['[No.JS] Credentials sent over insecure HTTP: ' + expected]);
+    expect(global.fetch.mock.calls[0][0]).toBe(URL_H);
+  });
+});
+
+describe('_redactUrlParams (strict redactor)', () => {
+  test('matches keys whose escapes are partly malformed', () => {
+    expect(_redactUrlParams('/x?%74oken%=S&p%61ssword%G1=P&q=1')).toBe('/x?%74oken%=[REDACTED]&p%61ssword%G1=[REDACTED]&q=1');
+  });
+
+  test('leaves non-sensitive malformed keys unchanged', () => {
+    expect(_redactUrlParams('/x?a%ZZ=1&page=2')).toBe('/x?a%ZZ=1&page=2');
+  });
+
+  test('matches by word, not substring', () => {
+    const keep = ['author', 'authority', 'keyword', 'keywords', 'keyboard', 'sort_key', 'cache-key', 'monkey', 'tokenCount', 'sessionCount', 'primaryKey', 'keyId', 'oauth', 'page'];
+    for (const k of keep) {
+      expect(_redactUrlParams(`/x?${k}=v`)).toBe(`/x?${k}=v`);
+    }
+    const redact = [
+      'token', 'access_token', 'accessToken', 'refresh-token', 'id_token', 'csrftoken', 'X-Amz-Security-Token',
+      'api_key', 'apiKey', 'apikey', 'API-KEY', 'x-api-key', 'key', 'client_secret', 'secret',
+      'password', 'user[password]', 'passwd', 'auth', 'authorization', 'credential', 'X-Amz-Credential',
+      'X-Amz-Signature', 'sig', 'session', 'sessionid', 'session_id', 'jwt',
+    ];
+    for (const k of redact) {
+      expect(_redactUrlParams(`/x?${k}=v&page=1`)).toBe(`/x?${k}=[REDACTED]&page=1`);
+    }
+  });
+
+  test('matches percent-encoded and plus-encoded keys after decoding', () => {
+    expect(_redactUrlParams('/x?access%5Ftoken=v')).toBe('/x?access%5Ftoken=[REDACTED]');
+    expect(_redactUrlParams('/x?user%5Bpassword%5D=v')).toBe('/x?user%5Bpassword%5D=[REDACTED]');
+    expect(_redactUrlParams('/x?api+key=v')).toBe('/x?api+key=[REDACTED]');
+  });
+
+  test('keeps keys without a value, empty values and non-string input as they are', () => {
+    expect(_redactUrlParams('/x?token&page=1')).toBe('/x?token&page=1');
+    expect(_redactUrlParams('/x?token=&page=1')).toBe('/x?token=[REDACTED]&page=1');
+    expect(_redactUrlParams(undefined)).toBeUndefined();
+    expect(_redactUrlParams('/x')).toBe('/x');
   });
 });

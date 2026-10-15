@@ -1,0 +1,22 @@
+{
+  "source": { "file": "package.json", "key": "version" },
+  "files": [
+    { "file": "package-lock.json", "regex": "^  \"version\": \"{v}\",$" },
+    { "file": "package-lock.json", "regex": "^    \"\": \\{\\n      \"name\": \"[^\"]+\",\\n      \"version\": \"{v}\",$" },
+    { "file": "src/index.js", "pattern": "version: \"{v}\"," },
+    { "file": "docs/llms.txt", "pattern": "- Latest release: **v{v}** — see" },
+    { "file": "dist/iife/no.js", "pattern": " * No.JS v{v} — ", "generated": true },
+    { "file": "dist/iife/no.js", "pattern": "version:\"{v}\"", "generated": true },
+    { "file": "dist/iife/no.js.map", "pattern": "version: \\\"{v}\\\",", "generated": true }
+  ],
+  "build": "node build.js",
+  "hooks": { "dir": ".husky", "manager": "husky" },
+  "reviewAllowlist": [],
+  "scanExclude": [
+    "CHANGELOG.md",
+    "node_modules/",
+    ".github/reviews/",
+    "*.pen",
+    "package-lock.json"
+  ]
+}

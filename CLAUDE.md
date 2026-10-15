@@ -202,11 +202,23 @@ Template usage: `t="namespace.key.path"`, `t-html` modifier for HTML content, `b
 
 All repos share the **same version**. Never bump individually. Highest bump across all repos wins.
 
-| Repo | Path | Version locations | Build | Publish |
-|------|------|-------------------|-------|---------|
-| **NoJS** | `NoJS/` | `package.json:3` + `src/index.js:493` | `node build.js` | nothing (CDN-only) |
-| **NoJS-LSP** | `NoJS-LSP/` | `package.json:5` | `npm run compile` | `npx vsce package` (VSIX only) |
-| **NoJS-Skill** | `NoJS-Skill/` | `SKILL.md:4` (frontmatter) | none | none (markdown) |
+Each repo's `.versionrc.json` is the source of truth for its version locations; `scripts/version.mjs` syncs (`sync`) and verifies (`check`) them. Never edit a version string by hand.
+
+| Repo | Source | Other declared locations | Build |
+|------|--------|--------------------------|-------|
+| **NoJS** | `package.json` | `package-lock.json` (root + `packages[""]`), `src/index.js` (`version: "x.y.z"`), `docs/llms.txt` ("Latest release" line), `dist/iife/no.js` + `.map` (generated) | `node build.js` |
+| **NoJS-Elements** | `package.json` | `package-lock.json` (×2), `docs/index.html` + `docs/404.html` (`version: '…'` in `<body state>`), `dist/{cjs,esm,iife}/nojs-elements.js` banner (generated) | `npm run build` |
+| **NoJS-LSP** | `package.json` | `package-lock.json` (×2), `docs/index.html` + `docs/404.html` (`version: '…'` in `<body state>`), `docs/getting-started.md` (`nojs-lsp-x.y.z.vsix`) | none |
+| **NoJS-Server** | `package.json` | `package-lock.json` (×2), `src/cli/index.ts` (`VERSION`), `scripts/build-integrator.mjs` (`__NOJS_VERSION__`), `README.md` (badge + "pre-release (x.y.z)") | none |
+| **NoJS-Skill** | `.claude-plugin/plugin.json` | `nojs/SKILL.md` (frontmatter `metadata.version` + `**Version**` table row) | none |
+
+Version mentions come in three kinds:
+
+1. **Declarations of the current version** — listed in `.versionrc.json` `files`; always synced by `sync`, verified by `check` (exact count per file; a missing location fails with `file:line`).
+2. **Historical mentions** (`CHANGELOG.md`, "as of v1.13.0", `.github/reviews/`) — never touched; `scanExclude` keeps them out of the stale scan.
+3. **State claims** ("Counts on main at x.y.z") — never changed automatically; files listed in `reviewAllowlist` are reported as `REVIEW`, not as failures.
+
+`check` also scans every tracked file for the previous release (highest `v*` tag below the current version) and fails on any mention outside those lists.
 
 All repos live under `/Users/erick/_projects/_personal/NoJS/`.
 
@@ -218,16 +230,18 @@ Order is strict — never skip or reorder:
 2. **Investigate** commits since last tag: `git log v<prev>..HEAD --oneline` in each repo
 3. **Sync** framework changes to satellite repos — see sync mapping below
 4. **Decide** semver bump based on conventional commit analysis
-5. **Bump** version in ALL repos simultaneously
-6. **Update** `CHANGELOG.md` in each repo (Keep a Changelog format, commit hash links)
-7. **Build**: NoJS `node build.js` (verify: `grep -c "x.y.z" dist/iife/no.js` > 0), LSP `npm run compile`
-8. **Commit** on `release/v<x.y.z>` branch: `git commit -m "chore: release v<x.y.z>"`
-9. **Push** release branch + **create PR** → main
-10. **Merge** PR (merge commit, not squash)
-11. **Tag** merge commit: `git tag v<x.y.z> && git push origin tag v<x.y.z>`
-12. **Publish**: NoJS nothing (CDN-only), Elements nothing (CDN-only), LSP `npx vsce package`, Skill → nothing
+5. **Update** `CHANGELOG.md` in each repo (Keep a Changelog format, commit hash links)
+6. **Bump** ALL repos on the release branch with `git release X.Y.Z` — syncs every `.versionrc.json` location, runs the build (Core `node build.js`, Elements `npm run build`), stages them with `CHANGELOG.md` and commits `chore: release vX.Y.Z`. It never tags. (Fallback: `npm run version:sync -- X.Y.Z` / `node scripts/version.mjs sync X.Y.Z`, then commit.)
+7. **Verify**: `npm run version:check` (`git release-check`) passes in every repo; LSP `npm run compile`
+8. **Push** release branch + **create PR** → main (CI runs `version:check`)
+9. **Merge** PR (merge commit, not squash)
+10. **Tag** the merge commit: `git tag vX.Y.Z <merge-commit>` — the `reference-transaction` hook runs `version.mjs check --tag vX.Y.Z` on that commit and refuses a mismatching tag
+11. **Push** the tag: `git push origin vX.Y.Z` — the `pre-push` hook verifies it again
+12. **Publish**: NoJS nothing (CDN-only), Elements nothing (CDN-only), LSP automatic via GitHub Actions, Skill → nothing
 13. **Cleanup** delete release branches (local + remote)
 14. **Verify** all versions match, tags exist, CDN updates
+
+Hooks and the `release` / `release-check` aliases are installed by `npm install` (`prepare` → `husky && node scripts/version.mjs install`). Core keeps them in `.husky/` (`version.mjs install` adds the `reference-transaction` stub husky does not generate); the other repos use `.githooks/` via `core.hooksPath`.
 
 Pre-publish checks: delete old VSIX before `npx vsce package`.
 

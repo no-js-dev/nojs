@@ -364,9 +364,35 @@ npm run build && npm test && npm run test:e2e
 
 ## Version Management
 
-- The framework version lives in **two places**: `package.json` and `src/index.js` — they must always match
-- The LSP version must **always match** the framework version
+- All NoJS repositories (Core, Elements, LSP, Server, Skill) share **one version**
 - **Contributors should NOT bump versions** — maintainers handle version bumps and releases
+- [`.versionrc.json`](.versionrc.json) is the source of truth for every place that declares the current version. `package.json` holds the version; the other locations are `package-lock.json` (root + `packages[""]`), `src/index.js` (`NoJS.version`), the "Latest release" line in `docs/llms.txt`, and the rebuilt `dist/iife/no.js` + `.map`
+- [`scripts/version.mjs`](scripts/version.mjs) rewrites (`sync`) and verifies (`check`) those locations; `npm install` (`prepare`) installs its git hooks and aliases
+
+### Releasing / version bumps
+
+1. On the release branch, update `CHANGELOG.md`, then run `git release X.Y.Z`. It rewrites every declared location, rebuilds `dist/`, stages them with `CHANGELOG.md` and commits `chore: release vX.Y.Z`. It never creates a tag. (Without the alias: `npm run version:sync -- X.Y.Z`, then commit.)
+2. Push the branch, open the release PR and merge it (merge commit).
+3. Tag the merge commit: `git tag vX.Y.Z <merge-commit>`. The `reference-transaction` hook runs `scripts/version.mjs check --tag vX.Y.Z` against that commit's files and refuses the tag on any mismatch.
+4. Push the tag: `git push origin vX.Y.Z`. The `pre-push` hook runs the same check again before the tag leaves your machine.
+
+CI runs `npm run version:check` on every push and pull request. Run it locally with `npm run version:check` or `git release-check`.
+
+The check fails (exit 1, with `file:line`) when:
+
+- a `files` entry in `.versionrc.json` does not contain the `package.json` version exactly `count` times (default 1)
+- `--tag vX.Y.Z` is given and does not match the version
+- a tracked file still mentions the previous release (the highest `v*` tag below the current version) outside `scanExclude`, the declared files and `reviewAllowlist`
+
+Version mentions come in three kinds:
+
+| Kind | Example | Handling |
+|------|---------|----------|
+| Declaration of the current version | `package.json`, `NoJS.version` | Listed in `files` — always synced and verified |
+| Historical mention | `CHANGELOG.md`, "moved to Elements as of v1.13.0" | Never touched — excluded via `scanExclude`, or simply not the previous version |
+| State claim | "Counts on main at X.Y.Z" | Never changed automatically — listed in `reviewAllowlist` and reported as `REVIEW`, not as a failure |
+
+**Adding a version location:** add `{ "file": "path", "pattern": "literal text with {v}" }` to `files` (or `"regex"` instead of `"pattern"`; `{v}` stands for the version). Add `"count": N` when the pattern legitimately occurs N times, and `"generated": true` when the build writes the file. Then run `npm run version:check`.
 
 ---
 

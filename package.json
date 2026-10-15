@@ -22,7 +22,9 @@
     "bench": "jest --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='/node_modules/'",
     "bench:keyed": "jest --runTestsByPath __benchmarks__/keyed-scenarios-bench.test.js --testMatch='**/__benchmarks__/**/*.test.js' --testPathIgnorePatterns='/node_modules/'",
     "bench:ab": "bench/run-ab.sh",
-    "prepare": "husky"
+    "prepare": "husky && node scripts/version.mjs install",
+    "version:sync": "node scripts/version.mjs sync",
+    "version:check": "node scripts/version.mjs check"
   },
   "keywords": [
     "javascript",

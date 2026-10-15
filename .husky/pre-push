@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Block pushing a release tag (refs/tags/v*) whose commit fails the version check.
+[ -f scripts/version.mjs ] || exit 0
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/tags/v*)
+      case "$local_sha" in
+        *[!0]*) node scripts/version.mjs check --tag "${remote_ref#refs/tags/}" --ref "$local_sha" </dev/null || status=1 ;;
+      esac
+      ;;
+  esac
+done
+[ $status = 0 ] || echo "version: push blocked — a release tag fails the version check" >&2
+exit $status

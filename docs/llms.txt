@@ -109,7 +109,7 @@ Methods and properties on the `NoJS` object (`window.NoJS` via CDN):
 ### Metadata
 
 - `NoJS.version: string` — The framework version string (e.g. `"1.17.0"`).
-- Latest release: **v1.17.0** — adds the `query` directive (HTTP QUERY, RFC 10008): a safe, idempotent, cacheable read that carries a request body, with body-aware caching and `query-trigger*` companions (see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md)).
+- Latest release: **v1.22.0** — see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md) for what changed in each version.
 
 ## Reference
 

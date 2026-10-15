@@ -62,6 +62,8 @@ Bind any HTML attribute dynamically.
 
 > **Event-handler attributes (`strictBindings`).** By default `bind-*` writes any attribute name, including inline handlers: `bind-onclick="handler"` sets an `onclick` whose value comes from state and runs as code on click. If that value can come from an API response, the URL or a persisted store, it is an XSS vector — prefer `on:` directives (`on:click="save()"`). Set `NoJS.config({ strictBindings: true })` before `NoJS.init()` to reject handler attributes: any `bind-on*` name without a hyphen (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver`, …) is never set, and a `[No.JS] [Security] … rejected` warning names the element and attribute. Names with a hyphen (`bind-onboarding-step`, `bind-on-label`) are not event handlers and still bind. Once enabled, `strictBindings` cannot be turned off after `init()`.
 
+> **`bind-srcdoc` (`strictBindings`).** `srcdoc` renders a whole HTML document inside an `<iframe>`. By default the bound value is written as-is, so scripts and `on*` handlers in it run inside the frame — only bind trusted markup, or isolate the frame with the `sandbox` attribute. With `strictBindings: true` the value goes through the same sanitizer as `bind-html` before it is set (and again on every change): only the sanitized `<body>` content is kept, so `<head>` (`<title>`, `<style>`, `<meta>`, `<link>`), `<html>`/`<body>` attributes, blocked tags (`<script>`, `<style>`, `<svg>`, `<form>`, nested `<iframe>`, …), `on*` attributes and `javascript:` / `vbscript:` URLs are removed. A custom `sanitizeHtml` function (see [Configuration → Security](configuration.md#security)) is used instead when set, e.g. one that keeps full documents.
+
 ---
 
 ## `model` — Two-Way Binding

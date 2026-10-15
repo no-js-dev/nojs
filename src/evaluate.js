@@ -1682,26 +1682,114 @@ function _compileProgram(expr) {
 // Statement parser & executor (for on:*, watch, etc.)
 // ---------------------------------------------------------------------------
 
+// A statement starting with `const` or `let` declares handler-local
+// bindings: `const name = expr`, `let name = expr`, `let name`, and
+// comma-separated lists of those. `let` alone (or `let.x`, `let = 1`) stays an
+// ordinary identifier expression for backward compatibility.
+function _isDeclStart(chunk) {
+  const t0 = chunk[0];
+  if (t0.type !== "Ident") return false;
+  if (t0.value === "const") return true;
+  if (t0.value !== "let" || chunk.length < 2) return false;
+  const t1 = chunk[1];
+  return t1.type === "Ident" || t1.type === "Keyword" || t1.type === "Forbidden" ||
+    (t1.type === "Punc" && (t1.value === "[" || t1.value === "{"));
+}
+
+// Split a declarator list on top-level commas (commas nested in (), [] or {}
+// belong to the initializer).
+function _splitDeclarators(tokens) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type !== "Punc") continue;
+    if (t.value === "(" || t.value === "[" || t.value === "{") depth++;
+    else if (t.value === ")" || t.value === "]" || t.value === "}") depth--;
+    else if (t.value === "," && depth === 0) {
+      parts.push(tokens.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(tokens.slice(start));
+  return parts;
+}
+
+function _parseDeclaration(chunk, declared) {
+  const kind = chunk[0].value;
+  const declarations = [];
+  for (const part of _splitDeclarators(chunk.slice(1))) {
+    const id = part[0];
+    if (id && id.type === "Forbidden") {
+      throw new SyntaxError(`invalid ${kind} declaration name "${id.value}"`);
+    }
+    if (!id || id.type !== "Ident") {
+      throw new SyntaxError(
+        `unsupported ${kind} declaration — only "${kind} name = value" is supported (no destructuring)`,
+      );
+    }
+    const name = id.value;
+    if (name === "const" || name === "let" || _FORBIDDEN_PROPS[name] === 1 || name.charCodeAt(0) === 36 /* $ */) {
+      throw new SyntaxError(`invalid ${kind} declaration name "${name}"`);
+    }
+    if (declared.has(name)) {
+      throw new SyntaxError(`Identifier '${name}' has already been declared`);
+    }
+    declared.add(name);
+    let init = null;
+    if (part.length > 1) {
+      const eq = part[1];
+      if (eq.type !== "Op" || eq.value !== "=" || part.length < 3) {
+        throw new SyntaxError(`unsupported ${kind} declaration "${kind} ${name} …" — expected "${kind} ${name} = value"`);
+      }
+      init = _parseExpr(part.slice(2));
+    } else if (kind === "const") {
+      throw new SyntaxError(`Missing initializer in const declaration "${name}"`);
+    }
+    declarations.push({ name, init });
+  }
+  return { type: "VarDecl", kind, declarations };
+}
+
 // Parse semicolon-separated statements into an array of AST nodes
 function _parseStatements(expr) {
   if (_stmtCache.has(expr)) return _stmtCache.get(expr);
   const tokens = _tokenize(expr);
   const stmts = [];
+  let declared = null;
   let start = 0;
   for (let i = 0; i <= tokens.length; i++) {
     if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
       const chunk = tokens.slice(start, i);
-      if (chunk.length > 0) stmts.push(_parseExpr(chunk));
+      if (chunk.length > 0) {
+        if (_isDeclStart(chunk)) {
+          if (!declared) declared = new Set();
+          stmts.push(_parseDeclaration(chunk, declared));
+        } else {
+          stmts.push(_parseExpr(chunk));
+        }
+      }
       start = i + 1;
     }
   }
+  // Names declared with const/let — _execStatement keeps them out of the
+  // context write-back so they never leak into state.
+  stmts.locals = declared;
   _stmtCache.set(expr, stmts);
   return stmts;
 }
 
+// scope → Set of const names declared so far by the running statement list.
+const _stmtConsts = new WeakMap();
+
 // Assign a value to an AST target node (Identifier or MemberExpr)
 function _assignToTarget(target, value, scope) {
   if (target.type === "Identifier") {
+    const consts = _stmtConsts.get(scope);
+    if (consts && consts.has(target.name)) {
+      throw new TypeError(`Assignment to constant variable '${target.name}'`);
+    }
     scope[target.name] = value;
   } else if (target.type === "MemberExpr" || target.type === "OptionalMemberExpr") {
     const obj = _evalNode(target.object, scope);
@@ -1718,6 +1806,17 @@ function _assignToTarget(target, value, scope) {
 function _execStmtNode(node, scope) {
   if (!node) return undefined;
   switch (node.type) {
+    case "VarDecl": {
+      for (const d of node.declarations) {
+        scope[d.name] = d.init ? _evalNode(d.init, scope) : undefined;
+        if (node.kind === "const") {
+          let consts = _stmtConsts.get(scope);
+          if (!consts) { consts = new Set(); _stmtConsts.set(scope, consts); }
+          consts.add(d.name);
+        }
+      }
+      return undefined;
+    }
     case "AssignExpr": {
       const rhs = _evalNode(node.right, scope);
       let value;
@@ -2134,6 +2233,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // Parse and execute statements
     const stmts = _parseStatements(expr);
     for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
+    const locals = stmts.locals;
 
     // Write back changed values to owning context
     const stmtScan = typeof expr === "string" ? _stmtScan(expr) : _EMPTY_STMT_SCAN;
@@ -2156,6 +2256,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     }
     for (const k of chainKeys) {
       if (k.startsWith("$")) continue;
+      if (locals && locals.has(k)) continue;
       if (!(k in scope)) continue;
       const newVal = scope[k];
       const oldVal = originals[k];
@@ -2187,6 +2288,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     for (const k in scope) {
       if (!Object.prototype.hasOwnProperty.call(scope, k)) continue;
       if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
+      if (locals && locals.has(k)) continue;
       if (_FORBIDDEN_PROPS[k]) continue;
       ctx.$set(k, scope[k]);
     }

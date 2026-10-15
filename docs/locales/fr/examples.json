@@ -46,7 +46,7 @@
     "formPost": {
       "badge": "Formulaires",
       "name": "Soumission de Formulaire",
-      "desc": "Soumettez un formulaire avec <code>post</code> : chaque champ ayant un <code>name</code> est envoyé comme objet JSON. Combinez avec <code>model</code> pour afficher la valeur du champ en direct."
+      "desc": "Envoyez des données de formulaire avec <code>post</code> et <code>body</code>. Combinez avec <code>model</code> pour des champs réactifs et la validation inline."
     },
     "pagination": {
       "badge": "Pagination",

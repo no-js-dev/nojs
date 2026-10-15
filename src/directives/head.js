@@ -24,16 +24,24 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { _watchExpr, _warn, _onDispose } from "../globals.js";
-import { evaluate, resolve, _interpolateJsonld } from "../evaluate.js";
+import { evaluate, resolve } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
 import { _isLoopElement } from "./loops.js";
 
-// Interpolate {key} placeholders in a page-jsonld template without URL-encoding.
+// Interpolate {key} placeholders in a string without URL-encoding.
+// Used by page-jsonld where the template is a JSON string.
 function _interpolateRaw(str, ctx) {
   // Match only {identifiers} — skip { starting with " or ' or whitespace-then-quote
   // to avoid consuming JSON structure (both compact and pretty-printed).
-  return _interpolateJsonld(str, ctx, /\{\s*([^}"'{\s][^}]*)\}/g);
+  return str.replace(/\{\s*([^}"'{\s][^}]*)\}/g, (_, expr) => {
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      return val != null ? String(val) : "";
+    } catch (_) {
+      return "";
+    }
+  });
 }
 
 // ── page-title ────────────────────────────────────────────────────────────────

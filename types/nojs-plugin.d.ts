@@ -85,10 +85,8 @@ export interface NoJSInstance {
    * Inject a reactive global variable accessible as $name in any expression.
    * @param name - Global name (without $ prefix). Must not be reserved or forbidden.
    * @param value - The value to inject. Plain objects are wrapped in a reactive context.
-   * @param options - `byRef: true` publishes the object itself (methods, Dates, identity)
-   *   instead of a reactive copy; call notify() after mutating it from JavaScript.
    */
-  global(name: string, value: unknown, options?: { byRef?: boolean }): void;
+  global(name: string, value: unknown): void;
 
   /**
    * Tear down the app: dispose all plugins (reverse order), clear globals,

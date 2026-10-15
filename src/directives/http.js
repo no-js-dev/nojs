@@ -21,8 +21,8 @@ import {
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet, _redactUrlParams, _eventUrl, _devtoolsUrl } from "../fetch.js";
+import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolateEncoded(bodyAttr, ctx);
+            _cacheBodyPart = _interpolate(bodyAttr, ctx);
           }
         }
         const cacheKey =
@@ -405,12 +405,6 @@ for (const method of HTTP_METHODS) {
             return;
           }
         }
-
-        // Read form fields before the loading template replaces them
-        const formBody =
-          el.tagName === "FORM"
-            ? Object.fromEntries(new FormData(el).entries())
-            : null;
 
         // Show loading
         if (loadingTpl) {
@@ -431,7 +425,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolateEncoded(bodyAttr, ctx);
+            const interpolated = _interpolate(bodyAttr, ctx);
             try {
               reqBody = JSON.parse(interpolated);
             } catch {
@@ -441,7 +435,8 @@ for (const method of HTTP_METHODS) {
 
           // For forms, collect form data
           if (el.tagName === "FORM") {
-            reqBody = formBody;
+            const formData = new FormData(el);
+            reqBody = Object.fromEntries(formData.entries());
           }
 
           const extraHeaders = headersAttr ? JSON.parse(headersAttr) : {};
@@ -661,21 +656,20 @@ for (const method of HTTP_METHODS) {
           if (redirectPath && _routerInstance)
             _routerInstance.push(redirectPath);
 
-          _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data: _effectiveData });
-          _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
+          _emitEvent("fetch:success", { url: resolvedUrl, data: _effectiveData });
+          _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
         } catch (err) {
           // SwitchMap: silently ignore aborted requests
           if (err.name === "AbortError") return;
 
           _hideSkeleton();
-          const safeUrl = _redactUrlParams(resolvedUrl);
           _warn(
-            `${method.toUpperCase()} ${safeUrl} failed:`,
+            `${method.toUpperCase()} ${resolvedUrl} failed:`,
             err.message,
           );
-          _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
-          _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
-          _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
+          _emitEvent("fetch:error", { url: resolvedUrl, error: err });
+          _emitEvent("error", { url: resolvedUrl, error: err });
+          _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
 
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);

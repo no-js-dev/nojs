@@ -2,9 +2,9 @@
 //  REACTIVE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn, _storeWatchers } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _devtoolsEmit, _devtoolsEnabled, _ctxRegistry } from "./devtools.js";
+import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -88,27 +88,6 @@ function _notifyMeta(meta, key) {
     if (fn._el && !fn._el.isConnected) { listeners.delete(fn); continue; }
     if (key !== undefined && fn._keys && !fn._keys.has(key)) continue;
     _batchQueue.add(fn);
-  }
-  if (ownBatch) _endBatch();
-}
-
-// Wake the bindings of plugin globals in every scope: the "$" store partition
-// plus the "*" wildcard (see _watchExpr). The listeners are queued on the
-// batch like context listeners rather than called synchronously, so a binding
-// that writes a global back runs in the next drain round (bounded by the
-// 100-round cap) instead of recursing, and a listener also queued through its
-// own context chain runs once per round. $store notifies keep their own
-// synchronous path (_notifyStoreWatchers).
-export function _wakeGlobalWatchers() {
-  const ownBatch = _batchDepth === 0;
-  if (ownBatch) _startBatch();
-  for (const partition of ["$", "*"]) {
-    const set = _storeWatchers.get(partition);
-    if (!set) continue;
-    for (const fn of set) {
-      if (fn._el && !fn._el.isConnected) { set.delete(fn); continue; }
-      _batchQueue.add(fn);
-    }
   }
   if (ownBatch) _endBatch();
 }
@@ -252,7 +231,7 @@ const _sharedHandler = {
 export function createContext(data = {}, parent = null) {
   const raw = {};
   Object.assign(raw, data);
-  if (_devtoolsEnabled()) raw.__devtoolsId = ++_ctxId;
+  if (_config.devtools) raw.__devtoolsId = ++_ctxId;
 
   const meta = {
     parent,
@@ -291,9 +270,6 @@ export function _collectKeys(ctx) {
   while (c && c.__isProxy) {
     const raw = c.__raw;
     for (const k of Object.keys(raw)) {
-      // Skip the cache itself: copying it into vals would make each new cache
-      // hold the previous one, an unbounded chain pinning every old value.
-      if (k === "__collectKeysCache") continue;
       if (!allKeys.has(k)) {
         allKeys.add(k);
         allVals[k] = raw[k];

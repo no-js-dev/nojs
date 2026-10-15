@@ -11,9 +11,9 @@ export const _config = {
   credentials: "same-origin",
   csrf: null,
   cache: { strategy: "none", ttl: 300000 },
-  templates: { cache: true, pageRelative: false },
+  templates: { cache: true },
   router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
-  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false, escapeParams: false, strictLocale: false },
+  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false },
   debug: false,
   devtools: false,
   sanitize: true,
@@ -22,19 +22,12 @@ export const _config = {
   exprCacheSize: 500,
   maxEventListeners: 100,
   appId: "",
-  // Opt-in hardening flags. Defaults keep v1.21.1 behavior.
-  scopeHeaders: false,
-  strictRedaction: false,
-  strictDirectives: false,
-  strictDevtools: false,
-  strictPersist: false,
-  strictJsonld: false,
 };
 
 export const _interceptors = { request: [], response: [] };
 export const _eventBus = {};
 export const _stores = {};
-export const _storeWatchers = new Map(); // storeName → Set<fn>, '*' = wildcard, '$' = plugin globals
+export const _storeWatchers = new Map(); // storeName → Set<fn>, '*' = wildcard
 export const _i18nListeners = new Set(); // fns watching $i18n expressions
 export const _routeWatchers = new Set(); // fns watching $route expressions
 export const _filters = {};
@@ -196,34 +189,6 @@ export function _watchI18n(fn) {
 let _exprRootKeysFn = null;
 export function _setExprRootKeysFn(f) { _exprRootKeysFn = f; }
 
-// Plugin globals ($theme, $auth…) are app-wide like stores, so their watchers
-// join the "$" store partition. A $-root counts as a global when one is
-// published under that name, or when it is neither a context special (all
-// reserved in NoJS.global) nor a key on the watcher's chain (loop $index…):
-// plugin init() runs after first paint, so the global may not exist yet.
-// The $-roots are memoized per expression: loop rows register the same
-// expressions thousands of times.
-const _CTX_SPECIALS = new Set(["store", "route", "router", "i18n", "refs", "form", "sse", "parent", "watch", "set", "notify"]);
-const _DOLLAR_ROOT_RE = /(?:^|[^\w$.]|\.\.\.)\$([\w$]+)/g;
-const _dollarRootsCache = new Map();
-
-function _readsGlobal(expr, ctx) {
-  if (!expr.includes("$")) return false;
-  let roots = _dollarRootsCache.get(expr);
-  if (roots === undefined) {
-    roots = [];
-    for (const m of expr.matchAll(_DOLLAR_ROOT_RE)) {
-      if (!_CTX_SPECIALS.has(m[1])) roots.push({ name: m[1], key: "$" + m[1] });
-    }
-    if (_dollarRootsCache.size >= 500) _dollarRootsCache.clear();
-    _dollarRootsCache.set(expr, roots);
-  }
-  for (const r of roots) {
-    if (r.name in _globals || !(r.key in ctx)) return true;
-  }
-  return false;
-}
-
 export function _watchExpr(expr, ctx, fn) {
   // Key-scope the watcher: notify(key) skips fn when the changed key cannot
   // appear in the expression. null roots (calls, filters, $-specials, parse
@@ -294,12 +259,8 @@ export function _watchExpr(expr, ctx, fn) {
     });
   }
   if (typeof expr === "string" && expr.includes("$store")) {
-    // Also reading a global: the wildcard is woken by store and global writes
-    const partition = (!_readsGlobal(expr, ctx) && _extractStoreName(expr)) || "*";
+    const partition = _extractStoreName(expr) || "*";
     _addStoreWatcher(fn, partition);
-    fn._el = _currentEl;
-  } else if (typeof expr === "string" && _readsGlobal(expr, ctx)) {
-    _addStoreWatcher(fn, "$");
     fn._el = _currentEl;
   }
   if (typeof expr === "string" && expr.includes("$route")) {

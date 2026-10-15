@@ -32,7 +32,7 @@ import {
   _stripBase,
 } from "./globals.js";
 import { _i18n, _loadI18nForLocale, _notifyI18n } from "./i18n.js";
-import { createContext, _wakeGlobalWatchers } from "./context.js";
+import { createContext } from "./context.js";
 import { evaluate, resolve, _execStatement, parseExpression, parseStatements, segmentPipes } from "./evaluate.js";
 import { findContext, _loadRemoteTemplates, _loadRemoteTemplatesPhase1, _loadRemoteTemplatesPhase2, _processTemplateIncludes, _cloneTemplate } from "./dom.js";
 import { registerDirective, processTree, _removeCoreDirective, _disposeChildren, _disposeTree } from "./registry.js";
@@ -84,19 +84,10 @@ const _DANGEROUS_REFS = typeof window !== "undefined"
   : new Set();
 
 function _isUnsafeGlobalValue(value) {
-  if (_DANGEROUS_REFS.has(value)) return true;
-  // Bound eval/Function are distinct objects; the real window/document bypass the expression allow-list
-  if (typeof value === "function") return /^(bound )+(eval|Function)$/.test(value.name);
-  return typeof window !== "undefined" && (value === window || value === document || value === globalThis);
+  return _DANGEROUS_REFS.has(value);
 }
 
 const _FORBIDDEN_GLOBAL_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-
-// JSON.parse reviver for global() copies: drop own "__proto__" keys
-const _dropProtoKey = (k, v) => (k === "__proto__" ? undefined : v);
-
-// Global name → unwatch for the app-wide wake registered by global()
-const _globalUnwatch = Object.create(null);
 
 // Built-in filter names — prevent user code from overwriting core filters
 const _BUILTIN_FILTER_NAMES = new Set([
@@ -107,10 +98,11 @@ const _BUILTIN_FILTER_NAMES = new Set([
   "default", "date", "datetime", "relative", "fromNow",
 ]);
 
-// Reserved validator names: the rules @no-js-dev/nojs-elements implements
-// inline in its `validate` directive. Any other name stays registrable.
+// Built-in validator names — prevent user code from overwriting core validators
+// (core validators are registered by @no-js-dev/nojs-elements)
 const _BUILTIN_VALIDATOR_NAMES = new Set([
-  "required", "email", "url", "min", "max",
+  "required", "email", "url", "min", "max", "minlength", "maxlength",
+  "pattern", "match", "number", "integer", "alpha", "alphanumeric",
 ]);
 function _deepCheckUnsafe(obj, seen = new Set()) {
   if (!obj || typeof obj !== "object" || seen.has(obj)) return;
@@ -207,8 +199,6 @@ const NoJS = {
     if (opts.i18n) {
       _config.i18n = { ...prevI18n, ...opts.i18n };
       _i18n.locale = opts.i18n.defaultLocale || _i18n.locale;
-      // Re-render active t directives when the flag flips after init()
-      if (_initPromise && !!prevI18n.escapeParams !== !!_config.i18n.escapeParams) _notifyI18n();
     }
     if (opts.stores) {
       for (const [name, data] of Object.entries(opts.stores)) {
@@ -262,9 +252,6 @@ const NoJS = {
       _warn(`WARNING: Plugin "${plugin.name}" installed with trusted access to sensitive HTTP headers.`);
     }
 
-    // Snapshot options so install() or later code cannot change `trusted` on the stored copy
-    const snapshot = Object.freeze({ ...options });
-
     // Set current plugin name for interceptor tracking
     _setCurrentPluginName(plugin.name);
     try {
@@ -273,7 +260,7 @@ const NoJS = {
       _setCurrentPluginName(null);
     }
 
-    _plugins.set(plugin.name, { plugin, options: snapshot });
+    _plugins.set(plugin.name, { plugin, options });
 
     // If already initialized and plugin has init, await then call
     if (_initPromise && plugin.init) {
@@ -284,7 +271,7 @@ const NoJS = {
   },
 
   // ─── Plugin globals ───────────────────────────────────────────────────
-  global(name, value, opts) {
+  global(name, value) {
     if (typeof name !== "string" || !name) {
       _warn("NoJS.global() requires a non-empty string name.");
       return;
@@ -319,20 +306,10 @@ const NoJS = {
       _warn(`Global "$${name}" owned by "${_globalOwners[name]}" is being overwritten.`);
     }
 
-    if (value && typeof value === "object" && opts && opts.byRef === true) {
-      // Opt-in: publish the plugin's own object (methods, Dates, identity).
-      // Reject values holding forbidden keys or nested eval/Function refs
-      // (a reactive proxy lists its target's keys).
+    // Sanitize object values to strip __proto__ keys
+    if (value && typeof value === "object" && !value.__isProxy) {
       try {
-        _deepCheckUnsafe(value);
-      } catch (safetyErr) {
-        if (safetyErr.message === "unsafe_global") return;
-        // Other errors pass through
-      }
-    } else if (value && typeof value === "object" && !value.__isProxy) {
-      // Sanitize object values to strip __proto__ keys
-      try {
-        value = JSON.parse(JSON.stringify(value), _dropProtoKey);
+        value = JSON.parse(JSON.stringify(value));
       } catch {
         // Non-serializable objects — check for dangerous function references
         try {
@@ -356,24 +333,8 @@ const NoJS = {
       }
     }
 
-    if (_globalUnwatch[name]) {
-      _globalUnwatch[name]();
-      delete _globalUnwatch[name];
-    }
     _globals[name] = value;
     if (_currentPluginName) _globalOwners[name] = _currentPluginName;
-
-    // Globals are read app-wide: a write through the context ($x.$set, a
-    // proxy write from plugin code) wakes every scope's "$" bindings. The
-    // wake queues them on the batch, so a binding that writes back runs in
-    // the next drain round instead of recursing.
-    if (value && typeof value === "object" && value.__isProxy) {
-      const wake = () => _wakeGlobalWatchers();
-      _globalUnwatch[name] = value.$watch(wake);
-      // $watch ties the listener to the element being processed; a global
-      // outlives any element.
-      wake._el = null;
-    }
 
     // Notify all store watchers since globals are scope-wide
     _notifyStoreWatchers();
@@ -411,10 +372,6 @@ const NoJS = {
         }
       }
       _plugins.clear();
-      for (const k in _globalUnwatch) {
-        _globalUnwatch[k]();
-        delete _globalUnwatch[k];
-      }
       for (const k in _globals) delete _globals[k];
       for (const k in _globalOwners) delete _globalOwners[k];
 
@@ -536,9 +493,6 @@ const NoJS = {
     if (Array.isArray(opts.supportedLocales)) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
-    const prevEscapeParams = !!_config.i18n.escapeParams;
-    if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
-    if (opts.strictLocale != null) _config.i18n.strictLocale = opts.strictLocale;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 
@@ -550,15 +504,7 @@ const NoJS = {
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        const supported = _config.i18n.supportedLocales;
-        // Opt-in (i18n.strictLocale): apply the locale setter's allow-list and
-        // ignore a stale or foreign value. Default restores it as in v1.21.1.
-        if (saved && _config.i18n.strictLocale && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
-          _log(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
-        } else if (saved) {
-          _i18n._locale = saved;
-          localeRestored = true;
-        }
+        if (saved) { _i18n._locale = saved; localeRestored = true; }
       } catch (_) {}
     }
 
@@ -582,7 +528,7 @@ const NoJS = {
     if (_initPromise) {
       if (_config.i18n.loadPath && !_i18n.locales[_i18n._locale]) {
         _loadI18nForLocale(_i18n._locale).then(() => _notifyI18n());
-      } else if (opts.locales || prevEscapeParams !== !!_config.i18n.escapeParams) {
+      } else if (opts.locales) {
         _notifyI18n();
       }
     }
@@ -611,12 +557,6 @@ const NoJS = {
     }
     if (!_interceptors[type]) {
       _warn(`NoJS.interceptor(): unknown type "${type}" (expected "request" or "response").`);
-      return;
-    }
-    // Unwrap caller-supplied { fn, pluginName }: plugin identity comes only from install()
-    if (fn && typeof fn === "object") fn = fn.fn;
-    if (typeof fn !== "function") {
-      _warn("NoJS.interceptor(): handler must be a function.");
       return;
     }
     _interceptors[type].push(

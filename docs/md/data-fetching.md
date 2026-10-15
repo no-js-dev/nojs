@@ -46,8 +46,6 @@ Absolute URLs skip base resolution:
 
 > **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
 
-> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, `baseApiUrl`, and the nearest `base` attribute.
-
 ### Per-Request Headers
 
 ```html
@@ -142,16 +140,9 @@ URLs that reference state variables re-fetch automatically when those values cha
 > <!-- ❌ Broken — path contains "/", will become "%2F" -->
 > <div get="/files/{path}">...</div>  <!-- path = "reports/2026" -->
 >
-> <!-- ✅ Workaround — one placeholder per path segment -->
-> <div get="/files/{dir}/{name}">...</div>  <!-- dir = "reports", name = "2026" -->
+> <!-- ✅ Workaround — concatenate outside {} -->
+> <div get="'/files/' + path">...</div>
 > ```
-
-In the path part of a URL, a placeholder whose value is exactly `.` or `..` is escaped as `%252E` or `%252E%252E`, and a console warning is logged. Without this, URL parsers would collapse the value as a dot-segment and send the request to a different path. The server receives the literal segment `%2E%2E`. Values in the query string, values in the fragment, and request bodies are not affected.
-
-```html
-<!-- id = ".." → requests /users/%252E%252E/avatar, not /avatar -->
-<div get="/users/{id}/avatar">...</div>
-```
 
 ---
 
@@ -182,15 +173,13 @@ Used on forms or triggered via `call`.
 </template>
 ```
 
-After a successful submit, the `success` template replaces the form's content. Without `success`, the form's children are rendered again from their original markup, so fields without `model` go back to their initial values; fields bound with `model` keep their state. The same applies to `<form query>`.
-
 ### PUT / PATCH / DELETE
 
 ```html
-<form put="/users/{user.id}" success="#updateSuccess">
-  <input name="name" model="user.name" />
-  <select name="role" model="selectedRole">...</select>
-  <button type="submit">Save</button>
+<form put="/users/{user.id}"
+      body='{"name": "{user.name}", "role": "{selectedRole}"}'
+      success="#updateSuccess">
+  ...
 </form>
 
 <button delete="/users/{user.id}"
@@ -206,7 +195,7 @@ After a successful submit, the `success` template replaces the form's content. W
 | Attribute | Description |
 |-----------|-------------|
 | `post`, `put`, `patch`, `delete` | URL for the request |
-| `body` | Request body string. Each `{expression}` is replaced with its value encoded by `encodeURIComponent`, as in URLs (the URL dot-segment rule does not apply to bodies). A result that parses as JSON is sent as `application/json` (a falsy JSON value such as `0`, `false` or `null` sends no body). On a `<form>`, the fields are serialized to a JSON object and `body` is ignored |
+| `body` | Request body (JSON string with interpolation). For forms, auto-serializes fields |
 | `success` | Template ID to render on success. Receives response as `var` |
 | `error` | Template ID to render on error. Receives error as `var` |
 | `loading` | Template ID to show during request |
@@ -215,16 +204,6 @@ After a successful submit, the `success` template replaces the form's content. W
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
 | `into` | Write response to a named global store |
 | `cached` | Cache responses (memory/local/session) |
-
-> **Note:** `body` placeholders use the URL interpolator, so a JSON object written in `body` is not sent as JSON: its own `{` is read as the start of a placeholder. To send dynamic JSON, use a `<form>` with named fields, which No.JS serializes to a JSON object. On a non-form element, send a URL-encoded body with a matching header:
->
-> ```html
-> <button post="/login"
->         headers='{"Content-Type": "application/x-www-form-urlencoded"}'
->         body="email={email}&password={password}">
->   Log in
-> </button>
-> ```
 
 ### Request Lifecycle
 
@@ -245,20 +224,17 @@ After a successful submit, the `success` template replaces the form's content. W
 ```html
 <!-- A search whose criteria are too large for the URL -->
 <div query="/search"
-     headers='{"Content-Type": "application/x-www-form-urlencoded"}'
-     body="status={status}&tag={tag}"
+     body='{"filters": {"status": "active", "tags": ["a", "b"]}}'
      as="results">
   <div each="hit in results" template="hitCard"></div>
 </div>
 ```
 
-`body` uses URL placeholders (see the [`body` note](#mutation-attributes)), so a non-form `query` sends its criteria URL-encoded, as above. To send a JSON object, use a form (see [Form-Driven Query](#form-driven-query)).
-
 QUERY behaves like `get` for rendering, caching, and triggers, but sends a body like `post`:
 
 | Behavior | Same as |
 |----------|---------|
-| Auto-fires on mount (non-form) and re-fetches when the URL/params change (not when only the body changes) | `get` |
+| Auto-fires on mount (non-form) and re-fetches when the URL/params change | `get` |
 | Renders into scope via `as`, supports `loading`/`error`/`empty` | `get` |
 | Cacheable via `cached` (the cache key includes the body) | `get` |
 | Sends a request body (`body`, or serialized form fields) | `post` |
@@ -279,26 +255,22 @@ On a `<form>`, `query` intercepts the submit and serializes the fields into the 
 
 ### Triggers
 
-Non-form `query` elements support the lazy-load triggers of `get`, using a `query-` prefix:
+Non-form `query` elements support the same lazy-load triggers as `get`, using a `query-` prefix:
 
 | Attribute | Description |
 |-----------|-------------|
-| `query-trigger` | `visible` \| `hover` \| `none` — when to fire. `none` never fires on its own; call `el.refresh()` |
-| `query-threshold` | Root-margin threshold (px) for the `visible` trigger |
-
-The `scroll` and `button` triggers need `get-insert`, which is GET-only, so on `query` they log a warning and fall back (`scroll` to `visible`, `button` to firing on mount). `query-trigger-label` has no effect on `query`.
-
-To run a QUERY on demand, use `query-trigger="none"` and call `refresh()` through a `ref`:
+| `query-trigger` | `visible` \| `scroll` \| `hover` \| `button` \| `none` — when to fire |
+| `query-trigger-label` | Button label when `query-trigger="button"` (default `"Load More"`) |
+| `query-threshold` | Root-margin threshold (px) for `visible`/`scroll` triggers |
 
 ```html
-<div ref="report" query="/reports/generate"
-     query-trigger="none"
-     headers='{"Content-Type": "application/x-www-form-urlencoded"}'
-     body="range=2026-Q1"
+<div query="/reports/generate"
+     body='{"range": "2026-Q1"}'
+     query-trigger="button"
+     query-trigger-label="Run Report"
      as="report">
-  <p bind="report.total"></p>
+  ...
 </div>
-<button on:click="$refs.report.refresh()">Run Report</button>
 ```
 
 ### Body-Aware Caching
@@ -306,16 +278,10 @@ To run a QUERY on demand, use `query-trigger="none"` and call `refresh()` throug
 Because two QUERY requests to the same URL can differ only by body, the cache key incorporates the body. Identical URL **and** body hit the cache; a different body is a cache miss:
 
 ```html
-<div state="{ term: '' }">
-  <input model="term" />
-  <button on:click="$refs.hits.refresh()">Search</button>
-  <div ref="hits" query="/search"
-       headers='{"Content-Type": "application/x-www-form-urlencoded"}'
-       body="q={term}" cached="memory" as="hits">...</div>
-</div>
+<div query="/search" body='{"q": "{term}"}' cached="memory" as="hits">...</div>
 ```
 
-A change to body-only state does not re-fetch by itself. Call `el.refresh()` (here through `$refs`), or use `refresh=`, to re-issue the request. Searching for the same term again is served from the cache. Call `refresh()` from a later event than the one that changes the state: inside a single statement such as `term = 'x'; $refs.hits.refresh()`, the request still uses the old body.
+Call `el.refresh()` (or use `refresh=`) to re-issue the request after changing body-only state.
 
 > **Note:** Pagination (`get-cursor`, `get-page`, `get-insert`) remains **GET-only**. All other method-agnostic companions (`as`, `loading`, `error`, `empty`, `into`, `debounce`, `headers`, `params`, `skeleton`, `refresh`, `cached`) work with `query` unchanged.
 
@@ -569,7 +535,7 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D` (`[REDACTED]` is written literally only with `strictRedaction`). Request interceptors receive the raw URL unless [`strictRedaction`](configuration.md#opt-in-hardening-flags) is set.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 

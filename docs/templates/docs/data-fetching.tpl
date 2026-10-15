@@ -138,13 +138,12 @@
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"loginError"</span> <span class="hl-attr">var</span>=<span class="hl-str">"err"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;p</span> <span class="hl-attr">class</span>=<span class="hl-str">"error"</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
-    <p class="doc-text" t="docs.dataFetching.mutations.formResetNote" t-html></p>
 
     <h3 class="doc-title" id="data-fetching-put-patch-delete" t="docs.dataFetching.mutations.putPatchDeleteTitle"></h3>
-    <div class="code-block"><pre><span class="hl-tag">&lt;form</span> <span class="hl-attr">put</span>=<span class="hl-str">"/users/{user.id}"</span> <span class="hl-attr">success</span>=<span class="hl-str">"#updateSuccess"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;input</span> <span class="hl-attr">name</span>=<span class="hl-str">"name"</span> <span class="hl-attr">model</span>=<span class="hl-str">"user.name"</span> <span class="hl-tag">/&gt;</span>
-  <span class="hl-tag">&lt;select</span> <span class="hl-attr">name</span>=<span class="hl-str">"role"</span> <span class="hl-attr">model</span>=<span class="hl-str">"selectedRole"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/select&gt;</span>
-  <span class="hl-tag">&lt;button</span> <span class="hl-attr">type</span>=<span class="hl-str">"submit"</span><span class="hl-tag">&gt;</span>Save<span class="hl-tag">&lt;/button&gt;</span>
+    <div class="code-block"><pre><span class="hl-tag">&lt;form</span> <span class="hl-attr">put</span>=<span class="hl-str">"/users/{user.id}"</span>
+      <span class="hl-attr">body</span>=<span class="hl-str">'{"name": "{user.name}", "role": "{selectedRole}"}'</span>
+      <span class="hl-attr">success</span>=<span class="hl-str">"#updateSuccess"</span><span class="hl-tag">&gt;</span>
+  ...
 <span class="hl-tag">&lt;/form&gt;</span>
 
 <span class="hl-tag">&lt;button</span> <span class="hl-attr">delete</span>=<span class="hl-str">"/users/{user.id}"</span>
@@ -192,8 +191,7 @@
     <p class="doc-text" t="docs.dataFetching.query.text"></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- A read whose criteria are too large for the URL --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">query</span>=<span class="hl-str">"/search"</span>
-     <span class="hl-attr">headers</span>=<span class="hl-str">'{"Content-Type": "application/x-www-form-urlencoded"}'</span>
-     <span class="hl-attr">body</span>=<span class="hl-str">"status={status}&amp;tag={tag}"</span>
+     <span class="hl-attr">body</span>=<span class="hl-str">'{"filters": {"status": "active"}}'</span>
      <span class="hl-attr">as</span>=<span class="hl-str">"results"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">each</span>=<span class="hl-str">"hit in results"</span> <span class="hl-attr">template</span>=<span class="hl-str">"hitCard"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
@@ -234,7 +232,7 @@
   <!-- URL Interpolation and Encoding -->
   <div class="doc-section">
     <h2 class="doc-title" id="data-fetching-url-encoding" t="docs.dataFetching.urlEncoding.title"></h2>
-    <p class="doc-text" t="docs.dataFetching.urlEncoding.text" t-html></p>
+    <p class="doc-text" t="docs.dataFetching.urlEncoding.text"></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Safe — query value, encoding is correct --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/search?q={query}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>
 
@@ -244,8 +242,8 @@
 <span class="hl-cmt">&lt;!-- Broken — path contains "/", will become "%2F" --&gt;</span>
 <span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/files/{path}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>  <span class="hl-cmt">&lt;!-- path = "reports/2026" --&gt;</span>
 
-<span class="hl-cmt">&lt;!-- Workaround — one placeholder per path segment --&gt;</span>
-<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/files/{dir}/{name}"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span>  <span class="hl-cmt">&lt;!-- dir = "reports", name = "2026" --&gt;</span></pre></div>
+<span class="hl-cmt">&lt;!-- Workaround — concatenate outside {} --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"'/files/' + path"</span><span class="hl-tag">&gt;</span>...<span class="hl-tag">&lt;/div&gt;</span></pre></div>
   </div>
 
   <!-- Skeleton Placeholders -->

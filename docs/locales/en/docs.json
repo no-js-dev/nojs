@@ -66,7 +66,7 @@
         "delete": "Delete data (DELETE)",
         "query": "Read with a body (QUERY, RFC 10008)",
         "as": "Name for fetched data in context",
-        "body": "Request body (URL-encoded; send it with a Content-Type: application/x-www-form-urlencoded header)",
+        "body": "Request body",
         "headers": "Request headers",
         "params": "Query parameters",
         "cached": "Cache responses (memory/local/session)",
@@ -674,7 +674,6 @@
         "title": "post, put, patch, delete — Mutating Requests",
         "text": "Used on forms or triggered via call.",
         "formSubmissionTitle": "Form Submission",
-        "formResetNote": "After a successful submit, the <code>success</code> template replaces the form's content. Without <code>success</code>, the form's children are rendered again from their original markup, so fields without <code>model</code> go back to their initial values; fields bound with <code>model</code> keep their state. The same applies to <code>&lt;form query&gt;</code>.",
         "putPatchDeleteTitle": "PUT / PATCH / DELETE"
       },
       "mutationAttrs": {
@@ -682,7 +681,7 @@
         "col1": "Attribute",
         "col2": "Description",
         "method": "URL for the request",
-        "body": "Request body string. Each {…} placeholder is replaced with its URL-encoded value. A result that parses as JSON is sent as application/json (a falsy JSON value such as 0, false or null sends no body). On a form, the fields are serialized to a JSON object and body is ignored",
+        "body": "Request body (JSON string with interpolation). For forms, auto-serializes fields",
         "success": "Template ID to render on success. Receives response as var",
         "error": "Template ID to render on error. Receives error as var",
         "loading": "Template ID to show during request",
@@ -707,7 +706,7 @@
       },
       "urlEncoding": {
         "title": "URL Interpolation and Encoding",
-        "text": "Since v1.10, all <code>&#123;placeholder&#125;</code> values in URL attributes are automatically passed through <code>encodeURIComponent()</code>. This is safe for query parameters and single-level path segments, but will break multi-segment paths that contain slashes — because <code>/</code> becomes <code>%2F</code>. If your value contains path separators, use one placeholder per path segment instead."
+        "text": "Since v1.10, all <code>{placeholder}</code> values in URL attributes are automatically passed through <code>encodeURIComponent()</code>. This is safe for query parameters and single-level path segments, but will break multi-segment paths that contain slashes — because <code>/</code> becomes <code>%2F</code>. If your value contains path separators, concatenate outside the braces instead."
       },
       "skeleton": {
         "title": "Skeleton Placeholders",
@@ -977,7 +976,7 @@
         "dirty": "true if any field has been modified",
         "touched": "true if any field has been focused and blurred",
         "submitting": "true while the request is in flight",
-        "pending": "Always false: async validators are not supported",
+        "pending": "true while async validators are running",
         "errors": "Map of field names → error messages",
         "values": "Current form values",
         "firstError": "Error message of the first invalid field (DOM order)",
@@ -1400,9 +1399,9 @@
         "col1": "Attribute",
         "col2": "Type",
         "col3": "Description",
-        "call": "URL for the request (supports {…} placeholder interpolation)",
+        "call": "URL for the request (supports {variable} interpolation)",
         "method": "HTTP method. Default: \"get\"",
-        "body": "Request body string. Each {…} placeholder is replaced with its URL-encoded value. A result that parses as JSON is sent as application/json (a falsy JSON value such as 0, false or null sends no body)",
+        "body": "Request body (JSON string with {variable} interpolation)",
         "headers": "JSON string of additional request headers",
         "as": "Name to assign the response in the context. Default: \"data\"",
         "into": "Write response to a named global store",
@@ -1506,14 +1505,14 @@
       "errorBoundary": {
         "title": "error-boundary — Catch Errors in Subtree",
         "text": "Wrap a section of your page with error-boundary to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:",
-        "type1": "Event handler errors — when an event handler statement (for example on:click) throws, No.JS dispatches a nojs:error CustomEvent that bubbles up from the element. A failing bind or other read-only expression does not trigger the boundary: it logs a warning and evaluates to undefined.",
-        "type2": "Window-level errors — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an <img> 404) on elements inside the boundary.",
+        "type1": "Expression evaluation errors — dispatched as nojs:error CustomEvents that bubble up from handler expressions (e.g. a bind or on:click expression throws).",
+        "type2": "Window-level errors — uncaught JS errors and resource load failures (e.g. an <img> 404) that originate from elements inside the boundary.",
         "httpCaveat": "error-boundary does NOT catch failed HTTP requests made by get/post/put/patch/delete directives. Use the error attribute on the fetch element for per-request error handling, or NoJS.on('fetch:error', ...) for global HTTP error handling."
       },
       "boundaryEvents": {
         "title": "Error Boundary Events",
-        "text": "The nojs:error CustomEvent dispatched by an event handler error bubbles past the boundary, so you can listen for it with on:nojs:error on the boundary or on any ancestor, for example to log errors or show a notification.",
-        "callout": "$event.detail contains message (string) and error (the original Error object). Window-level errors also show the boundary's fallback but do not dispatch nojs:error. The boundary itself dispatches no event. on:error does not receive nojs:error; use on:nojs:error. (Currently on:error runs only for bubbling error events dispatched on the element or a descendant; resource load errors such as an <img> 404 do not reach it.)"
+        "text": "When an error boundary catches an error, it dispatches a nojs:error CustomEvent on the boundary element. Listen with on:error to log errors or show notifications.",
+        "callout": "The $event.detail object contains: message (string), source (element), and error (original Error object)."
       },
       "expressionErrors": {
         "title": "Expression Errors",
@@ -1547,7 +1546,7 @@
         "templatesCacheText2": "Set to false during local development if you want changes to .tpl files to be reflected without a hard page reload.",
         "loadPathTitle": "i18n.loadPath",
         "loadPathType": "Type: string | null | Default: null",
-        "loadPathText": "URL template for loading locale JSON files via fetch. Use &#123;locale&#125; and optionally &#123;ns&#125; as placeholders. When null, translations must be provided inline via NoJS.i18n({ locales }).",
+        "loadPathText": "URL template for loading locale JSON files via fetch. Use {locale} and optionally {ns} as placeholders. When null, translations must be provided inline via NoJS.i18n({ locales }).",
         "nsTitle": "i18n.ns",
         "nsType": "Type: string[] | Default: []",
         "nsText": "Array of namespace identifiers to preload at init(). Each namespace corresponds to a separate JSON file per locale. Additional namespaces can be loaded on-demand via the i18n-ns directive or route attribute.",
@@ -1602,23 +1601,6 @@
         "csrfTitle": "CSRF Protection",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS uses a custom expression parser that is fully CSP-compliant — no eval() or Function() constructor is used. No unsafe-eval directive is required in your Content Security Policy."
-      },
-      "hardening": {
-        "title": "Opt-in Hardening Flags",
-        "text": "Stricter security behaviors are opt-in, so apps built on v1.21.1 keep working unchanged. Every flag defaults to false (v1.21.1 behavior) and is set through NoJS.config(). Most flags take effect immediately, before or after init(). strictPersist and strictDirectives apply to the restores and directive registrations made after they are set, and i18n.strictLocale only to the NoJS.i18n() call that restores the persisted locale.",
-        "colFlag": "Flag",
-        "colDefault": "Default",
-        "colWhenTrue": "When true",
-        "scopeHeaders": "Global config({ headers }) are sent only to trusted origins (the page, baseApiUrl and the nearest base attribute) instead of every request.",
-        "strictRedaction": "Untrusted interceptors and fetch:success / fetch:error / error event payloads get stricter redaction: the csrf.header is withheld, response headers that are sensitive as request headers are stripped, and URLs drop their #fragment and get sensitive query values replaced by [REDACTED].",
-        "strictDirectives": "NoJS.directive() rejects names covered by a core wildcard (on:*, bind-*, class-*, style-*). The registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set. Set it before plugins register directives.",
-        "strictDevtools": "Devtools events and the context registry are also limited to local hosts, store snapshots redact sensitive keys, get:config returns per-key redacted headers, and devtools fetch URLs are redacted.",
-        "strictPersist": "On persist restore, a stored $ key with a reserved name ($store, $route, $refs, a plugin global, …) is skipped unless the state declares it or persist-fields lists it.",
-        "strictJsonld": "page-jsonld placeholders inside JSON strings are always escaped as JSON string content. By default, the v1.21.1 output is kept whenever it is valid JSON.",
-        "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
-        "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
-        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call.",
-        "byRefCallout": "NoJS.global(name, value, { byRef: true }) is a per-call opt-in: it publishes the object itself instead of a reactive JSON copy. See Plugins."
       }
     },
     "plugins": {
@@ -1693,7 +1675,7 @@
       },
       "trusted": {
         "title": "Trusted Interceptors",
-        "text": "By default, interceptors receive redacted copies of requests and responses: sensitive headers are stripped, and response interceptors get the URL re-serialized with sensitive query values set to %5BREDACTED%5D. Request interceptors get the raw URL unless strictRedaction is set.",
+        "text": "By default, interceptors receive redacted copies of requests and responses — sensitive headers and URL parameters are stripped or replaced with [REDACTED].",
         "fullAccess": "Auth plugins that need access to the real headers can be installed with { trusted: true }.",
         "callout": "A console warning is logged when a plugin is installed with trusted access. Only grant trusted to plugins you control or have audited.",
         "redactedTitle": "Redacted Headers",

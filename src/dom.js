@@ -214,15 +214,9 @@ export function _sanitizeHtml(html) {
 
 // Resolve a template src path.
 // - "./foo.tpl"  → relative to the parent template's folder (__srcBase)
-// - "/foo.tpl"   → absolute from server root
-// - "foo.tpl"    → relative to page URL
-// By default "/foo.tpl", "foo.tpl" and a "./foo.tpl" with no parent template
-// go through resolveUrl, so the nearest ancestor `base=` or `baseApiUrl` is
-// prepended (v1.21.1 behavior). With `templates.pageRelative` they are
-// fetched as written and the browser resolves them against the page URL.
-let _templateBaseHintLogged = false;
+// - "/foo.tpl"   → absolute from server root (kept as-is for fetch)
+// - "foo.tpl"    → relative to page URL (kept as-is for fetch)
 function _resolveTemplateSrc(src, tpl) {
-  let path = src;
   if (src.startsWith("./")) {
     // Walk up to find the nearest ancestor with __srcBase
     let node = tpl.parentNode;
@@ -232,16 +226,13 @@ function _resolveTemplateSrc(src, tpl) {
       }
       node = node.parentNode;
     }
-    // No ancestor base found — strip "./"
-    path = src.slice(2);
+    // No ancestor base found — strip "./" and resolve against the page URL via
+    // resolveUrl so the result is an absolute URL. Returning a bare relative
+    // string here would defeat _warnIfInsecureTemplateUrl's http:// check.
+    return resolveUrl(src.slice(2), tpl);
   }
-  if (_config.templates?.pageRelative) return path;
-  const resolved = resolveUrl(path, tpl);
-  if (resolved !== path && _config.debug && !_templateBaseHintLogged) {
-    _templateBaseHintLogged = true;
-    _log('Template "' + src + '" resolved to "' + resolved + '" via base= / baseApiUrl. Set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page instead.');
-  }
-  return resolved;
+  // Absolute or plain relative — use the existing resolveUrl logic
+  return resolveUrl(src, tpl);
 }
 
 // Warn when a template URL uses plain HTTP from an HTTPS page (mixed content / MITM risk).

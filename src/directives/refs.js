@@ -14,8 +14,8 @@ import {
 } from "../globals.js";
 import { _devtoolsEmit } from "../devtools.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _interpolateEncoded } from "../evaluate.js";
-import { _doFetch, _eventUrl, _devtoolsUrl } from "../fetch.js";
+import { evaluate, _execStatement, _interpolate } from "../evaluate.js";
+import { _doFetch } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 
@@ -134,7 +134,7 @@ registerDirective("call", {
       try {
         let reqBody = null;
         if (bodyAttr) {
-          const interpolated = _interpolateEncoded(bodyAttr, ctx);
+          const interpolated = _interpolate(bodyAttr, ctx);
           try {
             reqBody = JSON.parse(interpolated);
           } catch {
@@ -202,13 +202,13 @@ registerDirective("call", {
         if (redirectPath && _routerInstance)
           _routerInstance.push(redirectPath);
 
-        _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data });
-        _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
+        _emitEvent("fetch:success", { url: resolvedUrl, data });
+        _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
       } catch (err) {
         // SwitchMap: silently ignore aborted requests
         if (err.name === "AbortError") return;
 
-        _warn(`call ${method.toUpperCase()} ${_eventUrl(resolvedUrl)} failed:`, err.message);
+        _warn(`call ${method.toUpperCase()} ${resolvedUrl} failed:`, err.message);
 
         // Restore original children and re-process so directives are live
         if (loadingTpl) {
@@ -221,9 +221,9 @@ registerDirective("call", {
           el.disabled = false;
         }
 
-        _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
-        _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
-        _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
+        _emitEvent("fetch:error", { url: resolvedUrl, error: err });
+        _emitEvent("error", { url: resolvedUrl, error: err });
+        _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
 
         if (errorTpl) {
           const clone = _cloneTemplate(errorTpl);

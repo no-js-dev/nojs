@@ -46,7 +46,7 @@
     "formPost": {
       "badge": "Form",
       "name": "Invio Modulo",
-      "desc": "Invia un modulo con <code>post</code>: ogni campo con un <code>name</code> viene inviato come oggetto JSON. Combina con <code>model</code> per mostrare il valore del campo in tempo reale."
+      "desc": "Invia dati del modulo con <code>post</code> e <code>body</code>. Combina con <code>model</code> per campi reattivi e validazione inline."
     },
     "pagination": {
       "badge": "Paginazione",

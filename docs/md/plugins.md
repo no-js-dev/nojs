@@ -142,26 +142,6 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
 </script>
 ```
 
-#### Names under core wildcards
-
-A plugin can register a name that a core wildcard directive (`on:*`, `bind-*`, `class-*`, `style-*`) would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute only; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute still uses the core handler. In debug mode a log line notes the shadowing:
-
-```
-[No.JS] Directive "bind-chart" shadows core "bind-*" for that attribute.
-```
-
-#### `strictDirectives`
-
-Set `strictDirectives: true` to reject those names as well. With the flag on, any name matched by a core wildcard is treated like a core directive: `app.directive()` logs a warning and ignores it, so the core handler keeps sanitizing `bind-href`, `bind-src` and the rest:
-
-```js
-NoJS.config({ strictDirectives: true }); // before plugins install
-
-app.directive('bind-chart', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
-```
-
-The flag defaults to `false`.
-
 ---
 
 ## `NoJS.global()`
@@ -204,45 +184,6 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <!-- Updates reactively when $user.name changes -->
 <span bind="$user.name"></span>
 ```
-
-The value is a JSON copy of the object you pass: changing the original afterwards does not change the global, methods are dropped, and `Date` values become ISO strings. Own `__proto__` keys are dropped from the copy. A value that cannot be serialized to JSON (for example, one with a circular reference or a `BigInt`) gets a shallow copy instead: its own enumerable properties are copied (functions stored directly on the object included, methods inherited from a class prototype lost), and nested objects are shared with the original. A value that is already a reactive context is published as is. The global itself is a reactive context, so it has `$watch`, `$set` and `$notify`:
-
-```js
-app.global('cart', { count: 0 });
-
-// plugin code, e.g. in init():
-const cart = app.evaluate('$cart', app.createContext({}));
-cart.$watch(() => console.log('cart changed'));
-cart.$set('count', 3); // updates every $cart binding
-```
-
-#### App-wide updates
-
-Globals are app-wide: every binding that reads `$name`, in any scope, updates when the global changes. That covers a template write from any scope (`$cart.count++`, `$cart.$set('count', 1)`), a write from plugin JavaScript through the reactive global (`cart.count = 2`, `cart.$set(...)`), and a new `NoJS.global()` call for the same name. After mutating a nested object from JavaScript (`cart.items.push(x)`), call `cart.$notify()` or `NoJS.notify()`.
-
-#### `byRef`
-
-Pass `{ byRef: true }` to publish the object itself instead of a reactive copy. Templates then see the plugin's own object, with its methods, `Date` values, `Map`s and identity:
-
-```js
-const session = {
-  user: 'guest',
-  since: new Date(),
-  login(name) { this.user = name; },
-};
-app.global('session', session, { byRef: true });
-
-// later, in plugin code:
-session.user = 'Ada';
-app.notify(); // a plain object has no $watch/$set — flush the DOM yourself
-```
-
-```html
-<span bind="$session.user"></span>
-<button on:click="$session.login('ada')">Log in</button>
-```
-
-Template writes and method calls still update every scope. A `byRef` value is checked in full: values that contain `__proto__`, `constructor` or `prototype` keys, or `eval`/`Function` at any depth, are rejected with a warning.
 
 ### Ownership Tracking
 
@@ -346,7 +287,7 @@ Return an object with `[NoJS.REPLACE]: data` from a **response** interceptor to 
 
 ## Trusted Interceptors
 
-By default, interceptors receive **redacted** copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) are stripped. In the URL that **response** interceptors receive, the values of query parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced; the URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. **Request** interceptors receive the raw URL unless [`strictRedaction`](#with-strictredaction-true) is set.
+By default, interceptors receive **redacted** copies of requests and responses — sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, etc.) and URL parameters matching `token`, `key`, `secret`, `auth`, `password`, or `credential` are stripped or replaced with `[REDACTED]`.
 
 Auth plugins that need access to the real headers can be installed with `{ trusted: true }`:
 
@@ -359,8 +300,6 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 Trusted interceptors receive the full, unredacted request options and response object.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
->
-> Trust is fixed when `NoJS.use()` is called; changing the options object afterwards has no effect. Only interceptors registered from inside a plugin's `install()` can be trusted, and `NoJS.interceptor()` takes a plain function (a caller-supplied `pluginName` is ignored).
 
 ### Redacted Headers
 
@@ -372,15 +311,7 @@ Trusted interceptors receive the full, unredacted request options and response o
 **Response** (stripped from the response proxy):
 `set-cookie`, `x-csrf-token`, `x-auth-token`, `www-authenticate`, `proxy-authenticate`
 
-#### With `strictRedaction: true`
-
-Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens what untrusted interceptors and event payloads receive:
-
-- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
-- Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
-- URLs are redacted at the string level. The `#fragment` is removed, since it can carry tokens and is never sent to the server. In the query, the values of sensitive parameters (`token`, `key`, `secret`, `auth`, `password`, `credential`) become `[REDACTED]`. Everything else stays exactly as written. The request itself always goes to the real URL.
-- This redacted URL is what untrusted request interceptors, untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the `call` failure warning and the insecure-HTTP warning.
-- Without the flag, request interceptors and event payloads get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
+> Headers matching the pattern `x-auth-*` or `x-api-*` are also redacted.
 
 ---
 
@@ -454,7 +385,7 @@ app.on('ready', fn);
 
 ### Never Use `eval` or `Function`
 
-Values passed to `NoJS.global()` are checked for dangerous references. `eval`, `Function` (including bound copies), and the `window`, `document` and `globalThis` objects are blocked:
+Values passed to `NoJS.global()` are checked for dangerous references. `eval` and `Function` are blocked:
 
 ```js
 // ❌ Rejected
@@ -586,10 +517,8 @@ A full analytics plugin demonstrating the plugin lifecycle, globals, interceptor
 Three named exports give offline tooling (compilers, linters, bundler plugins) direct access to the No.JS expression parser without running the framework. They bypass the runtime LRU caches so they never interfere with a live app.
 
 ```js
-import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/compiler';
+import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/src/index.js';
 ```
-
-`@no-js-dev/nojs/compiler` is a Node-safe ESM entry: it loads the parser without the framework runtime (no DOM walk, no directive registration). The same functions are also re-exported from the main entry (`@no-js-dev/nojs`), and the legacy deep path `@no-js-dev/nojs/src/index.js` keeps working.
 
 ### `segmentPipes(str)`
 

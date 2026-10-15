@@ -45,7 +45,7 @@ Attach `call` to any clickable element to fire an HTTP request on click. It supp
 | `method` | `string` | HTTP method. Default: `"get"` |
 | `as` | `string` | Name to assign the response in the context. Default: `"data"` |
 | `into` | `string` | Write response to a named global store |
-| `body` | `string` | Request body string. Each `{variable}` is replaced with its URL-encoded value. A result that parses as JSON is sent as `application/json` (a falsy JSON value such as `0`, `false` or `null` sends no body). See the [`body` note](data-fetching.md#mutation-attributes) on JSON objects |
+| `body` | `string` | Request body (JSON string with `{variable}` interpolation) |
 | `loading` | `string` | Template ID to show during the request (e.g. `"#spinner"`) |
 | `success` | `string` | Template ID to render on success. Receives response via `var` |
 | `error` | `string` | Template ID to render on error. Receives error via `var` |

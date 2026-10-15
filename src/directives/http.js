@@ -22,7 +22,7 @@ import {
 } from "../globals.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet, _eventUrl } from "../fetch.js";
+import { _doFetch, _cacheGet, _cacheSet, _eventUrl, _devtoolsUrl } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -662,7 +662,7 @@ for (const method of HTTP_METHODS) {
             _routerInstance.push(redirectPath);
 
           _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data: _effectiveData });
-          _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
+          _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
         } catch (err) {
           // SwitchMap: silently ignore aborted requests
           if (err.name === "AbortError") return;
@@ -674,7 +674,7 @@ for (const method of HTTP_METHODS) {
           );
           _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
           _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
-          _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
+          _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
 
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);

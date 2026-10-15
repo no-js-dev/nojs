@@ -107,6 +107,11 @@ export function _eventUrl(url) {
   return _config.strictRedaction ? _redactUrlParams(url) : url;
 }
 
+// URL for nojs:devtools fetch events.
+export function _devtoolsUrl(url) {
+  return _config.strictDevtools ? _redactUrlParams(url) : url;
+}
+
 // Response redaction helper for untrusted interceptors
 function _redactResponse(response) {
   const redactedHeaders = new Headers(response.headers);

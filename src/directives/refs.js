@@ -15,7 +15,7 @@ import {
 import { _devtoolsEmit } from "../devtools.js";
 import { createContext } from "../context.js";
 import { evaluate, _execStatement, _interpolate, _interpolateEncoded } from "../evaluate.js";
-import { _doFetch, _eventUrl } from "../fetch.js";
+import { _doFetch, _eventUrl, _devtoolsUrl } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren } from "../registry.js";
 
@@ -203,7 +203,7 @@ registerDirective("call", {
           _routerInstance.push(redirectPath);
 
         _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data });
-        _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
+        _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
       } catch (err) {
         // SwitchMap: silently ignore aborted requests
         if (err.name === "AbortError") return;
@@ -223,7 +223,7 @@ registerDirective("call", {
 
         _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
         _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
-        _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
+        _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
 
         if (errorTpl) {
           const clone = _cloneTemplate(errorTpl);

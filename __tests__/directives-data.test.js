@@ -3457,6 +3457,17 @@ describe('fetch event, warning and devtools URLs per flag (get and call)', () =>
     expect(fail.events).toEqual([['fetch:error', '/api/ev?author=TOKEN-SECRET&sort_key=k'], ['error', '/api/ev?author=TOKEN-SECRET&sort_key=k']]);
   });
 
+  test.each([['get', GET], ['call', CALL]])('%s: strictDevtools redacts devtools URLs only', async (_, markup) => {
+    _config.strictDevtools = true;
+    const ok = await run(markup, true);
+    expect(ok.events).toEqual([['fetch:success', RAW]]);
+    expect(ok.devtools).toEqual([['fetch:success', RED]]);
+    const fail = await run(markup, false);
+    expect(fail.events).toEqual([['fetch:error', RAW], ['error', RAW]]);
+    expect(fail.devtools).toEqual([['fetch:error', RED]]);
+    expect(fail.warnings[0]).toContain(RAW + ' failed');
+  });
+
   describe('URL fragments', () => {
     const RAW_H = '/api/ev?access_token=TOKEN-SECRET&page=2#access_token=TOKEN-SECRET';
     const RED_H = '/api/ev?access_token=[REDACTED]&page=2';
@@ -3481,6 +3492,14 @@ describe('fetch event, warning and devtools URLs per flag (get and call)', () =>
       expect(fail.events).toEqual([['fetch:error', RED_H], ['error', RED_H]]);
       expect(fail.warnings[0]).toContain(RED_H + ' failed');
       expect(fail.warnings.join('\n')).not.toContain('TOKEN-SECRET');
+    });
+
+    test.each([['get', GET_H], ['call', CALL_H]])('%s: strictDevtools drops the fragment from devtools URLs', async (_, markup) => {
+      _config.strictDevtools = true;
+      const ok = await run(markup, true);
+      expect(ok.devtools).toEqual([['fetch:success', RED_H]]);
+      const fail = await run(markup, false);
+      expect(fail.devtools).toEqual([['fetch:error', RED_H]]);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { _config, _interceptors, _cache, _plugins } from '../src/globals.js';
-import { resolveUrl, _doFetch, _cacheGet, _cacheSet, _redactUrlParams, _eventUrl } from '../src/fetch.js';
+import { resolveUrl, _doFetch, _cacheGet, _cacheSet, _redactUrlParams, _eventUrl, _devtoolsUrl } from '../src/fetch.js';
 
 describe('URL Resolution', () => {
   afterEach(() => {
@@ -1587,5 +1587,24 @@ describe('_redactUrlParams (strict redactor)', () => {
     expect(_redactUrlParams('/x?token=&page=1')).toBe('/x?token=[REDACTED]&page=1');
     expect(_redactUrlParams(undefined)).toBeUndefined();
     expect(_redactUrlParams('/x')).toBe('/x');
+  });
+});
+
+describe('_devtoolsUrl', () => {
+  afterEach(() => {
+    _config.strictDevtools = false;
+    _config.strictRedaction = false;
+  });
+
+  test('returns the url unchanged by default, even with strictRedaction', () => {
+    const u = '/api/x?access_token=abc&page=2#access_token=H';
+    expect(_devtoolsUrl(u)).toBe(u);
+    _config.strictRedaction = true;
+    expect(_devtoolsUrl(u)).toBe(u);
+  });
+
+  test('with strictDevtools applies the strict redactor', () => {
+    _config.strictDevtools = true;
+    expect(_devtoolsUrl('/api/x?access_token=abc&author=a&page=2#access_token=H')).toBe('/api/x?access_token=[REDACTED]&author=a&page=2');
   });
 });

@@ -88,7 +88,24 @@ describe('Compat flags — settable through NoJS.config()', () => {
     expect(_config.i18n.strictLocale).toBe(true);
   });
 
-  test('9 — all flags are settable after init and not locked', async () => {
+  test('9 — i18n.escapeParams and i18n.strictLocale can be set through NoJS.i18n()', () => {
+    NoJS.i18n({ escapeParams: true, strictLocale: true });
+    expect(_config.i18n.escapeParams).toBe(true);
+    expect(_config.i18n.strictLocale).toBe(true);
+    NoJS.i18n({ escapeParams: false, strictLocale: false });
+    expect(_config.i18n.escapeParams).toBe(false);
+    expect(_config.i18n.strictLocale).toBe(false);
+  });
+
+  test('10 — NoJS.i18n() without the flags leaves them untouched', () => {
+    _config.i18n.escapeParams = true;
+    _config.i18n.strictLocale = true;
+    NoJS.i18n({ fallbackLocale: 'en' });
+    expect(_config.i18n.escapeParams).toBe(true);
+    expect(_config.i18n.strictLocale).toBe(true);
+  });
+
+  test('11 — all flags are settable after init and not locked', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     document.body.innerHTML = '<div state="{}"></div>';
     await NoJS.init();
@@ -116,19 +133,19 @@ describe('Compat flags — settable through NoJS.config()', () => {
 });
 
 describe('Compat flags — nested merges keep sibling keys', () => {
-  test('10 — setting templates.pageRelative keeps templates.cache', () => {
+  test('12 — setting templates.pageRelative keeps templates.cache', () => {
     NoJS.config({ templates: { cache: false } });
     NoJS.config({ templates: { pageRelative: true } });
     expect(_config.templates).toEqual({ cache: false, pageRelative: true });
   });
 
-  test('11 — setting templates.cache keeps templates.pageRelative', () => {
+  test('13 — setting templates.cache keeps templates.pageRelative', () => {
     NoJS.config({ templates: { pageRelative: true } });
     NoJS.config({ templates: { cache: false } });
     expect(_config.templates.pageRelative).toBe(true);
   });
 
-  test('12 — setting i18n flags keeps the other i18n settings', () => {
+  test('14 — setting i18n flags keeps the other i18n settings', () => {
     NoJS.config({ i18n: { ns: ['common'], cache: false, supportedLocales: ['en', 'pt'] } });
     const before = { ..._config.i18n };
 
@@ -137,7 +154,7 @@ describe('Compat flags — nested merges keep sibling keys', () => {
     expect(_config.i18n).toEqual({ ...before, escapeParams: true, strictLocale: true });
   });
 
-  test('13 — setting other i18n keys keeps the i18n flags', () => {
+  test('15 — setting other i18n keys keeps the i18n flags', () => {
     NoJS.config({ i18n: { escapeParams: true, strictLocale: true } });
     NoJS.config({ i18n: { fallbackLocale: 'pt' } });
     expect(_config.i18n.escapeParams).toBe(true);
@@ -145,7 +162,7 @@ describe('Compat flags — nested merges keep sibling keys', () => {
     expect(_config.i18n.fallbackLocale).toBe('pt');
   });
 
-  test('14 — top-level flags do not disturb nested objects', () => {
+  test('16 — top-level flags do not disturb nested objects', () => {
     const templates = { ..._config.templates };
     const i18n = { ..._config.i18n };
     NoJS.config({ scopeHeaders: true, strictRedaction: true, strictJsonld: true });
@@ -153,7 +170,7 @@ describe('Compat flags — nested merges keep sibling keys', () => {
     expect(_config.i18n).toEqual(i18n);
   });
 
-  test('15 — strictDevtools does not change the devtools boolean', () => {
+  test('17 — strictDevtools does not change the devtools boolean', () => {
     NoJS.config({ strictDevtools: true });
     expect(_config.devtools).toBe(false);
     NoJS.config({ devtools: true });
@@ -189,7 +206,7 @@ describe('Compat flags — devtools config views', () => {
     _config.headers = {};
   });
 
-  test('16 — get:config keeps v1.21.1 redaction and shows the flags as plain false values', async () => {
+  test('18 — get:config keeps v1.21.1 redaction and shows the flags as plain false values', async () => {
     _config.headers = { Authorization: 'Bearer secret' };
     _config.csrf = { token: 'secret-token', header: 'X-CSRF-Token' };
 
@@ -204,7 +221,7 @@ describe('Compat flags — devtools config views', () => {
     expect(() => JSON.stringify(result)).not.toThrow();
   });
 
-  test('17 — the devtools config getter shows the flags without exposing a writable _config', () => {
+  test('19 — the devtools config getter shows the flags without exposing a writable _config', () => {
     const exposed = window.__NOJS_DEVTOOLS__.config;
 
     for (const flag of TOP_LEVEL_FLAGS) expect(exposed[flag]).toBe(false);

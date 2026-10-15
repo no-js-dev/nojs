@@ -1601,6 +1601,21 @@
         "csrfTitle": "Protection CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS utilise un parser d'expressions personnalisé entièrement compatible CSP — aucun eval() ni constructeur Function() n'est utilisé. Aucune directive unsafe-eval n'est requise dans votre Content Security Policy."
+      },
+      "hardening": {
+        "title": "Flags de durcissement optionnels",
+        "text": "Les comportements de sécurité plus stricts sont optionnels, pour que les applications construites sur v1.21.1 continuent de fonctionner sans changement. Chaque flag vaut false par défaut (comportement de v1.21.1) et se définit via NoJS.config(). La plupart prennent effet immédiatement, avant ou après init(). strictDirectives s'applique aux enregistrements de directives faits après son activation, et i18n.strictLocale uniquement à l'appel de NoJS.i18n() qui restaure la locale persistée.",
+        "colFlag": "Flag",
+        "colDefault": "Défaut",
+        "colWhenTrue": "Avec true",
+        "scopeHeaders": "Les en-têtes globaux de config({ headers }) ne sont envoyés qu'aux origines de confiance (la page, baseApiUrl et l'attribut base le plus proche) au lieu de chaque requête. Les en-têtes par requête s'appliquent toujours à toute origine.",
+        "strictRedaction": "Les intercepteurs non fiables et les payloads des événements fetch:success / fetch:error / error reçoivent une expurgation plus stricte : le csrf.header est retenu, les en-têtes de réponse sensibles en tant qu'en-têtes de requête sont supprimés, et les URL perdent leur #fragment et voient les valeurs sensibles de la query remplacées par [REDACTED]. Les noms de paramètres sont comparés mot par mot, donc author ou keyword restent intacts.",
+        "strictDirectives": "NoJS.directive() rejette les noms couverts par un joker du cœur (on:*, bind-*, class-*, style-*). Le registre est figé dès le chargement de No.JS, donc le flag s'applique à chaque enregistrement fait pendant qu'il est actif. Définissez-le avant que les plugins n'enregistrent leurs directives.",
+        "strictDevtools": "Les événements devtools et les ids des contextes sont aussi limités aux hôtes locaux, les instantanés de devtools et les valeurs de ctx:updated masquent les noms sensibles (comparés mot par mot) à toute profondeur, le getter config expurge les en-têtes clé par clé et les URL des événements fetch de devtools sont expurgées.",
+        "strictJsonld": "Les placeholders page-jsonld dans les chaînes JSON sont toujours échappés comme contenu de chaîne JSON, donc une valeur ne peut ni fermer la chaîne ni ajouter de clés. Par défaut, la sortie de v1.21.1 est conservée dès qu'elle est un JSON valide.",
+        "pageRelative": "<template src> est résolu par rapport à la page et ignore base et baseApiUrl.",
+        "escapeParams": "Les paramètres t-* des traductions t-html sont échappés en HTML. Le modifier après init() réaffiche les traductions actives.",
+        "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel."
       }
     },
     "plugins": {
@@ -1675,7 +1690,7 @@
       },
       "trusted": {
         "title": "Intercepteurs de confiance",
-        "text": "Par défaut, les intercepteurs reçoivent des copies expurgées des requêtes et réponses — les en-têtes sensibles et les paramètres URL sont supprimés ou remplacés par [REDACTED].",
+        "text": "Par défaut, les intercepteurs reçoivent des copies expurgées des requêtes et réponses : les en-têtes sensibles sont supprimés, et les intercepteurs de réponse reçoivent l'URL re-sérialisée avec les valeurs sensibles de la query sous la forme %5BREDACTED%5D. Les intercepteurs de requête reçoivent l'URL brute, sauf si strictRedaction est actif.",
         "fullAccess": "Les plugins d'authentification qui ont besoin d'accéder aux vrais en-têtes peuvent être installés avec { trusted: true }.",
         "callout": "Un avertissement en console est enregistré quand un plugin est installé avec un accès de confiance. N'accordez trusted qu'aux plugins que vous contrôlez ou avez audités.",
         "redactedTitle": "En-têtes expurgés",

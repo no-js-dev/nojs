@@ -83,7 +83,27 @@
 
 Enables the No.JS browser devtools integration. When `true`, framework state, directive processing, and route navigation are exposed via `window.__NOJS_DEVTOOLS__` for debugging.
 
-> **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
+> **Security:** `window.__NOJS_DEVTOOLS__` and its command listener are installed only on local hosts (`localhost`, `127.0.0.1`, `0.0.0.0`, `*.localhost`, and pages with an empty hostname such as `file://`). On any other hostname, `devtools: true` logs a console warning and the devtools API is not exposed. **However, `nojs:devtools` events (context creation and updates, store creation, fetch URLs, route navigation) are still dispatched on `window`, where any script on the page can read them.** Do not ship `devtools: true` to production, or also set `strictDevtools: true` (see below).
+
+### `strictDevtools`
+
+**Type:** `boolean` | **Default:** `false`
+
+By default, the localhost restriction above applies to `window.__NOJS_DEVTOOLS__` and its command listener only, as in v1.21.1. `nojs:devtools` events follow `devtools` on any host. Store snapshots (`__NOJS_DEVTOOLS__.stores`, `inspect:store`, `inspect:element`) show every key, the `config` getter returns `headers` and `csrf` as configured, and the `get:config` command returns `headers` as the string `'[REDACTED]'` with `csrf.token` redacted. `ctx:updated` events show the values of keys containing `token`, `password`, `secret`, `key`, `auth`, `credential` or `session` as `[REDACTED]`.
+
+Set `strictDevtools: true` to harden devtools:
+
+- `nojs:devtools` events and context ids are also restricted to local hosts, so `devtools: true` on a production hostname emits nothing.
+- Sensitive names are matched by word rather than by substring: `token`, `accessToken`, `api_key`, `apiKey`, `password`, `secret`, `session`, `sessionId`, `auth`, `authorization`, `credentials`, `cookie` and similar names are redacted, while `author`, `keyboard`, `keywords`, `sort_key` and `tokenCount` are not.
+- Store and element snapshots, `__NOJS_DEVTOOLS__.globals`, the `options` of `__NOJS_DEVTOOLS__.plugins` and the values in `ctx:updated` events are redacted at every depth (nested objects and arrays included). The snapshots are copies; circular references appear as `[Circular]`.
+- The `config` getter returns `headers` with sensitive headers (including the configured `csrf.header`) redacted per key, and `csrf.token` as `[REDACTED]` when a token is set. `get:config` keeps returning `headers` as the string `'[REDACTED]'`.
+- `fetch:success` and `fetch:error` devtools events carry the URL without its `#fragment` and with the values of sensitive query parameters replaced by `[REDACTED]`.
+
+```html
+<script>
+  NoJS.config({ devtools: true, strictDevtools: true });
+</script>
+```
 
 ### Opt-in hardening flags
 

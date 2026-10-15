@@ -2,9 +2,9 @@
 //  REACTIVE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _isSensitiveName, _warn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
+import { _devtoolsEmit, _devtoolsEnabled, _devtoolsValue, _ctxRegistry } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -208,7 +208,17 @@ const _sharedHandler = {
     if (old !== value) {
       _ctxGeneration++;
       _notifyMeta(target[META], typeof key === "string" ? key : undefined);
-      if (_config.devtools) {
+      if (_config.devtools && _config.strictDevtools) {
+        if (_devtoolsEnabled()) {
+          const isSensitive = typeof key === "string" && _isSensitiveName(key);
+          _devtoolsEmit("ctx:updated", {
+            id: target.__devtoolsId,
+            key,
+            oldValue: isSensitive ? "[REDACTED]" : _devtoolsValue(old),
+            newValue: isSensitive ? "[REDACTED]" : _devtoolsValue(value),
+          });
+        }
+      } else if (_config.devtools) {
         let isSensitive = false;
         if (typeof key === "string") {
           const lk = key.toLowerCase();
@@ -238,7 +248,7 @@ const _sharedHandler = {
 export function createContext(data = {}, parent = null) {
   const raw = {};
   Object.assign(raw, data);
-  if (_config.devtools) raw.__devtoolsId = ++_ctxId;
+  if (_devtoolsEnabled()) raw.__devtoolsId = ++_ctxId;
 
   const meta = {
     parent,

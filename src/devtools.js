@@ -4,7 +4,7 @@
 //  All hooks are guarded by _config.devtools — no cost when disabled.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _plugins, _globals } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _plugins, _globals, _SENSITIVE_HEADERS, _isSensitiveName } from "./globals.js";
 import { _i18n } from "./i18n.js";
 
 // ─── Context registry (populated by createContext when devtools enabled) ────
@@ -27,9 +27,86 @@ export function _isLocalHostname(hostname) {
   );
 }
 
+// ─── Instrumentation gate ───────────────────────────────────────────────────
+// Shared by event emission and context ids. By default this follows `devtools`
+// alone (v1.21.1 behavior); `strictDevtools` also requires a local host.
+export function _devtoolsEnabled() {
+  return !!_config.devtools && (!_config.strictDevtools || _isLocalHostname());
+}
+
+// ─── Redaction (strictDevtools only) ────────────────────────────────────────
+// Sensitive names are matched by word (_isSensitiveName), at every depth.
+// `path` holds the objects on the current branch, so only real cycles become
+// "[Circular]"; a value shared by two keys is copied under both.
+
+const _REDACTED = "[REDACTED]";
+
+function _redactValue(val, path) {
+  if (typeof val === "bigint") return String(val);
+  if (val === null || typeof val !== "object") return val;
+  const isProxy = !!val.__isProxy;
+  const raw = isProxy ? val.__raw : val;
+  if (!raw || typeof raw !== "object") return raw;
+  if (path.has(raw)) return "[Circular]";
+  if (!isProxy && typeof raw.toJSON === "function") {
+    try {
+      JSON.stringify(raw);
+      return raw;
+    } catch {
+      return String(raw);
+    }
+  }
+  path.add(raw);
+  let out;
+  if (Array.isArray(raw)) {
+    out = raw.map((v) => _redactValue(v, path));
+  } else {
+    out = {};
+    for (const key of Object.keys(raw)) {
+      if (isProxy && key.startsWith("__")) continue;
+      out[key] = _isSensitiveName(key) ? _REDACTED : _redactValue(raw[key], path);
+    }
+  }
+  path.delete(raw);
+  return out;
+}
+
+// Value as carried by devtools payloads: unchanged by default, a redacted
+// copy with strictDevtools.
+export function _devtoolsValue(val) {
+  return _config.strictDevtools ? _redactValue(val, new Set()) : val;
+}
+
+function _isSensitiveHeaderName(name) {
+  const lower = name.toLowerCase();
+  return (
+    _SENSITIVE_HEADERS.has(lower) ||
+    /^x-(auth|api)-/.test(lower) ||
+    (typeof _config.csrf?.header === "string" && lower === _config.csrf.header.toLowerCase()) ||
+    _isSensitiveName(name)
+  );
+}
+
+function _redactedConfig() {
+  const c = { ..._config };
+  if (c.headers) {
+    c.headers = Object.fromEntries(
+      Object.entries(c.headers).map(([k, v]) => [k, _isSensitiveHeaderName(k) ? _REDACTED : v])
+    );
+  }
+  if (c.router) c.router = { ...c.router };
+  if (c.cache) c.cache = { ...c.cache };
+  if (c.csrf) {
+    c.csrf = { ...c.csrf };
+    if (c.csrf.token) c.csrf.token = _REDACTED;
+  }
+  if (c.i18n) c.i18n = { ...c.i18n };
+  return c;
+}
+
 // ─── Emit a devtools event ──────────────────────────────────────────────────
 export function _devtoolsEmit(type, data) {
-  if (!_config.devtools || typeof window === "undefined") return;
+  if (!_devtoolsEnabled() || typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("nojs:devtools", {
       detail: { type, data, timestamp: Date.now() },
@@ -41,6 +118,7 @@ export function _devtoolsEmit(type, data) {
 
 function _safeSnapshot(proxy, seen) {
   if (!proxy || !proxy.__isProxy) return null;
+  if (_config.strictDevtools) return _redactValue(proxy, new Set());
   const raw = proxy.__raw;
   // Cycle detection: a self-referential reactive object would otherwise recurse
   // forever (RangeError: Maximum call stack size exceeded).
@@ -240,9 +318,14 @@ function _handleDevtoolsCommand(event) {
       result = _mutateStore(args.name, args.key, args.value);
       break;
     case "get:config":
-      result = { ..._config };
-      if (result.csrf) result.csrf = { ...result.csrf, token: '[REDACTED]' };
-      if (result.headers) result.headers = '[REDACTED]';
+      if (_config.strictDevtools) {
+        result = _redactedConfig();
+        if (result.headers) result.headers = '[REDACTED]';
+      } else {
+        result = { ..._config };
+        if (result.csrf) result.csrf = { ...result.csrf, token: '[REDACTED]' };
+        if (result.headers) result.headers = '[REDACTED]';
+      }
       break;
     case "get:routes":
       result = _routerInstance ? _routerInstance.routes || [] : [];
@@ -308,6 +391,7 @@ export function initDevtools(nojs) {
       );
     },
     get config() {
+      if (_config.strictDevtools) return _redactedConfig();
       const c = { ..._config };
       if (c.headers) c.headers = { ...c.headers };
       if (c.router) c.router = { ...c.router };
@@ -319,8 +403,21 @@ export function initDevtools(nojs) {
     get refs() { return { ..._refs }; },
     router: _routerInstance,
     version: nojs.version,
-    get plugins() { return new Map(_plugins); },
-    get globals() { return { ..._globals }; },
+    get plugins() {
+      if (!_config.strictDevtools) return new Map(_plugins);
+      return new Map([..._plugins].map(([name, entry]) => [
+        name,
+        entry && typeof entry === "object" ? { ...entry, options: _redactValue(entry.options, new Set()) } : entry,
+      ]));
+    },
+    get globals() {
+      if (!_config.strictDevtools) return { ..._globals };
+      const out = {};
+      for (const name of Object.keys(_globals)) {
+        out[name] = _isSensitiveName(name) ? _REDACTED : _redactValue(_globals[name], new Set());
+      }
+      return out;
+    },
 
     // Inspect API
     inspect: (selector) => _inspectElement(selector),

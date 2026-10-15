@@ -428,7 +428,14 @@ const NoJS = {
         setRouterInstance(_createRouter());
       }
 
-      processTree(root); // ← first paint happens here
+      // A directive init error no longer stops the walk; it is rethrown after
+      // the walk. Finish router and plugin init, then reject with it.
+      let initError = null;
+      try {
+        processTree(root); // ← first paint happens here
+      } catch (err) {
+        initError = err;
+      }
 
       // Init router after tree is processed
       if (_routerInstance) await _routerInstance.init();
@@ -446,6 +453,7 @@ const NoJS = {
         if (plugin.init) await plugin.init(NoJS);
       }
       _emitEvent("plugins:ready");
+      if (initError) throw initError;
     })();
     return _initPromise;
   },

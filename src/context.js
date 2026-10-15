@@ -9,11 +9,16 @@ import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 let _batchDepth = 0;
+let _draining = 0;
 let _batchQueue = new Set();
 let _ctxId = 0;
 let _ctxGeneration = 0;
 
 export function _resetCtxId() { _ctxId = 0; }
+
+// True while batched listeners run: their throws are caught and warned by the
+// drain below, so a render error raised inside one never reaches a caller.
+export function _isDraining() { return _draining > 0; }
 
 export function _startBatch() {
   _batchDepth++;
@@ -38,6 +43,7 @@ export function _endBatch() {
       const fns = _batchQueue;
       _batchQueue = new Set();
       _batchDepth++;
+      _draining++;
       try {
         // Drain defensively: a throwing listener must not drop the rest of the
         // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
@@ -55,6 +61,7 @@ export function _endBatch() {
         });
       } finally {
         _batchDepth--;
+        _draining--;
       }
     }
   }

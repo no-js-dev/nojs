@@ -1368,3 +1368,339 @@ describe('Template integrity — insecure HTTP warning', () => {
     _templateHtmlCache.clear();
   });
 });
+
+describe('templates.pageRelative: template src is page-relative (ignores base= / baseApiUrl)', () => {
+  beforeEach(() => {
+    _config.templates.pageRelative = true;
+    document.body.innerHTML = '';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<p>content</p>'),
+    });
+  });
+
+  afterEach(() => {
+    _config.templates.pageRelative = false;
+    _config.baseApiUrl = '';
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  test('baseApiUrl does not prefix relative template src', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    document.body.innerHTML =
+      '<template src="/templates/header.html"></template>' +
+      '<template src="./components/footer.tpl"></template>' +
+      '<template src="partials/nav.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/templates/header.html',
+      'components/footer.tpl',
+      'partials/nav.tpl',
+    ]);
+  });
+
+  test('an ancestor base= does not prefix template src', async () => {
+    document.body.innerHTML =
+      '<div base="https://api.example.com"><template src="/partials/nav.tpl"></template></div>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(global.fetch).toHaveBeenCalledWith('/partials/nav.tpl');
+  });
+
+  test('nested ./ src resolves against the parent template folder, not baseApiUrl', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url.endsWith('/layout.html')
+        ? '<template src="./nav.html"></template>'
+        : '<p>content</p>'),
+    }));
+    document.body.innerHTML = '<template src="/templates/layout.html"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/templates/layout.html',
+      '/templates/nav.html',
+    ]);
+  });
+
+  test('absolute template URLs are fetched unchanged', async () => {
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    document.body.innerHTML =
+      '<div base="https://api.example.com">' +
+      '<template src="https://cdn.example.com/a.tpl"></template>' +
+      '<template src="//cdn.example.com/b.tpl"></template>' +
+      '</div>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      'https://cdn.example.com/a.tpl',
+      '//cdn.example.com/b.tpl',
+    ]);
+  });
+
+  test('route template src ignores baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<template route="/about" src="pages/about.tpl"></template>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(global.fetch).toHaveBeenCalledWith('pages/about.tpl');
+  });
+
+  test('route sub-template cache warm-up ignores baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url === '/pages/about.tpl'
+        ? '<template src="./parts/a.tpl"></template><template src="parts/b.tpl"></template>'
+        : '<p>content</p>'),
+    }));
+    document.body.innerHTML = '<template route="/about" src="/pages/about.tpl"></template>';
+    const tpl = document.querySelector('template');
+
+    await _loadTemplateElement(tpl);
+    await tpl.__warmup;
+
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      '/pages/about.tpl',
+      '/pages/parts/a.tpl',
+      'parts/b.tpl',
+    ]);
+  });
+
+  test('a top-level ./ src ignores an ancestor base=', async () => {
+    document.body.innerHTML =
+      '<div base="https://api.example.com"><template src="./parts/nav.tpl"></template></div>';
+
+    await _loadRemoteTemplates();
+
+    expect(global.fetch).toHaveBeenCalledWith('parts/nav.tpl');
+  });
+
+  test('HTTP directive URLs still use baseApiUrl and base=', async () => {
+    const { resolveUrl } = await import('../src/fetch.js');
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<div base="https://api.example.com"><span></span></div>';
+
+    expect(resolveUrl('/users', document.body)).toBe('/api/users');
+    expect(resolveUrl('/users', document.querySelector('span'))).toBe('https://api.example.com/users');
+  });
+});
+
+describe('Template src default resolution (v1.21.1): base= / baseApiUrl apply', () => {
+  const urls = () => global.fetch.mock.calls.map((c) => c[0]);
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<p>content</p>'),
+    });
+  });
+
+  afterEach(() => {
+    _config.baseApiUrl = '';
+    _config.debug = false;
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  test('pageRelative defaults to false', () => {
+    expect(_config.templates.pageRelative).toBe(false);
+  });
+
+  test('baseApiUrl="/api" prefixes a plain relative src', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<template src="parts/header.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual(['/api/parts/header.tpl']);
+  });
+
+  test('baseApiUrl prefixes "/"-rooted, plain and top-level "./" src', async () => {
+    _config.baseApiUrl = '/api/';
+    document.body.innerHTML =
+      '<template src="/parts/a.tpl"></template>' +
+      '<template src="parts/b.tpl"></template>' +
+      '<template src="./parts/c.tpl"></template>' +
+      '<template src="//parts/d.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual([
+      '/api/parts/a.tpl',
+      '/api/parts/b.tpl',
+      '/api/parts/c.tpl',
+      '//parts/d.tpl',
+    ]);
+  });
+
+  test('absolute http(s):// and protocol-relative src are never prefixed', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML =
+      '<div base="https://api.example.com">' +
+      '<template src="https://cdn.example.com/a.tpl"></template>' +
+      '<template src="http://cdn.example.com/b.tpl"></template>' +
+      '<template src="//cdn.example.com/c.tpl"></template>' +
+      '</div>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual([
+      'https://cdn.example.com/a.tpl',
+      'http://cdn.example.com/b.tpl',
+      '//cdn.example.com/c.tpl',
+    ]);
+  });
+
+  test('an ancestor base= wins over baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML =
+      '<div base="https://cdn.example.com/"><template src="/parts/nav.tpl"></template></div>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(global.fetch).toHaveBeenCalledWith('https://cdn.example.com/parts/nav.tpl');
+  });
+
+  test('the nearest ancestor base= wins', async () => {
+    document.body.innerHTML =
+      '<section base="/outer"><div base="/inner"><template src="nav.tpl"></template></div></section>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual(['/inner/nav.tpl']);
+  });
+
+  test('an empty base="" is skipped and baseApiUrl applies', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<div base=""><template src="nav.tpl"></template></div>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual(['/api/nav.tpl']);
+  });
+
+  test('with no base= and no baseApiUrl, src is fetched as written ("./" stripped)', async () => {
+    document.body.innerHTML =
+      '<template src="/parts/a.tpl"></template>' +
+      '<template src="parts/b.tpl"></template>' +
+      '<template src="./parts/c.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual(['/parts/a.tpl', 'parts/b.tpl', 'parts/c.tpl']);
+  });
+
+  test('nested ./ src resolves against the parent folder, which carries the base', async () => {
+    _config.baseApiUrl = '/api';
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url === '/api/templates/layout.html'
+        ? '<template src="./nav.html"></template><template src="footer.html"></template>'
+        : '<p>content</p>'),
+    }));
+    document.body.innerHTML = '<template src="/templates/layout.html"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(urls()).toEqual([
+      '/api/templates/layout.html',
+      '/api/templates/nav.html',
+      '/api/footer.html',
+    ]);
+  });
+
+  test('route template src goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<template route="/about" src="pages/about.tpl"></template>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(urls()).toEqual(['/api/pages/about.tpl']);
+  });
+
+  test('route sub-template cache warm-up goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url === '/api/pages/about.tpl'
+        ? '<template src="./parts/a.tpl"></template><template src="parts/b.tpl"></template>'
+        : '<p>content</p>'),
+    }));
+    document.body.innerHTML = '<template route="/about" src="/pages/about.tpl"></template>';
+    const tpl = document.querySelector('template');
+
+    await _loadTemplateElement(tpl);
+    await tpl.__warmup;
+
+    expect(urls()).toEqual([
+      '/api/pages/about.tpl',
+      '/api/pages/parts/a.tpl',
+      '/api/parts/b.tpl',
+    ]);
+  });
+
+  test('a base= on <body> applies to body-level templates', async () => {
+    document.body.setAttribute('base', 'https://api.example.com/v1');
+    document.body.innerHTML = '<template src="/parts/nav.tpl"></template>';
+
+    try {
+      await _loadRemoteTemplates();
+      expect(urls()).toEqual(['https://api.example.com/v1/parts/nav.tpl']);
+    } finally {
+      document.body.removeAttribute('base');
+    }
+  });
+
+  test('debug mode logs a one-time pageRelative hint when a base changes a template URL', async () => {
+    let logSpy;
+    await jest.isolateModulesAsync(async () => {
+      const g = await import('../src/globals.js');
+      const d = await import('../src/dom.js');
+      g._config.debug = true;
+      g._config.baseApiUrl = '/api';
+      logSpy = jest.spyOn(console, 'log').mockImplementation();
+      document.body.innerHTML =
+        '<template src="a.tpl"></template><template src="b.tpl"></template>';
+      await d._loadRemoteTemplates();
+    });
+    const hints = logSpy.mock.calls.filter((c) => String(c[1]).includes('templates: { pageRelative: true }'));
+    logSpy.mockRestore();
+    expect(hints).toHaveLength(1);
+    expect(hints[0][1]).toContain('"a.tpl" resolved to "/api/a.tpl"');
+  });
+
+  test('no hint is logged without debug, without a base, or with pageRelative', async () => {
+    let logSpy;
+    await jest.isolateModulesAsync(async () => {
+      const g = await import('../src/globals.js');
+      const d = await import('../src/dom.js');
+      logSpy = jest.spyOn(console, 'log').mockImplementation();
+      g._config.baseApiUrl = '/api';
+      document.body.innerHTML = '<template src="a.tpl"></template>';
+      await d._loadRemoteTemplates();
+      g._config.debug = true;
+      g._config.baseApiUrl = '';
+      document.body.innerHTML = '<template src="b.tpl"></template>';
+      await d._loadRemoteTemplates();
+      g._config.baseApiUrl = '/api';
+      g._config.templates.pageRelative = true;
+      document.body.innerHTML = '<template src="c.tpl"></template>';
+      await d._loadRemoteTemplates();
+    });
+    const hints = logSpy.mock.calls.filter((c) => String(c[1]).includes('pageRelative'));
+    logSpy.mockRestore();
+    expect(hints).toHaveLength(0);
+  });
+});

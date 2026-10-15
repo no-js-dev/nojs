@@ -54,7 +54,9 @@
       loadPath: '/locales/{locale}.json',  // Load from external JSON (default: null)
       ns: ['common'],           // Namespaces to preload (default: [])
       cache: true,              // Cache fetched locale files (default: true)
-      persist: false             // Persist selected locale to localStorage (default: false)
+      persist: false,            // Persist selected locale to localStorage (default: false)
+      escapeParams: false,       // HTML-escape t-* params in t-html translations (default: false)
+      strictLocale: false        // Ignore a persisted locale not in supportedLocales (default: false)
     },
 
     // Debugging
@@ -266,7 +268,7 @@ When inline `locales` are provided instead, detection can match against the load
 
 On the visitor's first load, the locale is resolved in this priority order:
 
-1. A persisted `nojs-locale` in `localStorage` (when `persist: true`)
+1. A persisted `nojs-locale` in `localStorage` (when `persist: true`). It is restored even when it is not listed in `supportedLocales`, unless [`i18n.strictLocale`](#i18nstrictlocale) is `true`.
 2. The detected browser language (`navigator.language`), if it is listed in `supportedLocales`
 3. `defaultLocale`
 
@@ -326,6 +328,42 @@ When `true`, the currently selected locale is persisted to `localStorage`. On th
 
 ```js
 NoJS.i18n({ persist: true });
+```
+
+---
+
+### `i18n.strictLocale`
+
+**Type:** `boolean` | **Default:** `false`
+
+Opt-in hardening. When `true`, a persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it (a stale value from an older deploy, or one written by another script on the same origin). The value is removed from `localStorage` and the locale falls through to browser detection and `defaultLocale`. A debug-only message is logged with `debug: true`. With an empty `supportedLocales`, every persisted locale is still restored.
+
+By default (`false`), the persisted locale is always restored, as in v1.21.1.
+
+The check runs inside the `NoJS.i18n()` call that restores the persisted locale: pass the flag in that call, or set it with `NoJS.config({ i18n: { strictLocale: true } })` before it. Setting it afterwards has no effect until the next `NoJS.i18n()` call.
+
+```js
+NoJS.i18n({
+  supportedLocales: ['en', 'pt'],
+  persist: true,
+  strictLocale: true
+});
+```
+
+---
+
+### `i18n.escapeParams`
+
+**Type:** `boolean` | **Default:** `false`
+
+Opt-in hardening. When `true`, values passed through `t-*` params to a `t-html` translation are HTML-escaped (`& < > " '`) before interpolation, so only the translation string itself is rendered as HTML. Plain `t` (without `t-html`) always renders text and is not affected. Changing the flag after `init()` (through `NoJS.config()` or `NoJS.i18n()`) re-renders active translations immediately.
+
+By default (`false`), params are inserted as-is and the combined result is sanitized, as in v1.21.1. See [Internationalization → Params in `t-html`](i18n.md#params-in-t-html-i18nescapeparams) for the trade-offs, double escaping, and what the flag does not cover.
+
+```js
+NoJS.config({ i18n: { escapeParams: true } });
+// or
+NoJS.i18n({ escapeParams: true });
 ```
 
 ---

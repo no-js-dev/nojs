@@ -46,6 +46,8 @@ Absolute URLs skip base resolution:
 
 > **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
 
+> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, the `baseApiUrl` origin, and the origin of the nearest `base` attribute. Per-request `headers` still apply to any origin.
+
 ### Per-Request Headers
 
 ```html
@@ -537,7 +539,9 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. Request interceptors, the `url` in `fetch:success` / `fetch:error` / `error` event payloads, and the request failure warnings receive the raw URL.
+
+With [`strictRedaction: true`](configuration.md#opt-in-hardening-flags), the `csrf.header` name is also withheld from untrusted interceptors, sensitive response headers such as `Authorization`, `X-Auth-*` and `X-Api-*` are stripped as well, and all of those URLs drop their `#fragment` and have the values of sensitive query parameters replaced by a literal `[REDACTED]`. Parameter names are matched by word, so `author` or `keyword` stay intact. See [Plugins → With `strictRedaction: true`](plugins.md#with-strictredaction-true).
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 

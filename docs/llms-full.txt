@@ -206,7 +206,7 @@ Absolute URLs skip base resolution:
 
 > **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
 
-> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, `baseApiUrl`, and the nearest `base` attribute.
+> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, the `baseApiUrl` origin, and the origin of the nearest `base` attribute. Per-request `headers` still apply to any origin.
 
 ### Per-Request Headers
 
@@ -675,7 +675,9 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D` (`[REDACTED]` is written literally only with `strictRedaction`). Request interceptors receive the raw URL unless [`strictRedaction`](configuration.md#opt-in-hardening-flags) is set.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. Request interceptors, the `url` in `fetch:success` / `fetch:error` / `error` event payloads, and the request failure warnings receive the raw URL.
+
+With [`strictRedaction: true`](configuration.md#opt-in-hardening-flags), the `csrf.header` name is also withheld from untrusted interceptors, sensitive response headers such as `Authorization`, `X-Auth-*` and `X-Api-*` are stripped as well, and all of those URLs drop their `#fragment` and have the values of sensitive query parameters replaced by a literal `[REDACTED]`. Parameter names are matched by word, so `author` or `keyword` stay intact. See [Plugins → With `strictRedaction: true`](plugins.md#with-strictredaction-true).
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 
@@ -5448,11 +5450,12 @@ Trusted interceptors receive the full, unredacted request options and response o
 
 Setting [`strictRedaction`](configuration.md#opt-in-hardening-flags) tightens what untrusted interceptors and event payloads receive:
 
-- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it.
+- The header name configured in `csrf.header` is redacted as well, so untrusted request interceptors can neither read nor override it. A trusted plugin still sees it and can rotate it.
 - Response headers that are sensitive as request headers (`authorization`, `cookie`, `x-auth-*`, `x-api-*`, the `csrf.header` name, …) are also stripped from the response proxy.
 - URLs are redacted at the string level. The `#fragment` is removed, since it can carry tokens and is never sent to the server. In the query, the values of sensitive parameters (`token`, `access_token`, `api_key`, `apikey`, `password`, `secret`, `session`, `auth`, `authorization`, …) become `[REDACTED]`. Parameter names are matched by word, not by substring, so `author`, `keyword` or `sort_key` stay intact. Everything else stays exactly as written. The request itself always goes to the real URL.
-- This redacted URL is what untrusted request interceptors, untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the directive failure warnings and the insecure-HTTP warning.
-- Without the flag, request interceptors and event payloads get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
+- This redacted URL is what untrusted request interceptors and untrusted response interceptors (both the URL argument and the response proxy's `url`) receive. So does the `url` in `fetch:success`, `fetch:error` and `error` event payloads, for the HTTP verb directives and `call`. It also appears in the request failure warnings of the HTTP verb directives and `call`, and in the insecure-HTTP credentials warning.
+- Without the flag, request interceptors, event payloads and those warnings get the raw URL. Response interceptors get the URL re-serialized by the `URL` API, with sensitive values set to `%5BREDACTED%5D`.
+- Devtools `fetch:success` / `fetch:error` events are not affected by this flag. Their URL is redacted the same way only with [`strictDevtools`](configuration.md#strictdevtools).
 
 ---
 

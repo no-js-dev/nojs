@@ -83,6 +83,32 @@ Enables the No.JS browser devtools integration. When `true`, framework state, di
 
 > **Security:** Devtools activation is restricted to **localhost environments only** (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`). Setting `devtools: true` on a production hostname is silently ignored with a console warning.
 
+### Opt-in hardening flags
+
+Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()`. Most flags take effect immediately, before or after `init()`. `strictDirectives` applies to the directive registrations made after it is set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale.
+
+| Flag | Default | When `true` |
+|------|---------|-------------|
+| `scopeHeaders` | `false` | Global `config({ headers })` are sent only to trusted origins instead of every request. |
+| `strictRedaction` | `false` | Untrusted interceptors and `fetch:success` / `fetch:error` / `error` event payloads receive stricter redaction: the CSRF header, auth response headers, and tokens in URLs. The URL `#fragment` is dropped. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors). |
+| `strictDirectives` | `false` | `NoJS.directive()` and `app.directive()` reject directive names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). The core registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set, before or after `init()`. Set it before plugins register their directives. |
+| `strictDevtools` | `false` | Devtools events and the context registry are also gated to local hosts, store snapshots redact sensitive keys, `get:config` returns per-key redacted headers, and devtools fetch events redact tokens in URLs. |
+| `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot add keys or end the string. By default the v1.21.1 output is kept whenever it is valid JSON. See [Head Management](head-management.md#page-jsonld). |
+| `templates.pageRelative` | `false` | `<template src>` resolves relative to the page instead of through `resolveUrl` / `baseApiUrl` / `base=`. |
+| `i18n.escapeParams` | `false` | Interpolated params in `t-html` translations are HTML-escaped. Changing it after `init()` re-renders active translations. |
+| `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |
+
+```html
+<script>
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+</script>
+```
+
 ---
 
 ## Pre-initializing Stores

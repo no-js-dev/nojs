@@ -142,6 +142,28 @@ Core directives (`state`, `bind`, `get`, `on:*`, etc.) are frozen after the fram
 </script>
 ```
 
+#### Names under core wildcards
+
+A plugin can register a name that a core wildcard directive (`on:*`, `bind-*`, `class-*`, `style-*`) would otherwise handle, such as `on:clickoutside`, `class-x` or `bind-chart`. The exact name wins for that attribute only; every other `on:*`, `bind-*`, `class-*` and `style-*` attribute still uses the core handler. In debug mode a log line notes the shadowing:
+
+```
+[No.JS] Directive "bind-chart" shadows core "bind-*" for that attribute.
+```
+
+#### `strictDirectives`
+
+Set `strictDirectives: true` to reject those names as well. With the flag on, any name matched by a core wildcard is treated like a core directive: `app.directive()` logs a warning and ignores it, so the core handler keeps sanitizing `bind-href`, `bind-src` and the rest:
+
+```js
+NoJS.config({ strictDirectives: true }); // before any NoJS.directive() or NoJS.use()
+
+app.directive('bind-chart', { /* ... */ }); // ❌ covered by core `bind-*` — warning, ignored
+```
+
+The registry is frozen as soon as No.JS loads, not at `NoJS.init()`. The flag therefore applies to every registration made while it is set, including those made before `init()`, and never to names registered before it was set. Set it before any `NoJS.directive()` or `NoJS.use()` call.
+
+The flag defaults to `false`.
+
 ---
 
 ## `NoJS.global()`

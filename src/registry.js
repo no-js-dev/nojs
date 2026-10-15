@@ -2,7 +2,7 @@
 //  DIRECTIVE REGISTRY & DOM PROCESSING
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _currentEl, _setCurrentEl, _deleteStoreWatcher, _deleteRouteWatcher, _i18nListeners, _warn } from "./globals.js";
+import { _config, _currentEl, _setCurrentEl, _deleteStoreWatcher, _deleteRouteWatcher, _i18nListeners, _log, _warn } from "./globals.js";
 import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
 import { findContext } from "./dom.js";
 import { evaluate } from "./evaluate.js";
@@ -13,10 +13,12 @@ let _frozen = false;
 const _coreDirectives = new Set();
 
 export function registerDirective(name, handler) {
-  if (_frozen && _coreDirectives.has(name)) {
+  if (_frozen && (_coreDirectives.has(name) || (_config.strictDirectives && _coveredByCoreWildcard(name)))) {
     _warn(`Cannot override core directive "${name}".`);
     return;
   }
+  const shadowed = _frozen && _coveredByCoreWildcard(name);
+  if (shadowed) _log(`Directive "${name}" shadows core "${shadowed}" for that attribute.`);
   _directives.set(name, {
     priority: handler.priority ?? 50,
     init: handler.init,
@@ -53,6 +55,15 @@ const _MATCH_PATTERNS = Object.freeze([
   { pattern: "style-*", prefix: "style-" },
   { pattern: "bind-*",  prefix: "bind-" },
 ]);
+
+// The frozen core wildcard (e.g. "bind-*") that would already match `name`, or null.
+function _coveredByCoreWildcard(name) {
+  for (let i = 0; i < _MATCH_PATTERNS.length; i++) {
+    const { pattern, prefix } = _MATCH_PATTERNS[i];
+    if (name.startsWith(prefix) && _coreDirectives.has(pattern)) return pattern;
+  }
+  return null;
+}
 
 function _matchDirective(attrName) {
   if (_directives.has(attrName))

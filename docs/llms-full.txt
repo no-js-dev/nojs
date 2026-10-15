@@ -3077,6 +3077,8 @@ Because the query is kept, a callback URL such as `/auth/callback?token=abc123` 
 >   await NoJS.router.push('/dashboard');
 > </script>
 > ```
+>
+> If a newer navigation starts before the current one has rendered (for example, while a `lazy="ondemand"` template is still loading), only the newer page renders. The earlier Promise still resolves, without rendering its page. A navigation blocked by a `guard` (without `redirect`) does not count as a newer navigation and does not cancel the one in progress.
 
 ---
 

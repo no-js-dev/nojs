@@ -3288,3 +3288,239 @@ describe('Router — query keeps everything after the first ?', () => {
     delete Element.prototype.scrollIntoView;
   });
 });
+
+// ─── Superseded navigations (NOJS-ROUTE-003) ─────────────────────────────────
+
+describe('Router — superseded navigation', () => {
+  let resolveTpl;
+
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', suppressHashWarning: true };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+    document.title = '';
+    setRouterInstance(null);
+    _templateHtmlCache.clear();
+    // Each template fetch stays pending until the test resolves it
+    const pending = {};
+    global.fetch = jest.fn((url) => new Promise((resolve) => { pending[url] = resolve; }));
+    // html === null answers 404
+    resolveTpl = (name, html) => {
+      const url = Object.keys(pending).find((u) => u.endsWith(name));
+      if (url) pending[url](html === null ? { ok: false, status: 404 } : { ok: true, text: () => Promise.resolve(html) });
+    };
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    document.title = '';
+    delete global.fetch;
+    delete document.startViewTransition;
+    _templateHtmlCache.clear();
+  });
+
+  async function setup() {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/slow" src="/slow.tpl" lazy="ondemand" page-title="'Slow'"></template>
+      <template route="/fast" src="/fast.tpl" lazy="ondemand" page-title="'Fast'"></template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    const seen = [];
+    router.on((r) => seen.push(r.path));
+    return { router, seen, outlet: document.querySelector('[route-view]') };
+  }
+
+  test('renders only the newer page when it loads first', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('renders only the newer page when the superseded one loads first', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a repeated navigation waits for the template load already in flight', async () => {
+    const { router, seen, outlet } = await setup();
+    const first = router.push('/slow');
+    const second = router.push('/slow');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await Promise.all([first, second]);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.slow')).toHaveLength(1);
+    expect(document.title).toBe('Slow');
+    expect(seen).toEqual(['/slow']);
+  });
+
+  test('a late file-based layout probe does not replace the newer page', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const docs = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('docs.tpl', '<section class="docs">Docs layout</section>');
+    await docs;
+
+    expect(outlet.querySelector('.docs')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a repeated file-based navigation waits for the layout probe in flight', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const first = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
+    const second = router.push('/docs/intro');
+    resolveTpl('docs.tpl', null); // no layout: fall back to pages/docs/intro.tpl
+    await new Promise((r) => setTimeout(r, 0));
+    resolveTpl('docs/intro.tpl', '<h1 class="intro">Intro</h1>');
+    await Promise.all([first, second]);
+
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.intro')).toHaveLength(1);
+    expect(seen).toEqual(['/docs/intro']);
+  });
+
+  test('a superseded nested layout drops its unprocessed leaf', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const docs = router.push('/docs/intro');
+    resolveTpl('docs.tpl', '<section class="docs"><div route-view></div></section>');
+    await new Promise((r) => setTimeout(r, 0)); // layout rendered, pages/intro.tpl requested
+    resolveTpl('intro.tpl', '<p class="intro">Intro</p><template src="/part.tpl"></template>');
+    await new Promise((r) => setTimeout(r, 0)); // leaf appended, /part.tpl requested
+    const nested = outlet.querySelector('.docs [route-view]');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('part.tpl', '<p class="part">Part</p>');
+    await docs;
+
+    expect(nested.children).toHaveLength(0); // removed, not processed
+    expect(outlet.querySelector('.docs')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a superseded navigation drops its unprocessed nested index route', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1><div route-view="tabs" route-index="overview" src="/tabs/"></div>');
+    await new Promise((r) => setTimeout(r, 0)); // page rendered, /tabs/overview.tpl requested
+    resolveTpl('overview.tpl', '<p class="overview">Overview</p><template src="/tabs/part.tpl"></template>');
+    await new Promise((r) => setTimeout(r, 0)); // index appended, /tabs/part.tpl requested
+    const tabs = outlet.querySelector('[route-view="tabs"]');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('part.tpl', '<p class="part">Part</p>');
+    await slow;
+
+    expect(tabs.children).toHaveLength(0); // removed, not processed
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a superseded View Transition update callback does not render', async () => {
+    // Browsers run the update callback asynchronously, after the old state is captured
+    document.startViewTransition = jest.fn(({ update }) => {
+      const done = new Promise((r) => setTimeout(r, 0)).then(update);
+      return { updateCallbackDone: done, finished: done, ready: done };
+    });
+    const { router, seen, outlet } = await setup();
+    outlet.setAttribute('transition', 'slide');
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    await new Promise((r) => setTimeout(r, 0)); // both update callbacks have run
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(seen).toEqual(['/fast']);
+    // The superseded update callback returns before it starts loading /slow
+    expect(global.fetch).not.toHaveBeenCalledWith('/slow.tpl');
+  });
+
+  async function setupWithGuards() {
+    const ctx = await setup();
+    for (const [route, redirect] of [['/admin', null], ['/admin2', '/fast']]) {
+      const tpl = document.createElement('template');
+      tpl.setAttribute('route', route);
+      tpl.setAttribute('guard', 'false');
+      if (redirect) tpl.setAttribute('redirect', redirect);
+      tpl.innerHTML = '<h1 class="admin">Admin</h1>';
+      document.body.appendChild(tpl);
+      ctx.router.register(route, tpl);
+    }
+    return ctx;
+  }
+
+  test('a guard-blocked navigation does not cancel the render in flight', async () => {
+    const { router, seen, outlet } = await setupWithGuards();
+    const slow = router.push('/slow');
+    await router.push('/admin');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.admin')).toBeNull();
+    expect(outlet.querySelectorAll('.slow')).toHaveLength(1);
+    expect(document.title).toBe('Slow');
+    expect(window.location.hash).toBe('#/slow');
+    expect(seen).toHaveLength(1);
+  });
+
+  test('a guard redirect supersedes the render in flight', async () => {
+    const { router, seen, outlet } = await setupWithGuards();
+    const slow = router.push('/slow');
+    const admin = router.push('/admin2');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await admin;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelector('.admin')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+});

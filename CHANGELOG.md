@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Router (history mode): the first page load and Back/Forward now keep `?query` and `#hash`, so `$route.query`/`$route.hash` are filled in and the URL is no longer rewritten without them; a query value that contains `?` (e.g. `?next=/a?b=1`) is no longer truncated (#364, @evertonfraga)
 - HTTP and SSE URL placeholders (`get`/`post`/`put`/`patch`/`delete`, `call`, `sse`): a placeholder in the path part whose value is exactly `.` or `..` is now escaped to `%252E` / `%252E%252E`, so it can no longer re-target the request to a parent path (e.g. `/api/users/{id}` with `id = ".."` used to request `/api/`). On by default, with no opt-out; a warning is logged once per request. Query-string and fragment placeholders and request bodies are unchanged (#369, @evertonfraga)
 - Directive errors during the DOM walk: a directive whose `init` throws no longer stops the rest of the page from rendering. The error is warned on its element and the first one is rethrown when the outermost walk finishes (inside a reactive batch update it is only warned). `NoJS.init()` still initializes the router and plugins and emits `plugins:ready`, then rejects with that error. A disposer that throws is warned and no longer stops the remaining disposers (based on #375 by @evertonfraga)
+- Router: when a newer navigation starts before the current one has rendered (e.g. a slow `lazy="ondemand"` or file-based template), the stale render is dropped instead of overwriting the newer page, `<head>` or route listeners. A navigation stopped by a guard or a hash-only change does not cancel a render in progress (#380, @evertonfraga)
 
 ### Docs
 
 - Routing: recipe for removing one-time tokens (`?token=`, `?code=`) from the URL with `$router.replace()` now that history mode keeps the query (#364)
+- Routing: what happens to a navigation that a newer one supersedes (#380)
 
 ## [1.21.1](https://github.com/no-js-dev/nojs/compare/v1.21.0...v1.21.1) — 2026-08-14
 

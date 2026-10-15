@@ -2257,3 +2257,136 @@ describe('t-html params — parity pins and escapeParams edge cases', () => {
     expect(el.querySelector('a')).not.toBeNull();
   });
 });
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Persisted locale validation
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('persisted locale — v1.21.1 default and i18n.strictLocale', () => {
+  afterEach(() => {
+    _config.i18n.persist = false;
+    _config.i18n.supportedLocales = [];
+    _config.i18n.strictLocale = false;
+    _config.debug = false;
+    _i18n._locale = 'en';
+    localStorage.clear();
+    document.body.innerHTML = '';
+    jest.restoreAllMocks();
+  });
+
+  test('strictLocale defaults to false', () => {
+    expect(_config.i18n.strictLocale).toBe(false);
+  });
+
+  test('persisted locale outside supportedLocales is restored by default (v1.21.1)', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('fr');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('persisted locale is restored when supportedLocales is unset (v1.21.1)', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('fr');
+  });
+
+  test('strictLocale: persisted locale outside supportedLocales is ignored silently', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_config.i18n.strictLocale).toBe(true);
+    expect(_i18n.locale).toBe('en');
+    expect(warn).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  test('strictLocale: ignored persisted locale is logged in debug mode', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _config.debug = true;
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'xx-evil');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('en');
+    expect(log).toHaveBeenCalledWith('[No.JS]', expect.stringContaining('xx-evil'));
+  });
+
+  test('strictLocale via NoJS.config() before NoJS.i18n()', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    NoJS.config({ i18n: { strictLocale: true } });
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en' });
+    expect(_i18n.locale).toBe('en');
+  });
+
+  test('strictLocale: persisted locale inside supportedLocales is still restored', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'es');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('es');
+  });
+
+  test('strictLocale with empty supportedLocales restores any persisted locale', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('fr');
+  });
+
+  test('default keeps an unsupported persisted locale in storage (v1.21.1)', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], persist: true, defaultLocale: 'en' });
+    expect(localStorage.getItem('nojs-locale')).toBe('fr');
+  });
+
+  test('strictLocale removes an unsupported persisted locale from storage', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('en');
+    expect(localStorage.getItem('nojs-locale')).toBeNull();
+  });
+
+  test('strictLocale keeps a supported persisted locale in storage', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'es');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', strictLocale: true });
+    expect(localStorage.getItem('nojs-locale')).toBe('es');
+  });
+
+  test('strictLocale: an ignored persisted locale falls through to browser detection', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    const spy = jest.spyOn(navigator, 'language', 'get').mockReturnValue('es-MX');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en', 'es'], persist: true, defaultLocale: 'en', detectBrowser: true, strictLocale: true });
+    expect(_i18n.locale).toBe('es');
+    spy.mockRestore();
+  });
+
+  test('strictLocale without persist leaves storage untouched', async () => {
+    const { default: NoJS } = await import('../src/index.js');
+    _i18n._locale = 'en';
+    localStorage.setItem('nojs-locale', 'fr');
+    NoJS.i18n({ supportedLocales: ['en'], defaultLocale: 'en', strictLocale: true });
+    expect(_i18n.locale).toBe('en');
+    expect(localStorage.getItem('nojs-locale')).toBe('fr');
+  });
+});

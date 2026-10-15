@@ -505,6 +505,7 @@ const NoJS = {
     if (opts.persist != null) _config.i18n.persist = opts.persist;
     const prevEscapeParams = !!_config.i18n.escapeParams;
     if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
+    if (opts.strictLocale != null) _config.i18n.strictLocale = opts.strictLocale;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 
@@ -516,7 +517,17 @@ const NoJS = {
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        if (saved) { _i18n._locale = saved; localeRestored = true; }
+        const supported = _config.i18n.supportedLocales;
+        // Opt-in (i18n.strictLocale): apply the locale setter's allow-list,
+        // ignore a stale or foreign value and drop it from storage. Default
+        // restores it as in v1.21.1.
+        if (saved && _config.i18n.strictLocale && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _log(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+          localStorage.removeItem("nojs-locale");
+        } else if (saved) {
+          _i18n._locale = saved;
+          localeRestored = true;
+        }
       } catch (_) {}
     }
 

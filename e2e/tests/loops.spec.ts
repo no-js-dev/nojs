@@ -275,29 +275,4 @@ test.describe('Loops', () => {
     await page.getByTestId('filter-search').fill('');
     await expect(items).toHaveCount(3);
   });
-
-  test('19 — In-place mutation re-renders unkeyed and keyed loops', async ({ page }) => {
-    const unkeyed = page.getByTestId('m349-item');
-    const keyed = page.getByTestId('m349-keyed-item');
-    const expectBoth = async (values: string[]) => {
-      await expect(unkeyed).toHaveText(values);
-      await expect(keyed).toHaveText(values);
-    };
-    await expectBoth(['a', 'b', 'c']);
-    await page.getByTestId('m349-push').click();
-    await expectBoth(['a', 'b', 'c', 'd']);
-    await page.getByTestId('m349-move').click();
-    await expectBoth(['b', 'c', 'a', 'd']);
-    await page.getByTestId('m349-assign').click();
-    await expectBoth(['X', 'c', 'a', 'd']);
-    await page.getByTestId('m349-reverse').click();
-    await expectBoth(['d', 'a', 'c', 'X']);
-  });
-
-  test('20 — const in a handler binds locally and the loop re-renders', async ({ page }) => {
-    const items = page.getByTestId('m350-item');
-    await expect(items).toHaveText(['a', 'b', 'c']);
-    await page.getByTestId('m350-move').click();
-    await expect(items).toHaveText(['b', 'c', 'a']);
-  });
 });

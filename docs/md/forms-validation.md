@@ -81,14 +81,12 @@ Point an error attribute to a `<template>` using a `#` prefix to render rich err
 
 Inside the template, `$error` contains the error message and `$rule` contains the failing rule name. The template is rendered after the `<template>` element and automatically removed when the field becomes valid.
 
-`error-{rule}="#tplId"` also renders that template when that rule fails, with `$rule` and inside the same `aria-live` wrapper. The message, though, both `$error` inside the template and `$form.errors`, is the literal text `#tplId`. Write the message in the template itself, or use the generic `error="#tplId"` with `$rule`:
+Per-rule templates work too:
 
 ```html
-<input name="user" required error-required="#reqTpl" />
-
-<template id="reqTpl">
-  <span class="field-error">Please choose a username</span>
-</template>
+<input name="user" required validate="custom:checkAvailability"
+       error-required="#reqTpl"
+       error-custom="#customTpl" />
 ```
 
 ---
@@ -121,7 +119,7 @@ Inside any `<form>` with the `validate` attribute, `$form` provides:
 | `$form.dirty` | `boolean` | `true` if any field has been modified |
 | `$form.touched` | `boolean` | `true` if any field has been focused and blurred |
 | `$form.submitting` | `boolean` | `true` while the request is in flight |
-| `$form.pending` | `boolean` | Always `false`: async validators are not supported |
+| `$form.pending` | `boolean` | `true` while async validators are running |
 | `$form.errors` | `object` | Map of field names → error messages |
 | `$form.values` | `object` | Current form values |
 | `$form.firstError` | `string\|null` | Error message of the first invalid field (DOM order) |
@@ -257,23 +255,6 @@ Buttons with `type="button"` are not affected. If you set a custom `bind-disable
 
 <input type="password" validate="strongPassword" />
 ```
-
-### Reserved names
-
-`required`, `email`, `url`, `min` and `max` are built-in rules of the `@no-js-dev/nojs-elements` `validate` directive. `NoJS.validator()` refuses to override them and logs a `"<name>" is a built-in validator and cannot be overridden` warning.
-
-Every other name is free, including `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha` and `alphanumeric`. The `validate` directive has no rule with those names, so register your own if you want to use them:
-
-```html
-<script>
-  NoJS.validator('minlength', (value, len) =>
-    String(value).length >= Number(len) || `Must be at least ${len} characters`);
-</script>
-
-<input name="username" validate="required|minlength:3" />
-```
-
-Register validators before `@no-js-dev/nojs-elements` loads: the plugin reads the validator registry when it installs.
 
 ---
 

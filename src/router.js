@@ -4,13 +4,18 @@
 
 import { _config, _stores, _log, _warn, _notifyRouteWatchers, _stripBase } from "./globals.js";
 import { createContext } from "./context.js";
-import { evaluate, _interpolateJsonld } from "./evaluate.js";
+import { evaluate } from "./evaluate.js";
 
 // Interpolates {expr} placeholders in a raw string (used for page-jsonld).
 // Uses the same JSON-safe regex as the head-management directive — skips
 // { starting with " or ' to avoid consuming JSON structural braces.
 function _interpolateRaw(str, ctx) {
-  return _interpolateJsonld(str, ctx, /\{([^}"'{][^}]*)\}/g);
+  return str.replace(/\{([^}"'{][^}]*)\}/g, (_, expr) => {
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      return val != null ? String(val) : "";
+    } catch (_) { return ""; }
+  });
 }
 import { findContext, _clearDeclared, _loadTemplateElement, _processTemplateIncludes } from "./dom.js";
 
@@ -57,10 +62,6 @@ export function _createRouter() {
   const routes = [];
   const _wildcards = new Map();
   let current = { path: "", params: {}, query: {}, hash: "" };
-  // Id of the newest navigation. Every await in the render path compares its
-  // own id against it and bails out once a newer navigate() has started, so a
-  // slower, superseded render never reaches the outlet, <head> or listeners.
-  let latestNav = 0;
   const listeners = new Set();
   const _autoTemplateCache = new Map();
   const _globalHandlers = [];
@@ -140,10 +141,6 @@ export function _createRouter() {
       listeners.forEach((fn) => fn(current));
       return;
     }
-
-    // Taken after the hash-only branch: it does not re-render, so it must not
-    // cancel a render still in flight for the same path.
-    const nav = ++latestNav;
 
     current = {
       path: cleanPath,
@@ -248,8 +245,7 @@ export function _createRouter() {
       const types = _getTransitionTypes(outletEls);
       const vt = document.startViewTransition({
         update: async () => {
-          if (nav !== latestNav) return;
-          await _renderRoute(matched, routeSnapshot, nav);
+          await _renderRoute(matched, routeSnapshot);
         },
         types,
       });
@@ -271,12 +267,10 @@ export function _createRouter() {
       // Wait for the DOM update to complete before firing listeners
       await vt.updateCallbackDone;
     } else {
-      await _renderRoute(matched, routeSnapshot, nav);
+      await _renderRoute(matched, routeSnapshot);
     }
-    if (nav !== latestNav) return;
 
-    await _loadNestedIndexRoutes(nav);
-    if (nav !== latestNav) return;
+    await _loadNestedIndexRoutes();
 
     _notifyRouteWatchers();
     listeners.forEach((fn) => fn(current));
@@ -384,20 +378,10 @@ export function _createRouter() {
     return tpl;
   }
 
-  // _loadTemplateElement sets __srcLoaded before its fetch settles, so keep the
-  // pending load on the element: a navigation that supersedes another one for
-  // the same template awaits that load instead of rendering it still empty.
-  function _loadRouteTemplate(tpl) {
-    if (!tpl.__routeLoading) {
-      tpl.__routeLoading = _loadTemplateElement(tpl).finally(() => { tpl.__routeLoading = null; });
-    }
-    return tpl.__routeLoading;
-  }
-
   // ── Hierarchical segment resolution ──────────────────────────────────────
   // For multi-segment paths, try loading segment-by-segment layouts before
   // falling back to the flat path.
-  async function _resolveHierarchicalTemplate(outletEl, outletName, nav) {
+  async function _resolveHierarchicalTemplate(outletEl, outletName) {
     const configTemplates = _config.router.templates || "";
     if (!outletEl.hasAttribute("src") && !configTemplates) return null;
 
@@ -439,7 +423,6 @@ export function _createRouter() {
     if (_autoTemplateCache.has(layoutCacheKey)) {
       // We've already probed this layout path — check the cached result
       const cached = _autoTemplateCache.get(layoutCacheKey);
-      if (cached?.__routeLoading) await cached.__routeLoading; // probe still in flight
       layoutExists = cached && !cached.__loadFailed;
     } else {
       // Probe: try to load the layout template
@@ -447,12 +430,11 @@ export function _createRouter() {
       // Also cache under the layout-specific key for future probes
       _autoTemplateCache.set(layoutCacheKey, layoutTpl);
 
-      if (!layoutTpl.__srcLoaded || layoutTpl.__routeLoading) {
-        await _loadRouteTemplate(layoutTpl);
+      if (!layoutTpl.__srcLoaded) {
+        await _loadTemplateElement(layoutTpl);
       }
       layoutExists = !layoutTpl.__loadFailed;
     }
-    if (nav !== latestNav) return null;
 
     if (layoutExists) {
       // Layout exists — render it and leave remaining segments for re-scan
@@ -478,7 +460,7 @@ export function _createRouter() {
   // ── Route-index auto-load ────────────────────────────────────────────────
   // Scan for nested [route-view] outlets that declare a route-index and are
   // still empty (no child elements). Load their default template.
-  async function _loadNestedIndexRoutes(nav) {
+  async function _loadNestedIndexRoutes() {
     const outlets = document.querySelectorAll("[route-view][route-index]");
     for (const outlet of outlets) {
       if (outlet.children.length > 0) continue;
@@ -504,9 +486,8 @@ export function _createRouter() {
       const baseSrc = rawSrc ? rawSrc.replace(/\/?$/, "/") : "";
 
       const tpl = _getOrCreateAutoTemplate(baseSrc, indexName, ext, outletName, "/" + indexName);
-      if (tpl.getAttribute("src") && (!tpl.__srcLoaded || tpl.__routeLoading)) {
-        await _loadRouteTemplate(tpl);
-        if (nav !== latestNav) return;
+      if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+        await _loadTemplateElement(tpl);
       }
       if (tpl.__loadFailed) continue;
       // Remove route attr so the prefetcher doesn't pick up this nested-index template
@@ -525,7 +506,6 @@ export function _createRouter() {
       if (i18nNs) {
         const { _loadI18nNamespace } = await import("./i18n.js");
         await _loadI18nNamespace(i18nNs);
-        if (nav !== latestNav) return;
       }
 
       const clone = tpl.content.cloneNode(true);
@@ -540,12 +520,6 @@ export function _createRouter() {
       _processTemplateIncludes(wrapper);
       const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
       await Promise.all(nestedTpls.map(_loadTemplateElement));
-      if (nav !== latestNav) {
-        // Superseded: drop the unprocessed wrapper instead of leaving it behind
-        _disposeTree(wrapper);
-        wrapper.remove();
-        return;
-      }
 
       _clearDeclared(wrapper);
       processTree(wrapper);
@@ -555,7 +529,7 @@ export function _createRouter() {
   // ── Post-render outlet re-scan ──────────────────────────────────────────
   // After rendering a layout, scan for newly appeared [route-view] outlets
   // and resolve remaining path segments into them. Recurses for N levels.
-  async function _resolveNestedOutlets(parentEl, remainingSegments, baseSrc, ext, indexName, renderedPaths, nav) {
+  async function _resolveNestedOutlets(parentEl, remainingSegments, baseSrc, ext, indexName, renderedPaths) {
     if (!remainingSegments.length) return;
 
     // Find NEW [route-view] outlets inside the just-rendered content
@@ -606,13 +580,11 @@ export function _createRouter() {
         if (!_autoTemplateCache.has(layoutCacheKey)) {
           const layoutTpl = _getOrCreateAutoTemplate(nestedBaseSrc, nextSegment, nestedExt, nestedName, "/" + nextSegment);
           _autoTemplateCache.set(layoutCacheKey, layoutTpl);
-          if (!layoutTpl.__srcLoaded || layoutTpl.__routeLoading) {
-            await _loadRouteTemplate(layoutTpl);
+          if (!layoutTpl.__srcLoaded) {
+            await _loadTemplateElement(layoutTpl);
           }
         }
         const cached = _autoTemplateCache.get(layoutCacheKey);
-        if (cached?.__routeLoading) await cached.__routeLoading; // probe still in flight
-        if (nav !== latestNav) return;
         if (cached && !cached.__loadFailed) {
           tpl = cached;
           _log("[ROUTER] Nested layout:", nextSegment, "→", nestedBaseSrc + nextSegment + nestedExt);
@@ -630,9 +602,8 @@ export function _createRouter() {
       }
 
       // Load template if needed
-      if (tpl.getAttribute("src") && (!tpl.__srcLoaded || tpl.__routeLoading)) {
-        await _loadRouteTemplate(tpl);
-        if (nav !== latestNav) return;
+      if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+        await _loadTemplateElement(tpl);
       }
 
       if (tpl.__loadFailed) {
@@ -641,9 +612,8 @@ export function _createRouter() {
           || (nestedName !== "default" ? _wildcards.get("default") : null);
         if (wildcardTpl && !wildcardTpl.__loadFailed) {
           tpl = wildcardTpl;
-          if (tpl.getAttribute("src") && (!tpl.__srcLoaded || tpl.__routeLoading)) {
-            await _loadRouteTemplate(tpl);
-            if (nav !== latestNav) return;
+          if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+            await _loadTemplateElement(tpl);
           }
         }
         if (!tpl || tpl.__loadFailed) {
@@ -662,7 +632,6 @@ export function _createRouter() {
       if (i18nNs) {
         const { _loadI18nNamespace } = await import("./i18n.js");
         await _loadI18nNamespace(i18nNs);
-        if (nav !== latestNav) return;
       }
 
       const clone = tpl.content.cloneNode(true);
@@ -680,25 +649,18 @@ export function _createRouter() {
       _processTemplateIncludes(wrapper);
       const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
       await Promise.all(nestedTpls.map(_loadTemplateElement));
-      if (nav !== latestNav) {
-        // Superseded: drop the unprocessed wrapper instead of leaving it behind
-        _disposeTree(wrapper);
-        wrapper.remove();
-        return;
-      }
 
       _clearDeclared(wrapper);
       processTree(wrapper);
 
       // Recurse — resolve further segments into outlets introduced by this template
       if (segmentRemaining.length > 0) {
-        await _resolveNestedOutlets(wrapper, segmentRemaining, nestedBaseSrc, nestedExt, indexName, renderedPaths, nav);
-        if (nav !== latestNav) return;
+        await _resolveNestedOutlets(wrapper, segmentRemaining, nestedBaseSrc, nestedExt, indexName, renderedPaths);
       }
     }
   }
 
-  async function _renderRoute(matched, routeSnapshot = current, nav = latestNav) {
+  async function _renderRoute(matched, routeSnapshot = current) {
     // routeSnapshot pins the $route state for this navigation so a concurrent
     // navigate() overwriting the closure-scoped `current` cannot corrupt this
     // render's context/metadata mid-flight.
@@ -725,8 +687,7 @@ export function _createRouter() {
       let resolvedIndexName = "index";
       const configTemplates = _config.router.templates || "";
       if (!tpl && (outletEl.hasAttribute("src") || configTemplates)) {
-        const resolved = await _resolveHierarchicalTemplate(outletEl, outletName, nav);
-        if (nav !== latestNav) return;
+        const resolved = await _resolveHierarchicalTemplate(outletEl, outletName);
         if (resolved) {
           tpl = resolved.tpl;
           remainingSegments = resolved.remainingSegments;
@@ -758,10 +719,9 @@ export function _createRouter() {
 
       if (tpl && !tpl.__loadFailed) {
         // Load template on-demand if not yet fetched
-        if (tpl.getAttribute("src") && (!tpl.__srcLoaded || tpl.__routeLoading)) {
+        if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
           _log("Loading route template on demand:", tpl.getAttribute("src"));
-          await _loadRouteTemplate(tpl);
-          if (nav !== latestNav) return;
+          await _loadTemplateElement(tpl);
         }
 
         // If template load failed, try wildcard fallback
@@ -770,9 +730,8 @@ export function _createRouter() {
             || (outletName !== "default" ? _wildcards.get("default") : null);
           if (wildcardTpl && !wildcardTpl.__loadFailed) {
             tpl = wildcardTpl;
-            if (tpl.getAttribute("src") && (!tpl.__srcLoaded || tpl.__routeLoading)) {
-              await _loadRouteTemplate(tpl);
-              if (nav !== latestNav) return;
+            if (tpl.getAttribute("src") && !tpl.__srcLoaded) {
+              await _loadTemplateElement(tpl);
             }
           }
           // If still failed (no usable wildcard, or wildcard itself failed), use built-in
@@ -787,7 +746,6 @@ export function _createRouter() {
         if (i18nNs) {
           const { _loadI18nNamespace } = await import("./i18n.js");
           await _loadI18nNamespace(i18nNs);
-          if (nav !== latestNav) return;
         }
 
         const clone = tpl.content.cloneNode(true);
@@ -817,12 +775,6 @@ export function _createRouter() {
         const nestedTpls = [...wrapper.querySelectorAll("template[src]")];
         _log("[ROUTER] nested templates found in wrapper:", nestedTpls.length, nestedTpls.map(t => t.getAttribute("src") + (t.__srcLoaded ? "[LOADED]" : "[NEW]")));
         await Promise.all(nestedTpls.map(_loadTemplateElement));
-        if (nav !== latestNav) {
-          // Superseded: drop the unprocessed wrapper instead of leaving it behind
-          _disposeTree(wrapper);
-          wrapper.remove();
-          return;
-        }
         _log("[ROUTER] all nested loads done for route:", routeSnapshot.path);
 
         const transition = outletEl.getAttribute("transition");
@@ -840,8 +792,7 @@ export function _createRouter() {
         // resolve the remaining path segments into them.
         if (remainingSegments.length > 0) {
           const renderedPaths = new Set();
-          await _resolveNestedOutlets(wrapper, remainingSegments, resolvedBaseSrc, resolvedExt, resolvedIndexName, renderedPaths, nav);
-          if (nav !== latestNav) return;
+          await _resolveNestedOutlets(wrapper, remainingSegments, resolvedBaseSrc, resolvedExt, resolvedIndexName, renderedPaths);
         }
 
         // page-title: update document.title if the route template declares one.
@@ -1129,13 +1080,12 @@ export function _createRouter() {
             }
             return;
           }
-          // Keep ?query and #hash: the base is stripped from the pathname only
-          navigate(path + window.location.search + window.location.hash, true, true); // history pop → backward direction
+          navigate(path, true, true); // history pop → backward direction
         };
         window.addEventListener("popstate", _popstateHandler);
         _globalHandlers.push(() => window.removeEventListener("popstate", _popstateHandler));
         const path = _stripBase(window.location.pathname);
-        await navigate(path + window.location.search + window.location.hash, true);
+        await navigate(path, true);
       }
 
       // Prefetch route templates declared via <a route> links

@@ -38,7 +38,6 @@ import {
   _execStatement,
   resolve,
   _interpolate,
-  _interpolateEncoded,
   _exprCache,
   _stmtCache,
 } from '../src/evaluate.js';
@@ -671,17 +670,6 @@ describe('Expression Evaluator', () => {
       expect(result).toBe('/api/users/..%2Fadmin');  // .. + encoded /
     });
 
-    test.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
-      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const result = _interpolate('/a/{id}/b', createContext({ id }));
-      const segs = new URL(result, 'http://localhost').pathname.split('/');
-      expect(segs.length).toBe(4);
-      expect(segs[2]).not.toBe('');
-      expect(warn).toHaveBeenCalled();
-      warn.mockRestore();
-      expect(_interpolate('/a/{id}', createContext({ id: 'a.b' }))).toBe('/a/a.b');
-    });
-
     test('encodes spaces and special characters in interpolated values', () => {
       const ctx = createContext({ q: 'hello world' });
       expect(_interpolate('/search?q={q}', ctx)).toBe('/search?q=hello%20world');
@@ -695,30 +683,6 @@ describe('Expression Evaluator', () => {
     test('does not encode plain numeric IDs', () => {
       const ctx = createContext({ id: 123 });
       expect(_interpolate('/api/users/{id}', ctx)).toBe('/api/users/123');
-    });
-  });
-
-  describe('_interpolateEncoded (request bodies, v1.21.1 bytes)', () => {
-    test.each([
-      ['name={n}&x=1', { n: 'a&b=c d' }, 'name=a%26b%3Dc%20d&x=1'],
-      ['{msg}', { msg: 'hello world 100%' }, 'hello%20world%20100%25'],
-      ['{v}', { v: '..' }, '..'],
-      ['/a/{v}/b', { v: '.' }, '/a/./b'],
-      ['{missing}-{nil}', { nil: null }, '-'],
-    ])('%s with %j gives %s', (str, state, expected) => {
-      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      expect(_interpolateEncoded(str, createContext(state))).toBe(expected);
-      expect(warn).not.toHaveBeenCalled();
-      warn.mockRestore();
-    });
-
-    test('_interpolate matches _interpolateEncoded except for path dot-segments', () => {
-      const ctx = createContext({ v: 'a b', d: '..' });
-      expect(_interpolate('/x/{v}?q={d}', ctx)).toBe(_interpolateEncoded('/x/{v}?q={d}', ctx));
-      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      expect(_interpolate('/x/{d}', ctx)).toBe('/x/%252E%252E');
-      expect(_interpolateEncoded('/x/{d}', ctx)).toBe('/x/..');
-      warn.mockRestore();
     });
   });
 
@@ -2201,39 +2165,5 @@ describe('Batch drain safety', () => {
     warnSpy.mockRestore();
 
     expect(warned).toBe(true);
-  });
-});
-
-describe('_collectKeys cache retention', () => {
-  // Every cache reachable from ctx by following cached vals back into an
-  // older cache (the shape the leak builds).
-  function cacheChain(ctx) {
-    const links = [];
-    for (let c = ctx.__raw.__collectKeysCache; c; c = c.result.vals.__collectKeysCache) links.push(c);
-    return links;
-  }
-
-  test('statements do not chain old caches or pin replaced state values', () => {
-    const ctx = createContext({ q: '', results: [] });
-    const firstResults = ctx.results;
-    for (let i = 0; i < 50; i++) {
-      ctx.results = [i];
-      _execStatement("q = q + 'a'", ctx);
-    }
-    const links = cacheChain(ctx);
-    expect(links.length).toBeLessThanOrEqual(1);
-    expect(links.some((c) => c.result.vals.results === firstResults)).toBe(false);
-  });
-
-  test('a child cache does not capture its own or its parent cache', () => {
-    const parent = createContext({ x: 0 });
-    const child = createContext({ y: 0 }, parent);
-    for (let i = 1; i <= 5; i++) {
-      parent.x = i;
-      _collectKeys(parent);
-      _collectKeys(child);
-    }
-    expect(cacheChain(child).length).toBeLessThanOrEqual(1);
-    expect(cacheChain(parent).length).toBeLessThanOrEqual(1);
   });
 });

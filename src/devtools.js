@@ -4,7 +4,7 @@
 //  All hooks are guarded by _config.devtools — no cost when disabled.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _plugins, _globals, _SENSITIVE_HEADERS, _SENSITIVE_KEYS } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _plugins, _globals } from "./globals.js";
 import { _i18n } from "./i18n.js";
 
 // ─── Context registry (populated by createContext when devtools enabled) ────
@@ -27,42 +27,9 @@ export function _isLocalHostname(hostname) {
   );
 }
 
-// ─── Instrumentation gate ───────────────────────────────────────────────────
-// Shared by event emission and the context registry. By default this follows
-// `devtools` alone (v1.21.1 behavior); `strictDevtools` also requires a local host.
-export function _devtoolsEnabled() {
-  return !!_config.devtools && (!_config.strictDevtools || _isLocalHostname());
-}
-
-// ─── Redaction helpers ──────────────────────────────────────────────────────
-function _isSensitiveKey(key) {
-  const lk = key.toLowerCase();
-  for (const s of _SENSITIVE_KEYS) {
-    if (lk.includes(s)) return true;
-  }
-  return false;
-}
-
-function _redactedConfig() {
-  const c = { ..._config };
-  if (c.headers) {
-    c.headers = Object.fromEntries(
-      Object.entries(c.headers).map(([k, v]) => [
-        k,
-        _SENSITIVE_HEADERS.has(k.toLowerCase()) || _isSensitiveKey(k) ? "[REDACTED]" : v,
-      ])
-    );
-  }
-  if (c.router) c.router = { ...c.router };
-  if (c.cache) c.cache = { ...c.cache };
-  if (c.csrf) c.csrf = { ...c.csrf, token: "[REDACTED]" };
-  if (c.i18n) c.i18n = { ...c.i18n };
-  return c;
-}
-
 // ─── Emit a devtools event ──────────────────────────────────────────────────
 export function _devtoolsEmit(type, data) {
-  if (!_devtoolsEnabled() || typeof window === "undefined") return;
+  if (!_config.devtools || typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("nojs:devtools", {
       detail: { type, data, timestamp: Date.now() },
@@ -84,9 +51,7 @@ function _safeSnapshot(proxy, seen) {
   for (const key of Object.keys(raw)) {
     if (key.startsWith("__")) continue;
     const val = raw[key];
-    if (_config.strictDevtools && _isSensitiveKey(key)) {
-      snapshot[key] = "[REDACTED]";
-    } else if (val && typeof val === "object" && val.__isProxy) {
+    if (val && typeof val === "object" && val.__isProxy) {
       snapshot[key] = _safeSnapshot(val, seen);
     } else {
       try {
@@ -275,13 +240,9 @@ function _handleDevtoolsCommand(event) {
       result = _mutateStore(args.name, args.key, args.value);
       break;
     case "get:config":
-      if (_config.strictDevtools) {
-        result = _redactedConfig();
-      } else {
-        result = { ..._config };
-        if (result.csrf) result.csrf = { ...result.csrf, token: '[REDACTED]' };
-        if (result.headers) result.headers = '[REDACTED]';
-      }
+      result = { ..._config };
+      if (result.csrf) result.csrf = { ...result.csrf, token: '[REDACTED]' };
+      if (result.headers) result.headers = '[REDACTED]';
       break;
     case "get:routes":
       result = _routerInstance ? _routerInstance.routes || [] : [];
@@ -347,7 +308,6 @@ export function initDevtools(nojs) {
       );
     },
     get config() {
-      if (_config.strictDevtools) return _redactedConfig();
       const c = { ..._config };
       if (c.headers) c.headers = { ...c.headers };
       if (c.router) c.router = { ...c.router };

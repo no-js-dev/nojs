@@ -177,10 +177,6 @@ Use `persist-fields` to control exactly which fields are saved and restored. Fie
 
 `persist-fields` accepts a comma-separated list of field names. Whitespace around each name is trimmed, so `"theme, sidebar"` and `"theme,sidebar"` are equivalent.
 
-An empty `persist-fields` (`persist-fields=""` or a bare `persist-fields` attribute) behaves like omitting it: all fields are persisted, and a console warning is logged once per element. List the fields to persist or remove the attribute.
-
-On restore, every stored key is set back on the state, including `$` keys such as a `get` result stored with `as="$items"`. Keys containing `.` are ignored. To stop stored data from shadowing built-ins like `$store` or `$route`, set [`strictPersist: true`](configuration.md#opt-in-hardening-flags): reserved `$` names are then restored only when the state declares them or `persist-fields` lists them.
-
 | Attribute | Description |
 |-----------|-------------|
 | `persist` | Storage backend: `"localStorage"` or `"sessionStorage"` |
@@ -205,7 +201,7 @@ Add `persist-schema` to validate that keys restored from storage match the initi
 
 ### Using i18n in State and Store Expressions
 
-The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings. The initializer runs once, so these values are a snapshot of the locale active at that moment and do not change when the locale changes; use `bind="$i18n.common.buttons.save"` directly for text that must follow the locale.
+The `$i18n` reactive proxy is available in all expression contexts, including `state` and `store`. This lets you initialize reactive data with translated strings that automatically update when the locale changes.
 
 ```html
 <!-- Initialize state with translated labels -->

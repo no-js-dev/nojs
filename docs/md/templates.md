@@ -67,50 +67,6 @@ Load templates from external HTML files:
 <template id="footer" src="/templates/footer.html"></template>
 ```
 
-#### How `src` is resolved
-
-A `./` path inside a remote template resolves against that template's folder. Every other `src` is resolved the same way as an HTTP directive URL:
-
-| `src` | Result |
-|-------|--------|
-| `https://…`, `http://…`, `//…` | Fetched as written |
-| `/templates/header.html`, `templates/header.html`, top-level `./header.html` | Prefixed with the nearest ancestor `base` attribute, else with `baseApiUrl`, else fetched as written (relative to the page) |
-
-```html
-<script>NoJS.config({ baseApiUrl: '/api' });</script>
-
-<!-- fetches /api/parts/header.tpl -->
-<template src="parts/header.tpl"></template>
-
-<div base="https://cdn.example.com">
-  <!-- fetches https://cdn.example.com/parts/nav.tpl -->
-  <template src="/parts/nav.tpl"></template>
-</div>
-```
-
-This also applies to route templates (`<template route src>`) and file-based routing.
-
-Two cases do not see a `base` attribute that you might expect to apply. Both behave the same as in v1.21.1:
-
-- **Templates nested in a remote content include.** A remote template that is not a route template has its content loaded outside the page, so the `base` lookup for a nested `<template src>` never reaches the element that included it. A plain path (`parts/nav.tpl`) or a `/`-rooted path (`/parts/nav.tpl`) inside it ignores `base` on the including element and falls back to `baseApiUrl`, else to the page. Use a `./` path to load a nested file next to its parent template, or an absolute URL. Route templates are different: their nested `<template src>` load after the route is inserted into `route-view`, so a `base` on the `route-view` element or its ancestors applies.
-- **File-based route templates.** The router appends the templates it creates for file-based routes to `<body>`, not to the `route-view` element. A `base` on the `route-view` element or on its ancestors is therefore not used for the route file itself. Only a `base` on `<body>` or `<html>`, or `baseApiUrl`, applies.
-
-To keep templates on the page origin while HTTP directives use `base` / `baseApiUrl`, opt in to page-relative resolution:
-
-```html
-<script>
-  NoJS.config({
-    baseApiUrl: 'https://api.example.com/v1',
-    templates: { pageRelative: true }
-  });
-</script>
-
-<!-- fetches /templates/header.html from the page origin -->
-<template src="/templates/header.html"></template>
-```
-
-With `templates.pageRelative: true`, `base` and `baseApiUrl` are ignored for every template `src`. Absolute URLs and `./` paths inside a remote template behave the same in both modes.
-
 ### Recursive Loading
 
 Remote templates are loaded **recursively** — if a remote template itself contains `<template src="...">` elements, those are automatically resolved too:

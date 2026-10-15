@@ -3,14 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-// Loopback only by default; set HOST=0.0.0.0 to expose the server (e.g. a container)
-const HOST = process.env.HOST || '127.0.0.1';
 const ROOT = __dirname;
-// NOJS_BUILD_PATH: serve another no.js build at /__local__/no.js (scripts/compat-check.sh runs the
-// compat suite against a build of any git ref this way, without touching dist/)
-const LOCAL_BUILD = process.env.NOJS_BUILD_PATH
-  ? path.resolve(process.env.NOJS_BUILD_PATH)
-  : path.join(ROOT, 'dist/iife/no.js');
+const LOCAL_BUILD = path.join(ROOT, 'dist/iife/no.js');
 // NOJS_ELEMENTS_PATH: override to point at a custom nojs-elements.js build (CI, worktrees, standalone clones)
 const LOCAL_ELEMENTS = process.env.NOJS_ELEMENTS_PATH || path.join(ROOT, '..', 'NoJS-Elements', 'dist', 'iife', 'nojs-elements.js');
 const LOCAL_ELEMENTS_SCRIPT = '/__local__/nojs-elements.js';
@@ -31,11 +25,6 @@ const MIME = {
   '.tpl':  'text/html',
   '.md':   'text/markdown',
 };
-
-// Resolved path must be ROOT itself or below it (a bare startsWith(ROOT) also matches siblings like ROOT-x)
-function isInsideRoot(p) {
-  return p === ROOT || p.startsWith(ROOT + path.sep);
-}
 
 function serveFile(filePath, res) {
   const ext = path.extname(filePath);
@@ -182,7 +171,7 @@ const server = http.createServer((req, res) => {
   if (!path.extname(url)) filePath = path.join(ROOT, 'docs/index.html');
 
   // Path traversal guard: resolved path must stay within ROOT
-  if (!isInsideRoot(filePath)) {
+  if (!filePath.startsWith(ROOT)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -192,7 +181,7 @@ const server = http.createServer((req, res) => {
     if (err || !stats.isFile()) {
       // Fallback: try docs/ subdirectory (the docs site assets are under docs/)
       const docsPath = path.join(ROOT, 'docs', url);
-      if (!isInsideRoot(docsPath)) {
+      if (!docsPath.startsWith(ROOT)) {
         res.writeHead(403);
         res.end('Forbidden');
         return;
@@ -212,7 +201,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, () => {
   console.log(`\n  🚀 No.JS Test Server — http://localhost:${PORT}`);
   console.log(`  📁 Serving from project root: ${ROOT}\n`);
 });

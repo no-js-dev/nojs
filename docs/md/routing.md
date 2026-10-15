@@ -114,8 +114,6 @@ Full client-side routing with no page reloads.
 >   await NoJS.router.push('/dashboard');
 > </script>
 > ```
->
-> If a newer navigation starts before the current one has rendered (for example, while a `lazy="ondemand"` template is still loading), only the newer page renders. The earlier Promise still resolves, without rendering its page.
 
 ---
 
@@ -721,15 +719,6 @@ it skips `{` starting with `"` or `'` so JSON structural braces are not consumed
   <h1>Product</h1>
 </template>
 ```
-
-Placeholders follow the same escaping rules as the body directive: the
-v1.21.1 output is kept when it is valid JSON, otherwise a placeholder inside a
-JSON string (`"name":"{$route.params.id}"`) is escaped as JSON string content
-and one outside a string (`"position":{n}`) is inserted as-is. `<` in values is
-written as `\u003c` so a value cannot close the `<script>` element. Route
-params and query values are untrusted: keep them in quoted placeholders and
-set `strictJsonld: true`. See
-[Head Management → `page-jsonld`](head-management.md#page-jsonld).
 
 The `data-nojs` marker on the injected script tag distinguishes it from
 hand-written JSON-LD blocks — both can coexist in `<head>`.

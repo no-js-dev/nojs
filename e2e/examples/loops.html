@@ -157,30 +157,6 @@
     </ul>
   </section>
 
-  <!-- 19. In-place array mutation re-renders (nojs#349) -->
-  <section state="{ items349: ['a','b','c'], keyed349: ['a','b','c'] }">
-    <p class="test-label">Test 19: In-place mutation (push, splice, index assign, reverse)</p>
-    <button data-test="m349-push" on:click="items349.push('d'); keyed349.push('d')">push</button>
-    <button data-test="m349-move" on:click="items349.splice(0, 1); items349.splice(2, 0, 'a'); keyed349.splice(0, 1); keyed349.splice(2, 0, 'a')">move first to last</button>
-    <button data-test="m349-assign" on:click="items349[0] = 'X'; keyed349[0] = 'X'">index assign</button>
-    <button data-test="m349-reverse" on:click="items349.reverse(); keyed349.reverse()">reverse</button>
-    <ul data-test="m349-list">
-      <li data-test="m349-item" each="item in items349" bind="item"></li>
-    </ul>
-    <ul data-test="m349-keyed-list">
-      <li data-test="m349-keyed-item" each="item in keyed349" key="item" bind="item"></li>
-    </ul>
-  </section>
-
-  <!-- 20. const in a handler is a handler-local binding (nojs#350) -->
-  <section state="{ items350: ['a','b','c'] }">
-    <p class="test-label">Test 20: const in handler</p>
-    <button data-test="m350-move" on:click="const m = items350.splice(0, 1)[0]; items350.splice(2, 0, m)">move first to last</button>
-    <ul data-test="m350-list">
-      <li data-test="m350-item" each="item in items350" bind="item"></li>
-    </ul>
-  </section>
-
   <script src="../../dist/iife/no.js"></script>
   <!--
     WORKAROUND: processTree(document.body) breaks when a self-repeating loop

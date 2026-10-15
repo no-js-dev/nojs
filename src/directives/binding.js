@@ -143,17 +143,6 @@ registerDirective("bind-*", {
   priority: 20,
   init(el, name, expr) {
     const attrName = name.replace("bind-", "");
-    // Inline event-handler attributes (onclick, onerror, …) would execute
-    // bound state as code — stored/reflected XSS. Never bindable; the
-    // on:* directives cover event handling. Matches the bind-html
-    // sanitizer, which strips on* attributes.
-    if (attrName.toLowerCase().startsWith("on")) {
-      _warn(
-        `[Security] ${name} rejected: event-handler attributes are not bindable — use on:${attrName.slice(2).toLowerCase()} instead.`,
-        el
-      );
-      return;
-    }
     const ctx = findContext(el);
 
     // Two-way binding for value
@@ -187,9 +176,7 @@ registerDirective("bind-*", {
     // (a user click flips `checked`, a script rewrites the attribute), and
     // skipping then would leave the element out of sync with the model —
     // so the skip also requires the live DOM to still agree.
-    const isSrcdoc = attrName.toLowerCase() === "srcdoc";
     let last;
-    let lastRaw;
     function update() {
       const val = evaluate(expr, ctx);
       // Boolean attributes
@@ -203,20 +190,7 @@ registerDirective("bind-*", {
         if (attrName in el) el[attrName] = on;
         return;
       }
-      let str = null;
-      if (val != null && isSrcdoc) {
-        // srcdoc is a full HTML document rendered inside the iframe — bound
-        // state there is as dangerous as bind-html, so it goes through the
-        // same sanitizer. Memo on the raw string skips re-sanitizing when the
-        // markup is unchanged and the live attribute still matches.
-        const raw = String(val);
-        if (raw === lastRaw && el.getAttribute(attrName) === last) return;
-        lastRaw = raw;
-        str = String(_sanitizeHtml(raw));
-      } else if (val != null) {
-        str = String(_sanitizeAttrValue(attrName, val));
-      }
-      if (str === null) lastRaw = undefined;
+      const str = val != null ? String(_sanitizeAttrValue(attrName, val)) : null;
       if (str === last && el.getAttribute(attrName) === str) return;
       last = str;
       if (str != null) el.setAttribute(attrName, str);

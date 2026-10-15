@@ -380,16 +380,10 @@ registerDirective("switch", {
   priority: 10,
   init(el, name, expr) {
     const ctx = findContext(el);
-    // Tracks the case/default element shown by the last update so an update
-    // that keeps the same case does not rebuild it, destroying local input
-    // state (parity with if/show/hide dedup).
-    let active = null;
 
     function update() {
       const val = evaluate(expr, ctx);
-      const prev = active;
       let matched = false;
-      active = null;
 
       for (const child of [...el.children]) {
         const caseVal = child.getAttribute("case");
@@ -405,9 +399,7 @@ registerDirective("switch", {
           );
           if (!matched && values.includes(val)) {
             matched = true;
-            active = child;
             child.style.display = "";
-            if (child === prev) continue;
             if (thenTpl) {
               const clone = _cloneTemplate(thenTpl);
               if (clone) {
@@ -415,6 +407,7 @@ registerDirective("switch", {
                 child.innerHTML = "";
                 child.appendChild(clone);
               }
+              child.__declared = false;
               processTree(child);
             } else if (child.__switchDisposed) {
               // Inline case (no `then` template): its descendants were
@@ -425,6 +418,7 @@ registerDirective("switch", {
               // so the first render (already declared by the outer walk) does
               // not double-init its directives.
               child.__switchDisposed = false;
+              child.__declared = false;
               processTree(child);
             }
           } else {
@@ -438,10 +432,6 @@ registerDirective("switch", {
             child.__switchDisposed = true;
           }
           child.style.display = matched ? "none" : "";
-          if (!matched) {
-            active = child;
-            if (child === prev) continue;
-          }
           if (!matched && thenTpl) {
             const clone = _cloneTemplate(thenTpl);
             if (clone) {
@@ -449,10 +439,12 @@ registerDirective("switch", {
               child.innerHTML = "";
               child.appendChild(clone);
             }
+            child.__declared = false;
             processTree(child);
           } else if (!matched && child.__switchDisposed) {
             // Inline default re-shown after a previous match disposed it.
             child.__switchDisposed = false;
+            child.__declared = false;
             processTree(child);
           }
         }

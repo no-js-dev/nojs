@@ -9,7 +9,7 @@ No.JS provides multiple layers of error handling — from per-element HTTP error
 Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an error template. When the request fails, the template renders inside the element:
 
 ```html
-<div ref="users" get="/api/users" as="users" error="#usersError">
+<div get="/api/users" as="users" error="#usersError">
   <div each="user in users" template="userCard"></div>
 </div>
 
@@ -17,12 +17,12 @@ Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an erro
   <div class="error-box">
     <p bind="err.message"></p>
     <p>Status: <span bind="err.status"></span></p>
-    <button on:click="$refs.users.refresh()">Try Again</button>
+    <button on:click="$el.parentElement.dispatchEvent(new Event('retry'))">
+      Try Again
+    </button>
   </div>
 </template>
 ```
-
-The **Try Again** button re-issues the request through the element's `refresh()` method, reached with `ref` and `$refs`.
 
 ### Retry on Failure
 
@@ -46,14 +46,16 @@ Retries use linear delay (not exponential backoff). The `loading` template remai
 
 Wrap a section of your page with `error-boundary` to catch errors that occur within its subtree. The boundary intercepts two kinds of errors:
 
-1. **Event handler errors** — when an event handler statement (for example an `on:click` expression) throws, No.JS dispatches a `nojs:error` CustomEvent that bubbles up from the element. A failing `bind` or other read-only expression does not trigger the boundary: it logs a warning and evaluates to `undefined` (see [Expression Errors](#expression-errors)).
-2. **Window-level errors** — any uncaught JS error on the page, even one thrown outside the boundary (every boundary in the page shows its fallback), and resource load failures (e.g. an `<img>` 404) on elements inside the boundary.
+1. **Expression evaluation errors** — dispatched as `nojs:error` CustomEvents that bubble up from handler expressions (e.g. a `bind` or `on:click` expression throws).
+2. **Window-level errors** — uncaught JS errors and resource load failures (e.g. an `<img>` 404) that originate from elements inside the boundary.
 
 > **Note:** `error-boundary` does **not** catch failed HTTP requests made by `get`/`post`/`put`/`patch`/`delete` directives. Use the `error` attribute on the fetch element for per-request error handling, or `NoJS.on('fetch:error', ...)` for global HTTP error handling.
 
 ```html
 <div error-boundary="#errorFallback">
-  <button on:click="renderChart()">Show chart</button>
+  <div get="/api/fragile-endpoint" as="data">
+    <span bind="data.deep.nested.value"></span>
+  </div>
 </div>
 
 <template id="errorFallback" var="err">
@@ -64,24 +66,22 @@ Wrap a section of your page with `error-boundary` to catch errors that occur wit
 </template>
 ```
 
-When an error is caught, the boundary replaces its children with the fallback template, which receives `err.message`. Here `renderChart` is not defined, so the click shows "renderChart is not defined".
+When an error is caught, the boundary replaces its children with the fallback template. The `nojs:error` CustomEvent carries the error details in `event.detail`.
 
 ---
 
 ## Error Boundary Events
 
-The `nojs:error` CustomEvent that an event handler error dispatches bubbles past the boundary, so you can listen for it with `on:nojs:error` on the boundary or on any ancestor, for example to log errors or show a notification:
+When an error boundary catches an error, it dispatches a `nojs:error` CustomEvent on the boundary element. Listen with `on:error` to log errors or show notifications:
 
 ```html
-<div state="{ lastError: '' }">
-  <div error-boundary="#fallback" on:nojs:error="lastError = $event.detail.message">
-    <button on:click="save()">Save</button>
-  </div>
-  <p bind="lastError"></p>
+<div error-boundary="#fallback"
+     on:error="console.log($event.detail.message)">
+  <!-- children -->
 </div>
 ```
 
-> `$event.detail` contains `message` (string) and `error` (the original Error object). Window-level errors (uncaught errors and resource load failures) also show the boundary's fallback, but they do not dispatch `nojs:error`. The boundary itself does not dispatch any event. `on:error` does not receive `nojs:error`; use `on:nojs:error`. (Currently `on:error` runs only for bubbling `error` events dispatched on the element or a descendant; resource load errors such as an `<img>` 404 do not reach it.)
+> The `$event.detail` object contains: `message` (string), `source` (element), and `error` (original Error object).
 
 ---
 
@@ -121,12 +121,6 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
 ```
 
 > **Tip:** Enable `NoJS.config({ debug: true })` to see detailed expression evaluation warnings in the console.
-
----
-
-## Directive Errors
-
-If a directive's `init` (built-in or [custom](custom-directives.md)) throws, No.JS catches the error, logs a warning naming the directive and the element, and continues with the remaining directives and elements. A cleanup (dispose) function that throws is caught and logged the same way, and the remaining cleanups still run.
 
 ---
 

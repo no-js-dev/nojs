@@ -5,7 +5,7 @@
   <!-- Per-Element Error Handling -->
   <div class="doc-section">
     <h2 class="doc-title" id="error-handling-per-element" t="docs.errorHandling.perElement.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">ref</span>=<span class="hl-str">"users"</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/users"</span>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/users"</span>
      <span class="hl-attr">as</span>=<span class="hl-str">"users"</span>
      <span class="hl-attr">error</span>=<span class="hl-str">"#usersError"</span>
      <span class="hl-attr">retry</span>=<span class="hl-str">"3"</span>
@@ -17,7 +17,9 @@
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"error-box"</span><span class="hl-tag">&gt;</span>
     <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
     <span class="hl-tag">&lt;p&gt;</span>Status: <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.status"</span><span class="hl-tag">&gt;&lt;/span&gt;&lt;/p&gt;</span>
-    <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$refs.users.refresh()"</span><span class="hl-tag">&gt;</span>Try Again<span class="hl-tag">&lt;/button&gt;</span>
+    <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$el.parentElement.dispatchEvent(new Event('retry'))"</span><span class="hl-tag">&gt;</span>
+      Try Again
+    <span class="hl-tag">&lt;/button&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>
   </div>
@@ -67,7 +69,9 @@
       <p t="docs.errorHandling.errorBoundary.httpCaveat"></p>
     </div>
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">error-boundary</span>=<span class="hl-str">"#errorFallback"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"renderChart()"</span><span class="hl-tag">&gt;</span>Show chart<span class="hl-tag">&lt;/button&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">get</span>=<span class="hl-str">"/api/fragile-endpoint"</span> <span class="hl-attr">as</span>=<span class="hl-str">"data"</span><span class="hl-tag">&gt;</span>
+    <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"data.deep.nested.value"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>
+  <span class="hl-tag">&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span>
 
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">id</span>=<span class="hl-str">"errorFallback"</span> <span class="hl-attr">var</span>=<span class="hl-str">"err"</span><span class="hl-tag">&gt;</span>
@@ -82,11 +86,9 @@
   <div class="doc-section">
     <h2 class="doc-title" id="error-boundary-events" t="docs.errorHandling.boundaryEvents.title"></h2>
     <p class="doc-text" t="docs.errorHandling.boundaryEvents.text"></p>
-    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">state</span>=<span class="hl-str">"{ lastError: '' }"</span><span class="hl-tag">&gt;</span>
-  <span class="hl-tag">&lt;div</span> <span class="hl-attr">error-boundary</span>=<span class="hl-str">"#fallback"</span> <span class="hl-attr">on:nojs:error</span>=<span class="hl-str">"lastError = $event.detail.message"</span><span class="hl-tag">&gt;</span>
-    <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"save()"</span><span class="hl-tag">&gt;</span>Save<span class="hl-tag">&lt;/button&gt;</span>
-  <span class="hl-tag">&lt;/div&gt;</span>
-  <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"lastError"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
+    <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">error-boundary</span>=<span class="hl-str">"#fallback"</span>
+     <span class="hl-attr">on:error</span>=<span class="hl-str">"console.log($event.detail.message)"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-cmt">&lt;!-- children --&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
     <div class="callout">
       <p t="docs.errorHandling.boundaryEvents.callout"></p>

@@ -11,10 +11,10 @@
       <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.counter.badge', nameKey: 'examples.counter.name', descKey: 'examples.counter.desc', filename: 'counter.html' }">
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ count: 0 }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"count++"</span><span class="tok-punc">&gt;</span>
-    Count: <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"count"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
+    Count: <span class="tok-mustache">{{ count }}</span>
   <span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">p</span> <span class="tok-attr">if</span><span class="tok-punc">=</span><span class="tok-str">"count &gt; 0"</span><span class="tok-punc">&gt;</span>
-    Clicked <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"count"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span> times!
+    Clicked <span class="tok-mustache">{{ count }}</span> times!
   <span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
@@ -25,7 +25,7 @@
         <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ user: 'World' }"</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"user"</span>
          <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"Enter name..."</span> <span class="tok-punc">/&gt;</span>
-  <span class="tok-punc">&lt;</span><span class="tok-tag">h1</span><span class="tok-punc">&gt;</span>Hello, <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"user"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>!<span class="tok-punc">&lt;/</span><span class="tok-tag">h1</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">h1</span><span class="tok-punc">&gt;</span>Hello, <span class="tok-mustache">{{ user }}</span>!<span class="tok-punc">&lt;/</span><span class="tok-tag">h1</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
     </div>
@@ -36,7 +36,7 @@
   <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"number"</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"qty"</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">computed</span><span class="tok-punc">=</span><span class="tok-str">"total"</span>
         <span class="tok-attr">expr</span><span class="tok-punc">=</span><span class="tok-str">"price * qty"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
-  <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Total: <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"total | currency"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span><span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Total: <span class="tok-mustache">{{ total | currency }}</span><span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
     </div>
@@ -69,7 +69,7 @@
          <span class="tok-attr">on:keydown.enter</span><span class="tok-punc">=</span><span class="tok-str">"todos.push(task); task = ''"</span> <span class="tok-punc">/&gt;</span>
   <span class="tok-punc">&lt;</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
     <span class="tok-punc">&lt;</span><span class="tok-tag">li</span> <span class="tok-attr">foreach</span><span class="tok-punc">=</span><span class="tok-str">"t in todos"</span> <span class="tok-attr">key</span><span class="tok-punc">=</span><span class="tok-str">"$index"</span><span class="tok-punc">&gt;</span>
-      <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"t"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;</span>
+      <span class="tok-mustache">{{ t }}</span>
       <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">on:click</span><span class="tok-punc">=</span><span class="tok-str">"todos.splice($index, 1)"</span><span class="tok-punc">&gt;</span>&times;<span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
     <span class="tok-punc">&lt;/</span><span class="tok-tag">li</span><span class="tok-punc">&gt;</span>
   <span class="tok-punc">&lt;/</span><span class="tok-tag">ul</span><span class="tok-punc">&gt;</span>
@@ -114,11 +114,15 @@
 
     <div class="directives-container showcase-reverse" style="margin-top: 2rem;">
       <div class="directive-showcase" use="directive-card" state="{ badgeKey: 'examples.formPost.badge', nameKey: 'examples.formPost.name', descKey: 'examples.formPost.desc', filename: 'form-post.html' }">
-        <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">form</span> <span class="tok-attr">post</span><span class="tok-punc">=</span><span class="tok-str">"/subscribe"</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ email: '' }"</span><span class="tok-punc">&gt;</span>
-  <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">name</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"email"</span>
+        <pre class="editor-code"><code><span class="tok-punc">&lt;</span><span class="tok-tag">form</span> <span class="tok-attr">state</span><span class="tok-punc">=</span><span class="tok-str">"{ email: '' }"</span>
+      <span class="tok-attr">on:submit.prevent</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">input</span> <span class="tok-attr">model</span><span class="tok-punc">=</span><span class="tok-str">"email"</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"email"</span>
          <span class="tok-attr">placeholder</span><span class="tok-punc">=</span><span class="tok-str">"you@example.com"</span> <span class="tok-punc">/&gt;</span>
-  <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Sending to: <span class="tok-punc">&lt;</span><span class="tok-tag">span</span> <span class="tok-attr">bind</span><span class="tok-punc">=</span><span class="tok-str">"email"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">span</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
-  <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">type</span><span class="tok-punc">=</span><span class="tok-str">"submit"</span><span class="tok-punc">&gt;</span>Subscribe<span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>Sending to: <span class="tok-mustache">{{ email }}</span><span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">button</span> <span class="tok-attr">post</span><span class="tok-punc">=</span><span class="tok-str">"/subscribe"</span>
+          <span class="tok-attr">body</span><span class="tok-punc">=</span><span class="tok-str">'{"email":"{email}"}'</span><span class="tok-punc">&gt;</span>
+    Subscribe
+  <span class="tok-punc">&lt;/</span><span class="tok-tag">button</span><span class="tok-punc">&gt;</span>
 <span class="tok-punc">&lt;/</span><span class="tok-tag">form</span><span class="tok-punc">&gt;</span></code></pre>
       </div>
     </div>

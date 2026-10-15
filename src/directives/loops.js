@@ -53,15 +53,6 @@ function _getManagedClones(startMarker, endMarker) {
   return clones;
 }
 
-// Shallow element-wise identity check between a list and its snapshot.
-function _sameElements(list, snapshot) {
-  if (!snapshot || snapshot.length !== list.length) return false;
-  for (let i = 0; i < list.length; i++) {
-    if (list[i] !== snapshot[i]) return false;
-  }
-  return true;
-}
-
 // Removes all nodes between markers (including text/comment nodes),
 // disposing each element first (Safety Rule 1: dispose before removal).
 // Removal itself is a single Range.deleteContents() — per-node removeChild
@@ -176,10 +167,6 @@ const _loopHandler = {
     const stagger = parseInt(el.getAttribute("animate-stagger")) || 0;
     const animDuration = parseInt(el.getAttribute("animate-duration")) || 0;
     let prevList = null;
-    // Shallow copy of prevList taken when it was recorded. An in-place
-    // mutation (push, splice, index assign, reverse, sort) keeps the array
-    // reference, so identity alone cannot tell "unchanged" from "mutated".
-    let prevSnapshot = null;
     // Tracks the last rendered (post-filter/sort/slice) list for delta optimization.
     let prevRendered = null;
     // True while the else template's content is rendered between the markers.
@@ -275,27 +262,19 @@ const _loopHandler = {
       if (!Array.isArray(list)) list = [];
 
       // Same-reference optimisation: propagate to managed clones without DOM
-      // rebuild. Taken only when the array is the same reference AND its
-      // contents match the snapshot element by element — an in-place
-      // mutation keeps the reference but changes the contents, and must fall
-      // through to the keyed / delta / rebuild paths below. Skipped while the
-      // else template is showing — the managed nodes are template content,
-      // not item clones. Also skipped when a filter or sort expression
-      // exists — both may read outer-scope variables or item fields mutated
-      // in place, which change the rendered list even when the source array
-      // and its element references are unchanged.
+      // rebuild. Skipped while the else template is showing — the managed
+      // nodes are template content, not item clones. Also skipped when a
+      // filter expression exists — the filter may reference outer-scope
+      // variables whose change should produce a different filtered list even
+      // when the source array reference is unchanged.
       const managedClones = _getManagedClones(startMarker, endMarker);
-      if (
-        !elseRendered && !filterExpr && !sortProp && list === prevList &&
-        list.length > 0 && managedClones.length > 0 && _sameElements(list, prevSnapshot)
-      ) {
+      if (!elseRendered && !filterExpr && list === prevList && list.length > 0 && managedClones.length > 0) {
         for (const clone of managedClones) {
           if (clone.__ctx && clone.__ctx.$notify) clone.__ctx.$notify();
         }
         return;
       }
       prevList = list;
-      prevSnapshot = list.slice();
 
       // Filter — reuse a single proxy context, mutating its target per item
       if (filterExpr) {

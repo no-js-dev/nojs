@@ -240,7 +240,7 @@ With external templates:
 
 ## Reactivity
 
-Loop directives are fully reactive. When the source array changes, the loop re-renders automatically — both for full reassignment and for in-place mutation (`push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse`, index assignment such as `items[0] = 'X'`). No `$notify()` call is needed when mutations happen inside HTML expressions:
+Loop directives are fully reactive. When the source array changes (push, splice, sort, or full reassignment), the loop re-renders automatically. No `$notify()` call is needed when mutations happen inside HTML expressions:
 
 ```html
 <div state="{ items: ['A', 'B', 'C'] }">
@@ -248,13 +248,9 @@ Loop directives are fully reactive. When the source array changes, the loop re-r
     <li foreach="item in items" bind="item"></li>
   </ul>
   <button on:click="items.push('New')">Add Item</button>
-  <button on:click="items.reverse()">Reverse</button>
-  <button on:click="items[0] = 'X'">Replace first</button>
   <!-- Loop updates automatically -->
 </div>
 ```
-
-Keyed loops (`key="item.id"`) move their existing rows on an in-place reorder instead of recreating them. When the array and every element are unchanged, the loop only refreshes the existing rows' bindings (for example after a nested field such as `item.done` changes). Loops with `filter` or `sort` always re-run their pipeline, so changing a field used by `sort` reorders the list.
 
 > **Note:** `foreach`/`each`/`for` iterate over arrays only. Object iteration is not directly supported — use the `keys` or `values` filter to convert objects to arrays first:
 > ```html

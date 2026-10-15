@@ -2407,6 +2407,23 @@ Buttons with `type="button"` are not affected. If you set a custom `bind-disable
 <input type="password" validate="strongPassword" />
 ```
 
+### Reserved names
+
+`required`, `email`, `url`, `min` and `max` are built-in rules of the `@no-js-dev/nojs-elements` `validate` directive. `NoJS.validator()` refuses to override them and logs a `"<name>" is a built-in validator and cannot be overridden` warning.
+
+Every other name is free, including `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha` and `alphanumeric`. The `validate` directive has no rule with those names, so register your own if you want to use them:
+
+```html
+<script>
+  NoJS.validator('minlength', (value, len) =>
+    String(value).length >= Number(len) || `Must be at least ${len} characters`);
+</script>
+
+<input name="username" validate="required|minlength:3" />
+```
+
+Register validators before `@no-js-dev/nojs-elements` loads: the plugin reads the validator registry when it installs.
+
 ---
 
 ---

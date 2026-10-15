@@ -98,11 +98,10 @@ const _BUILTIN_FILTER_NAMES = new Set([
   "default", "date", "datetime", "relative", "fromNow",
 ]);
 
-// Built-in validator names — prevent user code from overwriting core validators
-// (core validators are registered by @no-js-dev/nojs-elements)
+// Reserved validator names: the rules @no-js-dev/nojs-elements implements
+// inline in its `validate` directive. Any other name stays registrable.
 const _BUILTIN_VALIDATOR_NAMES = new Set([
-  "required", "email", "url", "min", "max", "minlength", "maxlength",
-  "pattern", "match", "number", "integer", "alpha", "alphanumeric",
+  "required", "email", "url", "min", "max",
 ]);
 function _deepCheckUnsafe(obj, seen = new Set()) {
   if (!obj || typeof obj !== "object" || seen.has(obj)) return;

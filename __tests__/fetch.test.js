@@ -967,3 +967,163 @@ describe('Sensitive header handling around interceptors', () => {
     expect(calledHeaders['Content-Type']).toBe('application/json');
   });
 });
+
+describe('Global headers origin scoping (scopeHeaders: true)', () => {
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{}'),
+    });
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    _config.scopeHeaders = true;
+  });
+
+  afterEach(() => {
+    _config.headers = {};
+    _config.baseApiUrl = '';
+    _config.scopeHeaders = false;
+  });
+
+  test('global headers are not sent to a foreign absolute URL', async () => {
+    await _doFetch('https://other-api.com/data', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are not sent to a protocol-relative foreign URL', async () => {
+    await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are not sent to another subdomain of the app', async () => {
+    await _doFetch('https://auth.myapp.com/session', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are not sent to an unparseable URL', async () => {
+    await _doFetch('http://[bad/x', 'GET');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('per-request headers still apply to a foreign URL while global ones do not', async () => {
+    await _doFetch('https://other-api.com/data', 'GET', null, { 'X-Explicit': '1' });
+    expect(sent()['X-Explicit']).toBe('1');
+    expect(sent().Authorization).toBeUndefined();
+  });
+
+  test('global headers are sent to baseApiUrl-relative and baseApiUrl-absolute URLs', async () => {
+    await _doFetch('/users', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://api.myapp.com/other', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to same-origin URLs when no baseApiUrl is set', async () => {
+    _config.baseApiUrl = '';
+    await _doFetch('/api/test', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch(window.location.origin + '/api/abs', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to the origin of an element base= attribute', async () => {
+    const el = document.createElement('div');
+    el.setAttribute('base', 'https://other-api.com/v2');
+    await _doFetch('items', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+    global.fetch.mockClear();
+    await _doFetch('https://other-api.com/abs', 'GET', null, {}, el);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('only the nearest base= counts, and the page origin stays trusted under it', async () => {
+    const outer = document.createElement('div');
+    outer.setAttribute('base', 'https://outer-api.com');
+    const inner = document.createElement('div');
+    inner.setAttribute('base', 'https://inner-api.com');
+    outer.appendChild(inner);
+    await _doFetch('https://outer-api.com/x', 'GET', null, {}, inner);
+    expect(sent().Authorization).toBeUndefined();
+    global.fetch.mockClear();
+    await _doFetch(window.location.origin + '/x', 'GET', null, {}, inner);
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('the CSRF token is still injected only for same-origin writes', async () => {
+    _config.csrf = { token: 'CSRF-1' };
+    _config.baseApiUrl = '';
+    try {
+      await _doFetch('/api/save', 'POST', { a: 1 });
+      expect(sent()['X-CSRF-Token']).toBe('CSRF-1');
+      global.fetch.mockClear();
+      const el = document.createElement('div');
+      el.setAttribute('base', 'https://api.myapp.com');
+      await _doFetch('https://api.myapp.com/save', 'POST', { a: 1 }, {}, el);
+      expect(sent()['X-CSRF-Token']).toBeUndefined();
+      expect(sent().Authorization).toBe('Bearer SECRET');
+    } finally {
+      _config.csrf = null;
+    }
+  });
+});
+
+describe('v1.21.1 defaults: global headers (scopeHeaders off)', () => {
+  const okFetch = () => jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('{}') });
+  const sent = () => global.fetch.mock.calls[0][1].headers;
+
+  afterEach(() => {
+    _config.headers = {};
+    _config.baseApiUrl = '';
+    _config.debug = false;
+  });
+
+  test('scopeHeaders defaults to false', () => {
+    expect(_config.scopeHeaders).toBe(false);
+  });
+
+  test('global headers are sent to a foreign absolute URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    _config.baseApiUrl = 'https://api.myapp.com/v1';
+    await _doFetch('https://other-api.com/data', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to a protocol-relative foreign URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    await _doFetch('//cdn.thirdparty.example/x.json', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('global headers are sent to an unparseable URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET' };
+    await _doFetch('http://[bad/x', 'GET');
+    expect(sent().Authorization).toBe('Bearer SECRET');
+  });
+
+  test('per-request headers override global ones on a foreign URL', async () => {
+    global.fetch = okFetch();
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-App': 'a' };
+    await _doFetch('https://other-api.com/data', 'GET', null, { 'X-App': 'b' });
+    expect(sent()).toEqual({ Authorization: 'Bearer SECRET', 'X-App': 'b' });
+  });
+
+  test('debug mode logs nothing extra for cross-origin global headers', async () => {
+    global.fetch = okFetch();
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      _config.debug = true;
+      _config.headers = { Authorization: 'Bearer SECRET' };
+      await _doFetch('https://other-api.com/data', 'GET');
+      expect(log.mock.calls.map((c) => c.join(' ')).filter((l) => /cross-origin|scopeHeaders/.test(l))).toEqual([]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+});

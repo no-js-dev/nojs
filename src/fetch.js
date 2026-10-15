@@ -92,6 +92,37 @@ export function resolveUrl(url, el) {
   return url;
 }
 
+function _originOf(u) {
+  try {
+    return new URL(u.replace(/\\/g, "/"), window.location.href).origin;
+  } catch {
+    return null;
+  }
+}
+
+// Trusted origins are the page, the configured baseApiUrl, and the nearest
+// base=. A parse failure is treated as NOT trusted.
+function _isTrustedOrigin(fullUrl, el) {
+  if (typeof window === "undefined") return true;
+  const target = _originOf(fullUrl);
+  if (!target) return false;
+  if (target === window.location.origin) return true;
+  if (_config.baseApiUrl && target === _originOf(_config.baseApiUrl)) return true;
+  for (let node = el; node; node = node.parentElement) {
+    const base = node.getAttribute?.("base");
+    if (base) return target === _originOf(base);
+  }
+  return false;
+}
+
+// Global config headers go to every request by default. With scopeHeaders
+// they are attached only to trusted origins (see _isTrustedOrigin).
+function _globalHeadersFor(fullUrl, el) {
+  const headers = _config.headers || {};
+  if (_config.scopeHeaders && !_isTrustedOrigin(fullUrl, el)) return {};
+  return headers;
+}
+
 export async function _doFetch(
   url,
   method = "GET",
@@ -110,7 +141,7 @@ export async function _doFetch(
   const upperMethod = method.toUpperCase();
   let opts = {
     method: upperMethod,
-    headers: { ...(_config.headers || {}), ...extraHeaders },
+    headers: { ..._globalHeadersFor(fullUrl, el), ...extraHeaders },
     credentials: _config.credentials,
   };
 
@@ -139,16 +170,8 @@ export async function _doFetch(
   // and uppercase-scheme (HTTP://evil.com) URLs cannot be misclassified as
   // same-origin. A parse failure is treated as NOT same-origin.
   if (_config.csrf && upperMethod !== "GET" && upperMethod !== "QUERY") {
-    let isSameOrigin = false;
-    if (typeof window !== "undefined") {
-      try {
-        isSameOrigin =
-          new URL(fullUrl.replace(/\\/g, "/"), window.location.href).origin ===
-          window.location.origin;
-      } catch {
-        isSameOrigin = false;
-      }
-    }
+    const isSameOrigin =
+      typeof window !== "undefined" && _originOf(fullUrl) === window.location.origin;
     if (isSameOrigin) {
       opts.headers[_config.csrf.header || "X-CSRF-Token"] =
         _config.csrf.token || "";

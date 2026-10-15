@@ -737,6 +737,21 @@ it skips `{` starting with `"` or `'` so JSON structural braces are not consumed
 </template>
 ```
 
+> **Warning — untrusted data:** route params and `$route.query` come from the
+> URL, so anyone can craft them. By default a value in a quoted placeholder can
+> still end the JSON string and add or override keys, exactly as in v1.21.1
+> (`?q=x","@type":"Organization` turns `"name":"{$route.query.q}"` into an
+> extra `"@type"` key). Set `NoJS.config({ strictJsonld: true })` to always
+> escape quoted values as data.
+
+Placeholders follow the same escaping rules as the body directive. By default
+the output is the v1.21.1 output byte-for-byte, with no escaping, so a value with
+`"`, `\` or a line break also makes it invalid JSON. With `strictJsonld: true`,
+quoted values are escaped as JSON string content, which also keeps such output
+valid. Placeholders outside a string (`"position":{$route.params.n}`) are
+inserted as-is in both modes, so never put URL data in them unserialized. See
+[Head Management → `page-jsonld`](head-management.md#page-jsonld).
+
 The `data-nojs` marker on the injected script tag distinguishes it from
 hand-written JSON-LD blocks — both can coexist in `<head>`.
 

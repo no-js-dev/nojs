@@ -3685,6 +3685,21 @@ it skips `{` starting with `"` or `'` so JSON structural braces are not consumed
 </template>
 ```
 
+> **Warning — untrusted data:** route params and `$route.query` come from the
+> URL, so anyone can craft them. By default a value in a quoted placeholder can
+> still end the JSON string and add or override keys, exactly as in v1.21.1
+> (`?q=x","@type":"Organization` turns `"name":"{$route.query.q}"` into an
+> extra `"@type"` key). Set `NoJS.config({ strictJsonld: true })` to always
+> escape quoted values as data.
+
+Placeholders follow the same escaping rules as the body directive. By default
+the output is the v1.21.1 output byte-for-byte, with no escaping, so a value with
+`"`, `\` or a line break also makes it invalid JSON. With `strictJsonld: true`,
+quoted values are escaped as JSON string content, which also keeps such output
+valid. Placeholders outside a string (`"position":{$route.params.n}`) are
+inserted as-is in both modes, so never put URL data in them unserialized. See
+[Head Management → `page-jsonld`](head-management.md#page-jsonld).
+
 The `data-nojs` marker on the injected script tag distinguishes it from
 hand-written JSON-LD blocks — both can coexist in `<head>`.
 
@@ -3914,6 +3929,44 @@ placeholders for dynamic values:
 
 > **Note:** `<script>` elements are skipped by No.JS processing. Always use
 > `<div hidden page-jsonld>` as the host element.
+
+> **Warning — untrusted data:** by default a value in a quoted placeholder can
+> still end the JSON string and add or override keys, exactly as in v1.21.1.
+> With `q = 'x","@type":"Organization'`, the template
+> `{"@type":"SearchResultsPage","name":"{q}"}` produces
+> `"@type":"Organization"`. If any placeholder carries data you do not control
+> (route params, `$route.query`, user input, third-party API content), set
+> `NoJS.config({ strictJsonld: true })`.
+
+**Placeholder escaping (default).** `page-jsonld` produces exactly the
+v1.21.1 output: each placeholder is replaced with its value as text (`null`,
+`undefined` and expression errors become an empty string), with no escaping.
+Raw placeholders (`"offers":{offersJson}`, `"author":{JSON.stringify(author)}`),
+values that were pre-escaped for JSON and patterns such as
+`"sameAs":["{list.join('","')}"]` keep working unchanged. A value with `"`, `\`
+or a line break in a quoted placeholder (for example a product name such as
+`27" Monitor`) still makes the output invalid JSON, as in v1.21.1; search
+engines then ignore the block. `</` is written as `<\/`, so a value can never
+close the `<script>` element.
+
+**`strictJsonld: true`.** Every placeholder inside a JSON string is escaped as
+JSON string content, so its value is always data: it cannot end the string or
+add keys, and a `"`, `\` or line break in it no longer makes the output invalid
+JSON. `<` in every value is written as `\u003c`, which keeps the data
+unchanged and keeps the block intact when the page HTML is serialized (for
+example by a prerender service). Two v1.21.1 patterns change meaning in this
+mode:
+
+- Values pre-escaped for JSON are escaped again (`Say \"hi\"` keeps its
+  backslashes).
+- `"sameAs":["{list.join('","')}"]` yields one string. Use
+  `"sameAs":{JSON.stringify(list)}` instead.
+
+Placeholders outside a string are still inserted as-is in strict mode. They are
+meant for trusted, pre-serialized JSON: never put untrusted data in them
+directly. `{JSON.stringify(value)}` in a raw position (for example
+`"name":{JSON.stringify($route.query.q)}`) always produces a single JSON value,
+in both modes.
 
 The `data-nojs` marker distinguishes the managed tag from any hand-written
 JSON-LD blocks already in `<head>` — they coexist safely.

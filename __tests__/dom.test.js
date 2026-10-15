@@ -1704,3 +1704,105 @@ describe('Template src default resolution (v1.21.1): base= / baseApiUrl apply', 
     expect(hints).toHaveLength(0);
   });
 });
+
+describe('Template load failure warning: templates.pageRelative hint when a base changed the URL', () => {
+  const HINT = (url) =>
+    '(resolved to "' + url + '" via base= / baseApiUrl; set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page)';
+  let warnSpy;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve('Not Found'),
+    });
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    _config.baseApiUrl = '';
+    _config.templates.pageRelative = false;
+    delete global.fetch;
+    document.body.innerHTML = '';
+    _templateHtmlCache.clear();
+  });
+
+  test('without base= or baseApiUrl the warning keeps the v1.21.1 arguments', async () => {
+    document.body.innerHTML = '<template src="parts/missing.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith('[No.JS]', 'Failed to load template:', 'parts/missing.tpl', 'HTTP', 404);
+  });
+
+  test('baseApiUrl: the include failure warning names the resolved URL and the flag', async () => {
+    _config.baseApiUrl = '/api';
+    document.body.innerHTML = '<template src="parts/missing.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]', 'Failed to load template:', 'parts/missing.tpl', 'HTTP', 404, HINT('/api/parts/missing.tpl'),
+    );
+  });
+
+  test('ancestor base=: the route template failure warning names the resolved URL and the flag', async () => {
+    document.body.innerHTML =
+      '<div base="https://cdn.example.com"><template route="/x" src="/pages/x.tpl"></template></div>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[No.JS]', 'Failed to load template:', '/pages/x.tpl', 'HTTP', 404, HINT('https://cdn.example.com/pages/x.tpl'),
+    );
+  });
+
+  test('a network error through baseApiUrl keeps the error message and adds the hint', async () => {
+    _config.baseApiUrl = 'https://api.example.com';
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    document.body.innerHTML = '<template src="a.tpl"></template><template route="/b" src="b.tpl"></template>';
+
+    await _loadRemoteTemplates();
+    await _loadTemplateElement(document.querySelector('template[route]'));
+
+    expect(warnSpy.mock.calls).toEqual([
+      ['[No.JS]', 'Failed to load template:', 'a.tpl', 'Failed to fetch', HINT('https://api.example.com/a.tpl')],
+      ['[No.JS]', 'Failed to load template:', 'b.tpl', 'Failed to fetch', HINT('https://api.example.com/b.tpl')],
+    ]);
+  });
+
+  test('a network error without a base keeps the v1.21.1 arguments', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    document.body.innerHTML = '<template route="/b" src="b.tpl"></template>';
+
+    await _loadTemplateElement(document.querySelector('template'));
+
+    expect(warnSpy).toHaveBeenCalledWith('[No.JS]', 'Failed to load template:', 'b.tpl', 'Failed to fetch');
+  });
+
+  test('no hint for absolute URLs, with pageRelative, or for ./ inside a parent loaded through the base', async () => {
+    _config.baseApiUrl = '/api';
+    global.fetch = jest.fn((url) => Promise.resolve(url === '/api/layout/main.tpl'
+      ? { ok: true, text: () => Promise.resolve('<template src="./missing.tpl"></template>') }
+      : { ok: false, status: 404, text: () => Promise.resolve('') }));
+    document.body.innerHTML =
+      '<template src="https://cdn.example.com/abs.tpl"></template>' +
+      '<template src="layout/main.tpl"></template>';
+
+    await _loadRemoteTemplates();
+
+    _config.templates.pageRelative = true;
+    document.body.innerHTML = '<template src="parts/rel.tpl"></template>';
+    await _loadRemoteTemplates();
+
+    expect(warnSpy.mock.calls).toEqual([
+      ['[No.JS]', 'Failed to load template:', 'https://cdn.example.com/abs.tpl', 'HTTP', 404],
+      ['[No.JS]', 'Failed to load template:', './missing.tpl', 'HTTP', 404],
+      ['[No.JS]', 'Failed to load template:', 'parts/rel.tpl', 'HTTP', 404],
+    ]);
+  });
+});

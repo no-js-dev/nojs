@@ -137,8 +137,37 @@ test.describe('Template src resolution — templates.pageRelative: true', () => 
   });
 });
 
+test.describe('Template src resolution — failed load warning', () => {
+  async function warningsFor(page: Page, query: string): Promise<string[]> {
+    const warnings: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'warning' && msg.text().includes('Failed to load template:')) warnings.push(msg.text());
+    });
+    await mockTemplates(page);
+    await page.goto(FIXTURE + query);
+    await expect(page.getByTestId('inner')).toBeVisible();
+    await page.evaluate(() => { location.hash = '#/missing'; });
+    await expect.poll(() => warnings.length).toBeGreaterThan(0);
+    return warnings;
+  }
+
+  test('14 — Default: a template that fails through baseApiUrl names the resolved URL and templates.pageRelative', async ({ page }) => {
+    const warnings = await warningsFor(page, '');
+    expect(warnings).toEqual([
+      '[No.JS] Failed to load template: ./pages/missing.tpl HTTP 404 ' +
+        '(resolved to "/api/pages/missing.tpl" via base= / baseApiUrl; ' +
+        'set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page)',
+    ]);
+  });
+
+  test('15 — pageRelative: the failed load warning has no hint', async ({ page }) => {
+    const warnings = await warningsFor(page, '?pageRelative=1');
+    expect(warnings).toEqual(['[No.JS] Failed to load template: ./pages/missing.tpl HTTP 404']);
+  });
+});
+
 test.describe('Template src resolution — accessibility', () => {
-  test('13 — No critical or serious accessibility violations (axe)', async ({ page }) => {
+  test('16 — No critical or serious accessibility violations (axe)', async ({ page }) => {
     await mockTemplates(page);
     await page.goto(FIXTURE);
     await expect(page.getByTestId('inner')).toBeVisible();

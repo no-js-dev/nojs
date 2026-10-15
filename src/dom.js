@@ -221,7 +221,11 @@ export function _sanitizeHtml(html) {
 // prepended (v1.21.1 behavior). With `templates.pageRelative` they are
 // fetched as written and the browser resolves them against the page URL.
 let _templateBaseHintLogged = false;
+// Templates whose URL was changed by base= / baseApiUrl, so a failed load can
+// point at templates.pageRelative.
+const _templatesViaBase = new WeakSet();
 function _resolveTemplateSrc(src, tpl) {
+  _templatesViaBase.delete(tpl);
   let path = src;
   if (src.startsWith("./")) {
     // Walk up to find the nearest ancestor with __srcBase
@@ -237,11 +241,21 @@ function _resolveTemplateSrc(src, tpl) {
   }
   if (_config.templates?.pageRelative) return path;
   const resolved = resolveUrl(path, tpl);
-  if (resolved !== path && _config.debug && !_templateBaseHintLogged) {
-    _templateBaseHintLogged = true;
-    _log('Template "' + src + '" resolved to "' + resolved + '" via base= / baseApiUrl. Set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page instead.');
+  if (resolved !== path) {
+    _templatesViaBase.add(tpl);
+    if (_config.debug && !_templateBaseHintLogged) {
+      _templateBaseHintLogged = true;
+      _log('Template "' + src + '" resolved to "' + resolved + '" via base= / baseApiUrl. Set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page instead.');
+    }
   }
   return resolved;
+}
+
+// Extra arguments for a failed-load warning: when base= / baseApiUrl changed
+// the template URL, name the resolved URL and the templates.pageRelative opt-in.
+function _templateBaseHint(tpl, resolvedUrl) {
+  if (!_templatesViaBase.has(tpl)) return [];
+  return ['(resolved to "' + resolvedUrl + '" via base= / baseApiUrl; set NoJS.config({ templates: { pageRelative: true } }) to resolve template src against the page)'];
 }
 
 // Warn when a template URL uses plain HTTP from an HTTPS page (mixed content / MITM risk).
@@ -301,7 +315,7 @@ export async function _loadRemoteTemplates(root) {
       const useCache = _config.templates.cache !== false;
       const { html, hit, status } = await _fetchTemplateHtml(resolvedUrl, useCache);
       if (html === null) {
-        _warn("Failed to load template:", src, "HTTP", status);
+        _warn("Failed to load template:", src, "HTTP", status, ..._templateBaseHint(tpl, resolvedUrl));
         tpl.__loadFailed = true;
         return;
       }
@@ -330,7 +344,7 @@ export async function _loadRemoteTemplates(root) {
         }
       }
     } catch (e) {
-      _warn("Failed to load template:", src, e.message);
+      _warn("Failed to load template:", src, e.message, ..._templateBaseHint(tpl, resolvedUrl));
     }
   });
   await Promise.all(promises);
@@ -364,7 +378,7 @@ export async function _loadTemplateElement(tpl) {
     const useCache = _config.templates.cache !== false;
     const { html, hit, status } = await _fetchTemplateHtml(resolvedUrl, useCache);
     if (html === null) {
-      _warn("Failed to load template:", src, "HTTP", status);
+      _warn("Failed to load template:", src, "HTTP", status, ..._templateBaseHint(tpl, resolvedUrl));
       tpl.__loadFailed = true;
       if (loadingMarker) loadingMarker.remove();
       return;
@@ -413,7 +427,7 @@ export async function _loadTemplateElement(tpl) {
     }
   } catch (e) {
     if (loadingMarker) loadingMarker.remove();
-    _warn("Failed to load template:", src, e.message);
+    _warn("Failed to load template:", src, e.message, ..._templateBaseHint(tpl, resolvedUrl));
   }
 }
 

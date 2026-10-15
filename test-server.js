@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
+// TEST_SERVER_HOST: interface to bind (default: all interfaces, IPv4 + IPv6); 127.0.0.1 for loopback only
+const HOST = process.env.TEST_SERVER_HOST || undefined;
 const ROOT = __dirname;
 const LOCAL_BUILD = path.join(ROOT, 'dist/iife/no.js');
 // NOJS_ELEMENTS_PATH: override to point at a custom nojs-elements.js build (CI, worktrees, standalone clones)
@@ -25,6 +27,12 @@ const MIME = {
   '.tpl':  'text/html',
   '.md':   'text/markdown',
 };
+
+// Resolved path must be ROOT itself or below it (a bare startsWith(ROOT) also matches siblings like ROOT-x)
+const ROOT_PREFIX = ROOT.endsWith(path.sep) ? ROOT : ROOT + path.sep;
+function isInsideRoot(p) {
+  return p === ROOT || p.startsWith(ROOT_PREFIX);
+}
 
 function serveFile(filePath, res) {
   const ext = path.extname(filePath);
@@ -171,7 +179,7 @@ const server = http.createServer((req, res) => {
   if (!path.extname(url)) filePath = path.join(ROOT, 'docs/index.html');
 
   // Path traversal guard: resolved path must stay within ROOT
-  if (!filePath.startsWith(ROOT)) {
+  if (!isInsideRoot(filePath)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -181,7 +189,7 @@ const server = http.createServer((req, res) => {
     if (err || !stats.isFile()) {
       // Fallback: try docs/ subdirectory (the docs site assets are under docs/)
       const docsPath = path.join(ROOT, 'docs', url);
-      if (!docsPath.startsWith(ROOT)) {
+      if (!isInsideRoot(docsPath)) {
         res.writeHead(403);
         res.end('Forbidden');
         return;
@@ -201,7 +209,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`\n  🚀 No.JS Test Server — http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  const { address } = server.address();
+  console.log(`\n  🚀 No.JS Test Server — http://localhost:${PORT} (bound to ${address})`);
   console.log(`  📁 Serving from project root: ${ROOT}\n`);
 });

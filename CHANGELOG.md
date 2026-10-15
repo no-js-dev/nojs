@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.21.1...HEAD)
 
+### Fixed
+
+- Test and docs dev servers: the static-file path guard no longer accepts sibling directories that share the root's name prefix, and `docs/dev-server.js` now applies the same guard; `test-server.js` accepts `TEST_SERVER_HOST` (e.g. `127.0.0.1`) to bind loopback only and logs the bound address (#361, @evertonfraga)
+
 ## [1.21.1](https://github.com/no-js-dev/nojs/compare/v1.21.0...v1.21.1) — 2026-08-14
 
 ### Fixed

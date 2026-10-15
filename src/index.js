@@ -160,6 +160,13 @@ const NoJS = {
           delete opts[key];
         }
       }
+      // One-way lock: an app that opted into strictBindings cannot have it
+      // switched off by code running after init (e.g. a plugin). Turning it
+      // on after init stays allowed, so the default locks nothing.
+      if (_config.strictBindings === true && "strictBindings" in opts && opts.strictBindings !== true) {
+        _warn("config.strictBindings cannot be turned off after init()");
+        delete opts.strictBindings;
+      }
     }
     // Save nested objects before shallow assign overwrites them
     const prevHeaders = { ..._config.headers };

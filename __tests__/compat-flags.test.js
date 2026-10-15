@@ -12,7 +12,7 @@ import '../src/directives/state.js';
 //  wiping sibling keys of nested config objects.
 // ═══════════════════════════════════════════════════════════════════════
 
-const TOP_LEVEL_FLAGS = ['scopeHeaders', 'strictRedaction', 'strictDirectives', 'strictDevtools', 'strictJsonld'];
+const TOP_LEVEL_FLAGS = ['scopeHeaders', 'strictRedaction', 'strictDirectives', 'strictDevtools', 'strictJsonld', 'strictBindings'];
 
 // Config keys of v1.21.1 (src/globals.js). The flags are the only additions.
 const V1_21_1_TOP_LEVEL_KEYS = [
@@ -116,6 +116,7 @@ describe('Compat flags — settable through NoJS.config()', () => {
       strictDirectives: true,
       strictDevtools: true,
       strictJsonld: true,
+      strictBindings: true,
       templates: { pageRelative: true },
       i18n: { escapeParams: true, strictLocale: true },
     });

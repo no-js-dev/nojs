@@ -60,6 +60,8 @@ Bind any HTML attribute dynamically.
      bind-data-role="user.role"></div>
 ```
 
+> **Event-handler attributes (`strictBindings`).** By default `bind-*` writes any attribute name, including inline handlers: `bind-onclick="handler"` sets an `onclick` whose value comes from state and runs as code on click. If that value can come from an API response, the URL or a persisted store, it is an XSS vector — prefer `on:` directives (`on:click="save()"`). Set `NoJS.config({ strictBindings: true })` before `NoJS.init()` to reject handler attributes: any `bind-on*` name without a hyphen (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver`, …) is never set, and a `[No.JS] [Security] … rejected` warning names the element and attribute. Names with a hyphen (`bind-onboarding-step`, `bind-on-label`) are not event handlers and still bind. Once enabled, `strictBindings` cannot be turned off after `init()`.
+
 ---
 
 ## `model` — Two-Way Binding

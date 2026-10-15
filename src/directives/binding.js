@@ -143,6 +143,17 @@ registerDirective("bind-*", {
   priority: 20,
   init(el, name, expr) {
     const attrName = name.replace("bind-", "");
+    // strictBindings: inline event-handler attributes (onclick, onerror, …)
+    // would execute bound state as code — stored/reflected XSS. Rejected
+    // when opted in; on:* covers event handling. Handler names never contain
+    // "-", so custom attributes such as onboarding-step stay bindable.
+    if (_config.strictBindings && /^on[^-]*$/i.test(attrName)) {
+      _warn(
+        `[Security] ${name} rejected: event-handler attributes are not bindable — use on:${attrName.slice(2).toLowerCase()} instead.`,
+        el
+      );
+      return;
+    }
     const ctx = findContext(el);
 
     // Two-way binding for value

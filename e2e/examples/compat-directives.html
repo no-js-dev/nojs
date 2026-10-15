@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wildcard-named plugin directives — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; text-align: center; }
+    .menu { border: 1px dashed #999; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Wildcard-named plugin directives</h1>
+
+    <!-- 1. Plugin directives named under core wildcards -->
+    <section state="{ open: true, theme: 'pie', glow: 'gold' }">
+      <h2 class="test-label">Test 1: on:clickoutside, class-x, bind-chart and style-glow</h2>
+      <div class="menu" data-test="menu" on:clickoutside="open = false" class-x="open" bind-chart="theme" style-glow="glow">
+        <p>Menu open: <span class="value" data-test="menu-open" bind="open"></span></p>
+      </div>
+      <button data-test="outside-btn" type="button">Click outside the menu</button>
+      <p>Directive calls: <span class="value" data-test="directive-calls"></span></p>
+    </section>
+
+    <!-- 2. A plugin bind-href against the core bind-* URL sanitizer -->
+    <section state="{ url: 'javascript:alert(1)' }">
+      <h2 class="test-label">Test 2: Plugin bind-href</h2>
+      <a data-test="link" href="#" bind-href="url">Link</a>
+    </section>
+
+    <!-- 3. Core wildcard handlers keep serving every other attribute -->
+    <section state="{ n: 0, on: true }">
+      <h2 class="test-label">Test 3: Core on:*, class-* and bind-* still work</h2>
+      <button data-test="core-btn" type="button" on:click="n = n + 1" class-active="on" bind-title="'core'">Increment</button>
+      <p>Count: <span class="value" data-test="core-count" bind="n"></span></p>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    // ?strict=1 turns on the opt-in directive hardening before any plugin registers
+    const params = new URLSearchParams(location.search);
+    if (params.get('strict') === '1') NoJS.config({ strictDirectives: true });
+    if (params.get('debug') === '1') NoJS.config({ debug: true });
+
+    window.__directiveCalls = [];
+    const record = (name) => {
+      window.__directiveCalls.push(name);
+      const out = document.querySelector('[data-test="directive-calls"]');
+      if (out) out.textContent = window.__directiveCalls.join(',');
+    };
+
+    NoJS.use({
+      name: 'ui-directives',
+      install(app) {
+        app.directive('on:clickoutside', {
+          init(el, name) {
+            record(name);
+            document.addEventListener('click', (e) => {
+              if (el.contains(e.target)) return;
+              app.findContext(el).$set('open', false);
+            });
+          },
+        });
+        app.directive('class-x', {
+          init(el, name) { record(name); el.dataset.x = 'custom'; },
+        });
+        app.directive('bind-chart', {
+          init(el, name, expr) {
+            record(name);
+            el.dataset.chart = app.evaluate(expr, app.findContext(el));
+          },
+        });
+        app.directive('style-glow', {
+          init(el, name, expr) {
+            record(name);
+            el.dataset.glow = app.evaluate(expr, app.findContext(el));
+          },
+        });
+        app.directive('bind-href', {
+          init(el) { el.setAttribute('href', '/from-plugin'); },
+        });
+      },
+    });
+  </script>
+</body>
+</html>

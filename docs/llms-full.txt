@@ -4773,6 +4773,7 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
     // Security
     sanitize: true,                       // Sanitize bind-html (default: true)
     dangerouslyDisableSanitize: false,    // Bypass ALL sanitization (not recommended)
+    strictBindings: false,                // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
 
     // Performance
     exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
@@ -4814,7 +4815,7 @@ Set `strictDevtools: true` to harden devtools:
 
 ### Opt-in hardening flags
 
-Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()`. Most flags take effect immediately, before or after `init()`. `strictDirectives` applies to the directive registrations made after it is set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale.
+Stricter security behaviors are opt-in so that apps built on v1.21.1 keep working unchanged. Every flag defaults to `false` (v1.21.1 behavior) and can be set through `NoJS.config()`. Most flags take effect immediately, before or after `init()`. `strictDirectives` applies to the directive registrations made after it is set, and `i18n.strictLocale` only to the `NoJS.i18n()` call that restores the persisted locale. `strictBindings` is read when each binding initializes, so set it before `NoJS.init()`; once `true`, it cannot be turned off after `init()`.
 
 | Flag | Default | When `true` |
 |------|---------|-------------|
@@ -4823,6 +4824,7 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDirectives` | `false` | `NoJS.directive()` and `app.directive()` reject directive names covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`). The core registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set, before or after `init()`. Set it before any `NoJS.directive()` or `NoJS.use()` call. See [Plugins → Directive Registry Freezing](plugins.md#directive-registry-freezing). |
 | `strictDevtools` | `false` | Devtools events and context ids are also limited to local hosts, devtools snapshots and `ctx:updated` values redact sensitive names at every depth, the `config` getter redacts headers per key, and devtools fetch events redact tokens in URLs. See [`strictDevtools`](#strictdevtools). |
 | `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot end the string or add keys, and a value with `"`, `\` or a line break no longer makes the output invalid JSON. `<` in values is written as `\u003c`. By default the output is the v1.21.1 output byte-for-byte, so untrusted data in quoted placeholders can still inject keys. Takes effect on the next render. See [Head Management](head-management.md#page-jsonld). |
+| `strictBindings` | `false` | Opt-in hardening for `bind-*`. When `true`, inline event-handler attributes are rejected (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver` — any `bind-on*` name without a hyphen; `bind-onboarding-step` still binds) with a `[Security]` warning, and `bind-srcdoc` values go through the `bind-html` sanitizer (or your `sanitizeHtml` function). Read when each binding initializes — set it before `NoJS.init()`. Once `true`, it cannot be set back to `false` after `init()`. See [Data Binding](data-binding.md). |
 | `templates.pageRelative` | `false` | `<template src>` resolves against the page and ignores the nearest `base` attribute and `baseApiUrl`. Absolute URLs and `./` paths inside a remote template behave the same in both modes. See [Templates](templates.md#how-src-is-resolved). |
 | `i18n.escapeParams` | `false` | `t-*` param values in `t-html` translations are HTML-escaped before interpolation. Plain `t` is not affected. Changing it after `init()` re-renders active translations. See [Internationalization](i18n.md). |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it: the stale value is removed from `localStorage` and the locale falls back to browser detection or `defaultLocale`. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |
@@ -4832,6 +4834,7 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
   NoJS.config({
     scopeHeaders: true,
     strictRedaction: true,
+    strictBindings: true,
     templates: { pageRelative: true },
     i18n: { escapeParams: true }
   });
@@ -4895,6 +4898,7 @@ If a store name already exists, `config()` will **not** overwrite it. This means
 - `bind` always sets `textContent`, never `innerHTML` — safe by default.
 - `bind-html` sanitizes content using a DOMParser-based structural sanitizer. Regex-based sanitizers are bypassable via SVG/MathML event handlers and entity encoding — DOMParser resolves entities first, making all vectors uniformly detectable.
 - Template expressions are evaluated by a custom sandboxed parser — no `eval()` or `Function()` is used, and dangerous properties like `__proto__` and `constructor` are blocked.
+- `bind-*` writes any attribute by default, including inline handlers (`bind-onclick`) and iframe documents (`bind-srcdoc`), exactly as in v1.21.1. Enable `strictBindings: true` to reject `bind-on*` handlers and sanitize `bind-srcdoc` like `bind-html`. See [Data Binding](data-binding.md).
 
 #### Custom sanitizer hook (`sanitizeHtml`)
 

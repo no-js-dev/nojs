@@ -66,6 +66,7 @@
     sanitize: true,            // Sanitize bind-html (default: true)
     sanitizeHtml: null,        // Custom sanitizer function (default: null)
     dangerouslyDisableSanitize: false, // Bypass ALL sanitization (default: false)
+    strictBindings: false,     // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
 
     // Performance
     exprCacheSize: 500,        // Max entries in expression LRU caches
@@ -240,6 +241,7 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
       <li t="docs.configuration.security.xssList1"></li>
       <li t="docs.configuration.security.xssList2"></li>
       <li t="docs.configuration.security.xssList3"></li>
+      <li t="docs.configuration.security.xssList4"></li>
     </ul>
 
     <h3 class="doc-title" id="config-csrf" t="docs.configuration.security.csrfTitle"></h3>
@@ -268,6 +270,7 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
         <tr><td><code>strictDirectives</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDirectives"></td></tr>
         <tr><td><code>strictDevtools</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDevtools"></td></tr>
         <tr><td><code>strictJsonld</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictJsonld"></td></tr>
+        <tr><td><code>strictBindings</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictBindings"></td></tr>
         <tr><td><code>templates.pageRelative</code></td><td><code>false</code></td><td t="docs.configuration.hardening.pageRelative"></td></tr>
         <tr><td><code>i18n.escapeParams</code></td><td><code>false</code></td><td t="docs.configuration.hardening.escapeParams"></td></tr>
         <tr><td><code>i18n.strictLocale</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictLocale"></td></tr>

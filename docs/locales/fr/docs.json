@@ -1598,13 +1598,14 @@
         "xssList1": "bind définit toujours textContent, jamais innerHTML — sûr par défaut.",
         "xssList2": "bind-html nettoie le contenu en utilisant un sanitizer structurel intégré basé sur DOMParser (supprime les balises <script>, bloque les gestionnaires d'événements on*, retire les URI javascript:).",
         "xssList3": "Les expressions de template sont évaluées par un parser sandboxé personnalisé — aucun eval() ni Function() n'est utilisé, et les propriétés dangereuses comme __proto__ et constructor sont bloquées.",
+        "xssList4": "Par défaut, bind-* écrit n'importe quel attribut, y compris les handlers inline (bind-onclick) et les documents d'iframe (bind-srcdoc), exactement comme dans v1.21.1. Activez strictBindings: true pour rejeter les handlers bind-on* et sanitizer bind-srcdoc comme bind-html.",
         "csrfTitle": "Protection CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS utilise un parser d'expressions personnalisé entièrement compatible CSP — aucun eval() ni constructeur Function() n'est utilisé. Aucune directive unsafe-eval n'est requise dans votre Content Security Policy."
       },
       "hardening": {
         "title": "Flags de durcissement optionnels",
-        "text": "Les comportements de sécurité plus stricts sont optionnels, pour que les applications construites sur v1.21.1 continuent de fonctionner sans changement. Chaque flag vaut false par défaut (comportement de v1.21.1) et se définit via NoJS.config(). La plupart prennent effet immédiatement, avant ou après init(). strictDirectives s'applique aux enregistrements de directives faits après son activation, et i18n.strictLocale uniquement à l'appel de NoJS.i18n() qui restaure la locale persistée.",
+        "text": "Les comportements de sécurité plus stricts sont optionnels, pour que les applications construites sur v1.21.1 continuent de fonctionner sans changement. Chaque flag vaut false par défaut (comportement de v1.21.1) et se définit via NoJS.config(). La plupart prennent effet immédiatement, avant ou après init(). strictDirectives s'applique aux enregistrements de directives faits après son activation, et i18n.strictLocale uniquement à l'appel de NoJS.i18n() qui restaure la locale persistée. strictBindings est lu à l'initialisation de chaque binding, donc définissez-le avant NoJS.init() ; une fois à true, il ne peut plus être désactivé après init().",
         "colFlag": "Flag",
         "colDefault": "Défaut",
         "colWhenTrue": "Avec true",
@@ -1613,6 +1614,7 @@
         "strictDirectives": "NoJS.directive() rejette les noms couverts par un joker du cœur (on:*, bind-*, class-*, style-*). Le registre est figé dès le chargement de No.JS, donc le flag s'applique à chaque enregistrement fait pendant qu'il est actif. Définissez-le avant que les plugins n'enregistrent leurs directives.",
         "strictDevtools": "Les événements devtools et les ids des contextes sont aussi limités aux hôtes locaux, les instantanés de devtools et les valeurs de ctx:updated masquent les noms sensibles (comparés mot par mot) à toute profondeur, le getter config expurge les en-têtes clé par clé et les URL des événements fetch de devtools sont expurgées.",
         "strictJsonld": "Les placeholders page-jsonld dans les chaînes JSON sont toujours échappés comme contenu de chaîne JSON, donc une valeur ne peut ni fermer la chaîne ni ajouter de clés, et une valeur contenant un guillemet, une barre oblique inverse ou un saut de ligne ne rend plus le JSON invalide. Par défaut, la sortie de v1.21.1 est conservée octet pour octet.",
+        "strictBindings": "bind-* rejette les attributs d'event handler inline (bind-onclick, bind-onerror, tout nom bind-on* sans tiret ; bind-onboarding-step reste lié) avec un avertissement [Security], et les valeurs de bind-srcdoc passent par le sanitizer de bind-html (ou par votre fonction sanitizeHtml). Lu à l'initialisation de chaque binding : définissez-le avant NoJS.init(). Une fois à true, il ne peut plus repasser à false après init().",
         "pageRelative": "<template src> est résolu par rapport à la page et ignore base et baseApiUrl.",
         "escapeParams": "Les paramètres t-* des traductions t-html sont échappés en HTML. Le modifier après init() réaffiche les traductions actives.",
         "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel."

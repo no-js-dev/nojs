@@ -1598,13 +1598,14 @@
         "xssList1": "bind sempre define textContent, nunca innerHTML — seguro por padrão.",
         "xssList2": "bind-html sanitiza conteúdo usando um sanitizador estrutural integrado baseado em DOMParser (remove tags <script>, bloqueia handlers de evento on*, remove URIs javascript:).",
         "xssList3": "Expressões de template são avaliadas por um parser sandboxed personalizado — eval() e Function() não são usados, e propriedades perigosas como __proto__ e constructor são bloqueadas.",
+        "xssList4": "Por default, bind-* grava qualquer atributo, inclusive handlers inline (bind-onclick) e documentos de iframe (bind-srcdoc), exatamente como na v1.21.1. Ative strictBindings: true para rejeitar handlers bind-on* e sanitizar bind-srcdoc como o bind-html.",
         "csrfTitle": "Proteção CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "O No.JS usa um parser de expressões personalizado totalmente compatível com CSP — eval() e o construtor Function() não são usados. Nenhuma diretiva unsafe-eval é necessária na sua Content Security Policy."
       },
       "hardening": {
         "title": "Flags de hardening opt-in",
-        "text": "Comportamentos de segurança mais rígidos são opt-in, para que apps feitos na v1.21.1 continuem funcionando sem mudanças. Toda flag tem default false (comportamento da v1.21.1) e é definida via NoJS.config(). A maioria tem efeito imediato, antes ou depois de init(). strictDirectives vale para os registros de directives feitos depois de ativada, e i18n.strictLocale só para a chamada de NoJS.i18n() que restaura o locale persistido.",
+        "text": "Comportamentos de segurança mais rígidos são opt-in, para que apps feitos na v1.21.1 continuem funcionando sem mudanças. Toda flag tem default false (comportamento da v1.21.1) e é definida via NoJS.config(). A maioria tem efeito imediato, antes ou depois de init(). strictDirectives vale para os registros de directives feitos depois de ativada, e i18n.strictLocale só para a chamada de NoJS.i18n() que restaura o locale persistido. strictBindings é lida quando cada binding inicializa, então defina antes de NoJS.init(); depois de true, não pode ser desligada após init().",
         "colFlag": "Flag",
         "colDefault": "Default",
         "colWhenTrue": "Quando true",
@@ -1613,6 +1614,7 @@
         "strictDirectives": "NoJS.directive() rejeita nomes cobertos por um wildcard do core (on:*, bind-*, class-*, style-*). O registry é congelado assim que o No.JS carrega, então a flag vale para todo registro feito enquanto ela estiver ativa. Defina-a antes de os plugins registrarem directives.",
         "strictDevtools": "Os eventos de devtools e os ids de contexts também ficam restritos a hosts locais, os snapshots do devtools e os valores de ctx:updated censuram nomes sensíveis (comparados por palavra) em qualquer profundidade, o getter config censura os headers por chave e as URLs dos eventos de fetch do devtools são censuradas.",
         "strictJsonld": "Placeholders de page-jsonld dentro de strings JSON são sempre escapados como conteúdo de string JSON, então um valor não consegue fechar a string nem adicionar chaves, e um valor com aspas, barra invertida ou quebra de linha não gera mais JSON inválido. Por default, a saída da v1.21.1 é mantida byte a byte.",
+        "strictBindings": "bind-* rejeita atributos de event handler inline (bind-onclick, bind-onerror, qualquer nome bind-on* sem hífen; bind-onboarding-step continua funcionando) com um warning [Security], e valores de bind-srcdoc passam pelo sanitizer do bind-html (ou pela sua função sanitizeHtml). É lida quando cada binding inicializa, então defina antes de NoJS.init(). Depois de true, não pode voltar para false após init().",
         "pageRelative": "<template src> é resolvido em relação à página e ignora base e baseApiUrl.",
         "escapeParams": "Params t-* em traduções t-html são escapados como HTML. Mudar a flag depois de init() re-renderiza as traduções ativas.",
         "strictLocale": "Um nojs-locale persistido que não está em um supportedLocales não vazio é ignorado no restore e removido do localStorage. Passe a flag na chamada de NoJS.i18n() que restaura o locale, ou defina-a via config() antes dessa chamada."

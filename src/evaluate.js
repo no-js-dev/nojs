@@ -2247,6 +2247,45 @@ export function _interpolate(str, ctx, _quiet) {
   });
 }
 
+// Interpolate {expr} placeholders in a page-jsonld template (`re` is the
+// caller's placeholder regex). Every placeholder is evaluated once, as
+// String(val), "" for null/undefined/errors.
+// Default: the v1.21.1 output, byte-for-byte.
+// strictJsonld: values inside JSON strings are always escaped as JSON string
+// content, so they cannot add or override properties and a '"', '\' or a line
+// break no longer makes the output invalid JSON; "<" in every value becomes
+// \u003c. A placeholder is inside a string when the template text before it
+// (other placeholders ignored) holds an odd count of unescaped '"'. Raw
+// placeholders such as "offers":{o} are emitted as-is.
+export function _interpolateJsonld(str, ctx, re) {
+  const vals = [];
+  const legacy = str.replace(re, (_, expr) => {
+    let s = "";
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      if (val != null) s = String(val);
+    } catch (_) { /* v1.21.1: evaluation errors render as "" */ }
+    vals.push(s);
+    return s;
+  });
+  if (!_config.strictJsonld) return legacy;
+  let i = 0;
+  let last = 0;
+  let inString = false;
+  return str.replace(re, (match, _expr, offset) => {
+    for (let j = last, esc = false; j < offset; j++) {
+      const ch = str[j];
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inString = !inString;
+    }
+    last = offset + match.length;
+    let s = vals[i++];
+    if (inString) s = JSON.stringify(s).slice(1, -1);
+    return s.replace(/</g, "\\u003c");
+  });
+}
+
 // ── Compiler-support surface (ADR-024, NoJS-Server) ───────────────────
 // Thin wrappers exposing the parser for static analysis by external tools
 // (e.g. @no-js-dev/server compiler). These operate on the raw AST layer

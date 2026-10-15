@@ -3666,3 +3666,117 @@ describe('Router — route template src resolution (base= / baseApiUrl / templat
     expect(urls()).toEqual(['/pages/index.tpl']);
   });
 });
+
+describe('Router — page-jsonld value escaping', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', suppressHashWarning: true };
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+  });
+
+  afterEach(() => {
+    _config.strictJsonld = false;
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  let router;
+
+  async function render(route, attr, url) {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="${route}" page-jsonld='${attr.replace(/'/g, '&#39;')}'><p>x</p></template>
+    `;
+    router = _createRouter();
+    await router.init();
+    await router.push(url);
+    return ldText();
+  }
+
+  test('by default, a $route.query value that injects a property is emitted as in v1.21.1', async () => {
+    const out = await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('x","@type":"Organization'));
+    expect(out).toBe('{"@type":"SearchResultsPage","name":"x","@type":"Organization"}');
+  });
+
+  test('with strictJsonld, a $route.query value cannot inject properties into the JSON-LD', async () => {
+    _config.strictJsonld = true;
+    const data = JSON.parse(await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('x","@type":"Organization')));
+    expect(data['@type']).toBe('SearchResultsPage');
+    expect(data.name).toBe('x","@type":"Organization');
+  });
+
+  test('by default, a pre-escaped $route.query value keeps its v1.21.1 bytes', async () => {
+    const out = await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(out).toBe('{"@type":"SearchResultsPage","name":"Say \\"hi\\""}');
+    expect(JSON.parse(out).name).toBe('Say "hi"');
+  });
+
+  test('with strictJsonld, a pre-escaped $route.query value is escaped as data', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/search', '{"name":"{$route.query.q}","n":{$route.query.n}}',
+      '/search?n=4&q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(JSON.parse(out)).toEqual({ name: 'Say \\"hi\\"', n: 4 });
+  });
+
+  test('a raw (unquoted) JSON fragment is emitted verbatim, as in v1.21.1', async () => {
+    const out = await render('/p', '{"@type":"Product","offers":{$route.query.o}}',
+      '/p?o=' + encodeURIComponent('{"price":5,"name":"A \\"B\\""}'));
+    expect(out).toBe('{"@type":"Product","offers":{"price":5,"name":"A \\"B\\""}}');
+    expect(JSON.parse(out)).toEqual({ '@type': 'Product', offers: { price: 5, name: 'A "B"' } });
+  });
+
+  test('by default, a quoted value that makes the output invalid JSON keeps the v1.21.1 bytes', async () => {
+    const out = await render('/r/:n', '{"position":{$route.params.n},"name":"{$route.query.q}"}',
+      '/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(out).toBe('{"position":3,"name":"x"\\y\nz"}');
+  });
+
+  test('with strictJsonld, quoted values are escaped into valid JSON; raw numbers are unchanged', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/r/:n', '{"position":{$route.params.n},"name":"{$route.query.q}"}',
+      '/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(out).toBe('{"position":3,"name":"x\\"\\\\y\\nz"}');
+    expect(JSON.parse(out)).toEqual({ position: 3, name: 'x"\\y\nz' });
+  });
+
+  test('by default, a $route.query value containing </script> keeps the v1.21.1 "<\\/" output', async () => {
+    const out = await render('/item', '{"@type":"Thing","name":"{$route.query.n}"}',
+      '/item?n=' + encodeURIComponent('a</script><b>'));
+    expect(out).toBe('{"@type":"Thing","name":"a<\\/script><b>"}');
+    expect(JSON.parse(out).name).toBe('a</script><b>');
+  });
+
+  test('by default, a quoted value with a quote and </script> keeps the v1.21.1 bytes and cannot close the script', async () => {
+    const out = await render('/item', '{"@type":"Thing","name":"{$route.query.n}"}',
+      '/item?n=' + encodeURIComponent('a"</script><b>'));
+    expect(out).toBe('{"@type":"Thing","name":"a"<\\/script><b>"}');
+    expect(out).not.toContain('</');
+  });
+
+  test('with strictJsonld, quoted and raw values cannot contain "<"', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/x', '{"name":"{$route.query.n}","offers":{$route.query.o}}',
+      '/x?n=' + encodeURIComponent('a"</script><b>') + '&o=' + encodeURIComponent('{"n":"</script><b>"}'));
+    expect(out).not.toContain('<');
+    expect(JSON.parse(out)).toEqual({ name: 'a"</script><b>', offers: { n: '</script><b>' } });
+  });
+
+  test('the JSON-LD follows $route.query across navigations', async () => {
+    const out = await render('/search', '{"name":"{$route.query.q}"}', '/search?q=one');
+    expect(out).toBe('{"name":"one"}');
+    await router.push('/search?q=two');
+    expect(ldText()).toBe('{"name":"two"}');
+    _config.strictJsonld = true;
+    await router.push('/search?q=' + encodeURIComponent('three "quoted"'));
+    expect(JSON.parse(ldText()).name).toBe('three "quoted"');
+  });
+});

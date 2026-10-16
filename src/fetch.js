@@ -216,10 +216,14 @@ export async function _doFetch(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     let timeout = null;
+    let timedOut = false;
     let onExternalAbort = null;
     try {
       timeout = setTimeout(
-        () => controller.abort(),
+        () => {
+          timedOut = true;
+          controller.abort();
+        },
         _config.timeout || 10000,
       );
       // Wire external abort signal (switchMap) to internal controller.
@@ -303,8 +307,13 @@ export async function _doFetch(
         return text;
       }
     } catch (e) {
-      if (e.name === "AbortError") throw e; // Don't retry aborted requests
-      lastError = e;
+      // An abort from the caller's signal (switch-map / dispose) is final.
+      // An abort caused by this attempt's timeout is a network-class failure.
+      if (e.name === "AbortError" && !timedOut) throw e;
+      lastError = e.name === "AbortError" ? new DOMException("Request timed out", "TimeoutError") : e;
+      // Only network failures, timeouts and 5xx are retried; any HTTP status
+      // below 500 (4xx) is final.
+      if (lastError.status !== undefined && lastError.status < 500) throw lastError;
       if (attempt < maxRetries) {
         await new Promise((r) => setTimeout(r, retryDelay !== undefined ? retryDelay : (_config.retryDelay || 1000)));
       }

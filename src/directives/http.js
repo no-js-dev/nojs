@@ -88,8 +88,10 @@ for (const method of HTTP_METHODS) {
       const headersAttr = el.getAttribute("headers");
       const varName = el.getAttribute("var");
       const intoStore = el.getAttribute("into");
-      const retryCount =
-        parseInt(el.getAttribute("retry")) || _config.retries;
+      // An explicit retry="0" disables retries; only a missing or invalid
+      // value falls back to the global default.
+      const _retryAttr = parseInt(el.getAttribute("retry"));
+      const retryCount = Number.isNaN(_retryAttr) ? _config.retries : _retryAttr;
       const retryDelay =
         parseInt(el.getAttribute("retry-delay")) || _config.retryDelay || 1000;
       const paramsAttr = el.getAttribute("params");
@@ -659,8 +661,9 @@ for (const method of HTTP_METHODS) {
           _emitEvent("fetch:success", { url: resolvedUrl, data: _effectiveData });
           _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
         } catch (err) {
-          // SwitchMap: silently ignore aborted requests
-          if (err.name === "AbortError") return;
+          // SwitchMap / dispose: silently ignore only this element's own abort.
+          // A timeout or an interceptor NoJS.CANCEL settles like any failure.
+          if (myAbort.signal.aborted) return;
 
           _hideSkeleton();
           _warn(

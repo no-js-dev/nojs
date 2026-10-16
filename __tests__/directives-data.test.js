@@ -3125,3 +3125,132 @@ describe('HTTP QUERY directive (RFC 10008)', () => {
     expect(headers['X-CSRF-Token']).toBeUndefined();
   });
 });
+
+describe('body= JSON interpolation (NOJS-HTTP-002, NOJS-REFS-001)', () => {
+  beforeEach(() => {
+    httpSetup();
+    _cache.clear();
+    global.fetch.mockResolvedValue(mockJsonResponse({}));
+  });
+  afterEach(httpTeardown);
+
+  const STATE = `{ id: 7, status: 'active', user: { name: 'Say "hi" & bye' }, role: 'admin & ops', term: 'red' }`;
+
+  // [label, body attribute, exact bytes sent]
+  const CASES = [
+    ['static JSON', '{"name":"test"}', '{"name":"test"}'],
+    ['string placeholders', '{"name": "{user.name}", "role": "{role}"}', '{"name":"Say \\"hi\\" & bye","role":"admin & ops"}'],
+    ['numeric placeholder', '{"id": {id}}', '{"id":7}'],
+    ['nested object', '{"filters": {"status": "{status}", "tags": ["a", "b"]}}', '{"filters":{"status":"active","tags":["a","b"]}}'],
+  ];
+
+  // Assigned to the context before the click (state= cannot express a Date or a newline).
+  const S = 'a "q" \\ b\nc';
+  const WHEN = new Date(0);
+  const INJECT = 'x", "admin": true, "y": "';
+  const EXTRA = { s: S, nil: null, obj: { a: 1, b: [2] }, tags: ['x', 'y'], when: WHEN, inject: INJECT, flag: true };
+
+  // [label, body attribute, exact bytes sent, Content-Type]
+  const EDGE_CASES = [
+    ['quote, backslash and newline inside quotes', '{"s": "{s}"}', JSON.stringify({ s: S }), 'application/json'],
+    ['escaped quotes around a placeholder', '{"a": "say \\"{term}\\""}', '{"a":"say \\"red\\""}', 'application/json'],
+    ['null and undefined inside quotes', '{"n": "{nil}", "u": "{missing}"}', '{"n":"","u":""}', 'application/json'],
+    ['null and undefined outside quotes', '{"n": {nil}, "u": {missing}}', '{"n":null,"u":null}', 'application/json'],
+    ['object and array outside quotes', '{"o": {obj}, "tags": {tags}}', '{"o":{"a":1,"b":[2]},"tags":["x","y"]}', 'application/json'],
+    ['boolean outside quotes', '{"ok": {flag}}', '{"ok":true}', 'application/json'],
+    ['string outside quotes is quoted', '{"name": {inject}}', JSON.stringify({ name: INJECT }), 'application/json'],
+    ['Date inside quotes', '{"d": "{when}"}', JSON.stringify({ d: String(WHEN) }), 'application/json'],
+    ['Date outside quotes', '{"d": {when}}', '{"d":"1970-01-01T00:00:00.000Z"}', 'application/json'],
+    ['empty object and array literals', '{"e": {}, "l": []}', '{"e":{},"l":[]}', 'application/json'],
+    ['array body', '[{id}, "{s}"]', JSON.stringify([7, S]), 'application/json'],
+    // A top-level JSON string is unwrapped by the call site's JSON.parse and sent as text.
+    ['JSON string body', '"{s}"', S, undefined],
+    ['leading space inside the object', '{ "a": {id} }', '{"a":7}', 'application/json'],
+    ['leading newline before the object', '\n  {"a": "{term}"}\n', '{"a":"red"}', 'application/json'],
+    ['literal { } body', '{ }', '{}', 'application/json'],
+    ['plain-text body with an object value', '{obj}', '{"a":1,"b":[2]}', 'application/json'],
+  ];
+
+  // Already correct on main; kept as regression guards.
+  const EDGE_GUARDS = [
+    ['array body with plain values', '[{id}, "{term}"]', '[7,"red"]', 'application/json'],
+    ['plain-text body with a plain value', 'hello {term}', 'hello red', undefined],
+    ['literal {} body', '{}', '{}', 'application/json'],
+  ];
+
+  async function clickWithBody(attrs, body) {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', STATE);
+    const btn = document.createElement('button');
+    for (const [k, v] of Object.entries(attrs)) btn.setAttribute(k, v);
+    btn.setAttribute('body', body);
+    parent.appendChild(btn);
+    document.body.appendChild(parent);
+    processTree(parent);
+    Object.assign(findContext(parent), EXTRA);
+    btn.click();
+    await flush(50);
+    return global.fetch.mock.calls[0][1];
+  }
+
+  test.each(CASES)('post sends the %s body as JSON', async (_, body, expected) => {
+    const opts = await clickWithBody({ post: '/api/create' }, body);
+    expect(opts.body).toBe(expected);
+    expect(opts.headers['Content-Type']).toBe('application/json');
+  });
+
+  test.each(CASES)('call sends the %s body as JSON', async (_, body, expected) => {
+    const opts = await clickWithBody({ call: '/api/create', method: 'post' }, body);
+    expect(opts.body).toBe(expected);
+    expect(opts.headers['Content-Type']).toBe('application/json');
+  });
+
+  test.each(EDGE_CASES)('post body: %s', async (_, body, expected, contentType) => {
+    const opts = await clickWithBody({ post: '/api/create' }, body);
+    expect(opts.body).toBe(expected);
+    expect(opts.headers['Content-Type']).toBe(contentType);
+  });
+
+  test.each(EDGE_GUARDS)('post body: %s', async (_, body, expected, contentType) => {
+    const opts = await clickWithBody({ post: '/api/create' }, body);
+    expect(opts.body).toBe(expected);
+    expect(opts.headers['Content-Type']).toBe(contentType);
+  });
+
+  test('a single {expr} body is sent as the raw value, not URL-encoded', async () => {
+    const opts = await clickWithBody({ post: '/api/create' }, '{role}');
+    expect(opts.body).toBe('admin & ops');
+  });
+
+  test('query interpolates the JSON body and keys the cache on it', async () => {
+    const parent = document.createElement('div');
+    parent.setAttribute('state', STATE);
+    const el = document.createElement('div');
+    el.setAttribute('query', '/api/json-body-search');
+    el.setAttribute('as', 'hits');
+    el.setAttribute('cached', 'memory');
+    el.setAttribute('body', '{"q": "{term}"}');
+    parent.appendChild(el);
+    document.body.appendChild(parent);
+    processTree(parent);
+    await flush();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch.mock.calls[0][1].body).toBe('{"q":"red"}');
+
+    // A different body value is a cache miss → new request with the new body.
+    const ctx = findContext(parent);
+    ctx.term = 'blue';
+    el.refresh();
+    await flush();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[1][1].body).toBe('{"q":"blue"}');
+    expect([..._cache.keys()]).toContain('query:/api/json-body-search:{"q": "blue"}');
+
+    // The same body value again hits the cache.
+    ctx.term = 'red';
+    el.refresh();
+    await flush();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});

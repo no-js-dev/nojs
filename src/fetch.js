@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { _config, _interceptors, _cache, _plugins, _SENSITIVE_HEADERS, _SENSITIVE_RESPONSE_HEADERS, _log, _warn, _CANCEL, _RESPOND, _REPLACE } from "./globals.js";
+import { evaluate } from "./evaluate.js";
 
 const _MAX_CACHE = 200;
 const _INTERCEPTOR_TIMEOUT = 5000;
@@ -76,6 +77,40 @@ export function resolveUrl(url, el) {
       _config.baseApiUrl.replace(/\/+$/, "") + "/" + url.replace(/^\/+/, "")
     );
   return url;
+}
+
+// Interpolate a `body=` attribute. _interpolate is for URLs: it URL-encodes
+// values and its /\{([^}]+)\}/ also matches a JSON object's own braces.
+// Here a `{` followed by optional whitespace and `"` or `}` is JSON, not a
+// placeholder, and values are never URL-encoded. In a JSON body (starting
+// with `{"`, `{}`, `[` or `"`) a value inside a string literal is inserted
+// as String(value), JSON-escaped, and any other value as JSON, so the result
+// stays valid JSON: `{"id": {id}, "name": "{user.name}"}`. Other bodies are
+// plain text.
+export function _interpolateBody(str, ctx) {
+  const json = /^\s*(?:\[|"|\{\s*["}])/.test(str);
+  let out = "";
+  let inStr = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (inStr && c === "\\") {
+      out += c + (str[++i] ?? "");
+      continue;
+    }
+    if (json && c === '"') inStr = !inStr;
+    const end =
+      c === "{" && !/^\s*["}]/.test(str.slice(i + 1)) ? str.indexOf("}", i) : -1;
+    if (end === -1) {
+      out += c;
+      continue;
+    }
+    const val = evaluate(str.slice(i + 1, end).trim(), ctx);
+    if (inStr) out += JSON.stringify(val == null ? "" : String(val)).slice(1, -1);
+    else if (json) out += JSON.stringify(val) ?? "null";
+    else out += val == null ? "" : typeof val === "object" ? JSON.stringify(val) : String(val);
+    i = end;
+  }
+  return out;
 }
 
 export async function _doFetch(

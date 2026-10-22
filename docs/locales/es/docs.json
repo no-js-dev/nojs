@@ -390,6 +390,17 @@
         "youTyped": "Escribiste:",
         "countLabel": "Conteo:"
       },
+      "unsupported": {
+        "title": "Formas de sentencia no soportadas",
+        "text": "Los manejadores ejecutan expresiones, declaraciones <code>const</code>/<code>let</code> y asignaciones separadas por <code>;</code>, no sentencias completas de JavaScript. Una asignación (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) solo tiene efecto en el nivel superior de una sentencia:",
+        "colNo": "No soportado",
+        "colYes": "Escribe en su lugar",
+        "ternary": "(asignación dentro de una rama del ternario)",
+        "logical": "(asignación dentro de un operando lógico)",
+        "comma": "(operador coma)",
+        "note": "Una llamada a función dentro de una rama funciona (<code>ok ? save() : null</code>). En las formas no soportadas la asignación no se ejecuta, y se emite una advertencia en la consola que nombra la expresión.",
+        "errors": "Cuando una sentencia lanza un error, el manejador se detiene: sus escrituras <code>name = value</code> no se aplican, mientras que los cambios in-place (como <code>items.push(x)</code>) y las escrituras en <code>$store</code> hechas antes del error se mantienen, y la página las muestra. El error se registra como <code>[No.JS] Expression error: &lt;statement&gt;</code> y dispara un evento <code>nojs:error</code> en el elemento, para que <code>error-boundary</code> pueda capturarlo."
+      },
       "modifiers": {
         "title": "Modificadores de Eventos",
         "text": "Los modificadores permiten controlar el comportamiento del evento directamente en el atributo:",
@@ -816,6 +827,7 @@
         "exampleText": "Eso es todo — <strong>dos líneas</strong> para una SPA completa con seis rutas.",
         "mixingTitle": "Mezclando Rutas Explícitas y Basadas en Archivos",
         "mixingText": "Las declaraciones explícitas <code>&lt;template route=\"...\"&gt;</code> <strong>siempre tienen prioridad</strong>. Esto te permite combinar ambos enfoques — usa enrutamiento basado en archivos para páginas simples y plantillas explícitas para rutas que necesitan guards, parámetros o salidas con nombre:",
+        "mixingPrefetch": "Al iniciar, No.JS hace prefetch de los archivos <code>.tpl</code> de los enlaces <code>&lt;a route&gt;</code> que el enrutamiento basado en archivos renderizaría. Las definiciones <code>&lt;template route&gt;</code>, los enlaces cuya ruta ya tiene una ruta explícita para ese outlet y los patrones (<code>:param</code>, <code>*</code>) nunca se buscan en la carpeta.",
         "autoI18nTitle": "Namespace i18n Automático",
         "autoI18nText": "Cuando el elemento <code>route-view</code> tiene un atributo <code>i18n-ns</code> (incluso sin valor), No.JS carga automáticamente el namespace i18n que coincide con el nombre del archivo:",
         "autoI18nText2": "Esto reemplaza la necesidad de añadir <code>i18n-ns=\"...\"</code> en cada plantilla de ruta individualmente."
@@ -870,8 +882,9 @@
         "remoteText": "Las rutas wildcard soportan todos los mismos atributos que las plantillas de ruta regulares, incluyendo <code>src</code> para carga remota:",
         "remoteText2": "La plantilla remota se obtiene, almacena en caché y renderiza igual que cualquier otra plantilla de ruta — y tiene acceso completo a <code>$route.path</code>, <code>$route.matched</code>, y todas las demás funcionalidades del framework.",
         "fileBasedTitle": "404 en Enrutamiento Basado en Archivos",
-        "fileBasedText": "Al usar enrutamiento basado en archivos, navegar a una ruta cuyo archivo <code>.tpl</code> no existe en el servidor (HTTP 404 u otro error) activa automáticamente la cadena de fallback wildcard.",
-        "fileBasedText2": "La respuesta HTTP fallida <strong>no</strong> se almacena en caché — las navegaciones posteriores a otras rutas no se ven afectadas."
+        "fileBasedText": "Al usar enrutamiento basado en archivos, navegar a una ruta cuyo archivo <code>.tpl</code> no existe en el servidor (HTTP 404 u otro error, o un SPA fallback que responde con el <code>index.html</code> de la aplicación) activa automáticamente la cadena de fallback wildcard.",
+        "fileBasedText2": "La respuesta HTTP fallida <strong>no</strong> se almacena en caché — las navegaciones posteriores a otras rutas no se ven afectadas.",
+        "fileBasedSpaFallback": "Un servidor con SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) responde a un <code>.tpl</code> inexistente con <code>200</code> y el <code>index.html</code> completo. Cuando un template que el enrutamiento basado en archivos resolvió desde la carpeta vuelve como un documento HTML completo (empieza con <code>&lt;!DOCTYPE html&gt;</code> o <code>&lt;html&gt;</code>), No.JS lo trata como no encontrado y registra una advertencia, de modo que se renderiza el wildcard en lugar del shell de la página. Los <code>&lt;template src&gt;</code> y <code>&lt;template route src&gt;</code> explícitos siguen cargando su respuesta tal cual."
       },
       "headAttributes": {
         "title": "Atributos Head en Rutas",

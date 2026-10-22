@@ -390,6 +390,17 @@
         "youTyped": "Vous avez tapé :",
         "countLabel": "Compteur :"
       },
+      "unsupported": {
+        "title": "Formes d'instruction non prises en charge",
+        "text": "Les gestionnaires exécutent des expressions, des déclarations <code>const</code>/<code>let</code> et des affectations séparées par <code>;</code>, pas des instructions JavaScript complètes. Une affectation (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) ne prend effet qu'au niveau supérieur d'une instruction :",
+        "colNo": "Non pris en charge",
+        "colYes": "Écrire plutôt",
+        "ternary": "(affectation dans une branche du ternaire)",
+        "logical": "(affectation dans un opérande logique)",
+        "comma": "(opérateur virgule)",
+        "note": "Un appel de fonction dans une branche fonctionne (<code>ok ? save() : null</code>). Dans les formes non prises en charge, l'affectation ne s'exécute pas et un avertissement nommant l'expression est émis dans la console.",
+        "errors": "Lorsqu'une instruction lève une erreur, le gestionnaire s'arrête : ses écritures <code>name = value</code> ne sont pas appliquées, tandis que les modifications sur place (comme <code>items.push(x)</code>) et les écritures dans <code>$store</code> faites avant l'erreur sont conservées, et la page les affiche. L'erreur est journalisée sous la forme <code>[No.JS] Expression error: &lt;statement&gt;</code> et déclenche un événement <code>nojs:error</code> sur l'élément, afin que <code>error-boundary</code> puisse la capturer."
+      },
       "modifiers": {
         "title": "Modificateurs d'événements",
         "text": "Les modificateurs vous permettent de contrôler le comportement des événements directement dans l'attribut :",
@@ -816,6 +827,7 @@
         "exampleText": "C'est tout — <strong>deux lignes</strong> pour une SPA complète avec six routes.",
         "mixingTitle": "Mélanger Routes Explicites et Basées sur les Fichiers",
         "mixingText": "Les déclarations explicites <code>&lt;template route=\"...\"&gt;</code> <strong>ont toujours la priorité</strong>. Cela vous permet de combiner les deux approches — utilisez le routage basé sur les fichiers pour les pages simples et les templates explicites pour les routes qui nécessitent des guards, des paramètres ou des sorties nommées :",
+        "mixingPrefetch": "Au démarrage, No.JS précharge les fichiers <code>.tpl</code> des liens <code>&lt;a route&gt;</code> que le routage basé sur les fichiers afficherait. Les définitions <code>&lt;template route&gt;</code>, les liens dont le chemin a déjà une route explicite pour cet outlet et les motifs (<code>:param</code>, <code>*</code>) ne sont jamais chargés depuis le dossier.",
         "autoI18nTitle": "Namespace i18n Automatique",
         "autoI18nText": "Lorsque l'élément <code>route-view</code> a un attribut <code>i18n-ns</code> (même sans valeur), No.JS charge automatiquement le namespace i18n correspondant au nom du fichier :",
         "autoI18nText2": "Cela remplace le besoin d'ajouter <code>i18n-ns=\"...\"</code> sur chaque template de route individuellement."
@@ -870,8 +882,9 @@
         "remoteText": "Les routes wildcard supportent tous les mêmes attributs que les templates de route classiques, y compris <code>src</code> pour le chargement distant :",
         "remoteText2": "Le template distant est récupéré, mis en cache et rendu comme tout autre template de route — et il a un accès complet à <code>$route.path</code>, <code>$route.matched</code>, et toutes les autres fonctionnalités du framework.",
         "fileBasedTitle": "404 dans le Routage Basé sur les Fichiers",
-        "fileBasedText": "Lors de l'utilisation du routage basé sur les fichiers, naviguer vers un chemin dont le fichier <code>.tpl</code> n'existe pas sur le serveur (HTTP 404 ou autre erreur) déclenche automatiquement la chaîne de fallback wildcard.",
-        "fileBasedText2": "La réponse HTTP en échec n'est <strong>pas</strong> mise en cache — les navigations ultérieures vers d'autres chemins ne sont pas affectées."
+        "fileBasedText": "Lors de l'utilisation du routage basé sur les fichiers, naviguer vers un chemin dont le fichier <code>.tpl</code> n'existe pas sur le serveur (HTTP 404 ou autre erreur, ou un SPA fallback qui répond avec le <code>index.html</code> de l'application) déclenche automatiquement la chaîne de fallback wildcard.",
+        "fileBasedText2": "La réponse HTTP en échec n'est <strong>pas</strong> mise en cache — les navigations ultérieures vers d'autres chemins ne sont pas affectées.",
+        "fileBasedSpaFallback": "Un serveur avec SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) répond à un <code>.tpl</code> manquant avec <code>200</code> et le <code>index.html</code> complet. Lorsqu'un template que le routage basé sur les fichiers a résolu depuis le dossier revient sous forme de document HTML complet (il commence par <code>&lt;!DOCTYPE html&gt;</code> ou <code>&lt;html&gt;</code>), No.JS le traite comme introuvable et journalise un avertissement, de sorte que le wildcard s'affiche à la place du shell de la page. Les <code>&lt;template src&gt;</code> et <code>&lt;template route src&gt;</code> explicites continuent de charger leur réponse telle quelle."
       },
       "headAttributes": {
         "title": "Attributs Head des Routes",

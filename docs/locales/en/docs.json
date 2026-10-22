@@ -390,6 +390,17 @@
         "youTyped": "You typed:",
         "countLabel": "Count:"
       },
+      "unsupported": {
+        "title": "Unsupported statement forms",
+        "text": "Handlers run expressions, <code>const</code>/<code>let</code> declarations and assignments separated by <code>;</code>, not full JavaScript statements. An assignment (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) only takes effect at the top level of a statement:",
+        "colNo": "Not supported",
+        "colYes": "Write instead",
+        "ternary": "(assignment inside a ternary branch)",
+        "logical": "(assignment inside a logical operand)",
+        "comma": "(comma operator)",
+        "note": "A function call inside a branch works (<code>ok ? save() : null</code>). In the unsupported forms the assignment does not run, and a console warning naming the expression is emitted.",
+        "errors": "When a statement throws, the handler stops: its <code>name = value</code> writes are not applied, while in-place changes (such as <code>items.push(x)</code>) and <code>$store</code> writes made before the error stay, and the page shows them. The error is logged as <code>[No.JS] Expression error: &lt;statement&gt;</code> and dispatches a <code>nojs:error</code> event on the element, so <code>error-boundary</code> can catch it."
+      },
       "modifiers": {
         "title": "Event Modifiers",
         "text": "Modifiers let you control event behavior directly in the attribute:",
@@ -816,6 +827,7 @@
         "exampleText": "That's it — <strong>two lines</strong> for a full SPA with six routes.",
         "mixingTitle": "Mixing Explicit & File-Based Routes",
         "mixingText": "Explicit <code>&lt;template route=\"...\"&gt;</code> declarations <strong>always take priority</strong>. This lets you combine both approaches — use file-based routing for simple pages and explicit templates for routes that need guards, params, or named outlets:",
+        "mixingPrefetch": "At startup, No.JS prefetches the <code>.tpl</code> files for <code>&lt;a route&gt;</code> links that file-based routing would render. <code>&lt;template route&gt;</code> definitions, links whose path already has an explicit route for that outlet, and patterns (<code>:param</code>, <code>*</code>) are never fetched from the folder.",
         "autoI18nTitle": "Auto i18n Namespace",
         "autoI18nText": "When the <code>route-view</code> element has an <code>i18n-ns</code> attribute (even without a value), No.JS automatically loads the i18n namespace matching the filename:",
         "autoI18nText2": "This replaces the need to add <code>i18n-ns=\"...\"</code> on each route template individually."
@@ -870,8 +882,9 @@
         "remoteText": "Wildcard routes support all the same attributes as regular route templates, including <code>src</code> for remote loading:",
         "remoteText2": "The remote template is fetched, cached, and rendered just like any other route template — and it has full access to <code>$route.path</code>, <code>$route.matched</code>, and all other framework features.",
         "fileBasedTitle": "File-Based Routing 404",
-        "fileBasedText": "When using file-based routing, navigating to a path whose <code>.tpl</code> file doesn't exist on the server (HTTP 404 or other error) automatically triggers the wildcard fallback chain.",
-        "fileBasedText2": "The failed HTTP response is <strong>not</strong> cached — subsequent navigations to other paths are unaffected."
+        "fileBasedText": "When using file-based routing, navigating to a path whose <code>.tpl</code> file doesn't exist on the server (HTTP 404 or other error, or an SPA fallback that answers with the app's <code>index.html</code>) automatically triggers the wildcard fallback chain.",
+        "fileBasedText2": "The failed HTTP response is <strong>not</strong> cached — subsequent navigations to other paths are unaffected.",
+        "fileBasedSpaFallback": "A server with an SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) answers a missing <code>.tpl</code> with <code>200</code> and the full <code>index.html</code>. When a template that file-based routing resolved from the folder comes back as a full HTML document (it starts with <code>&lt;!DOCTYPE html&gt;</code> or <code>&lt;html&gt;</code>), No.JS treats it as not found and logs a warning, so the wildcard renders instead of the page shell. Explicit <code>&lt;template src&gt;</code> and <code>&lt;template route src&gt;</code> keep loading their response as-is."
       },
       "headAttributes": {
         "title": "Route Head Attributes",

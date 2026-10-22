@@ -194,6 +194,7 @@
 <span class="hl-cmt">&lt;!-- Explicit route with guard --&gt;</span>
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">route</span>=<span class="hl-str">"/admin"</span> <span class="hl-attr">src</span>=<span class="hl-str">"./pages/admin.tpl"</span>
           <span class="hl-attr">guard</span>=<span class="hl-str">"$store.auth.isAdmin"</span> <span class="hl-attr">redirect</span>=<span class="hl-str">"/"</span><span class="hl-tag">&gt;&lt;/template&gt;</span></pre></div>
+    <p class="doc-text" t="docs.routing.fileBased.mixingPrefetch" t-html></p>
     <h3 class="doc-subtitle" id="routing-file-based-auto-i18n" t="docs.routing.fileBased.autoI18nTitle"></h3>
     <p class="doc-text" t="docs.routing.fileBased.autoI18nText"></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Auto-derives namespace: "/" &rarr; "landing", "/features" &rarr; "features", etc. --&gt;</span>
@@ -347,6 +348,7 @@
     <h3 class="doc-subtitle" id="routing-catch-all-file-based" t="docs.routing.catchAll.fileBasedTitle"></h3>
     <p class="doc-text" t="docs.routing.catchAll.fileBasedText" t-html></p>
     <p class="doc-text" t="docs.routing.catchAll.fileBasedText2" t-html></p>
+    <p class="doc-text" t="docs.routing.catchAll.fileBasedSpaFallback" t-html></p>
   </div>
 
   <!-- Route Head Attributes -->

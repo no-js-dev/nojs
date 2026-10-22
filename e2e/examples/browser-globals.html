@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Browser Globals Receiver</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+<main>
+
+  <!-- 1: navigator getters read through the safe proxy -->
+  <section>
+    <h2 class="test-label">1 — navigator getters</h2>
+    <div>language: <span class="value" data-test="nav-language" bind="navigator.language"></span></div>
+    <div>onLine: <span class="value" data-test="nav-online" bind="navigator.onLine"></span></div>
+    <div>languages: <span class="value" data-test="nav-languages" bind="navigator.languages.length > 0"></span></div>
+    <div>via window: <span class="value" data-test="nav-window" bind="window.navigator.language"></span></div>
+    <div>sendBeacon: <span class="value" data-test="nav-beacon" bind="typeof navigator.sendBeacon"></span></div>
+    <div>credentials: <span class="value" data-test="nav-credentials" bind="typeof navigator.credentials"></span></div>
+  </section>
+
+  <!-- 2: navigator.clipboard exposes only writeText -->
+  <section state="{ clicked: false }">
+    <h2 class="test-label">2 — navigator.clipboard.writeText</h2>
+    <div>writeText: <span class="value" data-test="clip-type" bind="typeof navigator.clipboard.writeText"></span></div>
+    <div>readText: <span class="value" data-test="clip-read" bind="typeof navigator.clipboard.readText"></span></div>
+    <button data-test="clip-copy" on:click="navigator.clipboard.writeText('copied-by-nojs'); clicked = true">Copy</button>
+    <div>clicked: <span class="value" data-test="clip-clicked" bind="clicked"></span></div>
+  </section>
+
+  <!-- 3: allow-listed window members -->
+  <section>
+    <h2 class="test-label">3 — window</h2>
+    <div>innerWidth: <span class="value" data-test="win-width" bind="window.innerWidth > 0"></span></div>
+    <div>innerHeight: <span class="value" data-test="win-height" bind="window.innerHeight > 0"></span></div>
+    <div>scrollY: <span class="value" data-test="win-scroll" bind="window.scrollY"></span></div>
+    <div>devicePixelRatio: <span class="value" data-test="win-dpr" bind="window.devicePixelRatio > 0"></span></div>
+    <div>matchMedia: <span class="value" data-test="win-media" bind="window.matchMedia('(min-width: 1px)').matches"></span></div>
+    <div>via document: <span class="value" data-test="win-default-view" bind="document.defaultView.innerWidth > 0"></span></div>
+    <div>fetch: <span class="value" data-test="win-fetch" bind="typeof window.fetch"></span></div>
+  </section>
+
+  <!-- 4: members outside the allow-list stay unreachable (as on v1.21.1) -->
+  <section>
+    <h2 class="test-label">4 — outside the allow-list</h2>
+    <p id="doc-target">target</p>
+    <ul>
+      <li>document.title: <span class="value" data-test="off-doc-title" bind="document.title === undefined"></span></li>
+      <li>document.createElement: <span class="value" data-test="off-doc-create" bind="document.createElement('p') === undefined"></span></li>
+      <li>document.open: <span class="value" data-test="off-doc-open" bind="document.open() === undefined"></span></li>
+      <li>navigator.serviceWorker: <span class="value" data-test="off-nav-sw" bind="navigator.serviceWorker === undefined"></span></li>
+      <li>navigator.geolocation: <span class="value" data-test="off-nav-geo" bind="navigator.geolocation === undefined"></span></li>
+      <li>window.opener: <span class="value" data-test="off-win-opener" bind="window.opener === undefined"></span></li>
+      <li>window.caches: <span class="value" data-test="off-win-caches" bind="window.caches === undefined"></span></li>
+      <li>window.getComputedStyle: <span class="value" data-test="off-win-style" bind="window.getComputedStyle(document.body) === undefined"></span></li>
+    </ul>
+  </section>
+
+  <!-- 5: read-only history wrapper -->
+  <section>
+    <h2 class="test-label">5 — history</h2>
+    <div>length: <span class="value" data-test="hist-length" bind="history.length > 0"></span></div>
+    <button data-test="hist-back" on:click="history.back()">Back</button>
+  </section>
+
+</main>
+  <script src="/__local__/no.js"></script>
+</body>
+</html>

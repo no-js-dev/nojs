@@ -915,11 +915,54 @@ const _BLOCKED_DOCUMENT_PROPS = new Set([
   'cookie', 'domain', 'write', 'writeln', 'execCommand',
 ]);
 
+// WebIDL getters and methods throw "Illegal invocation" when `this` is one of
+// the safe proxies below (the proxy is passed as receiver). Only these
+// explicitly allow-listed, read-only members are read against the real object;
+// every other member keeps the proxy as receiver, so anything that was
+// unreachable stays unreachable.
+const _WINDOW_OWNER_READS = new Set([
+  'innerWidth', 'innerHeight', 'scrollX', 'scrollY',
+  'pageXOffset', 'pageYOffset', 'devicePixelRatio',
+]);
+const _WINDOW_OWNER_METHODS = new Set(['matchMedia']);
+const _NAVIGATOR_OWNER_READS = new Set([
+  'language', 'languages', 'onLine', 'userAgent', 'platform',
+  'cookieEnabled', 'hardwareConcurrency', 'maxTouchPoints',
+]);
+
+// Method wrappers are cached per target so identity is stable across reads.
+const _ownerMethodCache = new WeakMap();
+function _ownerMethod(target, name) {
+  let byName = _ownerMethodCache.get(target);
+  if (!byName) { byName = new Map(); _ownerMethodCache.set(target, byName); }
+  if (!byName.has(name)) {
+    const fn = target[name];
+    byName.set(name, typeof fn === 'function' ? (...args) => fn.apply(target, args) : undefined);
+  }
+  return byName.get(name);
+}
+
+// navigator.clipboard is exposed write-only: `writeText` is the one reachable
+// member (read/readText/write stay unreachable).
+let _safeClipboard;
+let _safeClipboardSource;
+function _clipboardFor(nav) {
+  const real = nav.clipboard;
+  if (!real || typeof real.writeText !== 'function') return undefined;
+  if (_safeClipboardSource !== real) {
+    _safeClipboardSource = real;
+    _safeClipboard = Object.freeze({ writeText: (text) => real.writeText(text) });
+  }
+  return _safeClipboard;
+}
+
 const _safeWindow = typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined'
   ? new Proxy(globalThis.window, {
       get(target, prop, receiver) {
         if (typeof prop === 'string' && _BLOCKED_WINDOW_PROPS.has(prop)) return undefined;
         if (typeof prop === 'string' && prop in _WINDOW_PROXY_OVERRIDES) return _WINDOW_PROXY_OVERRIDES[prop];
+        if (_WINDOW_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+        if (_WINDOW_OWNER_METHODS.has(prop)) return _ownerMethod(target, prop);
         return Reflect.get(target, prop, receiver);
       },
       set() {
@@ -1007,6 +1050,8 @@ const _safeNavigator = typeof globalThis !== 'undefined' && typeof globalThis.na
   ? new Proxy(globalThis.navigator, {
       get(target, prop, receiver) {
         if (typeof prop === 'string' && _BLOCKED_NAVIGATOR_PROPS.has(prop)) return undefined;
+        if (_NAVIGATOR_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+        if (prop === 'clipboard') return _clipboardFor(target);
         return Reflect.get(target, prop, receiver);
       },
       set() { return true; }, // navigator props are browser-enforced read-only

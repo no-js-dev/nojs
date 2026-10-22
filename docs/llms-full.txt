@@ -238,7 +238,7 @@ Absolute URLs skip base resolution:
 | `empty` | `string` | Template ID to show when response is empty array/null |
 | `refresh` | `number` | Auto-refresh interval in ms (polling) |
 | `cached` | `boolean\|string` | Cache responses. `cached` = memory, `cached="local"` = localStorage, `cached="session"` = sessionStorage |
-| `into` | `string` | Write response to a named global store |
+| `into` | `string` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `debounce` | `number` | Debounce in ms (useful with reactive URLs) |
 | `headers` | `string` | JSON string of additional headers |
 | `params` | `string` | Expression that resolves to query params object |
@@ -366,7 +366,7 @@ Used on forms or triggered via `call`.
 | `confirm` | Show browser `confirm()` dialog before sending |
 | `redirect` | URL to navigate to on success (SPA route) |
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
-| `into` | Write response to a named global store |
+| `into` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `cached` | Cache responses (memory/local/session) |
 
 ### Request Lifecycle
@@ -573,11 +573,11 @@ The button is auto-generated and inserted after the content. It is automatically
 
 ### `fetch:end` Event
 
-The `fetch:end` event fires on the NoJS event bus after every HTTP request completes, regardless of success or failure. This is useful for dismissing global loading indicators:
+The `fetch:end` event fires on the NoJS event bus when a paginated `get` (`get-trigger` with `get-insert`) reaches the end of its data: an empty page, a last-page response header, or an exhausted cursor. Pagination stops at that point. It is not emitted for other requests; use `fetch:success` and `fetch:error` to track individual requests.
 
 ```js
 NoJS.on('fetch:end', ({ url }) => {
-  console.log('Request finished:', url);
+  console.log('No more pages:', url);
 });
 ```
 
@@ -619,10 +619,33 @@ Interceptor functions can be async. Each interceptor is given a 5-second timeout
 ```html
 <script>
   NoJS.interceptor('request', async (url, options) => {
-    const token = await refreshTokenIfExpired();
-    options.headers['Authorization'] = 'Bearer ' + token;
+    options.headers['X-Client-Version'] = await getClientVersion();
     return options;
   });
+</script>
+```
+
+### Setting Sensitive Headers
+
+App-level interceptors (`NoJS.interceptor()`) and interceptors from plugins installed without `{ trusted: true }` cannot set sensitive headers: `Authorization`, `Cookie`, `Set-Cookie`, `Proxy-Authorization`, `X-API-Key`, `X-Auth-Token`, `X-CSRF-Token`, and any `X-Auth-*` / `X-Api-*` header. Values they return for those headers are dropped; their other headers still apply. Use one of these instead:
+
+- **Global header** — `NoJS.config({ headers: { Authorization: 'Bearer ' + token } })`. It can be called again after login; new headers are merged into the existing ones.
+- **CSRF token** — `NoJS.config({ csrf: { token } })` (sent on same-origin non-GET requests). For a token that changes, use a getter: `csrf: { get token() { return readToken(); } }`.
+- **Per request** — the `headers` attribute on the element.
+- **Computed per request** (for example a token refresh) — a request interceptor from a trusted plugin. Trust comes only from the second argument of `NoJS.use()`; a `trusted` property on the plugin object is ignored. The interceptor must be registered synchronously inside `install` — one registered later (in `init`, after an `await`, in a timer) is untrusted:
+
+```html
+<script>
+  NoJS.use({
+    name: 'auth-token',
+    install(app) {
+      app.interceptor('request', async (url, options) => {
+        const token = await refreshTokenIfExpired();
+        options.headers['Authorization'] = 'Bearer ' + token;
+        return options;
+      });
+    }
+  }, { trusted: true });
 </script>
 ```
 
@@ -1057,7 +1080,7 @@ Renders one of two templates based on a condition.
 <!-- With templates -->
 <div if="user.isAdmin" then="adminPanel" else="userPanel"></div>
 
-<!-- Inline content — keeps children if true, removes if false -->
+<!-- Inline content — rendered if true, cleared if false (the <div> itself stays) -->
 <div if="user.isLoggedIn">
   <p>Welcome back!</p>
 </div>
@@ -1069,6 +1092,8 @@ Renders one of two templates based on a condition.
 <div if="user.role === 'admin' && user.verified" then="adminTpl"></div>
 <div if="cart.items.length > 0" then="cartTpl" else="emptyCartTpl"></div>
 ```
+
+> **The element itself stays in the DOM.** When the condition is false, `if` clears the element's content (or renders the `else` template) but keeps the element, so its own box (padding, border, background, margin) is still visible. To hide the box as well, use [`show` / `hide`](#show--hide), or put `if` on an unstyled wrapper around the styled element. `if` on a `<template>` element renders nothing; put it on a regular element instead.
 
 ---
 
@@ -1099,7 +1124,7 @@ Toggles `display: none` without adding/removing DOM elements. Better for frequen
 
 | | `if` | `show` |
 |--|------|--------|
-| Mechanism | Adds/removes DOM elements | Toggles CSS `display` |
+| Mechanism | Adds/removes the element's content (the element stays) | Toggles CSS `display` |
 | Best for | Rarely toggled content | Frequently toggled content |
 | Preserves state | No (re-creates) | Yes |
 
@@ -1786,21 +1811,21 @@ You can also create stores programmatically with `NoJS.config()`. This is useful
 
 ## `into` — Write Fetch Results to a Store
 
-The `into` attribute on any HTTP directive writes the response directly into a named global store.
+The `into` attribute on any HTTP directive writes the response into a named global store, under the key named by `as` (`data` when `as` is omitted). The response is stored at `$store.<into>.<as>`; its fields are not merged into the store itself.
 
 ```html
 <!-- Define an empty store -->
 <div store="currentUser" value="{}"></div>
 
-<!-- Fetch and write into the store -->
+<!-- Fetch and write into the store: the response is stored at $store.currentUser.user -->
 <div get="/me" as="user" into="currentUser">
   <p>Fetched: <span bind="user.name"></span></p>
 </div>
 
 <!-- Read from the store anywhere else on the page -->
 <nav>
-  <span bind="$store.currentUser.name"></span>
-  <span bind="$store.currentUser.email"></span>
+  <span bind="$store.currentUser.user.name"></span>
+  <span bind="$store.currentUser.user.email"></span>
 </nav>
 ```
 
@@ -1814,10 +1839,12 @@ The store doesn't need to be pre-defined — `into` will create it if it doesn't
   Refresh Session
 </button>
 
-<!-- These update reactively when the call completes -->
-<span bind="$store.session.token"></span>
-<span bind="$store.session.expiresAt"></span>
+<!-- No `as`, so the response is stored at $store.session.data -->
+<span bind="$store.session.data.token"></span>
+<span bind="$store.session.data.expiresAt"></span>
 ```
+
+> `into` takes a plain store name. A dotted value such as `into="user.profile"` does not write to a nested path: it creates a store whose name is literally `user.profile`, which `$store.user.profile` cannot reach.
 
 ---
 
@@ -1950,6 +1977,10 @@ When external JavaScript (interceptors, helper functions, `<script>` blocks) mut
 <span bind="$store.cart.items.length + ' items'"></span>
 ```
 
+`NoJS.notify()` is also needed after the store's own methods. `NoJS.store.cart.$set('total', 0)` and `NoJS.store.cart.$notify()` update the store and run its `$watch` listeners, but they do not re-render `$store.*` bindings.
+
+Create stores with the `store` attribute or `NoJS.config({ stores: { ... } })`. Assigning a new key on `NoJS.store` (`NoJS.store.prefs = { theme: 'dark' }`) adds a plain object, not a reactive store: it has no `$watch` or `$set`, and bindings that read it change only when `NoJS.notify()` runs.
+
 ### Interceptor example
 
 ```html
@@ -2032,13 +2063,18 @@ Separate statements with `;`. Use `const` or `let` for values that only the hand
 
 Errors in a handler are logged as `[No.JS] Expression error: <statement>` and dispatch a `nojs:error` event on the element, so `error-boundary` can catch them.
 
-Each `;`-separated statement must be an expression, a `const`/`let` declaration or an assignment of its own (`a = x`, `a += x`, `a++`). These forms do not run, and No.JS logs a warning naming the expression:
+### Unsupported statement forms
 
-| Form | Instead |
-|------|---------|
-| Assignment inside a ternary branch or an `&&`/`\|\|` operand: `c ? a = 1 : b = 2`, `c && (a = 1)`, `c && count++` | `a = c ? 1 : a`, or a ternary that calls a function: `c ? save() : null` |
-| Comma operator: `a = 1, b = 2` | `a = 1; b = 2` |
-| Statement keywords: `if (…) { … }`, `for`, `while`, `return`, `new`, `await` | A ternary or `;`-separated statements |
+Handlers run expressions, `const`/`let` declarations and assignments separated by `;`, not full JavaScript statements. An assignment (`a = x`, `a += x`, `a++`) only takes effect at the top level of a statement:
+
+| Not supported | Write instead |
+|---------------|---------------|
+| `if (ok) { a = 1 }`, `for (…) { … }`, `while (…) { … }`, `return`, `new`, `await` | `a = ok ? 1 : a` |
+| `ok ? a = 1 : b = 2` (assignment inside a ternary branch) | `a = ok ? 1 : a; b = ok ? b : 2` |
+| `ok && (a = 1)`, `ok \|\| (a = 1)`, `ok && count++` (assignment inside a logical operand) | `a = ok ? 1 : a` |
+| `a = 1, b = 2` (comma operator) | `a = 1; b = 2` |
+
+A function call inside a branch works (`ok ? save() : null`). In the unsupported forms the assignment does not run, and a console warning naming the expression is emitted.
 
 ---
 
@@ -2491,7 +2527,7 @@ Attach `call` to any clickable element to fire an HTTP request on click. It supp
 | `call` | `string` | URL for the request (supports `{variable}` interpolation) |
 | `method` | `string` | HTTP method. Default: `"get"` |
 | `as` | `string` | Name to assign the response in the context. Default: `"data"` |
-| `into` | `string` | Write response to a named global store |
+| `into` | `string` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `body` | `string` | Request body (JSON string with `{variable}` interpolation) |
 | `loading` | `string` | Template ID to show during the request (e.g. `"#spinner"`) |
 | `success` | `string` | Template ID to render on success. Receives response via `var` |
@@ -2552,7 +2588,7 @@ Rapid clicks automatically **abort** the previous in-flight request before start
 
 - **`fetch:success`** — `{ url, data }` on successful response
 - **`fetch:error`** — `{ url, error }` on failure
-- **`fetch:end`** — `{ url }` when the request completes (success or failure)
+- **`error`** — `{ url, error }` on failure, emitted right after `fetch:error`
 
 ### Request Lifecycle
 
@@ -3131,6 +3167,10 @@ Because the query is kept, a callback URL such as `/auth/callback?token=abc123` 
 | `$route.hash` | URL hash (e.g. `"#section"`) |
 | `$route.matched` | Whether an explicit route matched (`true`) or a wildcard/fallback is rendering (`false`) |
 
+In JavaScript, the same object is `NoJS.router.current` (`NoJS.router.current.path`, `.params`, …). The router object has no `path` property of its own. To run code after each navigation, use `NoJS.router.on(fn)`: `fn` receives `router.current`, and the call returns an unsubscribe function.
+
+In history mode, `path` is relative to [`router.base`](configuration.md): with `base: '/app'`, the URL `/app/users/42` gives `$route.path === "/users/42"`. Route declarations and `push()` / `replace()` use paths relative to the base too, and the router adds the base to the URL. The base is read only from `NoJS.config({ router: { base } })`; a `<base href>` tag is ignored.
+
 ---
 
 ## Active Route Styling
@@ -3238,6 +3278,8 @@ Instead of declaring each route template manually, point your `route-view` outle
 1. Add `route-view` to your outlet element — file-based routing is enabled by default (config `router.templates: "pages"`). Override per-outlet with `src="folder/"`.
 2. When a user navigates to `/analytics`, No.JS resolves it to `pages/analytics.tpl`
 3. The template is fetched, cached, and rendered — automatically
+
+> **History mode and deep links:** a relative folder (the default `"pages"`, or `src="./pages/"`) is resolved against the current URL. A direct load or refresh of a nested route such as `/docs/intro` then requests `/docs/pages/docs/intro.tpl` and shows the 404 page. In history mode, use an absolute folder: `NoJS.config({ router: { templates: '/pages' } })` or `src="/pages/"`.
 
 ### Attributes
 
@@ -4474,6 +4516,27 @@ Extend No.JS with your own attribute-driven behaviors.
 </script>
 ```
 
+### Handler Contract
+
+- The handler is an object: `{ priority, init }`. A plain function is not accepted, and other properties such as `update` or `destroy` are ignored.
+- `init(el, name, value)` runs once per element, in priority order. `name` is the attribute name and `value` is the raw attribute string. It is not evaluated and no context is passed in: call `NoJS.findContext(el)` and `NoJS.evaluate(value, ctx)` yourself.
+- The value returned by `init` is ignored. To react to later changes, subscribe with `ctx.$watch(fn)`, which returns an unsubscribe function. It is notified of changes to keys that live on that context; a key owned by an ancestor context (for example a `state` variable read from inside a loop item) does not notify it, so watch the owning context (`ctx.$parent`, …) in that case. To clean up, use the element's disposers (see [Cleanup / Disposal](#cleanup--disposal)).
+
+```html
+<script>
+  NoJS.directive('live-title', {
+    init(el, name, value) {
+      const ctx = NoJS.findContext(el);
+      const render = () => { el.title = NoJS.evaluate(value, ctx) ?? ''; };
+      render();
+      const unwatch = ctx.$watch(render);
+      el.__disposers = el.__disposers || [];
+      el.__disposers.push(unwatch);
+    }
+  });
+</script>
+```
+
 ---
 
 ### Priority Levels
@@ -4493,7 +4556,7 @@ Default priority when omitted: 50 (runs after all built-in directives).
 
 ### Cleanup / Disposal
 
-If your directive adds event listeners, observers, or timers, register cleanup via the element's disposal system. Return a cleanup function or use `_onDispose`:
+If your directive adds event listeners, observers, or timers, register cleanup via the element's disposal system: push a function onto `el.__disposers`. The disposers run when the element is removed by No.JS (for example by `if`, a loop or a route change). Returning a function from `init` does not register it. Inside `init` you can also call `NoJS.internals.onDispose(fn)`, which does the same for the element being initialized; it must be called synchronously, not from a callback:
 
 ```html
 <script>
@@ -4749,9 +4812,9 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
     // Router
     router: {
       useHash: false,          // true = hash mode, false = history mode (default)
-      base: '/',
+      base: '/',               // URL prefix (history mode); $route.path excludes it. <base href> is not read
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
-      templates: 'pages',       // Default base path for file-based routing (default: 'pages')
+      templates: 'pages',       // Default base path for file-based routing (default: 'pages'); use '/pages' in history mode so deep links resolve
       ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
       suppressHashWarning: false, // Suppress hash-in-history-mode console warning
       focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
@@ -5101,18 +5164,23 @@ The NoJS event bus (`NoJS.on()`) emits the following framework events. Use `NoJS
 
 | Event | Payload | When |
 |-------|---------|------|
-| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) received a successful response |
-| `fetch:error` | `{ url, error }` | An HTTP directive failed (network error or non-ok status) |
-| `fetch:end` | `{ url }` | An HTTP request completed (success or failure) — useful for spinners or progress bars |
+| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) or `call` received a successful response |
+| `fetch:error` | `{ url, error }` | An HTTP directive or `call` failed (network error or non-ok status) |
+| `error` | `{ url, error }` | Emitted right after `fetch:error`, with the same payload — the [global error handler](error-handling.md#global-error-handler) hook |
+| `fetch:end` | `{ url }` | A paginated `get` (`get-trigger` + `get-insert`) reached the end of its data, and pagination stopped. It is not emitted for other requests |
 | `plugins:ready` | _(none)_ | All registered plugins have been initialized during `NoJS.init()` |
 
 ```js
-// Example: global loading indicator
-let activeRequests = 0;
-NoJS.on('fetch:success', () => { activeRequests--; updateSpinner(); });
-NoJS.on('fetch:error', () => { activeRequests--; updateSpinner(); });
-NoJS.on('fetch:end', () => { /* always fires, regardless of outcome */ });
+NoJS.on('fetch:success', ({ url }) => console.log('loaded', url));
+NoJS.on('fetch:error', ({ url, error }) => console.warn(url, error.message));
+NoJS.on('fetch:end', ({ url }) => { /* no more pages for this list */ });
 ```
+
+No other events are emitted on the bus: there are no store-change, navigation, locale or dispose events. Use these instead:
+
+- **Store changes** — `NoJS.store.cart.$watch(fn)` (returns an unsubscribe function), or the [`watch`](state-management.md) directive in HTML.
+- **Navigation** — `NoJS.router.on(fn)`: `fn` receives `router.current` after each navigation, and the call returns an unsubscribe function. To block a navigation, use a route `guard`.
+- **Teardown** — a plugin's `dispose` hook.
 
 ---
 
@@ -5375,6 +5443,16 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <span bind="$user.name"></span>
 ```
 
+Object values are copied through JSON before they are wrapped, so any function inside them is dropped: methods of a plain object, and the methods of a class instance. A console warning is emitted when this happens. To expose a callable helper, register the function itself as the global and call it with the `$` prefix:
+
+```html
+<script>
+  NoJS.global('formatPrice', (n) => '$' + n.toFixed(2));
+</script>
+
+<span bind="$formatPrice(product.price)"></span>
+```
+
 ### Ownership Tracking
 
 When a plugin registers a global during its `install` phase, it becomes the owner. If a different plugin overwrites that global, a warning is logged:
@@ -5488,6 +5566,8 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 ```
 
 Trusted interceptors receive the full, unredacted request options and response object.
+
+Trust comes only from the second argument of `NoJS.use()`; a `trusted` property on the plugin object is ignored. It covers only the interceptors that `install` registers synchronously with `app.interceptor()`. Interceptors registered later (in `init`, after an `await`, from a timer) and app-level `NoJS.interceptor()` calls are untrusted. An untrusted request interceptor cannot set the redacted request headers listed below: values it returns for them are dropped. See [Data Fetching → Setting Sensitive Headers](data-fetching.md#setting-sensitive-headers) for the alternatives.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
 
@@ -5788,7 +5868,7 @@ Complete reference of every No.JS directive.
 | `headers` | `headers='{"Auth":"Bearer x"}'` | Request headers |
 | `params` | `params="{ page: 1 }"` | Query parameters |
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |
-| `into` | `into="currentUser"` | Write response to a named global store |
+| `into` | `into="currentUser"` | Write response to a global store at `$store.<into>.<as>` |
 | `debounce` | `debounce="300"` | Debounce reactive URL refetches (ms) |
 | `refresh` | `refresh="5000"` | Auto-refresh interval in ms (polling) |
 | `skeleton` | `skeleton="cardSkel"` | Show/hide a placeholder element during loading |
@@ -6010,12 +6090,18 @@ via a request interceptor.
 
 ```html
 <script>
-  // Attach token to every outgoing request
-  NoJS.interceptor('request', (url, opts) => {
-    const token = NoJS.store.auth.token;
-    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-    return opts;
-  });
+  // Attach token to every outgoing request. Authorization is a sensitive
+  // header, so only an interceptor from a trusted plugin may set it.
+  NoJS.use({
+    name: 'auth-header',
+    install(app) {
+      app.interceptor('request', (url, opts) => {
+        const token = NoJS.store.auth.token;
+        if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+        return opts;
+      });
+    }
+  }, { trusted: true });
 </script>
 
 <!-- Global auth store -->
@@ -6219,12 +6305,17 @@ All five patterns combined into a single production-grade SPA:
       router: { useHash: false }
     });
 
-    // Attach JWT to every request
-    NoJS.interceptor('request', (url, opts) => {
-      const token = NoJS.store.auth.token;
-      if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-      return opts;
-    });
+    // Attach JWT to every request (sensitive header: trusted plugin only)
+    NoJS.use({
+      name: 'auth-header',
+      install(app) {
+        app.interceptor('request', (url, opts) => {
+          const token = NoJS.store.auth.token;
+          if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+          return opts;
+        });
+      }
+    }, { trusted: true });
 
     // Revoke JWT on 401/403
     NoJS.interceptor('response', (response) => {

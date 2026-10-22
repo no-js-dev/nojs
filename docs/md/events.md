@@ -49,13 +49,18 @@ Separate statements with `;`. Use `const` or `let` for values that only the hand
 
 Errors in a handler are logged as `[No.JS] Expression error: <statement>` and dispatch a `nojs:error` event on the element, so `error-boundary` can catch them.
 
-Each `;`-separated statement must be an expression, a `const`/`let` declaration or an assignment of its own (`a = x`, `a += x`, `a++`). These forms do not run, and No.JS logs a warning naming the expression:
+### Unsupported statement forms
 
-| Form | Instead |
-|------|---------|
-| Assignment inside a ternary branch or an `&&`/`\|\|` operand: `c ? a = 1 : b = 2`, `c && (a = 1)`, `c && count++` | `a = c ? 1 : a`, or a ternary that calls a function: `c ? save() : null` |
-| Comma operator: `a = 1, b = 2` | `a = 1; b = 2` |
-| Statement keywords: `if (…) { … }`, `for`, `while`, `return`, `new`, `await` | A ternary or `;`-separated statements |
+Handlers run expressions, `const`/`let` declarations and assignments separated by `;`, not full JavaScript statements. An assignment (`a = x`, `a += x`, `a++`) only takes effect at the top level of a statement:
+
+| Not supported | Write instead |
+|---------------|---------------|
+| `if (ok) { a = 1 }`, `for (…) { … }`, `while (…) { … }`, `return`, `new`, `await` | `a = ok ? 1 : a` |
+| `ok ? a = 1 : b = 2` (assignment inside a ternary branch) | `a = ok ? 1 : a; b = ok ? b : 2` |
+| `ok && (a = 1)`, `ok \|\| (a = 1)`, `ok && count++` (assignment inside a logical operand) | `a = ok ? 1 : a` |
+| `a = 1, b = 2` (comma operator) | `a = 1; b = 2` |
+
+A function call inside a branch works (`ok ? save() : null`). In the unsupported forms the assignment does not run, and a console warning naming the expression is emitted.
 
 ---
 

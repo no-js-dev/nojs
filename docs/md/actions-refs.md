@@ -44,7 +44,7 @@ Attach `call` to any clickable element to fire an HTTP request on click. It supp
 | `call` | `string` | URL for the request (supports `{variable}` interpolation) |
 | `method` | `string` | HTTP method. Default: `"get"` |
 | `as` | `string` | Name to assign the response in the context. Default: `"data"` |
-| `into` | `string` | Write response to a named global store |
+| `into` | `string` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `body` | `string` | Request body (JSON string with `{variable}` interpolation) |
 | `loading` | `string` | Template ID to show during the request (e.g. `"#spinner"`) |
 | `success` | `string` | Template ID to render on success. Receives response via `var` |
@@ -105,7 +105,7 @@ Rapid clicks automatically **abort** the previous in-flight request before start
 
 - **`fetch:success`** — `{ url, data }` on successful response
 - **`fetch:error`** — `{ url, error }` on failure
-- **`fetch:end`** — `{ url }` when the request completes (success or failure)
+- **`error`** — `{ url, error }` on failure, emitted right after `fetch:error`
 
 ### Request Lifecycle
 

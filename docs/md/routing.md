@@ -84,6 +84,10 @@ Because the query is kept, a callback URL such as `/auth/callback?token=abc123` 
 | `$route.hash` | URL hash (e.g. `"#section"`) |
 | `$route.matched` | Whether an explicit route matched (`true`) or a wildcard/fallback is rendering (`false`) |
 
+In JavaScript, the same object is `NoJS.router.current` (`NoJS.router.current.path`, `.params`, …). The router object has no `path` property of its own. To run code after each navigation, use `NoJS.router.on(fn)`: `fn` receives `router.current`, and the call returns an unsubscribe function.
+
+In history mode, `path` is relative to [`router.base`](configuration.md): with `base: '/app'`, the URL `/app/users/42` gives `$route.path === "/users/42"`. Route declarations and `push()` / `replace()` use paths relative to the base too, and the router adds the base to the URL. The base is read only from `NoJS.config({ router: { base } })`; a `<base href>` tag is ignored.
+
 ---
 
 ## Active Route Styling
@@ -191,6 +195,8 @@ Instead of declaring each route template manually, point your `route-view` outle
 1. Add `route-view` to your outlet element — file-based routing is enabled by default (config `router.templates: "pages"`). Override per-outlet with `src="folder/"`.
 2. When a user navigates to `/analytics`, No.JS resolves it to `pages/analytics.tpl`
 3. The template is fetched, cached, and rendered — automatically
+
+> **History mode and deep links:** a relative folder (the default `"pages"`, or `src="./pages/"`) is resolved against the current URL. A direct load or refresh of a nested route such as `/docs/intro` then requests `/docs/pages/docs/intro.tpl` and shows the 404 page. In history mode, use an absolute folder: `NoJS.config({ router: { templates: '/pages' } })` or `src="/pages/"`.
 
 ### Attributes
 

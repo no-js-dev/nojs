@@ -13,14 +13,14 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 - [Data Fetching](https://no-js.dev/#/data-fetching): Declarative HTTP via `get`, `post`, `put`, `patch`, `delete`, `query` (QUERY, RFC 10008) attributes; base URL, caching, polling, reactive URLs, loading/error/empty templates
 - [Server-Sent Events](https://no-js.dev/#/sse): `sse` directive for streaming data via EventSource; insert modes (replace, append, prepend), named events, `$sse` connection state, reactive URLs, store integration, error templates, per-message `then` callback
 - [Data Binding](https://no-js.dev/#/data-binding): `bind` (text), `bind-html` (sanitized HTML), `bind-*` (any attribute; with `strictBindings: true`, `on*` handler attributes are rejected and `srcdoc` is sanitized like `bind-html`), `model` (two-way input binding)
-- [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write to store), persistence via `persist`/`persist-fields`
-- [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates, `show`/`hide` (CSS toggle), `switch`/`case`
+- [State Management](https://no-js.dev/#/state-management): `state` (local reactive data), `store` (global named stores), `computed` (derived values), `watch` (reactive side effects), `into` (write the response to `$store.<into>.<as>`, `as` defaulting to `data`), persistence via `persist`/`persist-fields`
+- [Conditionals](https://no-js.dev/#/conditionals): `if`/`else-if`/`else` with `then` templates (`if` swaps the element's content; the element itself stays in the DOM), `show`/`hide` (CSS toggle), `switch`/`case`
 - [Loops](https://no-js.dev/#/loops): `foreach` (primary iteration directive), `each` and `for` (aliases), `foreach="item in array"` syntax, inline children or external template, filter, sort, limit, offset, loop variables (`$index`, `$count`, `$first`, `$last`, `$even`, `$odd`), keyed updates, re-render after in-place mutation (`push`, `splice`, `sort`, `reverse`, index assign) as well as reassignment, nesting. **Common mistake:** the loop element IS the repeating unit — put the directive on the child (`<li>`, `<tr>`), not the container (`<ul>`, `<table>`, `<tbody>`), or you get N container replicas.
 - [Templates](https://no-js.dev/#/templates): `<template>` fragments, `use` for reuse, named `<slot>` elements, remote templates via `src` (resolved through the nearest `base` attribute or `baseApiUrl` like HTTP URLs; `templates.pageRelative: true` resolves against the page instead), preloading
 
 ## Interaction
 
-- [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:error`, `on:unmounted`); `$event` and `$el` references; `;`-separated statements with handler-local `const`/`let` bindings (never written to state; reassigning a `const` throws)
+- [Events](https://no-js.dev/#/events): `on:click`, `on:keydown.enter`, `on:submit.prevent`; modifiers (`.stop`, `.once`, `.debounce.300`); lifecycle hooks (`on:mounted`, `on:init`, `on:updated`, `on:error`, `on:unmounted`); `$event` and `$el` references; `;`-separated statements with handler-local `const`/`let` bindings (never written to state; reassigning a `const` throws). Not supported: `if`/`for`/`while` blocks, the comma operator, and assignments inside a ternary branch or `&&`/`||` operand (`c ? a = 1 : 0`); write `a = c ? 1 : a` or `;`-separated statements instead
 - [Forms & Validation](https://no-js.dev/#/forms-validation): `validate` attribute with built-in rules (`required`, `email`, `min`, `max`, `pattern`); `$form` context for form state; custom validators via `NoJS.validator()` (requires `@no-js-dev/nojs-elements` plugin since v1.13.0)
 - [Actions & Refs](https://no-js.dev/#/actions-refs): `call` (trigger HTTP from any element), `trigger` (dispatch custom events), `ref` (name an element), `$refs` (access named elements)
 
@@ -71,12 +71,12 @@ All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config
 ### Plugin System
 
 - `NoJS.use(plugin: object | function, options?: object): void` — Register a plugin. Plugin must have `{ name: string, install: function }` or be a named function. The `install(NoJS, options)` callback runs immediately. If `init()` has already completed and the plugin has an `init` method, it is called. Options: `{ trusted: true }` grants access to sensitive HTTP headers.
-- `NoJS.global(name: string, value: any): void` — Register a reactive global accessible as `$name` in expressions. Validates identifier format, blocks reserved names and prototype pollution vectors, sanitizes object values, and wraps in a reactive context. Notifies all store watchers on registration.
+- `NoJS.global(name: string, value: any): void` — Register a reactive global accessible as `$name` in expressions. Validates identifier format, blocks reserved names and prototype pollution vectors, sanitizes object values, and wraps in a reactive context. Object values are copied via JSON, so functions inside them (object methods, class instance methods) are dropped and a console warning is emitted; a top-level function value is kept and called as `$name(...)`. Notifies all store watchers on registration.
 - `NoJS.internals: object` — Frozen object exposing semi-private APIs for trusted plugins: `execStatement`, `cloneTemplate`, `disposeChildren`, `disposeTree`, `warn`, `validators`, `removeCoreDirective`, `onDispose`.
 
 ### Directives, Filters, and Validators
 
-- `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. Core directives are frozen as soon as the framework loads — plugins can add new ones but not override built-ins. A name covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`, e.g. `on:clickoutside`) is accepted and wins for that attribute only, unless `strictDirectives: true` is set before the call.
+- `NoJS.directive(name: string, handler: object): void` — Register a custom directive. Handler: `{ priority: number, init(el: HTMLElement, attrName: string, value: string): void }`. `init` runs once per element; `value` is the raw attribute string (not evaluated, no context passed). There are no `update`/`destroy` hooks and the return value of `init` is ignored: use `NoJS.findContext(el)`, `NoJS.evaluate(value, ctx)`, `ctx.$watch(fn)`, and push cleanup functions onto `el.__disposers`. Core directives are frozen as soon as the framework loads — plugins can add new ones but not override built-ins. A name covered by a core wildcard (`on:*`, `bind-*`, `class-*`, `style-*`, e.g. `on:clickoutside`) is accepted and wins for that attribute only, unless `strictDirectives: true` is set before the call.
 - `NoJS.filter(name: string, fn: function): void` — Register a custom filter for pipe syntax (`value | filterName`). Built-in filter names cannot be overridden. Throws `TypeError` if name or fn is invalid.
 - `NoJS.validator(name: string, fn: function): void` — Register a custom form validation rule. The names of the built-in `validate` rules (`required`, `email`, `url`, `min`, `max`) cannot be overridden; every other name, including `minlength`, `maxlength`, `pattern`, `match`, `number`, `integer`, `alpha` and `alphanumeric`, can be registered. Throws `TypeError` if name or fn is invalid.
 
@@ -87,7 +87,7 @@ All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config
 
 ### Event Bus
 
-- `NoJS.on(event: string, fn: function): function` — Subscribe to a global event. Returns an unsubscribe function. Warns on listener count exceeding `maxEventListeners` (configurable, helps detect memory leaks).
+- `NoJS.on(event: string, fn: function): function` — Subscribe to a global event. Returns an unsubscribe function. Warns on listener count exceeding `maxEventListeners` (configurable, helps detect memory leaks). Framework events: `plugins:ready`, `fetch:success` `{ url, data }`, `fetch:error` and `error` `{ url, error }`, and `fetch:end` `{ url }` (a paginated `get` reached the end of its data). There are no store, route, locale or dispose events: use `$watch` / the `watch` directive, `NoJS.router.on(fn)`, and a plugin `dispose` hook.
 
 ### HTTP Interceptors
 
@@ -95,12 +95,12 @@ All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config
 
 ### State
 
-- `NoJS.store: object` — Access the global store object. Stores are created via `NoJS.config({ stores: { name: data } })` or the `store` directive.
-- `NoJS.notify(): void` — Trigger UI update after external JavaScript mutations to store data. Notifies all store watchers.
+- `NoJS.store: object` — Access the global store object. Stores are created via `NoJS.config({ stores: { name: data } })` or the `store` directive. Assigning a new key (`NoJS.store.x = {}`) adds a plain, non-reactive object.
+- `NoJS.notify(): void` — Trigger UI update after external JavaScript mutations to store data. Notifies all store watchers. Also required after a store's own `$set()` / `$notify()` calls from JavaScript, which do not re-render `$store.*` bindings.
 
 ### Routing
 
-- `NoJS.router: object | null` — Access the router instance (created when a `[route-view]` element exists). Methods: `push(path)`, `replace(path)`, `back()`, `forward()`. `null` if no route-view outlet is in the DOM.
+- `NoJS.router: object | null` — Access the router instance (created when a `[route-view]` element exists). Methods: `push(path)`, `replace(path)`, `back()`, `forward()`, `on(fn)` (called with `current` after each navigation; returns an unsubscribe function). The current route is `router.current` (`{ path, params, query, hash, matched }`, also `$route` in expressions); there is no `router.path`. `path` is relative to `router.base` (`<base href>` is not read). `null` if no route-view outlet is in the DOM.
 
 ### Sentinel Symbols
 

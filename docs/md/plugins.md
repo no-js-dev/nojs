@@ -207,6 +207,16 @@ Object values passed to `NoJS.global()` are automatically wrapped in a reactive 
 <span bind="$user.name"></span>
 ```
 
+Object values are copied through JSON before they are wrapped, so any function inside them is dropped: methods of a plain object, and the methods of a class instance. A console warning is emitted when this happens. To expose a callable helper, register the function itself as the global and call it with the `$` prefix:
+
+```html
+<script>
+  NoJS.global('formatPrice', (n) => '$' + n.toFixed(2));
+</script>
+
+<span bind="$formatPrice(product.price)"></span>
+```
+
 ### Ownership Tracking
 
 When a plugin registers a global during its `install` phase, it becomes the owner. If a different plugin overwrites that global, a warning is logged:
@@ -320,6 +330,8 @@ Auth plugins that need access to the real headers can be installed with `{ trust
 ```
 
 Trusted interceptors receive the full, unredacted request options and response object.
+
+Trust comes only from the second argument of `NoJS.use()`; a `trusted` property on the plugin object is ignored. It covers only the interceptors that `install` registers synchronously with `app.interceptor()`. Interceptors registered later (in `init`, after an `await`, from a timer) and app-level `NoJS.interceptor()` calls are untrusted. An untrusted request interceptor cannot set the redacted request headers listed below: values it returns for them are dropped. See [Data Fetching → Setting Sensitive Headers](data-fetching.md#setting-sensitive-headers) for the alternatives.
 
 > A console warning is logged when a plugin is installed with trusted access. Only grant `trusted` to plugins you control or have audited.
 

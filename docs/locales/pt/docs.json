@@ -302,7 +302,7 @@
       },
       "into": {
         "title": "into — Escrever Resultados de Fetch em um Store",
-        "text": "O atributo into em qualquer diretiva HTTP escreve a resposta diretamente em um store global nomeado.",
+        "text": "O atributo into em qualquer diretiva HTTP escreve a resposta em um store global nomeado, sob a chave definida por as (data quando as é omitido): $store.<into>.<as>. Os campos da resposta não são mesclados no próprio store.",
         "callout": "O store não precisa ser pré-definido — into irá criá-lo se não existir."
       },
       "computed": {
@@ -444,7 +444,8 @@
         "preview": "Pré-visualização",
         "checkbox": "Logado",
         "welcome": "✅ Bem-vindo de volta!",
-        "login": "Por favor, faça login."
+        "login": "Por favor, faça login.",
+        "hostCallout": "Quando a condição é falsa, o if limpa o conteúdo do elemento mas mantém o próprio elemento, então padding, border e background continuam visíveis. Para esconder a caixa também, use show/hide ou coloque o if num wrapper sem estilo (como nesta demo)."
       },
       "elseIf": {
         "title": "else-if — Condicionais Encadeadas"
@@ -456,7 +457,7 @@
         "colIf": "if",
         "colShow": "show",
         "mechanism": "Mecanismo",
-        "mechanismIf": "Adiciona/remove elementos do DOM",
+        "mechanismIf": "Adiciona/remove o conteúdo do elemento (o elemento permanece)",
         "mechanismShow": "Alterna CSS display",
         "bestFor": "Melhor para",
         "bestForIf": "Conteúdo raramente alternado",
@@ -740,6 +741,7 @@
         "basicTitle": "Uso Basico",
         "asyncTitle": "Interceptors Assincronos",
         "asyncText": "Interceptors podem ser <code>async</code>. No.JS aguarda cada interceptor com um timeout de 5 segundos — se o interceptor nao resolver a tempo, ele e ignorado e um warning e registrado.",
+        "sensitiveCallout": "Headers sensíveis (Authorization, Cookie, X-API-Key, X-CSRF-Token, X-Auth-*, X-Api-*, …) só podem ser definidos por um interceptor registrado de forma síncrona dentro do install() de um plugin instalado com NoJS.use(plugin, { trusted: true }). Valores definidos por interceptors da aplicação ou não confiáveis são descartados; para esses headers use NoJS.config({ headers }) ou NoJS.config({ csrf }).",
         "cancelTitle": "Cancelar Requests (NoJS.CANCEL)",
         "cancelText": "Retorne um objeto com <code>[NoJS.CANCEL]: true</code> de um interceptor de request para abortar a request completamente. A diretiva fetch trata isso como um <code>AbortError</code>.",
         "respondTitle": "Short-Circuit de Responses (NoJS.RESPOND)",
@@ -770,7 +772,7 @@
         "title": "$route — Contexto da Rota",
         "col1": "Propriedade",
         "col2": "Descrição",
-        "path": "Caminho atual (ex: \"/users/42\")",
+        "path": "Caminho atual, relativo a router.base (ex: \"/users/42\")",
         "params": "Parâmetros da rota (ex: { id: \"42\" })",
         "query": "Parâmetros de query string (ex: { q: \"hello\" })",
         "hash": "Hash da URL (ex: \"#section\")",
@@ -1435,7 +1437,7 @@
         "col2": "Descrição",
         "fetchSuccess": "{ url, data } em resposta bem-sucedida",
         "fetchError": "{ url, error } em caso de falha",
-        "fetchEnd": "{ url } quando a requisição é concluída (sucesso ou falha)"
+        "error": "{ url, error } em caso de falha, emitido logo após fetch:error"
       },
       "lifecycle": {
         "title": "Ciclo de Vida da Requisição"
@@ -1486,7 +1488,7 @@
       },
       "disposal": {
         "title": "Disposal & Cleanup",
-        "text": "Diretivas customizadas devem limpar após si mesmas. Use o callback _onDispose para remover event listeners, limpar timers e cancelar watchers.",
+        "text": "Diretivas customizadas devem limpar após si mesmas. Adicione uma função de cleanup em el.__disposers (ou chame NoJS.internals.onDispose() de forma síncrona dentro do init) para remover event listeners, limpar timers e cancelar watchers. Uma função retornada pelo init é ignorada.",
         "callout": "Diretivas registradas após init (via plugins) não são congeladas — mas não podem sobrescrever diretivas embutidas."
       }
     },

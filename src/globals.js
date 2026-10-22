@@ -150,11 +150,41 @@ export function _extractStoreName(expr) {
   return m ? m[1] : null;
 }
 
-function _notifyPartition(set) {
+// Every `$store` reference, with the store name when written `$store.name`.
+const _STORE_REF_RE = /\$store(?:\.(\w+))?/g;
+
+// Distinct store names an expression references, in order of appearance:
+// `$store.auth.user = x; $store.ui.mode = y` → ["auth", "ui"]. Returns null
+// when a reference cannot be named statically (`$store[key]`, bare `$store`)
+// or there is none — callers then fall back to every partition (notify) or
+// the wildcard partition (watch), as _extractStoreName's null did.
+export function _extractStoreNames(expr) {
+  if (typeof expr !== "string") return null;
+  let names = null;
+  _STORE_REF_RE.lastIndex = 0;
+  let m;
+  while ((m = _STORE_REF_RE.exec(expr)) !== null) {
+    if (!m[1]) {
+      _STORE_REF_RE.lastIndex = 0;
+      return null;
+    }
+    if (!names) names = [m[1]];
+    else if (!names.includes(m[1])) names.push(m[1]);
+  }
+  return names;
+}
+
+// `seen` dedupes a watcher registered in several partitions (an expression
+// reading two stores) when one notification walks more than one partition.
+function _notifyPartition(set, seen) {
   // Snapshot before iterating: a watcher may synchronously add/delete watchers
   // in this same partition, which would otherwise skip or re-run listeners.
   // Isolate each listener so one throwing watcher doesn't abort the rest.
   for (const fn of [...set]) {
+    if (seen) {
+      if (seen.has(fn)) continue;
+      seen.add(fn);
+    }
     if (fn._el && !fn._el.isConnected) {
       set.delete(fn);
       continue;
@@ -167,39 +197,78 @@ function _notifyPartition(set) {
   }
 }
 
+// storeName: a store name, an array of names (_extractStoreNames), or
+// nothing to notify every partition.
 export function _notifyStoreWatchers(storeName) {
+  if (Array.isArray(storeName)) {
+    if (storeName.length > 1) {
+      // One expression wrote several stores: each named partition, then the
+      // wildcard, each watcher at most once.
+      const seen = new Set();
+      for (const name of storeName) {
+        const partition = _storeWatchers.get(name);
+        if (partition) _notifyPartition(partition, seen);
+      }
+      const wildcard = _storeWatchers.get("*");
+      if (wildcard) _notifyPartition(wildcard, seen);
+      return;
+    }
+    storeName = storeName[0];
+  }
   if (storeName) {
-    // Notify only the targeted partition + wildcards
+    // Notify only the targeted partition + wildcards. A watcher lives in "*"
+    // or in named partitions, never both, so no dedupe is needed here.
     const partition = _storeWatchers.get(storeName);
     if (partition) _notifyPartition(partition);
     const wildcard = _storeWatchers.get("*");
     if (wildcard) _notifyPartition(wildcard);
   } else {
     // No store name — notify ALL partitions (backward compat)
+    const seen = new Set();
     for (const set of _storeWatchers.values()) {
-      _notifyPartition(set);
+      _notifyPartition(set, seen);
     }
   }
 }
 
-export function _addStoreWatcher(fn, partition) {
+function _addToPartition(fn, partition) {
   let set = _storeWatchers.get(partition);
   if (!set) {
     set = new Set();
     _storeWatchers.set(partition, set);
   }
   set.add(fn);
+}
+
+function _removeFromPartition(fn, partition) {
+  const set = _storeWatchers.get(partition);
+  if (set) {
+    set.delete(fn);
+    if (set.size === 0) _storeWatchers.delete(partition);
+  }
+}
+
+// partition: a store name, "*", or an array of store names — a watcher that
+// reads several stores joins each of their partitions.
+export function _addStoreWatcher(fn, partition) {
+  if (Array.isArray(partition)) {
+    if (partition.length === 0) partition = "*";
+    else if (partition.length === 1) partition = partition[0];
+  }
+  if (Array.isArray(partition)) {
+    for (const p of partition) _addToPartition(fn, p);
+  } else {
+    _addToPartition(fn, partition);
+  }
   fn._storePartition = partition;
 }
 
 export function _deleteStoreWatcher(fn) {
   const partition = fn._storePartition;
-  if (partition) {
-    const set = _storeWatchers.get(partition);
-    if (set) {
-      set.delete(fn);
-      if (set.size === 0) _storeWatchers.delete(partition);
-    }
+  if (Array.isArray(partition)) {
+    for (const p of partition) _removeFromPartition(fn, p);
+  } else if (partition) {
+    _removeFromPartition(fn, partition);
   } else {
     // Fallback: scan all partitions (legacy safety net)
     for (const [key, set] of _storeWatchers) {
@@ -311,8 +380,7 @@ export function _watchExpr(expr, ctx, fn) {
     });
   }
   if (typeof expr === "string" && expr.includes("$store")) {
-    const partition = _extractStoreName(expr) || "*";
-    _addStoreWatcher(fn, partition);
+    _addStoreWatcher(fn, _extractStoreNames(expr) || "*");
     fn._el = _currentEl;
   }
   if (typeof expr === "string" && expr.includes("$route")) {

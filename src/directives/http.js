@@ -17,7 +17,7 @@ import {
   _deleteRouteWatcher,
   _watchI18n,
   _i18nListeners,
-  _extractStoreName,
+  _extractStoreNames,
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
@@ -1058,7 +1058,7 @@ for (const method of HTTP_METHODS) {
         // get="/users/{$route.params.id}" trigger re-fetch on change.
         // Without these, only local ancestor context changes fire.
         if (url.includes("$store")) {
-          const partition = _extractStoreName(url) || "*";
+          const partition = _extractStoreNames(url) || "*";
           _addStoreWatcher(onAncestorChange, partition);
           onAncestorChange._el = _currentEl;
           _onDispose(() => _deleteStoreWatcher(onAncestorChange));

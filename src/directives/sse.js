@@ -14,7 +14,7 @@ import {
   _deleteRouteWatcher,
   _watchI18n,
   _i18nListeners,
-  _extractStoreName,
+  _extractStoreNames,
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
@@ -258,7 +258,7 @@ registerDirective("sse", {
 
       // Subscribe to global reactive sources
       if (url.includes("$store")) {
-        const partition = _extractStoreName(url) || "*";
+        const partition = _extractStoreNames(url) || "*";
         _addStoreWatcher(onAncestorChange, partition);
         onAncestorChange._el = _currentEl;
         _onDispose(() => _deleteStoreWatcher(onAncestorChange));

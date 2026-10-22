@@ -693,7 +693,7 @@
         "col1": "Attributo",
         "col2": "Descrizione",
         "method": "URL per la richiesta",
-        "body": "Corpo della richiesta (stringa JSON con interpolazione). Per i form, serializza automaticamente i campi",
+        "body": "Corpo della richiesta (stringa JSON con interpolazione). Per i form, serializza automaticamente i campi in un oggetto JSON; gli input di file non vengono caricati (un file viene inviato come oggetto vuoto)",
         "success": "ID del template da renderizzare in caso di successo. Riceve la risposta come var",
         "error": "ID del template da renderizzare in caso di errore. Riceve l'errore come var",
         "loading": "ID del template da mostrare durante la richiesta",

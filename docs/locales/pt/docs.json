@@ -693,7 +693,7 @@
         "col1": "Atributo",
         "col2": "Descrição",
         "method": "URL para a requisição",
-        "body": "Corpo da requisição (string JSON com interpolação). Para formulários, serializa campos automaticamente",
+        "body": "Corpo da requisição (string JSON com interpolação). Para formulários, serializa os campos automaticamente em um objeto JSON; inputs de arquivo não são enviados (um arquivo vai como objeto vazio)",
         "success": "ID do template para renderizar em caso de sucesso. Recebe a resposta como var",
         "error": "ID do template para renderizar em caso de erro. Recebe o erro como var",
         "loading": "ID do template para exibir durante a requisição",

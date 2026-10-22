@@ -9,7 +9,8 @@
      <span class="hl-attr">as</span>=<span class="hl-str">"users"</span>
      <span class="hl-attr">error</span>=<span class="hl-str">"#usersError"</span>
      <span class="hl-attr">retry</span>=<span class="hl-str">"3"</span>
-     <span class="hl-attr">retry-delay</span>=<span class="hl-str">"1000"</span><span class="hl-tag">&gt;</span>
+     <span class="hl-attr">retry-delay</span>=<span class="hl-str">"1000"</span>
+     <span class="hl-attr">ref</span>=<span class="hl-str">"users"</span><span class="hl-tag">&gt;</span>
   ...
 <span class="hl-tag">&lt;/div&gt;</span>
 
@@ -17,7 +18,7 @@
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"error-box"</span><span class="hl-tag">&gt;</span>
     <span class="hl-tag">&lt;p</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.message"</span><span class="hl-tag">&gt;&lt;/p&gt;</span>
     <span class="hl-tag">&lt;p&gt;</span>Status: <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"err.status"</span><span class="hl-tag">&gt;&lt;/span&gt;&lt;/p&gt;</span>
-    <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$el.parentElement.dispatchEvent(new Event('retry'))"</span><span class="hl-tag">&gt;</span>
+    <span class="hl-tag">&lt;button</span> <span class="hl-attr">on:click</span>=<span class="hl-str">"$refs.users.refresh()"</span><span class="hl-tag">&gt;</span>
       Try Again
     <span class="hl-tag">&lt;/button&gt;</span>
   <span class="hl-tag">&lt;/div&gt;</span>

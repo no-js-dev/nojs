@@ -34,6 +34,28 @@ function _guardReentry(fn) {
   };
 }
 
+// Sensitive headers an untrusted interceptor tries to set are discarded.
+// Warn once per interceptor and header name; never log the value.
+const _droppedHeaderWarnings = new WeakMap();
+
+function _warnDroppedSensitiveHeader(entry, index, header) {
+  let warned = _droppedHeaderWarnings.get(entry);
+  if (!warned) {
+    warned = new Set();
+    _droppedHeaderWarnings.set(entry, warned);
+  }
+  const lower = header.toLowerCase();
+  if (warned.has(lower)) return;
+  warned.add(lower);
+  const source = entry.pluginName ? ` (plugin "${entry.pluginName}")` : "";
+  _warn(
+    `Request interceptor [${index}]${source} set sensitive header "${header}", which was discarded: ` +
+    `only trusted interceptors may set sensitive headers. Register the interceptor synchronously in the ` +
+    `install() of a plugin installed with NoJS.use(plugin, { trusted: true }), or set CSRF tokens with ` +
+    `NoJS.config({ csrf: { token } }).`
+  );
+}
+
 // The configured csrf.header name is treated as sensitive only with
 // strictRedaction; by default untrusted interceptors can read and set it.
 function _isSensitiveHeader(name) {
@@ -298,6 +320,7 @@ export async function _doFetch(
                 // (e.g. an auth-token refresh). Their value overrides the
                 // originally-stripped one when re-applied below.
                 if (isTrusted) sensitiveHeaders[key] = value;
+                else _warnDroppedSensitiveHeader(entry, i, key);
               } else {
                 safeHeaders[key] = value;
               }

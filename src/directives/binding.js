@@ -115,8 +115,16 @@ function _sanitizeSvgDataUri(str) {
   }
 }
 
+// strictBindings: SVG's legacy xlink:href is a URL attribute too
+// (bind-xlink:href="javascript:…" on <a>/<use>). Off by default (v1.21.1
+// writes it raw).
+function _isUrlAttr(attrName) {
+  return _SAFE_URL_ATTRS.has(attrName) ||
+    (_config.strictBindings === true && attrName.toLowerCase() === "xlink:href");
+}
+
 function _sanitizeAttrValue(attrName, value) {
-  if (_SAFE_URL_ATTRS.has(attrName)) {
+  if (_isUrlAttr(attrName)) {
     const str = String(value).trimStart();
     // Collapse EVERY ASCII control + whitespace char (U+0000–U+0020) before the
     // scheme check. DOMParser/entity decoding can embed a literal tab/newline/NUL

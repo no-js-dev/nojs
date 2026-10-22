@@ -32,6 +32,20 @@
         <p class="text-sm text-muted mt-2"><span t="docs.events.handlers.youTyped"></span> <span bind="msg"></span></p>
       </div>
     </div>
+
+    <h3 class="doc-subtitle" id="events-unsupported-statements" t="docs.events.unsupported.title"></h3>
+    <p class="doc-text" t="docs.events.unsupported.text" t-html></p>
+    <table class="doc-table">
+      <thead><tr><th t="docs.events.unsupported.colNo"></th><th t="docs.events.unsupported.colYes"></th></tr></thead>
+      <tbody>
+        <tr><td><code>if (ok) { a = 1 }</code>, <code>for (…) { … }</code>, <code>while (…) { … }</code>, <code>return</code>, <code>new</code>, <code>await</code></td><td><code>a = ok ? 1 : a</code></td></tr>
+        <tr><td><code>ok ? a = 1 : b = 2</code> <span t="docs.events.unsupported.ternary"></span></td><td><code>a = ok ? 1 : a; b = ok ? b : 2</code></td></tr>
+        <tr><td><code>ok &amp;&amp; (a = 1)</code>, <code>ok || (a = 1)</code>, <code>ok &amp;&amp; count++</code> <span t="docs.events.unsupported.logical"></span></td><td><code>a = ok ? 1 : a</code></td></tr>
+        <tr><td><code>a = 1, b = 2</code> <span t="docs.events.unsupported.comma"></span></td><td><code>a = 1; b = 2</code></td></tr>
+      </tbody>
+    </table>
+    <p class="doc-text" t="docs.events.unsupported.note" t-html></p>
+    <p class="doc-text" t="docs.events.unsupported.errors" t-html></p>
   </div>
 
   <!-- modifiers -->

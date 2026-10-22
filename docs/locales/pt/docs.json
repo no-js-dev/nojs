@@ -390,6 +390,17 @@
         "youTyped": "Você digitou:",
         "countLabel": "Contagem:"
       },
+      "unsupported": {
+        "title": "Formas de statement não suportadas",
+        "text": "Handlers executam expressões, declarações <code>const</code>/<code>let</code> e atribuições separadas por <code>;</code>, não statements completos de JavaScript. Uma atribuição (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) só tem efeito no nível superior de um statement:",
+        "colNo": "Não suportado",
+        "colYes": "Escreva assim",
+        "ternary": "(atribuição dentro de um ramo do ternário)",
+        "logical": "(atribuição dentro de um operando lógico)",
+        "comma": "(operador vírgula)",
+        "note": "Uma chamada de função dentro de um ramo funciona (<code>ok ? save() : null</code>). Nas formas não suportadas a atribuição não é executada, e um warning no console com a expressão é emitido.",
+        "errors": "Quando um statement lança um erro, o handler para: as escritas <code>name = value</code> não são aplicadas, enquanto mudanças in-place (como <code>items.push(x)</code>) e escritas em <code>$store</code> feitas antes do erro permanecem, e a página as mostra. O erro é registrado como <code>[No.JS] Expression error: &lt;statement&gt;</code> e dispara um evento <code>nojs:error</code> no elemento, para que o <code>error-boundary</code> possa capturá-lo."
+      },
       "modifiers": {
         "title": "Modificadores de Eventos",
         "text": "Modificadores permitem controlar o comportamento do evento diretamente no atributo:",
@@ -816,6 +827,7 @@
         "exampleText": "É isso — <strong>duas linhas</strong> para uma SPA completa com seis rotas.",
         "mixingTitle": "Misturando Rotas Explícitas e Baseadas em Arquivos",
         "mixingText": "Declarações explícitas <code>&lt;template route=\"...\"&gt;</code> <strong>sempre têm prioridade</strong>. Isso permite combinar ambas as abordagens — use roteamento baseado em arquivos para páginas simples e templates explícitos para rotas que precisam de guards, parâmetros ou saídas nomeadas:",
+        "mixingPrefetch": "Na inicialização, o No.JS faz prefetch dos arquivos <code>.tpl</code> dos links <code>&lt;a route&gt;</code> que o roteamento baseado em arquivos renderizaria. Definições <code>&lt;template route&gt;</code>, links cujo caminho já tem uma rota explícita para aquele outlet e padrões (<code>:param</code>, <code>*</code>) nunca são buscados na pasta.",
         "autoI18nTitle": "Namespace i18n Automático",
         "autoI18nText": "Quando o elemento <code>route-view</code> tem um atributo <code>i18n-ns</code> (mesmo sem valor), o No.JS carrega automaticamente o namespace i18n correspondente ao nome do arquivo:",
         "autoI18nText2": "Isso substitui a necessidade de adicionar <code>i18n-ns=\"...\"</code> em cada template de rota individualmente."
@@ -870,8 +882,9 @@
         "remoteText": "Rotas wildcard suportam todos os mesmos atributos que templates de rota regulares, incluindo <code>src</code> para carregamento remoto:",
         "remoteText2": "O template remoto é buscado, armazenado em cache e renderizado como qualquer outro template de rota — e tem acesso completo a <code>$route.path</code>, <code>$route.matched</code> e todas as outras funcionalidades do framework.",
         "fileBasedTitle": "404 no Roteamento Baseado em Arquivos",
-        "fileBasedText": "Ao usar roteamento baseado em arquivos, navegar para um caminho cujo arquivo <code>.tpl</code> não existe no servidor (HTTP 404 ou outro erro) aciona automaticamente a cadeia de fallback wildcard.",
-        "fileBasedText2": "A resposta HTTP com falha <strong>não</strong> é armazenada em cache — navegações subsequentes para outros caminhos não são afetadas."
+        "fileBasedText": "Ao usar roteamento baseado em arquivos, navegar para um caminho cujo arquivo <code>.tpl</code> não existe no servidor (HTTP 404 ou outro erro, ou um SPA fallback que responde com o <code>index.html</code> da aplicação) aciona automaticamente a cadeia de fallback wildcard.",
+        "fileBasedText2": "A resposta HTTP com falha <strong>não</strong> é armazenada em cache — navegações subsequentes para outros caminhos não são afetadas.",
+        "fileBasedSpaFallback": "Um servidor com SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) responde a um <code>.tpl</code> ausente com <code>200</code> e o <code>index.html</code> completo. Quando um template que o roteamento baseado em arquivos resolveu a partir da pasta volta como um documento HTML completo (começa com <code>&lt;!DOCTYPE html&gt;</code> ou <code>&lt;html&gt;</code>), o No.JS o trata como não encontrado e registra um warning, de modo que o wildcard é renderizado em vez do shell da página. <code>&lt;template src&gt;</code> e <code>&lt;template route src&gt;</code> explícitos continuam carregando a resposta como está."
       },
       "headAttributes": {
         "title": "Atributos Head em Rotas",

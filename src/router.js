@@ -381,6 +381,8 @@ export function _createRouter() {
     const tpl = document.createElement("template");
     tpl.setAttribute("src", fullSrc);
     tpl.setAttribute("route", routePath);
+    // File-based lookups treat an SPA-fallback index.html as "not found"
+    tpl.__rejectHtmlDocument = true;
     document.body.appendChild(tpl);
     _autoTemplateCache.set(cacheKey, tpl);
     return tpl;
@@ -943,9 +945,11 @@ export function _createRouter() {
       const indexName = outletEl.getAttribute("route-index") || "index";
       const outletName = (outletEl.getAttribute("route-view") || "").trim() || "default";
 
-      // Collect routes from links, keeping most aggressive lazy level per path
+      // Collect routes from links, keeping most aggressive lazy level per path.
+      // <template route> elements are route definitions, not links: they are
+      // rendered from their own content, never from a file.
       const routeLazy = new Map();
-      document.querySelectorAll("[route]:not([route-view])").forEach((link) => {
+      document.querySelectorAll("[route]:not([route-view]):not(template)").forEach((link) => {
         const raw = link.getAttribute("route");
         if (!raw) return;
         const path = raw.split("?")[0].split("#")[0];
@@ -962,6 +966,10 @@ export function _createRouter() {
 
       for (const [path, lazy] of routeLazy) {
         if (lazy === "ondemand" || path === current.path || path === "*") continue;
+        // Patterns never resolve to a file: rendering uses the concrete URL
+        if (/\/:\w/.test(path) || path.includes("*")) continue;
+        // An explicit route for this outlet wins over file-based resolution
+        if (matchRoute(path)?.route?.outlets?.[outletName]) continue;
         const segment = path === "/" ? indexName : path.replace(/^\//, "");
         const pathSegments = path === "/" ? [] : path.replace(/^\//, "").split("/").filter(Boolean);
 

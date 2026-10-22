@@ -21,7 +21,7 @@ import {
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _interpolateEncoded, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { evaluate, _execStatement, _interpolate, _interpolateBody, _FORBIDDEN_PROPS } from "../evaluate.js";
 import { _doFetch, _cacheGet, _cacheSet, _eventUrl, _devtoolsUrl } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolateEncoded(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateBody(bodyAttr, ctx).key;
           }
         }
         const cacheKey =
@@ -431,12 +431,7 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolateEncoded(bodyAttr, ctx);
-            try {
-              reqBody = JSON.parse(interpolated);
-            } catch {
-              reqBody = interpolated;
-            }
+            reqBody = _interpolateBody(bodyAttr, ctx).body;
           }
 
           // For forms, collect form data

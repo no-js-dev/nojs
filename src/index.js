@@ -121,6 +121,55 @@ function _deepCheckUnsafe(obj, seen = new Set()) {
   }
 }
 
+const _MAX_DROPPED_PATHS = 5;
+
+// Built-in prototypes (Map, Set, RegExp, …) are not walked for methods.
+function _isBuiltinProto(proto) {
+  const ctor = Object.getOwnPropertyDescriptor(proto, "constructor")?.value;
+  if (typeof ctor !== "function") return false;
+  try {
+    return /\[native code\]\s*\}$/.test(Function.prototype.toString.call(ctor));
+  } catch {
+    return true;
+  }
+}
+
+// Paths of the function values a JSON round-trip of `obj` drops: own
+// enumerable function properties and class-instance prototype methods.
+// Mirrors JSON.stringify's walk; objects with toJSON() are left to it.
+function _collectFunctionPaths(obj, path, out, seen = new Set()) {
+  if (!obj || typeof obj !== "object" || seen.has(obj)) return out;
+  if (typeof obj.toJSON === "function") return out;
+  seen.add(obj);
+  const isArray = Array.isArray(obj);
+  for (const key of Object.keys(obj)) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (!desc || !("value" in desc)) continue;
+    const val = desc.value;
+    const childPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
+    if (typeof val === "function") out.push(childPath);
+    else _collectFunctionPaths(val, childPath, out, seen);
+  }
+  if (!isArray) {
+    const names = new Set();
+    for (
+      let proto = Object.getPrototypeOf(obj);
+      proto && proto !== Object.prototype && !_isBuiltinProto(proto);
+      proto = Object.getPrototypeOf(proto)
+    ) {
+      for (const key of Object.getOwnPropertyNames(proto)) {
+        if (key === "constructor" || names.has(key) || Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const desc = Object.getOwnPropertyDescriptor(proto, key);
+        if (desc && typeof desc.value === "function") {
+          names.add(key);
+          out.push(`${path}.${key}`);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 //  PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════
@@ -258,6 +307,11 @@ const NoJS = {
     // Warn on trusted access
     if (options.trusted === true) {
       _warn(`WARNING: Plugin "${plugin.name}" installed with trusted access to sensitive HTTP headers.`);
+    } else if (plugin.trusted === true) {
+      _warn(
+        `Plugin "${plugin.name}" sets trusted: true on the plugin object, which is ignored. ` +
+        `Trust is granted only by the install options: NoJS.use(plugin, { trusted: true }).`
+      );
     }
 
     // Set current plugin name for interceptor tracking
@@ -317,7 +371,23 @@ const NoJS = {
     // Sanitize object values to strip __proto__ keys
     if (value && typeof value === "object" && !value.__isProxy) {
       try {
+        let dropped = [];
+        try {
+          dropped = _collectFunctionPaths(value, "$" + name, []);
+        } catch {
+          // Diagnostics only: never let the scan change what gets stored.
+        }
         value = JSON.parse(JSON.stringify(value));
+        if (dropped.length) {
+          const extra = dropped.length - _MAX_DROPPED_PATHS;
+          _warn(
+            `NoJS.global(): "$${name}" is stored as a JSON copy, which drops function values: ` +
+            dropped.slice(0, _MAX_DROPPED_PATHS).join(", ") +
+            (extra > 0 ? ` (and ${extra} more)` : "") +
+            `. Calls to them resolve to undefined. Register each function as a top-level global ` +
+            `(NoJS.global("fnName", fn), called as $fnName()) or use a custom directive.`
+          );
+        }
       } catch {
         // Non-serializable objects — check for dangerous function references
         try {

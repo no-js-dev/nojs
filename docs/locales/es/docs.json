@@ -693,7 +693,7 @@
         "col1": "Atributo",
         "col2": "Descripción",
         "method": "URL para la solicitud",
-        "body": "Cuerpo de la solicitud (cadena JSON con interpolación). Para formularios, serializa los campos automáticamente",
+        "body": "Cuerpo de la solicitud (cadena JSON con interpolación). Para formularios, serializa los campos automáticamente en un objeto JSON; los inputs de archivo no se suben (un archivo se envía como objeto vacío)",
         "success": "ID de plantilla a renderizar en caso de éxito. Recibe la respuesta como var",
         "error": "ID de plantilla a renderizar en caso de error. Recibe el error como var",
         "loading": "ID de plantilla a mostrar durante la solicitud",

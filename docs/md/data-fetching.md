@@ -199,7 +199,7 @@ Used on forms or triggered via `call`.
 | Attribute | Description |
 |-----------|-------------|
 | `post`, `put`, `patch`, `delete` | URL for the request |
-| `body` | Request body (JSON string with interpolation). For forms, auto-serializes fields |
+| `body` | Request body (JSON string with interpolation). For forms, auto-serializes the fields into a JSON object; `<input type="file">` values are not uploaded (a file is sent as `{}`) |
 | `success` | Template ID to render on success. Receives response as `var` |
 | `error` | Template ID to render on error. Receives error as `var` |
 | `loading` | Template ID to show during request |

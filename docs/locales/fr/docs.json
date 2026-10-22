@@ -693,7 +693,7 @@
         "col1": "Attribut",
         "col2": "Description",
         "method": "URL de la requête",
-        "body": "Corps de la requête (chaîne JSON avec interpolation). Pour les formulaires, sérialise automatiquement les champs",
+        "body": "Corps de la requête (chaîne JSON avec interpolation). Pour les formulaires, sérialise automatiquement les champs en objet JSON ; les champs de fichier ne sont pas envoyés (un fichier part comme objet vide)",
         "success": "ID du template à afficher en cas de succès. Reçoit la réponse comme var",
         "error": "ID du template à afficher en cas d'erreur. Reçoit l'erreur comme var",
         "loading": "ID du template à afficher pendant la requête",

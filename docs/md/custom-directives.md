@@ -48,6 +48,27 @@ Extend No.JS with your own attribute-driven behaviors.
 </script>
 ```
 
+### Handler Contract
+
+- The handler is an object: `{ priority, init }`. A plain function is not accepted, and other properties such as `update` or `destroy` are ignored.
+- `init(el, name, value)` runs once per element, in priority order. `name` is the attribute name and `value` is the raw attribute string. It is not evaluated and no context is passed in: call `NoJS.findContext(el)` and `NoJS.evaluate(value, ctx)` yourself.
+- The value returned by `init` is ignored. To react to later changes, subscribe with `ctx.$watch(fn)`, which returns an unsubscribe function. It is notified of changes to keys that live on that context; a key owned by an ancestor context (for example a `state` variable read from inside a loop item) does not notify it, so watch the owning context (`ctx.$parent`, …) in that case. To clean up, use the element's disposers (see [Cleanup / Disposal](#cleanup--disposal)).
+
+```html
+<script>
+  NoJS.directive('live-title', {
+    init(el, name, value) {
+      const ctx = NoJS.findContext(el);
+      const render = () => { el.title = NoJS.evaluate(value, ctx) ?? ''; };
+      render();
+      const unwatch = ctx.$watch(render);
+      el.__disposers = el.__disposers || [];
+      el.__disposers.push(unwatch);
+    }
+  });
+</script>
+```
+
 ---
 
 ### Priority Levels
@@ -67,7 +88,7 @@ Default priority when omitted: 50 (runs after all built-in directives).
 
 ### Cleanup / Disposal
 
-If your directive adds event listeners, observers, or timers, register cleanup via the element's disposal system. Return a cleanup function or use `_onDispose`:
+If your directive adds event listeners, observers, or timers, register cleanup via the element's disposal system: push a function onto `el.__disposers`. The disposers run when the element is removed by No.JS (for example by `if`, a loop or a route change). Returning a function from `init` does not register it. Inside `init` you can also call `NoJS.internals.onDispose(fn)`, which does the same for the element being initialized; it must be called synchronously, not from a callback:
 
 ```html
 <script>

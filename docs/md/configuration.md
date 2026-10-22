@@ -33,9 +33,9 @@
     // Router
     router: {
       useHash: false,          // true = hash mode, false = history mode (default)
-      base: '/',
+      base: '/',               // URL prefix (history mode); $route.path excludes it. <base href> is not read
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
-      templates: 'pages',       // Default base path for file-based routing (default: 'pages')
+      templates: 'pages',       // Default base path for file-based routing (default: 'pages'); use '/pages' in history mode so deep links resolve
       ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
       suppressHashWarning: false, // Suppress hash-in-history-mode console warning
       focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
@@ -398,18 +398,23 @@ The NoJS event bus (`NoJS.on()`) emits the following framework events. Use `NoJS
 
 | Event | Payload | When |
 |-------|---------|------|
-| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) received a successful response |
-| `fetch:error` | `{ url, error }` | An HTTP directive failed (network error or non-ok status) |
-| `fetch:end` | `{ url }` | An HTTP request completed (success or failure) — useful for spinners or progress bars |
+| `fetch:success` | `{ url, data }` | An HTTP directive (`get`/`post`/etc.) or `call` received a successful response |
+| `fetch:error` | `{ url, error }` | An HTTP directive or `call` failed (network error or non-ok status) |
+| `error` | `{ url, error }` | Emitted right after `fetch:error`, with the same payload — the [global error handler](error-handling.md#global-error-handler) hook |
+| `fetch:end` | `{ url }` | A paginated `get` (`get-trigger` + `get-insert`) reached the end of its data, and pagination stopped. It is not emitted for other requests |
 | `plugins:ready` | _(none)_ | All registered plugins have been initialized during `NoJS.init()` |
 
 ```js
-// Example: global loading indicator
-let activeRequests = 0;
-NoJS.on('fetch:success', () => { activeRequests--; updateSpinner(); });
-NoJS.on('fetch:error', () => { activeRequests--; updateSpinner(); });
-NoJS.on('fetch:end', () => { /* always fires, regardless of outcome */ });
+NoJS.on('fetch:success', ({ url }) => console.log('loaded', url));
+NoJS.on('fetch:error', ({ url, error }) => console.warn(url, error.message));
+NoJS.on('fetch:end', ({ url }) => { /* no more pages for this list */ });
 ```
+
+No other events are emitted on the bus: there are no store-change, navigation, locale or dispose events. Use these instead:
+
+- **Store changes** — `NoJS.store.cart.$watch(fn)` (returns an unsubscribe function), or the [`watch`](state-management.md) directive in HTML.
+- **Navigation** — `NoJS.router.on(fn)`: `fn` receives `router.current` after each navigation, and the call returns an unsubscribe function. To block a navigation, use a route `guard`.
+- **Teardown** — a plugin's `dispose` hook.
 
 ---
 

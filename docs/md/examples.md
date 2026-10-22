@@ -12,12 +12,18 @@ via a request interceptor.
 
 ```html
 <script>
-  // Attach token to every outgoing request
-  NoJS.interceptor('request', (url, opts) => {
-    const token = NoJS.store.auth.token;
-    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-    return opts;
-  });
+  // Attach token to every outgoing request. Authorization is a sensitive
+  // header, so only an interceptor from a trusted plugin may set it.
+  NoJS.use({
+    name: 'auth-header',
+    install(app) {
+      app.interceptor('request', (url, opts) => {
+        const token = NoJS.store.auth.token;
+        if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+        return opts;
+      });
+    }
+  }, { trusted: true });
 </script>
 
 <!-- Global auth store -->
@@ -272,12 +278,17 @@ All five patterns combined into a single production-grade SPA:
       router: { useHash: false }
     });
 
-    // Attach JWT to every request
-    NoJS.interceptor('request', (url, opts) => {
-      const token = NoJS.store.auth.token;
-      if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-      return opts;
-    });
+    // Attach JWT to every request (sensitive header: trusted plugin only)
+    NoJS.use({
+      name: 'auth-header',
+      install(app) {
+        app.interceptor('request', (url, opts) => {
+          const token = NoJS.store.auth.token;
+          if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+          return opts;
+        });
+      }
+    }, { trusted: true });
 
     // Revoke JWT on 401/403
     NoJS.interceptor('response', (response) => {

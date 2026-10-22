@@ -302,7 +302,7 @@
       },
       "into": {
         "title": "into — Write Fetch Results to a Store",
-        "text": "The into attribute on any HTTP directive writes the response directly into a named global store.",
+        "text": "The into attribute on any HTTP directive writes the response into a named global store, under the key named by as (data when as is omitted): $store.<into>.<as>. The response fields are not merged into the store itself.",
         "callout": "The store doesn't need to be pre-defined — into will create it if it doesn't exist."
       },
       "computed": {
@@ -444,7 +444,8 @@
         "preview": "Preview",
         "checkbox": "Logged in",
         "welcome": "✅ Welcome back!",
-        "login": "Please log in."
+        "login": "Please log in.",
+        "hostCallout": "When the condition is false, if clears the element's content but keeps the element itself, so its padding, border and background stay visible. To hide the box too, use show/hide, or put if on an unstyled wrapper (as in this demo)."
       },
       "elseIf": {
         "title": "else-if — Chained Conditionals"
@@ -456,7 +457,7 @@
         "colIf": "if",
         "colShow": "show",
         "mechanism": "Mechanism",
-        "mechanismIf": "Adds/removes DOM elements",
+        "mechanismIf": "Adds/removes the element's content (the element stays)",
         "mechanismShow": "Toggles CSS display",
         "bestFor": "Best for",
         "bestForIf": "Rarely toggled content",
@@ -740,6 +741,7 @@
         "basicTitle": "Basic Usage",
         "asyncTitle": "Async Interceptors",
         "asyncText": "Interceptors can be <code>async</code>. No.JS awaits each interceptor with a 5-second timeout — if the interceptor doesn't resolve in time, it is skipped and a warning is logged.",
+        "sensitiveCallout": "Sensitive headers (Authorization, Cookie, X-API-Key, X-CSRF-Token, X-Auth-*, X-Api-*, …) can only be set by an interceptor registered synchronously inside install() of a plugin installed with NoJS.use(plugin, { trusted: true }). Values set by app-level or untrusted interceptors are dropped; for those headers use NoJS.config({ headers }) or NoJS.config({ csrf }) instead.",
         "cancelTitle": "Cancel Requests (NoJS.CANCEL)",
         "cancelText": "Return an object with <code>[NoJS.CANCEL]: true</code> from a request interceptor to abort the request entirely. The fetch directive treats this as an <code>AbortError</code>.",
         "respondTitle": "Short-Circuit Responses (NoJS.RESPOND)",
@@ -770,7 +772,7 @@
         "title": "$route — Route Context",
         "col1": "Property",
         "col2": "Description",
-        "path": "Current path (e.g. \"/users/42\")",
+        "path": "Current path, relative to router.base (e.g. \"/users/42\")",
         "params": "Route parameters (e.g. { id: \"42\" })",
         "query": "Query string params (e.g. { q: \"hello\" })",
         "hash": "URL hash (e.g. \"#section\")",
@@ -1435,7 +1437,7 @@
         "col2": "Description",
         "fetchSuccess": "{ url, data } on successful response",
         "fetchError": "{ url, error } on failure",
-        "fetchEnd": "{ url } when the request completes (success or failure)"
+        "error": "{ url, error } on failure, emitted right after fetch:error"
       },
       "lifecycle": {
         "title": "Request Lifecycle"
@@ -1479,7 +1481,7 @@
       },
       "disposal": {
         "title": "Disposal & Cleanup",
-        "text": "Custom directives must clean up after themselves. Use the _onDispose callback to remove event listeners, clear timers, and unsubscribe watchers.",
+        "text": "Custom directives must clean up after themselves. Push a cleanup function onto el.__disposers (or call NoJS.internals.onDispose() synchronously inside init) to remove event listeners, clear timers, and unsubscribe watchers. A function returned from init is ignored.",
         "callout": "Directives registered after init (via plugins) are not frozen — but they cannot override built-in directives."
       },
       "webComponents": {

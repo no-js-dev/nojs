@@ -80,7 +80,8 @@
   init(el, attr, value) {
     const handler = () => showTooltip(el, value);
     el.addEventListener('mouseenter', handler);
-    _onDispose(() => el.removeEventListener('mouseenter', handler));
+    el.__disposers = el.__disposers || [];
+    el.__disposers.push(() => el.removeEventListener('mouseenter', handler));
   }
 });</pre></div>
     <div class="callout">

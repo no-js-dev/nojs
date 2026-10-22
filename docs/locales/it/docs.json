@@ -302,7 +302,7 @@
       },
       "into": {
         "title": "into — Scrivere i Risultati del Fetch in uno Store",
-        "text": "L'attributo into su qualsiasi direttiva HTTP scrive la risposta direttamente in uno store globale con nome.",
+        "text": "L'attributo into su qualsiasi direttiva HTTP scrive la risposta in uno store globale con nome, sotto la chiave indicata da as (data se as è omesso): $store.<into>.<as>. I campi della risposta non vengono uniti nello store stesso.",
         "callout": "Lo store non deve essere predefinito — into lo creerà se non esiste."
       },
       "computed": {
@@ -444,7 +444,8 @@
         "preview": "Anteprima",
         "checkbox": "Autenticato",
         "welcome": "✅ Bentornato!",
-        "login": "Effettua il login."
+        "login": "Effettua il login.",
+        "hostCallout": "Quando la condizione è falsa, if svuota il contenuto dell'elemento ma mantiene l'elemento stesso, quindi padding, bordo e sfondo restano visibili. Per nascondere anche il riquadro, usa show/hide oppure metti if su un contenitore senza stile (come in questa demo)."
       },
       "elseIf": {
         "title": "else-if — Condizionali Concatenati"
@@ -456,7 +457,7 @@
         "colIf": "if",
         "colShow": "show",
         "mechanism": "Meccanismo",
-        "mechanismIf": "Aggiunge/rimuove elementi DOM",
+        "mechanismIf": "Aggiunge/rimuove il contenuto dell'elemento (l'elemento resta)",
         "mechanismShow": "Alterna il display CSS",
         "bestFor": "Ideale per",
         "bestForIf": "Contenuto alternato raramente",
@@ -740,6 +741,7 @@
         "basicTitle": "Utilizzo Base",
         "asyncTitle": "Interceptor Asincroni",
         "asyncText": "Gli interceptor possono essere <code>async</code>. No.JS attende ogni interceptor con un timeout di 5 secondi — se l'interceptor non si risolve in tempo, viene saltato e viene registrato un avviso.",
+        "sensitiveCallout": "Gli header sensibili (Authorization, Cookie, X-API-Key, X-CSRF-Token, X-Auth-*, X-Api-*, …) possono essere impostati solo da un interceptor registrato in modo sincrono dentro install() di un plugin installato con NoJS.use(plugin, { trusted: true }). I valori impostati da interceptor dell'applicazione o non attendibili vengono scartati; per questi header usa NoJS.config({ headers }) o NoJS.config({ csrf }).",
         "cancelTitle": "Cancellare Richieste (NoJS.CANCEL)",
         "cancelText": "Ritorna un oggetto con <code>[NoJS.CANCEL]: true</code> da un interceptor di richiesta per annullare completamente la richiesta. La direttiva fetch tratta questo come un <code>AbortError</code>.",
         "respondTitle": "Risposte Short-Circuit (NoJS.RESPOND)",
@@ -770,7 +772,7 @@
         "title": "$route — Contesto della Route",
         "col1": "Proprietà",
         "col2": "Descrizione",
-        "path": "Percorso corrente (es. \"/users/42\")",
+        "path": "Percorso corrente, relativo a router.base (es. \"/users/42\")",
         "params": "Parametri della route (es. { id: \"42\" })",
         "query": "Parametri della query string (es. { q: \"hello\" })",
         "hash": "Hash dell'URL (es. \"#section\")",
@@ -1435,7 +1437,7 @@
         "col2": "Descrizione",
         "fetchSuccess": "{ url, data } in caso di risposta riuscita",
         "fetchError": "{ url, error } in caso di errore",
-        "fetchEnd": "{ url } quando la richiesta si completa (successo o errore)"
+        "error": "{ url, error } in caso di errore, emesso subito dopo fetch:error"
       },
       "lifecycle": {
         "title": "Ciclo di Vita della Richiesta"
@@ -1486,7 +1488,7 @@
       },
       "disposal": {
         "title": "Disposal & Cleanup",
-        "text": "Le direttive personalizzate devono pulire dopo se stesse. Usa il callback _onDispose per rimuovere event listener, pulire timer e annullare watcher.",
+        "text": "Le direttive personalizzate devono pulire dopo se stesse. Aggiungi una funzione di pulizia a el.__disposers (oppure chiama NoJS.internals.onDispose() in modo sincrono dentro init) per rimuovere event listener, pulire timer e annullare watcher. Una funzione restituita da init viene ignorata.",
         "callout": "Le direttive registrate dopo init (via plugin) non sono congelate — ma non possono sovrascrivere le direttive integrate."
       }
     },

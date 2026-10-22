@@ -78,7 +78,7 @@ Absolute URLs skip base resolution:
 | `empty` | `string` | Template ID to show when response is empty array/null |
 | `refresh` | `number` | Auto-refresh interval in ms (polling) |
 | `cached` | `boolean\|string` | Cache responses. `cached` = memory, `cached="local"` = localStorage, `cached="session"` = sessionStorage |
-| `into` | `string` | Write response to a named global store |
+| `into` | `string` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `debounce` | `number` | Debounce in ms (useful with reactive URLs) |
 | `headers` | `string` | JSON string of additional headers |
 | `params` | `string` | Expression that resolves to query params object |
@@ -206,7 +206,7 @@ Used on forms or triggered via `call`.
 | `confirm` | Show browser `confirm()` dialog before sending |
 | `redirect` | URL to navigate to on success (SPA route) |
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
-| `into` | Write response to a named global store |
+| `into` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `cached` | Cache responses (memory/local/session) |
 
 ### Request Lifecycle
@@ -437,11 +437,11 @@ The button is auto-generated and inserted after the content. It is automatically
 
 ### `fetch:end` Event
 
-The `fetch:end` event fires on the NoJS event bus after every HTTP request completes, regardless of success or failure. This is useful for dismissing global loading indicators:
+The `fetch:end` event fires on the NoJS event bus when a paginated `get` (`get-trigger` with `get-insert`) reaches the end of its data: an empty page, a last-page response header, or an exhausted cursor. Pagination stops at that point. It is not emitted for other requests; use `fetch:success` and `fetch:error` to track individual requests.
 
 ```js
 NoJS.on('fetch:end', ({ url }) => {
-  console.log('Request finished:', url);
+  console.log('No more pages:', url);
 });
 ```
 
@@ -483,10 +483,33 @@ Interceptor functions can be async. Each interceptor is given a 5-second timeout
 ```html
 <script>
   NoJS.interceptor('request', async (url, options) => {
-    const token = await refreshTokenIfExpired();
-    options.headers['Authorization'] = 'Bearer ' + token;
+    options.headers['X-Client-Version'] = await getClientVersion();
     return options;
   });
+</script>
+```
+
+### Setting Sensitive Headers
+
+App-level interceptors (`NoJS.interceptor()`) and interceptors from plugins installed without `{ trusted: true }` cannot set sensitive headers: `Authorization`, `Cookie`, `Set-Cookie`, `Proxy-Authorization`, `X-API-Key`, `X-Auth-Token`, `X-CSRF-Token`, and any `X-Auth-*` / `X-Api-*` header. Values they return for those headers are dropped; their other headers still apply. Use one of these instead:
+
+- **Global header** — `NoJS.config({ headers: { Authorization: 'Bearer ' + token } })`. It can be called again after login; new headers are merged into the existing ones.
+- **CSRF token** — `NoJS.config({ csrf: { token } })` (sent on same-origin non-GET requests). For a token that changes, use a getter: `csrf: { get token() { return readToken(); } }`.
+- **Per request** — the `headers` attribute on the element.
+- **Computed per request** (for example a token refresh) — a request interceptor from a trusted plugin. Trust comes only from the second argument of `NoJS.use()`; a `trusted` property on the plugin object is ignored. The interceptor must be registered synchronously inside `install` — one registered later (in `init`, after an `await`, in a timer) is untrusted:
+
+```html
+<script>
+  NoJS.use({
+    name: 'auth-token',
+    install(app) {
+      app.interceptor('request', async (url, options) => {
+        const token = await refreshTokenIfExpired();
+        options.headers['Authorization'] = 'Bearer ' + token;
+        return options;
+      });
+    }
+  }, { trusted: true });
 </script>
 ```
 

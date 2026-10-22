@@ -68,21 +68,21 @@ You can also create stores programmatically with `NoJS.config()`. This is useful
 
 ## `into` — Write Fetch Results to a Store
 
-The `into` attribute on any HTTP directive writes the response directly into a named global store.
+The `into` attribute on any HTTP directive writes the response into a named global store, under the key named by `as` (`data` when `as` is omitted). The response is stored at `$store.<into>.<as>`; its fields are not merged into the store itself.
 
 ```html
 <!-- Define an empty store -->
 <div store="currentUser" value="{}"></div>
 
-<!-- Fetch and write into the store -->
+<!-- Fetch and write into the store: the response is stored at $store.currentUser.user -->
 <div get="/me" as="user" into="currentUser">
   <p>Fetched: <span bind="user.name"></span></p>
 </div>
 
 <!-- Read from the store anywhere else on the page -->
 <nav>
-  <span bind="$store.currentUser.name"></span>
-  <span bind="$store.currentUser.email"></span>
+  <span bind="$store.currentUser.user.name"></span>
+  <span bind="$store.currentUser.user.email"></span>
 </nav>
 ```
 
@@ -96,10 +96,12 @@ The store doesn't need to be pre-defined — `into` will create it if it doesn't
   Refresh Session
 </button>
 
-<!-- These update reactively when the call completes -->
-<span bind="$store.session.token"></span>
-<span bind="$store.session.expiresAt"></span>
+<!-- No `as`, so the response is stored at $store.session.data -->
+<span bind="$store.session.data.token"></span>
+<span bind="$store.session.data.expiresAt"></span>
 ```
+
+> `into` takes a plain store name. A dotted value such as `into="user.profile"` does not write to a nested path: it creates a store whose name is literally `user.profile`, which `$store.user.profile` cannot reach.
 
 ---
 
@@ -264,6 +266,10 @@ When external JavaScript (interceptors, helper functions, `<script>` blocks) mut
 <div store="cart" value="{ items: [], total: 0 }"></div>
 <span bind="$store.cart.items.length + ' items'"></span>
 ```
+
+`NoJS.notify()` is also needed after the store's own methods. `NoJS.store.cart.$set('total', 0)` and `NoJS.store.cart.$notify()` update the store and run its `$watch` listeners, but they do not re-render `$store.*` bindings.
+
+Create stores with the `store` attribute or `NoJS.config({ stores: { ... } })`. Assigning a new key on `NoJS.store` (`NoJS.store.prefs = { theme: 'dark' }`) adds a plain object, not a reactive store: it has no `$watch` or `$set`, and bindings that read it change only when `NoJS.notify()` runs.
 
 ### Interceptor example
 

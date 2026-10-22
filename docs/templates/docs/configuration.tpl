@@ -35,9 +35,9 @@
     // Router
     router: {
       useHash: false,          // true = hash mode, false = history mode (default)
-      base: '/',
+      base: '/',               // URL prefix (history mode); $route.path excludes it. &lt;base href&gt; is not read
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
-      templates: 'pages',      // Default base path for file-based routing
+      templates: 'pages',      // Default base path for file-based routing; use '/pages' in history mode so deep links resolve
       ext: '.tpl',              // Default file extension (fallback: '.html')
       suppressHashWarning: false, // Suppress hash-in-history-mode warning
       focusBehavior: 'none',   // Focus management after navigation

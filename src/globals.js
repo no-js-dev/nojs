@@ -129,8 +129,21 @@ export function _log(...args) {
   if (_config.debug) console.log("[No.JS]", ...args);
 }
 
+let _warnMuted = 0;
+
 export function _warn(...args) {
+  if (_warnMuted) return;
   console.warn("[No.JS]", ...args);
+}
+
+// Run fn with _warn silenced (a probe evaluation whose result may be discarded).
+export function _withMutedWarnings(fn) {
+  _warnMuted++;
+  try {
+    return fn();
+  } finally {
+    _warnMuted--;
+  }
 }
 
 // ─── Shared URL utility ─────────────────────────────────────────────────────

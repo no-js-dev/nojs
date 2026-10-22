@@ -2,7 +2,7 @@
 //  EXPRESSION EVALUATOR
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreNames, _globals, _setExprRootKeysFn } from "./globals.js";
+import { _config, _stores, _routerInstance, _filters, _warn, _withMutedWarnings, _notifyStoreWatchers, _extractStoreNames, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
 import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
@@ -2466,8 +2466,156 @@ export function _interpolateEncoded(str, ctx, _hook) {
     const val = evaluate(expr.trim(), ctx);
     if (val == null) return "";
     const enc = encodeURIComponent(String(val));
-    return _hook ? _hook(enc, expr, offset) : enc;
+    return _hook ? _hook(enc, expr, offset, val) : enc;
   });
+}
+
+function _parseJson(s) {
+  try {
+    return { value: JSON.parse(s) };
+  } catch {
+    return null;
+  }
+}
+
+// Resolve an HTTP `body` attribute to { body, key }: the request body handed
+// to _doFetch and the text a QUERY cache key folds in.
+// Default: the v1.21.1 result, byte-for-byte — _interpolateEncoded, then
+// JSON.parse with the raw string as fallback. Three body shapes that v1.21.1
+// always mangled take another path:
+// - JSON template (trimmed text starts with "{" followed by '"' or "}", or
+//   with "[" and holds such an object): the v1.21.1 regex swallowed the "{"
+//   of the object into a placeholder and URL-encoded every value. When that
+//   result is not valid JSON, the placeholders are filled JSON-aware instead
+//   (_interpolateJson); used only when the result is valid JSON.
+// - Object literal (body="{ id: item.id }", "{ email, password }"): v1.21.1
+//   evaluated the inner text and dropped everything after its first token;
+//   the whole text is now evaluated as one object-literal expression.
+// - A single placeholder whose value stringifies to "[object Object]"
+//   (body="{payload}"): the value itself is sent, as JSON.
+export function _interpolateBody(str, ctx) {
+  const t = str.trim();
+  const after = t[0] === "{" ? t.slice(1).trimStart()[0] : undefined;
+  if (t[0] === "[" || after === '"' || after === "}") {
+    let res = null;
+    try {
+      res = _interpolateJson(t, ctx);
+    } catch {
+      res = null;
+    }
+    const json = res && (t[0] === "{" || res.objects) ? res.json : null;
+    const parsed = json === null ? null : _parseJson(json);
+    if (parsed) {
+      const legacy = _withMutedWarnings(() => _interpolateEncoded(str, ctx));
+      const legacyParsed = _parseJson(legacy);
+      if (legacyParsed) return { body: legacyParsed.value, key: legacy };
+      return { body: parsed.value, key: json };
+    }
+  } else if (t[0] === "{" && _isObjectLiteralBody(t)) {
+    const val = evaluate(t, ctx);
+    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
+      return { body: val, key: JSON.stringify(val) };
+    }
+  }
+  const single = /^\s*\{[^}]+\}\s*$/.test(str);
+  let whole;
+  const legacy = _interpolateEncoded(
+    str,
+    ctx,
+    single ? (enc, _expr, _offset, val) => ((whole = val), enc) : undefined,
+  );
+  if (whole !== null && typeof whole === "object" && String(whole).includes("[object Object]")) {
+    return { body: whole, key: JSON.stringify(whole) };
+  }
+  const parsed = _parseJson(legacy);
+  return { body: parsed ? parsed.value : legacy, key: legacy };
+}
+
+// Fill {expr} placeholders in a JSON template. Inside a JSON string the value
+// is escaped as string content ("" for null/undefined, as in v1.21.1);
+// elsewhere it is JSON.stringify(value) ("null" when that is undefined). A "{"
+// outside a string followed by '"' or "}" is JSON structure, not a
+// placeholder. Returns { json, objects } (objects: count of such "{"), or null
+// when a placeholder is not closed.
+function _interpolateJson(t, ctx) {
+  const inString = /\{([^{}"\\]+)\}/y;
+  const structural = /\s*["}]/y;
+  let out = "";
+  let objects = 0;
+  let inStr = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) {
+      if (ch === "\\") {
+        out += t.slice(i, i + 2);
+        i++;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      else if (ch === "{") {
+        inString.lastIndex = i;
+        const m = inString.exec(t);
+        if (m) {
+          const val = evaluate(m[1].trim(), ctx);
+          out += val == null ? "" : JSON.stringify(String(val)).slice(1, -1);
+          i += m[0].length - 1;
+          continue;
+        }
+      }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{") {
+      structural.lastIndex = i + 1;
+      if (!structural.test(t)) {
+        const end = _placeholderEnd(t, i);
+        if (end < 0) return null;
+        const json = JSON.stringify(evaluate(t.slice(i + 1, end).trim(), ctx));
+        out += json === undefined ? "null" : json;
+        i = end;
+        continue;
+      }
+      objects++;
+    }
+    out += ch;
+  }
+  return { json: out, objects };
+}
+
+// Index of the "}" that closes the placeholder opened at `start` (nested
+// braces and quoted strings skipped), or -1.
+function _placeholderEnd(t, start) {
+  let depth = 0;
+  let quote = "";
+  for (let i = start; i < t.length; i++) {
+    const ch = t[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = "";
+    } else if (ch === "'" || ch === '"' || ch === "`") quote = ch;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+// True when `t` ("{...}") parses as one object literal while its inner text,
+// which v1.21.1 evaluated, leaves tokens the lenient parser drops.
+function _isObjectLiteralBody(t) {
+  if (t[t.length - 1] !== "}") return false;
+  try {
+    const inner = {};
+    _parseExpr(_tokenize(_parsePipes(t.slice(1, -1))[0]), inner);
+    if (!inner.leftover) return false;
+    const pipes = _parsePipes(t);
+    if (pipes.length !== 1) return false;
+    const whole = {};
+    const ast = _parseExpr(_tokenize(pipes[0]), whole);
+    return ast.type === "ObjectExpr" && !whole.leftover;
+  } catch {
+    return false;
+  }
 }
 
 // Interpolate URLs like "/users/{user.id}?q={search}"

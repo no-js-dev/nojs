@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTTP body attribute — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .test-label { font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; color: #555; }
+  </style>
+</head>
+<body>
+  <main state='{ "user": { "name": "Ann \"Q\" & Co" }, "selectedRole": "admin", "email": "e@x.io", "password": "p@ss", "item": { "id": 7 }, "qty": 2, "msg": "hello world", "n": "a&b=c", "payload": { "a": 1 } }'>
+    <h1>HTTP body attribute</h1>
+
+    <!-- 1. Documented JSON template -->
+    <section>
+      <h2 class="test-label">JSON template with string placeholders</h2>
+      <button data-test="json-post" post="/api/body/json-post" body='{"name": "{user.name}", "role": "{selectedRole}"}'>POST</button>
+      <button data-test="json-put" put="/api/body/json-put" body='{"name": "{user.name}", "role": "{selectedRole}"}'>PUT</button>
+      <div data-test="json-patch" patch="/api/body/json-patch" body='{"id": {item.id}, "qty": {qty}}'>PATCH</div>
+      <button data-test="json-delete" delete="/api/body/json-delete" body='{"id": {item.id}}'>DELETE</button>
+      <button data-test="json-call" call="/api/body/json-call" method="post" body='{"email": "{email}", "password": "{password}"}'>Call</button>
+    </section>
+
+    <!-- 2. Object literal expressions -->
+    <section>
+      <h2 class="test-label">Object literal and object value</h2>
+      <button data-test="obj-short" post="/api/body/obj-short" body="{ email, password }">Shorthand</button>
+      <button data-test="obj-lit" post="/api/body/obj-lit" body="{ id: item.id }">Literal</button>
+      <button data-test="obj-value" post="/api/body/obj-value" body="{payload}">Value</button>
+    </section>
+
+    <!-- 3. Bodies that keep their v1.21.1 bytes -->
+    <section>
+      <h2 class="test-label">Unchanged bodies</h2>
+      <button data-test="keep-form" post="/api/body/keep-form" body="name={n}&amp;x=1">Form-encoded</button>
+      <button data-test="keep-text" post="/api/body/keep-text" body="{msg}">Text</button>
+      <button data-test="keep-array" post="/api/body/keep-array" body='["{msg}", {item.id}]'>Array</button>
+    </section>
+
+    <!-- 4. QUERY with a JSON template -->
+    <section>
+      <h2 class="test-label">QUERY</h2>
+      <div query="/api/body/query" as="hits" body='{"name": "{user.name}"}' success="query-tpl"></div>
+      <template id="query-tpl"><span data-test="query-done">done</span></template>
+    </section>
+  </main>
+  <script src="/__local__/no.js"></script>
+</body>
+</html>

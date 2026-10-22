@@ -3328,6 +3328,8 @@ Explicit `<template route="...">` declarations **always take priority**. This le
           guard="$store.auth.isAdmin" redirect="/"></template>
 ```
 
+At startup, No.JS prefetches the `.tpl` files for `<a route>` links that file-based routing would render. `<template route>` definitions, links whose path already has an explicit route for that outlet, and patterns (`:param`, `*`) are never fetched from the folder.
+
 ### Auto i18n Namespace
 
 When the `route-view` element has an `i18n-ns` attribute (even without a value), No.JS automatically loads the i18n namespace matching the filename:
@@ -3568,7 +3570,7 @@ The remote template is fetched, cached, and rendered just like any other route t
 
 ### File-Based Routing 404
 
-When using [file-based routing](#file-based-routing), navigating to a path whose `.tpl` file doesn't exist on the server (HTTP 404 or other error) automatically triggers the wildcard fallback chain.
+When using [file-based routing](#file-based-routing), navigating to a path whose `.tpl` file doesn't exist on the server (HTTP 404 or other error, or an SPA fallback that answers with the app's `index.html`) automatically triggers the wildcard fallback chain.
 
 ```html
 <!-- File-based routing -->
@@ -3582,6 +3584,8 @@ When using [file-based routing](#file-based-routing), navigating to a path whose
 ```
 
 The failed HTTP response is **not** cached — subsequent navigations to other paths are unaffected.
+
+A server with an SPA fallback (`try_files $uri $uri/ /index.html`, `_redirects`, `rewrites`) answers a missing `.tpl` with `200` and the full `index.html`. When a template that file-based routing resolved from the folder comes back as a full HTML document (it starts with `<!DOCTYPE html>` or `<html>`), No.JS treats it as not found and logs a warning, so the wildcard renders instead of the page shell. Explicit `<template src>` and `<template route src>` keep loading their response as-is.
 
 ---
 

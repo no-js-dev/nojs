@@ -298,6 +298,23 @@ async function _fetchTemplateHtml(resolvedUrl, useCache) {
   }
 }
 
+// A full HTML document (doctype or <html> first, after leading whitespace, BOM
+// and comments) is what an SPA fallback server returns for a missing file.
+export function _isHtmlDocument(html) {
+  const head = html.replace(/^(?:\s|<!--[\s\S]*?-->)+/, "");
+  return /^<!doctype\s+html|^<html[\s>]/i.test(head);
+}
+
+// File-based route lookups (flagged by the router) treat an HTML document as
+// a missing template, so wildcard / 404 handling applies instead of rendering
+// the app shell inside the outlet. Other templates keep their content as-is.
+function _rejectsHtmlDocument(tpl, html, src, resolvedUrl) {
+  if (!tpl.__rejectHtmlDocument || !_isHtmlDocument(html)) return false;
+  _warn("Failed to load template:", src, "— the response is a full HTML document, likely an SPA fallback (index.html) for a missing file. Treating it as not found.", ..._templateBaseHint(tpl, resolvedUrl));
+  tpl.__loadFailed = true;
+  return true;
+}
+
 export async function _loadRemoteTemplates(root) {
   const scope = root || document;
   const templates = scope.querySelectorAll("template[src]");
@@ -380,6 +397,10 @@ export async function _loadTemplateElement(tpl) {
     if (html === null) {
       _warn("Failed to load template:", src, "HTTP", status, ..._templateBaseHint(tpl, resolvedUrl));
       tpl.__loadFailed = true;
+      if (loadingMarker) loadingMarker.remove();
+      return;
+    }
+    if (_rejectsHtmlDocument(tpl, html, src, resolvedUrl)) {
       if (loadingMarker) loadingMarker.remove();
       return;
     }

@@ -2,7 +2,7 @@
 //  EXPRESSION EVALUATOR
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
+import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreNames, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
 import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
@@ -195,7 +195,13 @@ function _tokenize(expr) {
 
 // ── Recursive-descent expression parser ────────────────────────────────
 
-function _parseExpr(tokens) {
+// `issues` (optional) collects what the lenient parser silently dropped, for
+// _reportParseIssues: `strayAssign` (an `=` where an operand belongs, e.g. in
+// a ternary branch), `badTarget` (assignment to a non-assignable left side,
+// e.g. `c && a = 1`), `writes` (every assignment/++/-- node; only one that
+// IS a statement writes state) and `leftover` (first token left after a full
+// parse). Collecting issues never changes the AST.
+function _parseExpr(tokens, issues) {
   if (!tokens || tokens.length === 0) return { type: "Literal", value: undefined };
 
   let pos = 0;
@@ -327,7 +333,9 @@ function _parseExpr(tokens) {
     // Prefix ++ / --
     if (t.type === "Op" && (t.value === "++" || t.value === "--")) {
       next();
-      return { type: "UnaryExpr", op: t.value, argument: parseUnary(), prefix: true };
+      const node = { type: "UnaryExpr", op: t.value, argument: parseUnary(), prefix: true };
+      if (issues) (issues.writes || (issues.writes = [])).push(node);
+      return node;
     }
     return parsePostfix();
   }
@@ -338,6 +346,7 @@ function _parseExpr(tokens) {
     if (t && t.type === "Op" && (t.value === "++" || t.value === "--")) {
       next();
       node = { type: "PostfixExpr", op: t.value, argument: node };
+      if (issues) (issues.writes || (issues.writes = [])).push(node);
     }
     return node;
   }
@@ -548,7 +557,7 @@ function _parseExpr(tokens) {
       return {
         type: "TemplateLiteral",
         parts: t.parts,
-        expressions: t.exprs.map(function(exprTokens) { return _parseExpr(exprTokens); })
+        expressions: t.exprs.map(function(exprTokens) { return _parseExpr(exprTokens, issues); })
       };
     }
 
@@ -611,6 +620,7 @@ function _parseExpr(tokens) {
     // Assignment operators
     if (t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" || t.value === "*=" || t.value === "/=" || t.value === "%=")) {
       // Should not appear as primary; skip
+      if (issues) issues.strayAssign = true;
       next();
       return { type: "Literal", value: undefined };
     }
@@ -710,13 +720,94 @@ function _parseExpr(tokens) {
     if (t && t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" || t.value === "*=" || t.value === "/=" || t.value === "%=")) {
       const op = next().value;
       const right = parseExpression();
-      return { type: "AssignExpr", op, left: expr, right };
+      const node = { type: "AssignExpr", op, left: expr, right };
+      if (issues) {
+        if (!_isAssignable(expr)) issues.badTarget = true;
+        (issues.writes || (issues.writes = [])).push(node);
+      }
+      return node;
     }
     return expr;
   }
 
   const ast = parseTopLevel();
+  if (issues && pos < tokens.length && !issues.leftover) issues.leftover = tokens[pos];
   return ast;
+}
+
+function _isAssignable(node) {
+  // Forbidden (`__proto__ = x`) is rejected by the security layer, not here.
+  return node.type === "Identifier" || node.type === "MemberExpr" ||
+    node.type === "OptionalMemberExpr" || node.type === "Forbidden";
+}
+
+// JavaScript statement keywords. The tokenizer has no keywords for them, so
+// `if (x) { … }` parses as a call to `if` and `return x` as the identifier
+// `return` followed by dropped tokens.
+const _STMT_KEYWORDS = new Set([
+  "if", "else", "for", "while", "do", "switch", "case", "return", "var",
+  "function", "try", "catch", "finally", "throw", "break", "continue", "new",
+  "class", "delete", "await", "async", "yield", "import", "export", "with",
+  "debugger", "void",
+]);
+// Keywords that are operators, not statements, in JavaScript.
+const _OPERATOR_KEYWORDS = new Set(["new", "void", "delete", "await", "yield"]);
+const _STMT_KEYWORDS_ALONE = new Set(["return", "break", "continue", "debugger", "else", "do", "try"]);
+const _STMT_KEYWORDS_PAREN = new Set(["if", "for", "while", "switch", "catch", "with", "function"]);
+
+// A chunk that starts with a statement keyword used as one: `if (`, `do {`,
+// `return x`, a bare `break`. A keyword-named state key used as a value
+// (`new.x`, `delete + 1`) or method (`delete(item)`) does not match.
+function _stmtKeywordOf(chunk) {
+  const t0 = chunk[0];
+  if (!t0 || t0.type !== "Ident" || !_STMT_KEYWORDS.has(t0.value)) return null;
+  const t1 = chunk[1];
+  if (!t1) return _STMT_KEYWORDS_ALONE.has(t0.value) ? t0.value : null;
+  if (t1.type === "Ident" || t1.type === "Keyword" || t1.type === "Number" ||
+      t1.type === "String" || t1.type === "Template") return t0.value;
+  if (t1.type === "Punc" && t1.value === "{") return t0.value;
+  if (t1.type === "Punc" && t1.value === "(" && _STMT_KEYWORDS_PAREN.has(t0.value)) return t0.value;
+  return null;
+}
+
+function _stmtKeywordMessage(kw) {
+  if (_OPERATOR_KEYWORDS.has(kw)) return `"${kw}" is not supported in expressions`;
+  return `"${kw}" statements are not supported in expressions — use a ternary (a = cond ? x : y) or ;-separated statements`;
+}
+
+// Expressions already warned about: the parse caches make this once per
+// expression in practice; the set also covers re-parses after LRU eviction
+// and the export/runtime split.
+const _parseWarned = new Set();
+
+// Warn (once per expression) about tokens the lenient parser dropped. The
+// parse result is never changed — only made visible (Core rule 8).
+function _reportParseIssues(expr, chunk, ast, issues, isStatement) {
+  let msg = null;
+  const kw = _stmtKeywordOf(chunk);
+  if (kw) {
+    // Statement context: `if (…)` is a call to an unknown function, which
+    // _execStmtNode rejects with the same message at run time.
+    if (isStatement && ast.type === "CallExpr" && ast.callee.type === "Identifier" && ast.callee.name === kw) return;
+    msg = _stmtKeywordMessage(kw);
+  } else if (issues.strayAssign || issues.badTarget ||
+      (issues.writes && issues.writes.some((w) => !isStatement || w !== ast))) {
+    msg = "assignment is ignored — only a statement of its own (a = x, a++) writes state, not one inside a ternary branch, an &&/|| operand, parentheses or a binding; write a = cond ? x : y, or use ;-separated statements";
+  } else if (issues.leftover) {
+    const t = issues.leftover;
+    let opKw = null;
+    for (let i = 0; i < chunk.length - 1 && !opKw; i++) {
+      const c = chunk[i];
+      if (c.type === "Ident" && _OPERATOR_KEYWORDS.has(c.value) && chunk[i + 1].type === "Ident") opKw = c.value;
+    }
+    msg = opKw ? _stmtKeywordMessage(opKw) : (t.type === "Punc" && t.value === ",")
+      ? 'unexpected "," — the comma operator is not supported and the rest of the expression is ignored; separate statements with ;'
+      : `unexpected ${JSON.stringify(t.type === "Template" ? "`" : String(t.value))} — the rest of the expression is ignored`;
+  }
+  if (!msg || _parseWarned.has(expr)) return;
+  if (_parseWarned.size >= 500) _parseWarned.clear();
+  _parseWarned.add(expr);
+  _warn("Expression error:", expr, msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -1672,7 +1763,10 @@ function _compileFilterSpec(filterStr) {
 
 function _compileProgram(expr) {
   const pipes = _parsePipes(expr);
-  const ast = _parseExpr(_tokenize(pipes[0]));
+  const tokens = _tokenize(pipes[0]);
+  const issues = {};
+  const ast = _parseExpr(tokens, issues);
+  if (tokens.length) _reportParseIssues(expr, tokens, ast, issues, false);
   const filters = [];
   for (let i = 1; i < pipes.length; i++) filters.push(_compileFilterSpec(pipes[i]));
   return { fn: _compileNode(ast), filters };
@@ -1716,7 +1810,7 @@ function _splitDeclarators(tokens) {
   return parts;
 }
 
-function _parseDeclaration(chunk, declared) {
+function _parseDeclaration(chunk, declared, issues) {
   const kind = chunk[0].value;
   const declarations = [];
   for (const part of _splitDeclarators(chunk.slice(1))) {
@@ -1743,7 +1837,7 @@ function _parseDeclaration(chunk, declared) {
       if (eq.type !== "Op" || eq.value !== "=" || part.length < 3) {
         throw new SyntaxError(`unsupported ${kind} declaration "${kind} ${name} …" — expected "${kind} ${name} = value"`);
       }
-      init = _parseExpr(part.slice(2));
+      init = _parseExpr(part.slice(2), issues);
     } else if (kind === "const") {
       throw new SyntaxError(`Missing initializer in const declaration "${name}"`);
     }
@@ -1752,9 +1846,12 @@ function _parseDeclaration(chunk, declared) {
   return { type: "VarDecl", kind, declarations };
 }
 
-// Parse semicolon-separated statements into an array of AST nodes
-function _parseStatements(expr) {
-  if (_stmtCache.has(expr)) return _stmtCache.get(expr);
+// Split a statement string on `;` and parse each statement — expressions and
+// const/let declarations. Shared by the runtime (_parseStatements) and the
+// parseStatements export so tooling sees exactly what the runtime executes.
+// Invalid declarations throw SyntaxError. `report` (runtime only) warns once
+// about tokens the lenient parser dropped.
+function _buildStatements(expr, report) {
   const tokens = _tokenize(expr);
   const stmts = [];
   let declared = null;
@@ -1763,12 +1860,16 @@ function _parseStatements(expr) {
     if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
       const chunk = tokens.slice(start, i);
       if (chunk.length > 0) {
+        const issues = report ? {} : undefined;
+        let node;
         if (_isDeclStart(chunk)) {
           if (!declared) declared = new Set();
-          stmts.push(_parseDeclaration(chunk, declared));
+          node = _parseDeclaration(chunk, declared, issues);
         } else {
-          stmts.push(_parseExpr(chunk));
+          node = _parseExpr(chunk, issues);
         }
+        stmts.push(node);
+        if (report) _reportParseIssues(expr, chunk, node, issues, true);
       }
       start = i + 1;
     }
@@ -1776,6 +1877,13 @@ function _parseStatements(expr) {
   // Names declared with const/let — _execStatement keeps them out of the
   // context write-back so they never leak into state.
   stmts.locals = declared;
+  return stmts;
+}
+
+// Parse semicolon-separated statements into an array of AST nodes
+function _parseStatements(expr) {
+  if (_stmtCache.has(expr)) return _stmtCache.get(expr);
+  const stmts = _buildStatements(expr, true);
   _stmtCache.set(expr, stmts);
   return stmts;
 }
@@ -1857,6 +1965,7 @@ function _execStmtNode(node, scope) {
       if (node.type === "CallExpr" && node.callee.type === "Identifier") {
         const name = node.callee.name;
         if (!_inScope(scope, name) && !_inSafeGlobals(name) && !_BROWSER_GLOBALS.has(name)) {
+          if (_STMT_KEYWORDS.has(name)) throw new ReferenceError(_stmtKeywordMessage(name));
           throw new ReferenceError(name + " is not defined");
         }
       }
@@ -2232,7 +2341,12 @@ export function _execStatement(expr, ctx, extraVars = {}) {
 
     // Parse and execute statements
     const stmts = _parseStatements(expr);
-    for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
+    let execError = null;
+    try {
+      for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
+    } catch (e) {
+      execError = e;
+    }
     const locals = stmts.locals;
 
     // Write back changed values to owning context
@@ -2260,13 +2374,17 @@ export function _execStatement(expr, ctx, extraVars = {}) {
       if (!(k in scope)) continue;
       const newVal = scope[k];
       const oldVal = originals[k];
-      if (newVal !== oldVal) {
+      // After a throw, reassignments are not written back (the handler's
+      // state writes don't apply), but in-place mutations of the objects the
+      // context still holds already happened and must reach the DOM.
+      const liveVal = execError ? oldVal : newVal;
+      if (newVal !== oldVal && !execError) {
         let c = ctx;
         while (c && c.__isProxy) {
           if (k in c.__raw) { c.$set(k, newVal); break; }
           c = c.$parent;
         }
-      } else if (typeof newVal === "object" && newVal !== null) {
+      } else if (typeof liveVal === "object" && liveVal !== null) {
         // In-place mutation safety net: the statement may have mutated this
         // object's internals without reassigning it. Only keys the statement
         // actually references can have been touched (stmtRoots is null when
@@ -2285,7 +2403,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // Only own properties on scope represent mutations or new assignments —
     // prototype (vals) keys are inherited from the context chain and already
     // handled by the chainKeys write-back above.
-    for (const k in scope) {
+    if (!execError) for (const k in scope) {
       if (!Object.prototype.hasOwnProperty.call(scope, k)) continue;
       if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
       if (locals && locals.has(k)) continue;
@@ -2293,9 +2411,13 @@ export function _execStatement(expr, ctx, extraVars = {}) {
       ctx.$set(k, scope[k]);
     }
 
-    // Notify global store watchers when expression touches $store
+    // Notify global store watchers when expression touches $store — every
+    // store it names (`$store.a.x = 1; $store.b.y = 2` wakes both), or all
+    // of them when one is written as `$store[name]`. Store writes land on
+    // the store proxy directly, so they apply even when a later statement
+    // throws: notify in that case too.
     if (typeof expr === "string" && expr.includes("$store")) {
-      _notifyStoreWatchers(_extractStoreName(expr));
+      _notifyStoreWatchers(_extractStoreNames(expr));
     }
 
     // Statement wrote through a registry-less $-root (plugin global, $refs):
@@ -2315,6 +2437,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         c = c.$parent;
       }
     }
+    if (execError) throw execError;
   } catch (e) {
     _warn("Expression error:", expr, e.message);
     // Dispatch a custom DOM event so error-boundary directives can catch it
@@ -2425,21 +2548,14 @@ export function parseExpression(str) {
 }
 
 // Parse a semicolon-delimited statement string into one AST node per
-// statement (static-analysis counterpart of _execStatement). Mirrors
-// _parseStatements' splitting but stays cache-free (_stmtCache untouched).
+// statement (static-analysis counterpart of _execStatement). Shares the
+// runtime's splitter, so `const`/`let` statements come back as
+// { type: "VarDecl", kind, declarations: [{ name, init }] } and an invalid
+// declaration throws SyntaxError (the runtime rejects that handler). Stays
+// cache-free (_stmtCache untouched) and silent (no console warnings).
 export function parseStatements(str) {
   if (typeof str !== "string" || str.trim() === "") return [];
-  const tokens = _tokenize(str);
-  const stmts = [];
-  let start = 0;
-  for (let i = 0; i <= tokens.length; i++) {
-    if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
-      const chunk = tokens.slice(start, i);
-      if (chunk.length > 0) stmts.push(_parseExpr(chunk));
-      start = i + 1;
-    }
-  }
-  return stmts;
+  return _buildStatements(str, false).slice();
 }
 
 // Segment a raw directive value into [expression, ...filterSpecs], e.g.

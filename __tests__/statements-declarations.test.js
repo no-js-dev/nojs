@@ -9,7 +9,7 @@
  */
 
 import { createContext } from '../src/context.js';
-import { _execStatement, parseStatements } from '../src/evaluate.js';
+import { _execStatement, _stmtCache, parseStatements } from '../src/evaluate.js';
 
 let warnSpy;
 beforeEach(() => {
@@ -162,9 +162,49 @@ describe('errors are loud, never silent', () => {
   });
 });
 
-describe('compiler-support parseStatements is unchanged', () => {
+describe('compiler-support parseStatements mirrors the runtime', () => {
   test('still returns plain expression nodes', () => {
     const stmts = parseStatements('count = 1; count++');
     expect(stmts.map((s) => s.type)).toEqual(['AssignExpr', 'PostfixExpr']);
+  });
+
+  test('const/let statements come back as VarDecl, not Identifier(const)', () => {
+    const stmts = parseStatements('const m = items.splice(0, 1)[0]; let a = 1, b; items.splice(2, 0, m)');
+    expect(stmts.map((s) => s.type)).toEqual(['VarDecl', 'VarDecl', 'CallExpr']);
+    expect(stmts[0].kind).toBe('const');
+    expect(stmts[0].declarations).toHaveLength(1);
+    expect(stmts[0].declarations[0].name).toBe('m');
+    expect(stmts[0].declarations[0].init.type).toBe('MemberExpr');
+    expect(stmts[1]).toEqual({
+      type: 'VarDecl',
+      kind: 'let',
+      declarations: [
+        { name: 'a', init: { type: 'Literal', value: 1 } },
+        { name: 'b', init: null },
+      ],
+    });
+  });
+
+  test('matches the runtime statement cache node for node', () => {
+    const src = 'const n = list.length; total = n * 2; let x';
+    const ctx = createContext({ list: [1, 2], total: 0 });
+    _execStatement(src, ctx);
+    expect(ctx.total).toBe(4);
+    expect(parseStatements(src)).toEqual([..._stmtCache.get(src)]);
+  });
+
+  test('`let` alone stays an identifier', () => {
+    expect(parseStatements('let')[0]).toEqual({ type: 'Identifier', name: 'let' });
+  });
+
+  test('returns a plain array', () => {
+    const stmts = parseStatements('const a = 1');
+    expect(Object.keys(stmts)).toEqual(['0']);
+  });
+
+  test('invalid declarations throw like the runtime', () => {
+    expect(() => parseStatements('const a')).toThrow(SyntaxError);
+    expect(() => parseStatements('const [a] = list')).toThrow(/destructuring/);
+    expect(() => parseStatements('const a = 1; let a = 2')).toThrow(/already been declared/);
   });
 });

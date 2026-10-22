@@ -2027,10 +2027,18 @@ Separate statements with `;`. Use `const` or `let` for values that only the hand
 | `const name = value`, `let name = value`, `let name` | Handler-local binding; visible to the following statements of the same handler only |
 | `const a = 1, b = 2` | Several declarations in one statement |
 | `name = value` (no `const`/`let`) | Writes to the owning state; creates a new state key on the nearest context when none exists |
-| Reassigning a `const` | `TypeError` — the handler stops and none of its state writes apply |
+| Reassigning a `const` | `TypeError` — the handler stops; its `name = value` writes are not applied (in-place changes such as `items.push(x)` and `$store` writes made before the error stay, and the page shows them) |
 | `const` without a value, declaring a name twice, destructuring (`const [a] = list`), names starting with `$` | Rejected with a warning naming the statement; the handler does not run |
 
 Errors in a handler are logged as `[No.JS] Expression error: <statement>` and dispatch a `nojs:error` event on the element, so `error-boundary` can catch them.
+
+Each `;`-separated statement must be an expression, a `const`/`let` declaration or an assignment of its own (`a = x`, `a += x`, `a++`). These forms do not run, and No.JS logs a warning naming the expression:
+
+| Form | Instead |
+|------|---------|
+| Assignment inside a ternary branch or an `&&`/`\|\|` operand: `c ? a = 1 : b = 2`, `c && (a = 1)`, `c && count++` | `a = c ? 1 : a`, or a ternary that calls a function: `c ? save() : null` |
+| Comma operator: `a = 1, b = 2` | `a = 1; b = 2` |
+| Statement keywords: `if (…) { … }`, `for`, `while`, `return`, `new`, `await` | A ternary or `;`-separated statements |
 
 ---
 

@@ -375,7 +375,7 @@
 
   <template id="cdn-snippet">
     <code class="cdn-snippet-code"><span class="tok-punc">&lt;</span><span class="tok-tag">script</span> <span class="tok-attr">src</span><span class="tok-punc">=</span><span class="tok-str">"https://cdn.no-js.dev/"</span><span class="tok-punc">&gt;&lt;/</span><span class="tok-tag">script</span><span class="tok-punc">&gt;</span></code>
-    <button class="cdn-snippet-copy" on:click="navigator.clipboard.writeText('<script src=&quot;https://cdn.no-js.dev/&quot;><\/script>'); $el.classList.remove('copied'); void $el.offsetWidth; $el.classList.add('copied')" on:animationend="$el.classList.remove('copied')" aria-label="Copy to clipboard">
+    <button class="cdn-snippet-copy" on:click="navigator.clipboard.writeText('<script src=&quot;https://cdn.no-js.dev/&quot;><\/script>'); $el.classList.remove('copied'); $el.offsetWidth; $el.classList.add('copied')" on:animationend="$el.classList.remove('copied')" aria-label="Copy to clipboard">
       <svg class="cdn-icon-copy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
       <svg class="cdn-icon-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
     </button>

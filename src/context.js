@@ -48,7 +48,7 @@ export function _endBatch() {
         // Drain defensively: a throwing listener must not drop the rest of the
         // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
         fns.forEach((fn) => {
-          if (fn._el && !fn._el.isConnected) return;
+          if (fn._disposed || (fn._el && !fn._el.isConnected)) return;
           // Running now supersedes a re-queue made by an earlier listener
           // in this same round; re-queues that happen after fn ran (or
           // during it) stay for the next round.

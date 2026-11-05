@@ -860,7 +860,7 @@
       "namedOutlets": {
         "title": "Named Outlets (route-view)",
         "text": "Multiple route-view outlets can coexist in the same page. Give each outlet a name via the attribute value, and point route templates at specific outlets using the outlet attribute.",
-        "callout": "Outlets with no matching template for the current route are always cleared on navigation."
+        "callout": "Outlets with no matching template for the current route are cleared on navigation, unless they look routes up in files. By default (v1.21.1 behavior), every outlet without its own src, named outlets included, also looks the route up in the router.templates folder (pages unless configured): on /about above, sidebar and topbar request pages/about.tpl and, when it is missing, render the route=\"*\" wildcard or the built-in 404. Set router.strictOutlets: true to keep that lookup for the default outlet only, so named outlets without src are cleared when the active route does not fill them. Named outlets with src, and the wildcard fallback on pages no explicit route matches, work the same in both modes."
       },
       "catchAll": {
         "title": "404 / Catch-All Routes",
@@ -1632,7 +1632,8 @@
         "strictBindings": "bind-* rejects inline event-handler attributes (bind-onclick, bind-onerror, any bind-on* name without a hyphen; bind-onboarding-step still binds) with a [Security] warning, and bind-srcdoc values go through the bind-html sanitizer (or your sanitizeHtml function). Read when each binding initializes, so set it before NoJS.init(). Once true, it cannot be set back to false after init().",
         "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
         "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
-        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call."
+        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call.",
+        "strictOutlets": "Only the default outlet looks routes up in the router.templates folder. A named outlet without its own src is filled only by outlet=\"name\" routes: on a matched route that does not fill it, it is cleared instead of requesting pages/<route>.tpl and rendering the wildcard or the built-in 404."
       }
     },
     "plugins": {

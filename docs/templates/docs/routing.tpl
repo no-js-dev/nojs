@@ -284,7 +284,7 @@
   <span class="hl-tag">&lt;span&gt;</span>Home breadcrumb<span class="hl-tag">&lt;/span&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span>
 
-<span class="hl-cmt">&lt;!-- /about only fills default; sidebar and topbar are cleared --&gt;</span>
+<span class="hl-cmt">&lt;!-- /about only fills default; sidebar and topbar are cleared (see the note below) --&gt;</span>
 <span class="hl-tag">&lt;template</span> <span class="hl-attr">route</span>=<span class="hl-str">"/about"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;h1&gt;</span>About us<span class="hl-tag">&lt;/h1&gt;</span>
 <span class="hl-tag">&lt;/template&gt;</span></pre></div>

@@ -60,7 +60,9 @@
 
   <script src="../../dist/iife/no.js"></script>
   <script>
-    NoJS.config({ router: { useHash: true, suppressHashWarning: true } });
+    // ?strictOutlets=1 turns on router.strictOutlets (named-outlet-templates.spec.ts)
+    const strictOutlets = new URLSearchParams(location.search).get('strictOutlets') === '1';
+    NoJS.config({ router: { useHash: true, suppressHashWarning: true, strictOutlets } });
     NoJS.init();
   </script>
 </body>

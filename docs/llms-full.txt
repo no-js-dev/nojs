@@ -3435,13 +3435,13 @@ Multiple `route-view` outlets can coexist in the same layout. Give each outlet a
   <span>Home breadcrumb</span>
 </template>
 
-<!-- /about only fills default; sidebar and topbar are cleared automatically -->
+<!-- /about only fills default; sidebar and topbar are cleared (see the note below) -->
 <template route="/about">
   <h1>About us</h1>
 </template>
 ```
 
-> Outlets with no matching template for the active route are **always cleared** on navigation.
+> Outlets with no matching template for the active route are cleared on navigation, as long as the outlet does not look routes up in files. **By default (v1.21.1 behavior), every outlet without its own `src` — named outlets included — also looks the route up in the [`router.templates`](configuration.md) folder (`pages` unless configured).** On `/about` above, `sidebar` and `topbar` request `pages/about.tpl` and, when it is missing, render the `route="*"` wildcard or the built-in 404 instead of being cleared. Set `router.strictOutlets: true` to keep the `router.templates` lookup for the default outlet only: a named outlet without `src` is then filled only by `outlet="name"` routes and cleared when the active route has none. A named outlet with its own `src` resolves files from it in both modes, and on a page that no explicit route matches, a named outlet keeps the [wildcard fallback](#named-outlet-wildcards) in both modes.
 
 ### Programmatic Registration
 
@@ -4822,7 +4822,8 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
       ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
       suppressHashWarning: false, // Suppress hash-in-history-mode console warning
       focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
-      viewTransition: true       // Enable View Transition API for route changes (default: true)
+      viewTransition: true,      // Enable View Transition API for route changes (default: true)
+      strictOutlets: false       // Opt-in: only the default outlet looks routes up in router.templates (default: false)
     },
     // Note: Anchor links (href="#id") are automatically
     // intercepted in both modes — they scroll to the target
@@ -4900,6 +4901,7 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDevtools` | `false` | Devtools events and context ids are also limited to local hosts, devtools snapshots and `ctx:updated` values redact sensitive names at every depth, the `config` getter redacts headers per key, and devtools fetch events redact tokens in URLs. See [`strictDevtools`](#strictdevtools). |
 | `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot end the string or add keys, and a value with `"`, `\` or a line break no longer makes the output invalid JSON. `<` in values is written as `\u003c`. By default the output is the v1.21.1 output byte-for-byte, so untrusted data in quoted placeholders can still inject keys. Takes effect on the next render. See [Head Management](head-management.md#page-jsonld). |
 | `strictBindings` | `false` | Opt-in hardening for `bind-*`. When `true`, inline event-handler attributes are rejected (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver` — any `bind-on*` name without a hyphen; `bind-onboarding-step` still binds) with a `[Security]` warning, and `bind-srcdoc` values go through the `bind-html` sanitizer (or your `sanitizeHtml` function). Read when each binding initializes — set it before `NoJS.init()`. Once `true`, it cannot be set back to `false` after `init()`. See [Data Binding](data-binding.md). |
+| `router.strictOutlets` | `false` | Only the default outlet looks routes up in the `router.templates` folder. A named outlet (`route-view="name"`) without its own `src` is filled only by `outlet="name"` routes: on an explicitly matched route that does not fill it, it is cleared instead of requesting `pages/<route>.tpl` and rendering the wildcard or the built-in 404. Named outlets with `src` and the wildcard fallback on pages no explicit route matches are unchanged. Takes effect on the next navigation. See [Routing → Named Outlets](routing.md#named-outlets). |
 | `templates.pageRelative` | `false` | `<template src>` resolves against the page and ignores the nearest `base` attribute and `baseApiUrl`. Absolute URLs and `./` paths inside a remote template behave the same in both modes. See [Templates](templates.md#how-src-is-resolved). |
 | `i18n.escapeParams` | `false` | `t-*` param values in `t-html` translations are HTML-escaped before interpolation. Plain `t` is not affected. Changing it after `init()` re-renders active translations. See [Internationalization](i18n.md). |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it: the stale value is removed from `localStorage` and the locale falls back to browser detection or `defaultLocale`. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |

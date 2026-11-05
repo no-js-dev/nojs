@@ -29,8 +29,21 @@ async function build() {
     sourcemap: true,
   });
 
+  // ── Compiler entry (ESM) ─────────────────────────────────────────
+  // Self-contained parser bundle for offline tooling (package export
+  // "./compiler"). .mjs so Node, Jest and bundlers load it as ESM
+  // regardless of the package's module type.
+  await esbuild.build({
+    ...shared,
+    entryPoints: ["src/compiler.js"],
+    outfile: "dist/compiler/compiler.mjs",
+    format: "esm",
+    platform: "neutral",
+  });
+
   console.log("✓ Build complete!");
   console.log("  dist/iife/no.js — CDN / <script> tag");
+  console.log("  dist/compiler/compiler.mjs — parser entry for tooling (@no-js-dev/nojs/compiler)");
 }
 
 build().catch((err) => {

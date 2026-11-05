@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run build              # esbuild → dist/iife/no.js (minified + sourcemaps)
+npm run build              # esbuild → dist/iife/no.js (minified + sourcemaps) + dist/compiler/compiler.mjs
 npm test                   # Jest (jsdom)
 npm run test:watch         # Jest watch mode
 npm run test:coverage      # Jest with coverage
@@ -31,6 +31,7 @@ No linter configured.
 | Format | Entry | Output | Use case |
 |--------|-------|--------|----------|
 | IIFE | `src/cdn.js` | `dist/iife/no.js` | CDN `<script>` tag |
+| ESM | `src/compiler.js` | `dist/compiler/compiler.mjs` | `@no-js-dev/nojs/compiler` (ADR-024 parser, Node-safe) |
 
 `build.js` uses esbuild.
 
@@ -206,7 +207,7 @@ Each repo's `.versionrc.json` is the source of truth for its version locations; 
 
 | Repo | Source | Other declared locations | Build |
 |------|--------|--------------------------|-------|
-| **NoJS** | `package.json` | `package-lock.json` (root + `packages[""]`), `src/index.js` (`version: "x.y.z"`), `docs/llms.txt` ("Latest release" line), `dist/iife/no.js` + `.map` (generated) | `node build.js` |
+| **NoJS** | `package.json` | `package-lock.json` (root + `packages[""]`), `src/index.js` (`version: "x.y.z"`), `docs/llms.txt` ("Latest release" line), `dist/iife/no.js` + `.map`, `dist/compiler/compiler.mjs` (generated) | `node build.js` |
 | **NoJS-Elements** | `package.json` | `package-lock.json` (×2), `docs/index.html` + `docs/404.html` (`version: '…'` in `<body state>`), `dist/{cjs,esm,iife}/nojs-elements.js` banner (generated) | `npm run build` |
 | **NoJS-LSP** | `package.json` | `package-lock.json` (×2), `docs/index.html` + `docs/404.html` (`version: '…'` in `<body state>`), `docs/getting-started.md` (`nojs-lsp-x.y.z.vsix`) | none |
 | **NoJS-Server** | `package.json` | `package-lock.json` (×2), `src/cli/index.ts` (`VERSION`), `scripts/build-integrator.mjs` (`__NOJS_VERSION__`), `README.md` (badge + "pre-release (x.y.z)") | none |

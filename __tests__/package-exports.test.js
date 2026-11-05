@@ -47,7 +47,9 @@ beforeAll(() => {
     ['pack', '--ignore-scripts', '--json', '--pack-destination', tmp],
     { cwd: ROOT, encoding: 'utf8' },
   );
-  const tarball = join(tmp, JSON.parse(out)[0].filename);
+  // npm 10 still runs `prepare` on pack despite --ignore-scripts, and its
+  // output lands on stdout ahead of the JSON report.
+  const tarball = join(tmp, JSON.parse(out.slice(out.search(/^\[/m)))[0].filename);
 
   consumer = join(tmp, 'consumer');
   mkdirSync(consumer);

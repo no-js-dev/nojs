@@ -425,7 +425,8 @@
         "onMounted": "Element inserted into visible DOM",
         "onUpdated": "DOM mutation observed (via MutationObserver)",
         "onUnmounted": "Element removed from DOM",
-        "onError": "Error in this element's subtree"
+        "onError": "Error in this element's subtree",
+        "unmountedNote": "By default (v1.21.1 behavior), on:unmounted fires when your own code removes the element, for example with el.remove(). When a directive removes it (if or else-if turning false, a row leaving an each list, a route change), the hook does not run, and a keyed each row that only moved fires it. Set strictUnmounted: true to run the hook once when a directive removes the element and never for a moved row. A hidden switch case stays in the DOM, so its hook does not run in either mode."
       },
       "keyModifiers": {
         "title": "Key Modifiers",
@@ -1632,7 +1633,8 @@
         "strictBindings": "bind-* rejects inline event-handler attributes (bind-onclick, bind-onerror, any bind-on* name without a hyphen; bind-onboarding-step still binds) with a [Security] warning, and bind-srcdoc values go through the bind-html sanitizer (or your sanitizeHtml function). Read when each binding initializes, so set it before NoJS.init(). Once true, it cannot be set back to false after init().",
         "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
         "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
-        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call."
+        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call.",
+        "strictUnmounted": "on:unmounted also fires when a directive removes the element (if / else-if, each / foreach, a route change), once per element on the next microtask, and no longer fires for a keyed each row that only moved. An element that stays in the DOM (a hidden switch case) does not fire."
       }
     },
     "plugins": {

@@ -34,7 +34,8 @@ var _config = {
   strictDirectives: false,
   strictDevtools: false,
   strictJsonld: false,
-  strictBindings: false
+  strictBindings: false,
+  strictUnmounted: false
 };
 var _stores = {};
 var _i18nListeners = /* @__PURE__ */ new Set();

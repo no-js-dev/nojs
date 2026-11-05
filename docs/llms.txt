@@ -28,7 +28,7 @@ No.JS replaces JavaScript framework boilerplate with declarative HTML attributes
 
 - [Dynamic Styling](https://no-js.dev/#/styling): `class-active="isActive"`, `class-map="{ dark: isDark }"`, `style-color="themeColor"`, `style-map="{ opacity: fade }"`
 - [Animations](https://no-js.dev/#/animations): `animate` attribute with built-in keyframes (fadeIn, fadeInUp, slideInLeft, bounceIn, zoomIn, etc.), `transition` for enter/leave, stagger for lists
-- [Filters & Pipes](https://no-js.dev/#/filters): 32 built-in filters via pipe syntax (`value | uppercase | truncate:20`); text, number, array, date, and utility filters; custom filters via `NoJS.filter()`
+- [Filters & Pipes](https://no-js.dev/#/filters): 32 built-in filters via pipe syntax (`value | uppercase | truncate:20`); text, number, array, date, and utility filters; `number`, `currency`, `date` and `datetime` use the browser's default locale, not `$i18n.locale`, and `relative` / `fromNow` return English strings ("5m ago", "in 2h"); custom filters via `NoJS.filter()`
 
 ## Advanced
 

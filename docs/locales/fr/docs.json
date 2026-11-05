@@ -1298,7 +1298,8 @@
         "title": "Filtres de tableau"
       },
       "date": {
-        "title": "Filtres de date"
+        "title": "Filtres de date",
+        "localeNote": "number, currency, date et datetime formatent avec la locale par défaut du navigateur, pas avec $i18n.locale : changer la langue de l'application ne change pas leur sortie. Les sorties affichées sont celles d'un navigateur en-US. relative et fromNow renvoient toujours de courtes chaînes en anglais (5m ago, in 2h). Pour suivre la locale de l'application, enregistrez un filtre qui lit NoJS.locale et mentionnez $i18n.locale dans le binding pour qu'il se mette à jour, par ex. $i18n.locale && createdAt | localDate (les arguments de filtre sont des littéraux)."
       },
       "utility": {
         "title": "Filtres utilitaires"
@@ -1331,8 +1332,8 @@
         "slugify": "Convertit en slug compatible URL",
         "trim": "Supprime les espaces en début/fin",
         "encodeUri": "Encode un composant URI",
-        "currency": "Formate un nombre en devise",
-        "number": "Formate un nombre avec groupement par localité",
+        "currency": "Formate un nombre en devise, dans la locale par défaut du navigateur",
+        "number": "Formate un nombre avec groupement, dans la locale par défaut du navigateur",
         "percent": "Formate un nombre en pourcentage",
         "ordinal": "Ajoute un suffixe ordinal (1er, 2e, 3e)",
         "filesize": "Formate les octets en taille lisible",
@@ -1343,10 +1344,10 @@
         "sortBy": "Trie un tableau par propriété",
         "first": "Retourne le premier élément d'un tableau",
         "last": "Retourne le dernier élément d'un tableau",
-        "date": "Formate un objet Date",
-        "datetime": "Formate une Date avec l'heure",
-        "relative": "Temps écoulé depuis la date (ex : 'il y a 5 minutes')",
-        "fromNow": "Temps jusqu'à une date future (ex : 'dans 3 heures')",
+        "date": "Formate un objet Date, dans la locale par défaut du navigateur",
+        "datetime": "Formate une Date avec l'heure, dans la locale par défaut du navigateur",
+        "relative": "Temps écoulé depuis la date, en anglais (ex : '5m ago')",
+        "fromNow": "Temps jusqu'à une date future, en anglais (ex : 'in 3h')",
         "json": "Sérialise une valeur en chaîne JSON",
         "default": "Retourne un fallback si la valeur est null/undefined",
         "keys": "Retourne les clés de l'objet en tableau",
@@ -1385,7 +1386,8 @@
         "callout": "La sortie HTML est passée par _sanitizeHtml() pour prévenir les attaques XSS. Les balises et attributs dangereux sont supprimés automatiquement."
       },
       "formatting": {
-        "title": "Formatage des nombres & dates"
+        "title": "Formatage des nombres & dates",
+        "localeNote": "Ces filtres formatent avec la locale par défaut du navigateur, pas avec $i18n.locale : changer la locale retraduit les clés t mais ne change pas leur sortie. Les sorties ci-dessous sont celles d'un navigateur en-US ; un navigateur pt-BR affiche R$ 1.234,56 et 25/02/2026 pour les lignes currency:'BRL' et date."
       },
       "liveDemo": {
         "title": "Démo en direct — Sélecteur de locale",

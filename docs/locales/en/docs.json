@@ -1298,7 +1298,8 @@
         "title": "Array Filters"
       },
       "date": {
-        "title": "Date Filters"
+        "title": "Date Filters",
+        "localeNote": "number, currency, date and datetime format with the browser's default locale, not with $i18n.locale: switching the app language does not change their output. The outputs shown are for an en-US browser. relative and fromNow always return short English strings (5m ago, in 2h). To follow the app locale, register a filter that reads NoJS.locale and mention $i18n.locale in the binding so it re-renders, e.g. $i18n.locale && createdAt | localDate (filter arguments are literals)."
       },
       "utility": {
         "title": "Utility Filters"
@@ -1319,8 +1320,8 @@
         "slugify": "Converts to URL-friendly slug",
         "trim": "Removes leading/trailing whitespace",
         "encodeUri": "Encodes a URI component",
-        "currency": "Formats number as currency",
-        "number": "Formats number with locale grouping",
+        "currency": "Formats number as currency, in the browser's default locale",
+        "number": "Formats number with grouping, in the browser's default locale",
         "percent": "Formats number as percentage",
         "ordinal": "Adds ordinal suffix (1st, 2nd, 3rd)",
         "filesize": "Formats bytes to human-readable size",
@@ -1331,10 +1332,10 @@
         "sortBy": "Sorts array by property",
         "first": "Returns the first element of an array",
         "last": "Returns the last element of an array",
-        "date": "Formats Date object",
-        "datetime": "Formats Date with time",
-        "relative": "Time elapsed since date (e.g. '5 minutes ago')",
-        "fromNow": "Time until future date (e.g. 'in 3 hours')",
+        "date": "Formats Date object, in the browser's default locale",
+        "datetime": "Formats Date with time, in the browser's default locale",
+        "relative": "Time elapsed since date, in English (e.g. '5m ago')",
+        "fromNow": "Time until future date, in English (e.g. 'in 3h')",
         "json": "Serializes value as JSON string",
         "default": "Returns fallback if value is null/undefined",
         "keys": "Returns object keys as array",
@@ -1385,7 +1386,8 @@
         "callout": "The HTML output is passed through _sanitizeHtml() to prevent XSS. Dangerous tags and attributes are stripped automatically."
       },
       "formatting": {
-        "title": "Number & Date Formatting"
+        "title": "Number & Date Formatting",
+        "localeNote": "These filters format with the browser's default locale, not with $i18n.locale: changing the locale re-translates t keys but does not change their output. The outputs below are for an en-US browser; a pt-BR browser shows R$ 1.234,56 and 25/02/2026 for the currency:'BRL' and date lines."
       },
       "fallback": {
         "title": "Fallback Behavior",

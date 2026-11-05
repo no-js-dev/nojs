@@ -425,7 +425,8 @@
         "onMounted": "Élément inséré dans le DOM visible",
         "onUpdated": "Mutation du DOM observée (via MutationObserver)",
         "onUnmounted": "Élément retiré du DOM",
-        "onError": "Erreur dans le sous-arbre de cet élément"
+        "onError": "Erreur dans le sous-arbre de cet élément",
+        "unmountedNote": "Par défaut (comportement de v1.21.1), on:unmounted se déclenche quand votre propre code retire l'élément, par exemple avec el.remove(). Quand une directive le retire (if ou else-if qui devient faux, une ligne qui quitte une liste each, un changement de route), le hook ne s'exécute pas, et une ligne d'un each avec key qui a seulement été déplacée le déclenche. Définissez strictUnmounted: true pour exécuter le hook une fois quand une directive retire l'élément et jamais pour une ligne déplacée. Un case de switch masqué reste dans le DOM : son hook ne s'exécute dans aucun des deux modes."
       },
       "keyModifiers": {
         "title": "Modificateurs de Touche",
@@ -1632,7 +1633,8 @@
         "strictBindings": "bind-* rejette les attributs d'event handler inline (bind-onclick, bind-onerror, tout nom bind-on* sans tiret ; bind-onboarding-step reste lié) avec un avertissement [Security], et les valeurs de bind-srcdoc passent par le sanitizer de bind-html (ou par votre fonction sanitizeHtml). Lu à l'initialisation de chaque binding : définissez-le avant NoJS.init(). Une fois à true, il ne peut plus repasser à false après init().",
         "pageRelative": "<template src> est résolu par rapport à la page et ignore base et baseApiUrl.",
         "escapeParams": "Les paramètres t-* des traductions t-html sont échappés en HTML. Le modifier après init() réaffiche les traductions actives.",
-        "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel."
+        "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel.",
+        "strictUnmounted": "on:unmounted se déclenche aussi quand une directive retire l'élément (if / else-if, each / foreach, un changement de route), une fois par élément à la microtâche suivante, et ne se déclenche plus pour une ligne d'un each avec key qui a seulement été déplacée. Un élément qui reste dans le DOM (un case de switch masqué) ne le déclenche pas."
       }
     },
     "plugins": {

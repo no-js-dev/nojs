@@ -2177,6 +2177,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 | `on:unmounted` | Element removed from DOM |
 | `on:error` | Any error in this element's subtree |
 
+> **`on:unmounted` and directive removals.** By default (v1.21.1 behavior), `on:unmounted` fires when your own code removes the element, for example with `el.remove()`. When a directive removes it — `if` / `else-if` turning false, a row leaving an `each` / `foreach` list, a route change replacing the outlet content — No.JS disposes the element before removing it, and the hook does not run. A keyed `each` that moves a row also fires that row's hook, although the row stays on the page. Set `strictUnmounted: true` to fix both: the hook then runs once when a directive removes the element, and never for a row that only moved. A `switch` case that is hidden stays in the DOM (`display: none`), so its hook does not run in either mode. See [Opt-in hardening flags](configuration.md#opt-in-hardening-flags).
+
 ---
 
 ## `trigger` — Emit Custom Events
@@ -4850,6 +4852,9 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
     dangerouslyDisableSanitize: false,    // Bypass ALL sanitization (not recommended)
     strictBindings: false,                // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
 
+    // Lifecycle
+    strictUnmounted: false,               // Opt-in: fire on:unmounted when a directive removes the element (default: false)
+
     // Performance
     exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
     maxEventListeners: 100,    // Max listeners per event on the NoJS event bus (default: 100)
@@ -4900,6 +4905,7 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDevtools` | `false` | Devtools events and context ids are also limited to local hosts, devtools snapshots and `ctx:updated` values redact sensitive names at every depth, the `config` getter redacts headers per key, and devtools fetch events redact tokens in URLs. See [`strictDevtools`](#strictdevtools). |
 | `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot end the string or add keys, and a value with `"`, `\` or a line break no longer makes the output invalid JSON. `<` in values is written as `\u003c`. By default the output is the v1.21.1 output byte-for-byte, so untrusted data in quoted placeholders can still inject keys. Takes effect on the next render. See [Head Management](head-management.md#page-jsonld). |
 | `strictBindings` | `false` | Opt-in hardening for `bind-*`. When `true`, inline event-handler attributes are rejected (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver` — any `bind-on*` name without a hyphen; `bind-onboarding-step` still binds) with a `[Security]` warning, and `bind-srcdoc` values go through the `bind-html` sanitizer (or your `sanitizeHtml` function). Read when each binding initializes — set it before `NoJS.init()`. Once `true`, it cannot be set back to `false` after `init()`. See [Data Binding](data-binding.md). |
+| `strictUnmounted` | `false` | `on:unmounted` also fires when a directive removes the element (`if` / `else-if`, `each` / `foreach`, a route change), on the next microtask and at most once per element, and no longer fires for a keyed `each` row that only moved. An element that is disposed but stays in the DOM (a hidden `switch` case, `NoJS.dispose()`) does not fire. By default the hook only sees removals made by your own code, as in v1.21.1. Takes effect immediately. See [Events → Lifecycle Hooks](events.md#lifecycle-hooks). |
 | `templates.pageRelative` | `false` | `<template src>` resolves against the page and ignores the nearest `base` attribute and `baseApiUrl`. Absolute URLs and `./` paths inside a remote template behave the same in both modes. See [Templates](templates.md#how-src-is-resolved). |
 | `i18n.escapeParams` | `false` | `t-*` param values in `t-html` translations are HTML-escaped before interpolation. Plain `t` is not affected. Changing it after `init()` re-renders active translations. See [Internationalization](i18n.md). |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it: the stale value is removed from `localStorage` and the locale falls back to browser detection or `defaultLocale`. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |

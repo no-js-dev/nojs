@@ -68,6 +68,9 @@
     dangerouslyDisableSanitize: false, // Bypass ALL sanitization (default: false)
     strictBindings: false,     // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
 
+    // Lifecycle
+    strictUnmounted: false,    // Opt-in: fire on:unmounted when a directive removes the element (default: false)
+
     // Performance
     exprCacheSize: 500,        // Max entries in expression LRU caches
     maxEventListeners: 100,    // Max listeners per event on the event bus
@@ -271,6 +274,7 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
         <tr><td><code>strictDevtools</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDevtools"></td></tr>
         <tr><td><code>strictJsonld</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictJsonld"></td></tr>
         <tr><td><code>strictBindings</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictBindings"></td></tr>
+        <tr><td><code>strictUnmounted</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictUnmounted"></td></tr>
         <tr><td><code>templates.pageRelative</code></td><td><code>false</code></td><td t="docs.configuration.hardening.pageRelative"></td></tr>
         <tr><td><code>i18n.escapeParams</code></td><td><code>false</code></td><td t="docs.configuration.hardening.escapeParams"></td></tr>
         <tr><td><code>i18n.strictLocale</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictLocale"></td></tr>

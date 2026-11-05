@@ -163,6 +163,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 | `on:unmounted` | Element removed from DOM |
 | `on:error` | Any error in this element's subtree |
 
+> **`on:unmounted` and directive removals.** By default (v1.21.1 behavior), `on:unmounted` fires when your own code removes the element, for example with `el.remove()`. When a directive removes it — `if` / `else-if` turning false, a row leaving an `each` / `foreach` list, a route change replacing the outlet content — No.JS disposes the element before removing it, and the hook does not run. A keyed `each` that moves a row also fires that row's hook, although the row stays on the page. Set `strictUnmounted: true` to fix both: the hook then runs once when a directive removes the element, and never for a row that only moved. A `switch` case that is hidden stays in the DOM (`display: none`), so its hook does not run in either mode. See [Opt-in hardening flags](configuration.md#opt-in-hardening-flags).
+
 ---
 
 ## `trigger` — Emit Custom Events

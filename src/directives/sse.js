@@ -248,6 +248,10 @@ registerDirective("sse", {
         }
       }
 
+      // A batch drain already holding the watcher must not reopen the
+      // connection after disposal closed it.
+      _onDispose(() => { onAncestorChange._disposed = true; });
+
       // Watch all ancestor contexts for changes
       let ancestor = parentCtx;
       while (ancestor && ancestor.__isProxy) {

@@ -1037,6 +1037,9 @@ for (const method of HTTP_METHODS) {
         }
 
         _onDispose(() => {
+          // $watch listeners are not tracked in __watcherFns: flag the
+          // watcher so a batch drain already holding it skips it.
+          onAncestorChange._disposed = true;
           if (_debounceTimer) clearTimeout(_debounceTimer);
         });
 
@@ -1101,6 +1104,7 @@ for (const method of HTTP_METHODS) {
         }
 
         _onDispose(() => {
+          onParamsChange._disposed = true;
           if (_paramsDebounceTimer) clearTimeout(_paramsDebounceTimer);
         });
 

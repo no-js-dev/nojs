@@ -357,6 +357,9 @@ function _disposeElement(node, discard) {
   // their listener Sets are retained memory until the next notify sweep.
   if (node.__watcherFns) {
     for (const fn of node.__watcherFns) {
+      // A batch drain in progress holds its own snapshot of queued watchers;
+      // the flag keeps it from running this one after disposal.
+      fn._disposed = true;
       let c = fn._wctx;
       while (c && c.__isProxy) {
         c.__listeners.delete(fn);

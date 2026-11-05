@@ -185,13 +185,19 @@ describe('audited deep imports stay reachable', () => {
     expect(stdout.trim()).toBe(`function ${pkg.name}`);
   });
 
-  test('paths outside the whitelist are not exported', () => {
+  test('unlisted existing paths stay importable (catch-all "./*")', () => {
+    expect(resolved(`${pkg.name}/build.js`)).toMatch(installedPath('build.js'));
+    expect(resolved(`${pkg.name}/docs/llms.txt`)).toMatch(installedPath('docs/llms.txt'));
+  });
+
+  test('a non-existent path fails as not found, not as not exported', () => {
     const res = spawnSync(
       process.execPath,
-      ['--input-type=module', '-e', `import.meta.resolve('${pkg.name}/build.js')`],
+      ['--input-type=module', '-e', `await import('${pkg.name}/does-not-exist.js')`],
       { cwd: consumer, encoding: 'utf8' },
     );
     expect(res.status).not.toBe(0);
-    expect(res.stderr).toMatch(/ERR_PACKAGE_PATH_NOT_EXPORTED/);
+    expect(res.stderr).toMatch(/ERR_MODULE_NOT_FOUND/);
+    expect(res.stderr).not.toMatch(/ERR_PACKAGE_PATH_NOT_EXPORTED/);
   });
 });

@@ -5803,7 +5803,7 @@ Three named exports give offline tooling (compilers, linters, bundler plugins) d
 import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/compiler';
 ```
 
-`@no-js-dev/nojs/compiler` is a Node-safe ESM entry: it loads the parser without the framework runtime (no DOM walk, no directive registration). It also exports `evaluate`, the reference interpreter, for differential testing. The same parser functions are re-exported from the main entry (`@no-js-dev/nojs`), and the deep paths `@no-js-dev/nojs/src/*`, `@no-js-dev/nojs/dist/*` and `@no-js-dev/nojs/types/*` keep working. In bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`.
+`@no-js-dev/nojs/compiler` is a Node-safe ESM entry: it loads the parser without the framework runtime (no DOM walk, no directive registration). It also exports `evaluate`, the reference interpreter, for differential testing. The same parser functions are re-exported from the main entry (`@no-js-dev/nojs`), and every deep path keeps working (`@no-js-dev/nojs/src/*`, `@no-js-dev/nojs/dist/*`, `@no-js-dev/nojs/types/*` and any other file in the package). In bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`.
 
 ### `segmentPipes(str)`
 

@@ -398,14 +398,25 @@ export function _createRouter() {
     return tpl.__routeLoading;
   }
 
+  // Base folder an outlet resolves route files from ("" = none). An outlet's
+  // own `src` always wins. By default (v1.21.1 behavior) every outlet falls
+  // back to `router.templates`; with `router.strictOutlets` only the default
+  // outlet does, so a named outlet without `src` is filled by explicit
+  // `outlet="name"` routes (and the wildcard) only.
+  function _outletTemplatesSrc(outletEl, outletName) {
+    const own = outletEl.getAttribute("src");
+    if (own) return own;
+    if (_config.router.strictOutlets === true && outletName !== "default") return "";
+    return _config.router.templates || "";
+  }
+
   // ── Hierarchical segment resolution ──────────────────────────────────────
   // For multi-segment paths, try loading segment-by-segment layouts before
   // falling back to the flat path.
   async function _resolveHierarchicalTemplate(outletEl, outletName, nav) {
-    const configTemplates = _config.router.templates || "";
-    if (!outletEl.hasAttribute("src") && !configTemplates) return null;
+    const rawSrc = _outletTemplatesSrc(outletEl, outletName);
+    if (!rawSrc) return null;
 
-    const rawSrc = outletEl.getAttribute("src") || configTemplates;
     const baseSrc = rawSrc.replace(/\/?$/, "/");
     const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl";
     const indexName = outletEl.getAttribute("route-index") || "index";
@@ -727,8 +738,7 @@ export function _createRouter() {
       let resolvedBaseSrc = "";
       let resolvedExt = "";
       let resolvedIndexName = "index";
-      const configTemplates = _config.router.templates || "";
-      if (!tpl && (outletEl.hasAttribute("src") || configTemplates)) {
+      if (!tpl && _outletTemplatesSrc(outletEl, outletName)) {
         const resolved = await _resolveHierarchicalTemplate(outletEl, outletName, nav);
         if (nav !== latestNav) return;
         if (resolved) {
@@ -938,12 +948,12 @@ export function _createRouter() {
     for (const outletEl of outletEls) {
       // Skip nested outlets — they get templates loaded during navigation
       if (outletEl.parentElement && outletEl.parentElement.closest("[route-view]")) continue;
-      const rawSrc = outletEl.getAttribute("src") || _config.router.templates || "";
+      const outletName = (outletEl.getAttribute("route-view") || "").trim() || "default";
+      const rawSrc = _outletTemplatesSrc(outletEl, outletName);
       if (!rawSrc) continue;
       const baseSrc = rawSrc.replace(/\/?$/, "/");
       const ext = outletEl.getAttribute("ext") || _config.router.ext || ".tpl";
       const indexName = outletEl.getAttribute("route-index") || "index";
-      const outletName = (outletEl.getAttribute("route-view") || "").trim() || "default";
 
       // Collect routes from links, keeping most aggressive lazy level per path.
       // <template route> elements are route definitions, not links: they are

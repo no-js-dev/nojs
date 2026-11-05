@@ -18,7 +18,7 @@ var _config = {
   csrf: null,
   cache: { strategy: "none", ttl: 3e5 },
   templates: { cache: true, pageRelative: false },
-  router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
+  router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true, strictOutlets: false },
   i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false, escapeParams: false, strictLocale: false },
   debug: false,
   devtools: false,

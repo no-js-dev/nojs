@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.21.1...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.22.0...HEAD)
+
+### Added
+
+- Package `exports` map with a Node-safe ESM compiler entry, `@no-js-dev/nojs/compiler` (`dist/compiler/compiler.mjs`, built by `node build.js`): `parseExpression`, `parseStatements`, `segmentPipes` and `evaluate` without the framework runtime. Additive: in bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`, as the `browser` field did; Node `import` / `require` of the root now resolve to `src/index.js` (new `main` / `module` fields); `src/*`, `dist/*`, `types/*` and `package.json` have explicit entries and a final `"./*"` catch-all keeps every other existing path importable, so nothing previously reachable is blocked. Re-applies the exports half of [#348](https://github.com/no-js-dev/nojs/pull/348) ([#333](https://github.com/no-js-dev/nojs/issues/333))
+
+### Fixed
+
+- Watchers disposed while a reactive update is running no longer run in that update. A `switch` case being hidden used to re-evaluate its content once with the new value after getting `display: none`, so a `get` inside it requested the new URL (twice) and an `sse` reopened its connection for a case that was already hidden. Content that stays visible is unaffected. Cases hidden on the first render are still reactive until shown and hidden once; this is documented as a known limitation in [Conditionals](docs/md/conditionals.md#hidden-cases)
+
+## [1.22.0](https://github.com/no-js-dev/nojs/compare/v1.21.1...v1.22.0) — 2026-11-10
 
 Nine opt-in hardening flags, a v1.21.1 compatibility suite, and a batch of fixes. Every hardening flag defaults to `false`: without them, v1.21.1 behavior is unchanged.
 
@@ -23,7 +33,6 @@ Nine opt-in hardening flags, a v1.21.1 compatibility suite, and a batch of fixes
 - The "Failed to load template" warning names the resolved URL and the `templates.pageRelative` opt-in when `base=` or `baseApiUrl` changed the template URL ([`b83267e`](https://github.com/no-js-dev/nojs/commit/b83267e))
 - Warnings for silent failures (stored values and sent headers unchanged): `NoJS.global()` names the function paths an object value loses in its JSON copy; a sensitive header (`Authorization`, `X-CSRF-Token`) set by an untrusted request interceptor is still discarded, now with a warning once per interceptor and header (the value is never logged); `NoJS.use()` warns when the plugin object itself sets `trusted: true`, which is ignored ([#417](https://github.com/no-js-dev/nojs/pull/417))
 - v1.21.1 compatibility suite (unit + Playwright on 3 engines) and `scripts/compat-check.sh`, which builds any git ref in a throwaway worktree and runs the suite against it; `test-server.js` serves another build at `/__local__/no.js` via `NOJS_BUILD_PATH` ([`ce842f6`](https://github.com/no-js-dev/nojs/commit/ce842f6), from [#388](https://github.com/no-js-dev/nojs/pull/388))
-- Package `exports` map with a Node-safe ESM compiler entry, `@no-js-dev/nojs/compiler` (`dist/compiler/compiler.mjs`, built by `node build.js`): `parseExpression`, `parseStatements`, `segmentPipes` and `evaluate` without the framework runtime. Additive: in bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`, as the `browser` field did; Node `import` / `require` of the root now resolve to `src/index.js` (new `main` / `module` fields); `src/*`, `dist/*`, `types/*` and `package.json` have explicit entries and a final `"./*"` catch-all keeps every other existing path importable, so nothing previously reachable is blocked. Re-applies the exports half of [#348](https://github.com/no-js-dev/nojs/pull/348) ([#333](https://github.com/no-js-dev/nojs/issues/333))
 
 ### Changed
 
@@ -34,7 +43,6 @@ Nine opt-in hardening flags, a v1.21.1 compatibility suite, and a batch of fixes
 
 ### Fixed
 
-- Watchers disposed while a reactive update is running no longer run in that update. A `switch` case being hidden used to re-evaluate its content once with the new value after getting `display: none`, so a `get` inside it requested the new URL (twice) and an `sse` reopened its connection for a case that was already hidden. Content that stays visible is unaffected. Cases hidden on the first render are still reactive until shown and hidden once; this is documented as a known limitation in [Conditionals](docs/md/conditionals.md#hidden-cases)
 - Test and docs dev servers: the static-file path guard no longer accepts sibling directories that share the root's name prefix, and `docs/dev-server.js` now applies the same guard; `test-server.js` accepts `TEST_SERVER_HOST` (e.g. `127.0.0.1`) to bind loopback only and logs the bound address ([#361](https://github.com/no-js-dev/nojs/pull/361), @evertonfraga)
 - Router (history mode): the first page load and Back/Forward now keep `?query` and `#hash`, so `$route.query`/`$route.hash` are filled in and the URL is no longer rewritten without them; a query value that contains `?` (e.g. `?next=/a?b=1`) is no longer truncated ([#364](https://github.com/no-js-dev/nojs/pull/364), @evertonfraga)
 - HTTP and SSE URL placeholders (`get`/`post`/`put`/`patch`/`delete`, `call`, `sse`): a placeholder in the path part whose value is exactly `.` or `..` is now escaped to `%252E` / `%252E%252E`, so it can no longer re-target the request to a parent path (e.g. `/api/users/{id}` with `id = ".."` used to request `/api/`). On by default, with no opt-out; a warning is logged once per request. Query-string and fragment placeholders and request bodies are unchanged ([#369](https://github.com/no-js-dev/nojs/pull/369), @evertonfraga)
@@ -51,6 +59,7 @@ Nine opt-in hardening flags, a v1.21.1 compatibility suite, and a batch of fixes
 - Stores: expressions that read or write more than one store update every store's bindings (`then="$store.auth.user = …; $store.ui.mode = …"`, `on:click` handlers, `bind="$store.auth.user + $store.ui.mode"`), and reactive `get` / `sse` URLs re-fetch when any named store changes; only the first store was notified since v1.13.0 ([#420](https://github.com/no-js-dev/nojs/pull/420))
 - `parseStatements()` (tooling export) parses `const` / `let` as `VarDecl` nodes, like the runtime, instead of returning an identifier named `const` ([#420](https://github.com/no-js-dev/nojs/pull/420))
 - Router prefetch no longer requests `pages/<pattern>.tpl` for inline `<template route>` definitions, `:param` / `*` patterns or paths that already have an explicit route for that outlet; `<a route>` links to file-based pages are prefetched as before ([#419](https://github.com/no-js-dev/nojs/pull/419))
+- Browser globals: allow-listed `navigator` and `window` members now work on the real object instead of throwing `Illegal invocation` (or the Firefox/WebKit equivalent) and evaluating to `undefined`: `navigator.language`, `languages`, `onLine`, `userAgent`, `platform`, `cookieEnabled`, `hardwareConcurrency`, `maxTouchPoints`, `navigator.clipboard.writeText()`, and `window.innerWidth`, `innerHeight`, `scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`, `devicePixelRatio`, `matchMedia()`, also through `document.defaultView` and `window.navigator`. These reads are not reactive. Every other member and the deny-lists behave as in v1.21.1 ([#425](https://github.com/no-js-dev/nojs/pull/425))
 
 ### Documentation
 

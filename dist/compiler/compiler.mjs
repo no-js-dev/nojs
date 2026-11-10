@@ -982,10 +982,56 @@ var _BLOCKED_DOCUMENT_PROPS = /* @__PURE__ */ new Set([
   "writeln",
   "execCommand"
 ]);
+var _WINDOW_OWNER_READS = /* @__PURE__ */ new Set([
+  "innerWidth",
+  "innerHeight",
+  "scrollX",
+  "scrollY",
+  "pageXOffset",
+  "pageYOffset",
+  "devicePixelRatio"
+]);
+var _WINDOW_OWNER_METHODS = /* @__PURE__ */ new Set(["matchMedia"]);
+var _NAVIGATOR_OWNER_READS = /* @__PURE__ */ new Set([
+  "language",
+  "languages",
+  "onLine",
+  "userAgent",
+  "platform",
+  "cookieEnabled",
+  "hardwareConcurrency",
+  "maxTouchPoints"
+]);
+var _ownerMethodCache = /* @__PURE__ */ new WeakMap();
+function _ownerMethod(target, name) {
+  let byName = _ownerMethodCache.get(target);
+  if (!byName) {
+    byName = /* @__PURE__ */ new Map();
+    _ownerMethodCache.set(target, byName);
+  }
+  if (!byName.has(name)) {
+    const fn = target[name];
+    byName.set(name, typeof fn === "function" ? (...args) => fn.apply(target, args) : void 0);
+  }
+  return byName.get(name);
+}
+var _safeClipboard;
+var _safeClipboardSource;
+function _clipboardFor(nav) {
+  const real = nav.clipboard;
+  if (!real || typeof real.writeText !== "function") return void 0;
+  if (_safeClipboardSource !== real) {
+    _safeClipboardSource = real;
+    _safeClipboard = Object.freeze({ writeText: (text) => real.writeText(text) });
+  }
+  return _safeClipboard;
+}
 var _safeWindow = typeof globalThis !== "undefined" && typeof globalThis.window !== "undefined" ? new Proxy(globalThis.window, {
   get(target, prop, receiver) {
     if (typeof prop === "string" && _BLOCKED_WINDOW_PROPS.has(prop)) return void 0;
     if (typeof prop === "string" && prop in _WINDOW_PROXY_OVERRIDES) return _WINDOW_PROXY_OVERRIDES[prop];
+    if (_WINDOW_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+    if (_WINDOW_OWNER_METHODS.has(prop)) return _ownerMethod(target, prop);
     return Reflect.get(target, prop, receiver);
   },
   set() {
@@ -1061,6 +1107,8 @@ var _BLOCKED_NAVIGATOR_PROPS = /* @__PURE__ */ new Set(["sendBeacon", "credentia
 var _safeNavigator = typeof globalThis !== "undefined" && typeof globalThis.navigator !== "undefined" ? new Proxy(globalThis.navigator, {
   get(target, prop, receiver) {
     if (typeof prop === "string" && _BLOCKED_NAVIGATOR_PROPS.has(prop)) return void 0;
+    if (_NAVIGATOR_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+    if (prop === "clipboard") return _clipboardFor(target);
     return Reflect.get(target, prop, receiver);
   },
   set() {

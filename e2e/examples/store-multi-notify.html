@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-store expressions — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    button { padding: 0.25rem 0.75rem; margin-right: 0.25rem; cursor: pointer; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; }
+    .editing { outline: 2px solid #1a5fb4; }
+  </style>
+</head>
+<body>
+  <div store="auth" value="{ user: null }"></div>
+  <div store="ui" value="{ mode: 'view' }"></div>
+  <div store="list" value="{ items: ['a'] }"></div>
+
+  <main>
+    <!-- 1. Bindings on both stores, plus one binding reading both -->
+    <section state="{}">
+      <p class="test-label">Test 1: Bindings</p>
+      <span class="value" data-test="user" bind="$store.auth.user"></span>
+      <span class="value" data-test="mode" bind="$store.ui.mode"></span>
+      <span class="value" data-test="label" bind="$store.ui.mode === 'editing' ? 'Editing' : 'Viewing'" class-editing="$store.ui.mode === 'editing'"></span>
+      <span class="value" data-test="shown" show="$store.ui.mode === 'editing'">editing</span>
+      <span class="value" data-test="mixed" bind="$store.auth.user + '|' + $store.ui.mode"></span>
+      <span class="value" data-test="count" bind="$store.list.items.length"></span>
+    </section>
+
+    <!-- 2. on:click writing two stores -->
+    <section state="{}">
+      <p class="test-label">Test 2: on:click writes auth then ui</p>
+      <button data-test="click-two" on:click="$store.auth.user = 'Ana'; $store.ui.mode = 'editing'">Log in and edit</button>
+      <button data-test="click-two-reversed" on:click="$store.ui.mode = 'editing'; $store.auth.user = 'Bia'">Edit and log in</button>
+      <button data-test="click-ui" on:click="$store.ui.mode = 'editing'">Edit only</button>
+      <button data-test="reset" on:click="$store.auth.user = null; $store.ui.mode = 'view'">Reset</button>
+    </section>
+
+    <!-- 3. then= after a GET, writing two stores -->
+    <section state="{ load: false }">
+      <p class="test-label">Test 3: get then= writes two stores</p>
+      <button data-test="load" on:click="load = true">Load</button>
+      <div if="load">
+        <div get="/api/multi-store/me" as="me" then="$store.auth.user = result.name; $store.ui.mode = 'editing'"></div>
+      </div>
+    </section>
+
+    <!-- 4. A statement that throws after writing -->
+    <section state="{}">
+      <p class="test-label">Test 4: writes before a throw reach the DOM</p>
+      <button data-test="throw" on:click="$store.list.items.push('b'); $store.ui.mode = 'editing'; boom()">Push then fail</button>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+</body>
+</html>

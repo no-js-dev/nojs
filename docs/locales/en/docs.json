@@ -302,7 +302,7 @@
       },
       "into": {
         "title": "into — Write Fetch Results to a Store",
-        "text": "The into attribute on any HTTP directive writes the response directly into a named global store.",
+        "text": "The into attribute on any HTTP directive writes the response into a named global store, under the key named by as (data when as is omitted): $store.<into>.<as>. The response fields are not merged into the store itself.",
         "callout": "The store doesn't need to be pre-defined — into will create it if it doesn't exist."
       },
       "computed": {
@@ -390,6 +390,17 @@
         "youTyped": "You typed:",
         "countLabel": "Count:"
       },
+      "unsupported": {
+        "title": "Unsupported statement forms",
+        "text": "Handlers run expressions, <code>const</code>/<code>let</code> declarations and assignments separated by <code>;</code>, not full JavaScript statements. An assignment (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) only takes effect at the top level of a statement:",
+        "colNo": "Not supported",
+        "colYes": "Write instead",
+        "ternary": "(assignment inside a ternary branch)",
+        "logical": "(assignment inside a logical operand)",
+        "comma": "(comma operator)",
+        "note": "A function call inside a branch works (<code>ok ? save() : null</code>). In the unsupported forms the assignment does not run, and a console warning naming the expression is emitted.",
+        "errors": "When a statement throws, the handler stops: its <code>name = value</code> writes are not applied, while in-place changes (such as <code>items.push(x)</code>) and <code>$store</code> writes made before the error stay, and the page shows them. The error is logged as <code>[No.JS] Expression error: &lt;statement&gt;</code> and dispatches a <code>nojs:error</code> event on the element, so <code>error-boundary</code> can catch it."
+      },
       "modifiers": {
         "title": "Event Modifiers",
         "text": "Modifiers let you control event behavior directly in the attribute:",
@@ -444,7 +455,8 @@
         "preview": "Preview",
         "checkbox": "Logged in",
         "welcome": "✅ Welcome back!",
-        "login": "Please log in."
+        "login": "Please log in.",
+        "hostCallout": "When the condition is false, if clears the element's content but keeps the element itself, so its padding, border and background stay visible. To hide the box too, use show/hide, or put if on an unstyled wrapper (as in this demo)."
       },
       "elseIf": {
         "title": "else-if — Chained Conditionals"
@@ -456,7 +468,7 @@
         "colIf": "if",
         "colShow": "show",
         "mechanism": "Mechanism",
-        "mechanismIf": "Adds/removes DOM elements",
+        "mechanismIf": "Adds/removes the element's content (the element stays)",
         "mechanismShow": "Toggles CSS display",
         "bestFor": "Best for",
         "bestForIf": "Rarely toggled content",
@@ -681,7 +693,7 @@
         "col1": "Attribute",
         "col2": "Description",
         "method": "URL for the request",
-        "body": "Request body (JSON string with interpolation). For forms, auto-serializes fields",
+        "body": "Request body (JSON string with interpolation). For forms, auto-serializes the fields into a JSON object; file inputs are not uploaded (a file is sent as an empty object)",
         "success": "Template ID to render on success. Receives response as var",
         "error": "Template ID to render on error. Receives error as var",
         "loading": "Template ID to show during request",
@@ -740,6 +752,7 @@
         "basicTitle": "Basic Usage",
         "asyncTitle": "Async Interceptors",
         "asyncText": "Interceptors can be <code>async</code>. No.JS awaits each interceptor with a 5-second timeout — if the interceptor doesn't resolve in time, it is skipped and a warning is logged.",
+        "sensitiveCallout": "Sensitive headers (Authorization, Cookie, X-API-Key, X-CSRF-Token, X-Auth-*, X-Api-*, …) can only be set by an interceptor registered synchronously inside install() of a plugin installed with NoJS.use(plugin, { trusted: true }). Values set by app-level or untrusted interceptors are dropped; for those headers use NoJS.config({ headers }) or NoJS.config({ csrf }) instead.",
         "cancelTitle": "Cancel Requests (NoJS.CANCEL)",
         "cancelText": "Return an object with <code>[NoJS.CANCEL]: true</code> from a request interceptor to abort the request entirely. The fetch directive treats this as an <code>AbortError</code>.",
         "respondTitle": "Short-Circuit Responses (NoJS.RESPOND)",
@@ -770,7 +783,7 @@
         "title": "$route — Route Context",
         "col1": "Property",
         "col2": "Description",
-        "path": "Current path (e.g. \"/users/42\")",
+        "path": "Current path, relative to router.base (e.g. \"/users/42\")",
         "params": "Route parameters (e.g. { id: \"42\" })",
         "query": "Query string params (e.g. { q: \"hello\" })",
         "hash": "URL hash (e.g. \"#section\")",
@@ -814,6 +827,7 @@
         "exampleText": "That's it — <strong>two lines</strong> for a full SPA with six routes.",
         "mixingTitle": "Mixing Explicit & File-Based Routes",
         "mixingText": "Explicit <code>&lt;template route=\"...\"&gt;</code> declarations <strong>always take priority</strong>. This lets you combine both approaches — use file-based routing for simple pages and explicit templates for routes that need guards, params, or named outlets:",
+        "mixingPrefetch": "At startup, No.JS prefetches the <code>.tpl</code> files for <code>&lt;a route&gt;</code> links that file-based routing would render. <code>&lt;template route&gt;</code> definitions, links whose path already has an explicit route for that outlet, and patterns (<code>:param</code>, <code>*</code>) are never fetched from the folder.",
         "autoI18nTitle": "Auto i18n Namespace",
         "autoI18nText": "When the <code>route-view</code> element has an <code>i18n-ns</code> attribute (even without a value), No.JS automatically loads the i18n namespace matching the filename:",
         "autoI18nText2": "This replaces the need to add <code>i18n-ns=\"...\"</code> on each route template individually."
@@ -868,8 +882,9 @@
         "remoteText": "Wildcard routes support all the same attributes as regular route templates, including <code>src</code> for remote loading:",
         "remoteText2": "The remote template is fetched, cached, and rendered just like any other route template — and it has full access to <code>$route.path</code>, <code>$route.matched</code>, and all other framework features.",
         "fileBasedTitle": "File-Based Routing 404",
-        "fileBasedText": "When using file-based routing, navigating to a path whose <code>.tpl</code> file doesn't exist on the server (HTTP 404 or other error) automatically triggers the wildcard fallback chain.",
-        "fileBasedText2": "The failed HTTP response is <strong>not</strong> cached — subsequent navigations to other paths are unaffected."
+        "fileBasedText": "When using file-based routing, navigating to a path whose <code>.tpl</code> file doesn't exist on the server (HTTP 404 or other error, or an SPA fallback that answers with the app's <code>index.html</code>) automatically triggers the wildcard fallback chain.",
+        "fileBasedText2": "The failed HTTP response is <strong>not</strong> cached — subsequent navigations to other paths are unaffected.",
+        "fileBasedSpaFallback": "A server with an SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) answers a missing <code>.tpl</code> with <code>200</code> and the full <code>index.html</code>. When a template that file-based routing resolved from the folder comes back as a full HTML document (it starts with <code>&lt;!DOCTYPE html&gt;</code> or <code>&lt;html&gt;</code>), No.JS treats it as not found and logs a warning, so the wildcard renders instead of the page shell. Explicit <code>&lt;template src&gt;</code> and <code>&lt;template route src&gt;</code> keep loading their response as-is."
       },
       "headAttributes": {
         "title": "Route Head Attributes",
@@ -1435,7 +1450,7 @@
         "col2": "Description",
         "fetchSuccess": "{ url, data } on successful response",
         "fetchError": "{ url, error } on failure",
-        "fetchEnd": "{ url } when the request completes (success or failure)"
+        "error": "{ url, error } on failure, emitted right after fetch:error"
       },
       "lifecycle": {
         "title": "Request Lifecycle"
@@ -1479,7 +1494,7 @@
       },
       "disposal": {
         "title": "Disposal & Cleanup",
-        "text": "Custom directives must clean up after themselves. Use the _onDispose callback to remove event listeners, clear timers, and unsubscribe watchers.",
+        "text": "Custom directives must clean up after themselves. Push a cleanup function onto el.__disposers (or call NoJS.internals.onDispose() synchronously inside init) to remove event listeners, clear timers, and unsubscribe watchers. A function returned from init is ignored.",
         "callout": "Directives registered after init (via plugins) are not frozen — but they cannot override built-in directives."
       },
       "webComponents": {
@@ -1598,9 +1613,26 @@
         "xssList1": "bind always sets textContent, never innerHTML — safe by default.",
         "xssList2": "bind-html sanitizes content using a built-in DOMParser-based structural sanitizer (strips <script> tags, blocks on* event handlers, removes javascript: URIs).",
         "xssList3": "Template expressions are evaluated by a custom sandboxed parser — no eval() or Function() is used, and dangerous properties like __proto__ and constructor are blocked.",
+        "xssList4": "bind-* writes any attribute by default, including inline handlers (bind-onclick) and iframe documents (bind-srcdoc), exactly as in v1.21.1. Enable strictBindings: true to reject bind-on* handlers and sanitize bind-srcdoc like bind-html.",
         "csrfTitle": "CSRF Protection",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "No.JS uses a custom expression parser that is fully CSP-compliant — no eval() or Function() constructor is used. No unsafe-eval directive is required in your Content Security Policy."
+      },
+      "hardening": {
+        "title": "Opt-in Hardening Flags",
+        "text": "Stricter security behaviors are opt-in, so apps built on v1.21.1 keep working unchanged. Every flag defaults to false (v1.21.1 behavior) and is set through NoJS.config(). Most flags take effect immediately, before or after init(). strictDirectives applies to the directive registrations made after it is set, and i18n.strictLocale only to the NoJS.i18n() call that restores the persisted locale. strictBindings is read when each binding initializes, so set it before NoJS.init(); once true, it cannot be turned off after init().",
+        "colFlag": "Flag",
+        "colDefault": "Default",
+        "colWhenTrue": "When true",
+        "scopeHeaders": "Global config({ headers }) are sent only to trusted origins (the page, baseApiUrl and the nearest base attribute) instead of every request. Per-request headers still apply to any origin.",
+        "strictRedaction": "Untrusted interceptors and fetch:success / fetch:error / error event payloads get stricter redaction: the csrf.header is withheld, response headers that are sensitive as request headers are stripped, and URLs drop their #fragment and get sensitive query values replaced by [REDACTED]. Parameter names are matched by word, so author or keyword stay intact.",
+        "strictDirectives": "NoJS.directive() rejects names covered by a core wildcard (on:*, bind-*, class-*, style-*). The registry is frozen as soon as No.JS loads, so the flag applies to every registration made while it is set. Set it before plugins register directives.",
+        "strictDevtools": "Devtools events and context ids are also limited to local hosts, devtools snapshots and ctx:updated values redact sensitive names (matched by word) at every depth, the config getter redacts headers per key, and devtools fetch URLs are redacted.",
+        "strictJsonld": "page-jsonld placeholders inside JSON strings are always escaped as JSON string content, so a value cannot end the string or add keys, and a value with a quote, backslash or line break no longer makes the output invalid JSON. By default, the v1.21.1 output is kept byte-for-byte.",
+        "strictBindings": "bind-* rejects inline event-handler attributes (bind-onclick, bind-onerror, any bind-on* name without a hyphen; bind-onboarding-step still binds) with a [Security] warning, and bind-srcdoc values go through the bind-html sanitizer (or your sanitizeHtml function). Read when each binding initializes, so set it before NoJS.init(). Once true, it cannot be set back to false after init().",
+        "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
+        "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
+        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call."
       }
     },
     "plugins": {
@@ -1675,7 +1707,7 @@
       },
       "trusted": {
         "title": "Trusted Interceptors",
-        "text": "By default, interceptors receive redacted copies of requests and responses — sensitive headers and URL parameters are stripped or replaced with [REDACTED].",
+        "text": "By default, interceptors receive redacted copies of requests and responses: sensitive headers are stripped, and response interceptors get the URL re-serialized with sensitive query values set to %5BREDACTED%5D. Request interceptors get the raw URL unless strictRedaction is set.",
         "fullAccess": "Auth plugins that need access to the real headers can be installed with { trusted: true }.",
         "callout": "A console warning is logged when a plugin is installed with trusted access. Only grant trusted to plugins you control or have audited.",
         "redactedTitle": "Redacted Headers",

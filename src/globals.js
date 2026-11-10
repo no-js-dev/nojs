@@ -11,9 +11,9 @@ export const _config = {
   credentials: "same-origin",
   csrf: null,
   cache: { strategy: "none", ttl: 300000 },
-  templates: { cache: true },
+  templates: { cache: true, pageRelative: false },
   router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
-  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false },
+  i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false, escapeParams: false, strictLocale: false },
   debug: false,
   devtools: false,
   sanitize: true,
@@ -22,6 +22,13 @@ export const _config = {
   exprCacheSize: 500,
   maxEventListeners: 100,
   appId: "",
+  // Opt-in hardening flags. Defaults keep v1.21.1 behavior.
+  scopeHeaders: false,
+  strictRedaction: false,
+  strictDirectives: false,
+  strictDevtools: false,
+  strictJsonld: false,
+  strictBindings: false,
 };
 
 export const _interceptors = { request: [], response: [] };
@@ -55,6 +62,51 @@ export const _SENSITIVE_KEYS = new Set([
   'token', 'password', 'secret', 'key', 'auth', 'credential', 'session',
 ]);
 
+// Name matcher for the opt-in strict redaction paths (strictDevtools,
+// strictRedaction). The name is split into words (camelCase and any
+// non-alphanumeric separator) and matched by word, not by substring:
+// "accessToken", "api_key", "X-Session-Id" and "sessionid" match, while
+// "author", "keyboard", "keywords", "sort_key", "monkey", "tokenCount" and
+// "sessionCount" do not. The default paths keep _SENSITIVE_KEYS.
+const _SENSITIVE_LAST_WORDS = new Set([
+  'token', 'tokens', 'password', 'passwords', 'passwd', 'secret', 'secrets',
+  'auth', 'authorization', 'credential', 'credentials', 'cookie', 'cookies',
+  'jwt', 'session', 'signature',
+]);
+const _SENSITIVE_ANY_WORDS = new Set([
+  'password', 'passwords', 'passwd', 'secret', 'secrets', 'credential',
+  'credentials', 'authorization', 'apikey',
+]);
+const _SENSITIVE_KEY_QUALIFIERS = new Set([
+  'api', 'private', 'secret', 'access', 'signing', 'encryption', 'auth',
+  'session', 'license', 'client', 'master',
+]);
+const _SENSITIVE_WHOLE_NAMES = new Set([
+  'key', 'sig', 'apikey', 'sessionid', 'accesstoken', 'refreshtoken', 'idtoken',
+  'csrftoken', 'xsrftoken',
+]);
+
+export function _isSensitiveName(name) {
+  if (typeof name !== 'string' || !name) return false;
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (!words.length) return false;
+  const last = words[words.length - 1];
+  const prev = words.length > 1 ? words[words.length - 2] : '';
+  if (_SENSITIVE_WHOLE_NAMES.has(words.join(''))) return true;
+  if (_SENSITIVE_LAST_WORDS.has(last)) return true;
+  if (last === 'key' && _SENSITIVE_KEY_QUALIFIERS.has(prev)) return true;
+  if (last === 'id' && prev === 'session') return true;
+  for (const w of words) {
+    if (_SENSITIVE_ANY_WORDS.has(w)) return true;
+  }
+  return false;
+}
+
 export const _SENSITIVE_RESPONSE_HEADERS = new Set([
   'set-cookie', 'x-csrf-token', 'x-auth-token',
   'www-authenticate', 'proxy-authenticate',
@@ -77,8 +129,21 @@ export function _log(...args) {
   if (_config.debug) console.log("[No.JS]", ...args);
 }
 
+let _warnMuted = 0;
+
 export function _warn(...args) {
+  if (_warnMuted) return;
   console.warn("[No.JS]", ...args);
+}
+
+// Run fn with _warn silenced (a probe evaluation whose result may be discarded).
+export function _withMutedWarnings(fn) {
+  _warnMuted++;
+  try {
+    return fn();
+  } finally {
+    _warnMuted--;
+  }
 }
 
 // ─── Shared URL utility ─────────────────────────────────────────────────────
@@ -98,11 +163,41 @@ export function _extractStoreName(expr) {
   return m ? m[1] : null;
 }
 
-function _notifyPartition(set) {
+// Every `$store` reference, with the store name when written `$store.name`.
+const _STORE_REF_RE = /\$store(?:\.(\w+))?/g;
+
+// Distinct store names an expression references, in order of appearance:
+// `$store.auth.user = x; $store.ui.mode = y` → ["auth", "ui"]. Returns null
+// when a reference cannot be named statically (`$store[key]`, bare `$store`)
+// or there is none — callers then fall back to every partition (notify) or
+// the wildcard partition (watch), as _extractStoreName's null did.
+export function _extractStoreNames(expr) {
+  if (typeof expr !== "string") return null;
+  let names = null;
+  _STORE_REF_RE.lastIndex = 0;
+  let m;
+  while ((m = _STORE_REF_RE.exec(expr)) !== null) {
+    if (!m[1]) {
+      _STORE_REF_RE.lastIndex = 0;
+      return null;
+    }
+    if (!names) names = [m[1]];
+    else if (!names.includes(m[1])) names.push(m[1]);
+  }
+  return names;
+}
+
+// `seen` dedupes a watcher registered in several partitions (an expression
+// reading two stores) when one notification walks more than one partition.
+function _notifyPartition(set, seen) {
   // Snapshot before iterating: a watcher may synchronously add/delete watchers
   // in this same partition, which would otherwise skip or re-run listeners.
   // Isolate each listener so one throwing watcher doesn't abort the rest.
   for (const fn of [...set]) {
+    if (seen) {
+      if (seen.has(fn)) continue;
+      seen.add(fn);
+    }
     if (fn._el && !fn._el.isConnected) {
       set.delete(fn);
       continue;
@@ -115,39 +210,78 @@ function _notifyPartition(set) {
   }
 }
 
+// storeName: a store name, an array of names (_extractStoreNames), or
+// nothing to notify every partition.
 export function _notifyStoreWatchers(storeName) {
+  if (Array.isArray(storeName)) {
+    if (storeName.length > 1) {
+      // One expression wrote several stores: each named partition, then the
+      // wildcard, each watcher at most once.
+      const seen = new Set();
+      for (const name of storeName) {
+        const partition = _storeWatchers.get(name);
+        if (partition) _notifyPartition(partition, seen);
+      }
+      const wildcard = _storeWatchers.get("*");
+      if (wildcard) _notifyPartition(wildcard, seen);
+      return;
+    }
+    storeName = storeName[0];
+  }
   if (storeName) {
-    // Notify only the targeted partition + wildcards
+    // Notify only the targeted partition + wildcards. A watcher lives in "*"
+    // or in named partitions, never both, so no dedupe is needed here.
     const partition = _storeWatchers.get(storeName);
     if (partition) _notifyPartition(partition);
     const wildcard = _storeWatchers.get("*");
     if (wildcard) _notifyPartition(wildcard);
   } else {
     // No store name — notify ALL partitions (backward compat)
+    const seen = new Set();
     for (const set of _storeWatchers.values()) {
-      _notifyPartition(set);
+      _notifyPartition(set, seen);
     }
   }
 }
 
-export function _addStoreWatcher(fn, partition) {
+function _addToPartition(fn, partition) {
   let set = _storeWatchers.get(partition);
   if (!set) {
     set = new Set();
     _storeWatchers.set(partition, set);
   }
   set.add(fn);
+}
+
+function _removeFromPartition(fn, partition) {
+  const set = _storeWatchers.get(partition);
+  if (set) {
+    set.delete(fn);
+    if (set.size === 0) _storeWatchers.delete(partition);
+  }
+}
+
+// partition: a store name, "*", or an array of store names — a watcher that
+// reads several stores joins each of their partitions.
+export function _addStoreWatcher(fn, partition) {
+  if (Array.isArray(partition)) {
+    if (partition.length === 0) partition = "*";
+    else if (partition.length === 1) partition = partition[0];
+  }
+  if (Array.isArray(partition)) {
+    for (const p of partition) _addToPartition(fn, p);
+  } else {
+    _addToPartition(fn, partition);
+  }
   fn._storePartition = partition;
 }
 
 export function _deleteStoreWatcher(fn) {
   const partition = fn._storePartition;
-  if (partition) {
-    const set = _storeWatchers.get(partition);
-    if (set) {
-      set.delete(fn);
-      if (set.size === 0) _storeWatchers.delete(partition);
-    }
+  if (Array.isArray(partition)) {
+    for (const p of partition) _removeFromPartition(fn, p);
+  } else if (partition) {
+    _removeFromPartition(fn, partition);
   } else {
     // Fallback: scan all partitions (legacy safety net)
     for (const [key, set] of _storeWatchers) {
@@ -259,8 +393,7 @@ export function _watchExpr(expr, ctx, fn) {
     });
   }
   if (typeof expr === "string" && expr.includes("$store")) {
-    const partition = _extractStoreName(expr) || "*";
-    _addStoreWatcher(fn, partition);
+    _addStoreWatcher(fn, _extractStoreNames(expr) || "*");
     fn._el = _currentEl;
   }
   if (typeof expr === "string" && expr.includes("$route")) {

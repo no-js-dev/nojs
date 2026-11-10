@@ -8,7 +8,7 @@ Renders one of two templates based on a condition.
 <!-- With templates -->
 <div if="user.isAdmin" then="adminPanel" else="userPanel"></div>
 
-<!-- Inline content — keeps children if true, removes if false -->
+<!-- Inline content — rendered if true, cleared if false (the <div> itself stays) -->
 <div if="user.isLoggedIn">
   <p>Welcome back!</p>
 </div>
@@ -20,6 +20,8 @@ Renders one of two templates based on a condition.
 <div if="user.role === 'admin' && user.verified" then="adminTpl"></div>
 <div if="cart.items.length > 0" then="cartTpl" else="emptyCartTpl"></div>
 ```
+
+> **The element itself stays in the DOM.** When the condition is false, `if` clears the element's content (or renders the `else` template) but keeps the element, so its own box (padding, border, background, margin) is still visible. To hide the box as well, use [`show` / `hide`](#show--hide), or put `if` on an unstyled wrapper around the styled element. `if` on a `<template>` element renders nothing; put it on a regular element instead.
 
 ---
 
@@ -50,7 +52,7 @@ Toggles `display: none` without adding/removing DOM elements. Better for frequen
 
 | | `if` | `show` |
 |--|------|--------|
-| Mechanism | Adds/removes DOM elements | Toggles CSS `display` |
+| Mechanism | Adds/removes the element's content (the element stays) | Toggles CSS `display` |
 | Best for | Rarely toggled content | Frequently toggled content |
 | Preserves state | No (re-creates) | Yes |
 

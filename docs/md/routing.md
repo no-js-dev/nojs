@@ -57,6 +57,21 @@ Full client-side routing with no page reloads.
 </template>
 ```
 
+In history mode (the default), the query string and hash are kept on the first page load and on Back/Forward to the page.
+
+### Removing one-time tokens from the URL
+
+Because the query is kept, a callback URL such as `/auth/callback?token=abc123` (magic link, OAuth `?code=`) stays in the address bar and in the browser history until you replace it. Read the value, then replace the history entry with a different path:
+
+```html
+<!-- /auth/callback?token=abc123 (assumes an "auth" store) -->
+<template route="/auth/callback">
+  <div on:init="$store.auth.token = $route.query.token; $router.replace('/dashboard')"></div>
+</template>
+```
+
+`$router.replace()` swaps the current history entry, so Back does not return to the URL that carried the token. Replace with a different path: replacing with the same path without the query renders the route again, and `$route.query.token` is then empty.
+
 ---
 
 ## `$route` — Route Context
@@ -68,6 +83,10 @@ Full client-side routing with no page reloads.
 | `$route.query` | Query string params (e.g. `{ q: "hello" }`) |
 | `$route.hash` | URL hash (e.g. `"#section"`) |
 | `$route.matched` | Whether an explicit route matched (`true`) or a wildcard/fallback is rendering (`false`) |
+
+In JavaScript, the same object is `NoJS.router.current` (`NoJS.router.current.path`, `.params`, …). The router object has no `path` property of its own. To run code after each navigation, use `NoJS.router.on(fn)`: `fn` receives `router.current`, and the call returns an unsubscribe function.
+
+In history mode, `path` is relative to [`router.base`](configuration.md): with `base: '/app'`, the URL `/app/users/42` gives `$route.path === "/users/42"`. Route declarations and `push()` / `replace()` use paths relative to the base too, and the router adds the base to the URL. The base is read only from `NoJS.config({ router: { base } })`; a `<base href>` tag is ignored.
 
 ---
 
@@ -114,6 +133,8 @@ Full client-side routing with no page reloads.
 >   await NoJS.router.push('/dashboard');
 > </script>
 > ```
+>
+> If a newer navigation starts before the current one has rendered (for example, while a `lazy="ondemand"` template is still loading), only the newer page renders. The earlier Promise still resolves, without rendering its page. A navigation blocked by a `guard` (without `redirect`) does not count as a newer navigation and does not cancel the one in progress.
 
 ---
 
@@ -175,6 +196,8 @@ Instead of declaring each route template manually, point your `route-view` outle
 2. When a user navigates to `/analytics`, No.JS resolves it to `pages/analytics.tpl`
 3. The template is fetched, cached, and rendered — automatically
 
+> **History mode and deep links:** a relative folder (the default `"pages"`, or `src="./pages/"`) is resolved against the current URL. A direct load or refresh of a nested route such as `/docs/intro` then requests `/docs/pages/docs/intro.tpl` and shows the 404 page. In history mode, use an absolute folder: `NoJS.config({ router: { templates: '/pages' } })` or `src="/pages/"`.
+
 ### Attributes
 
 | Attribute | Default | Description |
@@ -221,6 +244,8 @@ Explicit `<template route="...">` declarations **always take priority**. This le
 <template route="/admin" src="./pages/admin.tpl"
           guard="$store.auth.isAdmin" redirect="/"></template>
 ```
+
+At startup, No.JS prefetches the `.tpl` files for `<a route>` links that file-based routing would render. `<template route>` definitions, links whose path already has an explicit route for that outlet, and patterns (`:param`, `*`) are never fetched from the folder.
 
 ### Auto i18n Namespace
 
@@ -462,7 +487,7 @@ The remote template is fetched, cached, and rendered just like any other route t
 
 ### File-Based Routing 404
 
-When using [file-based routing](#file-based-routing), navigating to a path whose `.tpl` file doesn't exist on the server (HTTP 404 or other error) automatically triggers the wildcard fallback chain.
+When using [file-based routing](#file-based-routing), navigating to a path whose `.tpl` file doesn't exist on the server (HTTP 404 or other error, or an SPA fallback that answers with the app's `index.html`) automatically triggers the wildcard fallback chain.
 
 ```html
 <!-- File-based routing -->
@@ -476,6 +501,8 @@ When using [file-based routing](#file-based-routing), navigating to a path whose
 ```
 
 The failed HTTP response is **not** cached — subsequent navigations to other paths are unaffected.
+
+A server with an SPA fallback (`try_files $uri $uri/ /index.html`, `_redirects`, `rewrites`) answers a missing `.tpl` with `200` and the full `index.html`. When a template that file-based routing resolved from the folder comes back as a full HTML document (it starts with `<!DOCTYPE html>` or `<html>`), No.JS treats it as not found and logs a warning, so the wildcard renders instead of the page shell. Explicit `<template src>` and `<template route src>` keep loading their response as-is.
 
 ---
 
@@ -719,6 +746,21 @@ it skips `{` starting with `"` or `'` so JSON structural braces are not consumed
   <h1>Product</h1>
 </template>
 ```
+
+> **Warning — untrusted data:** route params and `$route.query` come from the
+> URL, so anyone can craft them. By default a value in a quoted placeholder can
+> still end the JSON string and add or override keys, exactly as in v1.21.1
+> (`?q=x","@type":"Organization` turns `"name":"{$route.query.q}"` into an
+> extra `"@type"` key). Set `NoJS.config({ strictJsonld: true })` to always
+> escape quoted values as data.
+
+Placeholders follow the same escaping rules as the body directive. By default
+the output is the v1.21.1 output byte-for-byte, with no escaping, so a value with
+`"`, `\` or a line break also makes it invalid JSON. With `strictJsonld: true`,
+quoted values are escaped as JSON string content, which also keeps such output
+valid. Placeholders outside a string (`"position":{$route.params.n}`) are
+inserted as-is in both modes, so never put URL data in them unserialized. See
+[Head Management → `page-jsonld`](head-management.md#page-jsonld).
 
 The `data-nojs` marker on the injected script tag distinguishes it from
 hand-written JSON-LD blocks — both can coexist in `<head>`.

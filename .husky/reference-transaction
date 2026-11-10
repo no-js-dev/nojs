@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+# Verify release tags (refs/tags/v*) against .versionrc.json before git
+# creates them. Every other ref update (commits, fetch, branches) exits at once.
+[ "$1" = "prepared" ] || exit 0
+tags=""
+while read -r old new ref; do
+  case "$ref" in
+    refs/tags/v*)
+      [ "$old" = "$new" ] && continue
+      case "$new" in *[!0]*) tags="$tags ${ref#refs/tags/}:$new" ;; esac
+      ;;
+  esac
+done
+[ -n "$tags" ] || exit 0
+[ -f scripts/version.mjs ] || exit 0
+for t in $tags; do
+  node scripts/version.mjs check --hook --tag "${t%:*}" --ref "${t##*:}" </dev/null || {
+    echo "version: refusing to create tag ${t%:*} (fix the version, or tag the right commit)" >&2
+    exit 1
+  }
+done

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — devtools — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+  <script>
+    // Collect devtools events from the very first one
+    window.__compatDevtoolsEvents = [];
+    window.addEventListener('nojs:devtools', (e) => window.__compatDevtoolsEvents.push(e.detail));
+  </script>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: devtools: true</h1>
+
+    <!-- 1. Context registry + events: a state context is created and updated -->
+    <section state="{ count: 0 }">
+      <h2>1. Devtools events</h2>
+      <span data-test="dt-count" bind="count"></span>
+      <button data-test="dt-inc" on:click="count = count + 1">Inc</button>
+    </section>
+
+    <!-- 2. get:config command response -->
+    <section>
+      <h2>2. get:config</h2>
+      <span data-test="dt-host"></span>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({
+      devtools: true,
+      headers: { Authorization: 'Bearer t', 'X-Trace': 'abc' },
+      csrf: { token: 'tok' },
+    });
+    document.querySelector('[data-test="dt-host"]').textContent = location.hostname;
+  </script>
+</body>
+</html>

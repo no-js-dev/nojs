@@ -2,18 +2,23 @@
 //  REACTIVE CONTEXT
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _warn } from "./globals.js";
+import { _config, _stores, _refs, _routerInstance, _currentEl, _globals, _SENSITIVE_KEYS, _isSensitiveName, _warn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
-import { _devtoolsEmit, _ctxRegistry } from "./devtools.js";
+import { _devtoolsEmit, _devtoolsEnabled, _devtoolsValue, _ctxRegistry, _isLocalHostname } from "./devtools.js";
 
 const _FORBIDDEN_CTX_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 let _batchDepth = 0;
+let _draining = 0;
 let _batchQueue = new Set();
 let _ctxId = 0;
 let _ctxGeneration = 0;
 
 export function _resetCtxId() { _ctxId = 0; }
+
+// True while batched listeners run: their throws are caught and warned by the
+// drain below, so a render error raised inside one never reaches a caller.
+export function _isDraining() { return _draining > 0; }
 
 export function _startBatch() {
   _batchDepth++;
@@ -38,6 +43,7 @@ export function _endBatch() {
       const fns = _batchQueue;
       _batchQueue = new Set();
       _batchDepth++;
+      _draining++;
       try {
         // Drain defensively: a throwing listener must not drop the rest of the
         // queued updates (Safety Rule 8 — one broken attribute must not abort the page).
@@ -55,6 +61,7 @@ export function _endBatch() {
         });
       } finally {
         _batchDepth--;
+        _draining--;
       }
     }
   }
@@ -201,7 +208,17 @@ const _sharedHandler = {
     if (old !== value) {
       _ctxGeneration++;
       _notifyMeta(target[META], typeof key === "string" ? key : undefined);
-      if (_config.devtools) {
+      if (_config.devtools && _config.strictDevtools) {
+        if (_devtoolsEnabled()) {
+          const isSensitive = typeof key === "string" && _isSensitiveName(key);
+          _devtoolsEmit("ctx:updated", {
+            id: target.__devtoolsId,
+            key,
+            oldValue: isSensitive ? "[REDACTED]" : _devtoolsValue(old),
+            newValue: isSensitive ? "[REDACTED]" : _devtoolsValue(value),
+          });
+        }
+      } else if (_config.devtools) {
         let isSensitive = false;
         if (typeof key === "string") {
           const lk = key.toLowerCase();
@@ -231,7 +248,7 @@ const _sharedHandler = {
 export function createContext(data = {}, parent = null) {
   const raw = {};
   Object.assign(raw, data);
-  if (_config.devtools) raw.__devtoolsId = ++_ctxId;
+  if (_devtoolsEnabled()) raw.__devtoolsId = ++_ctxId;
 
   const meta = {
     parent,
@@ -246,7 +263,9 @@ export function createContext(data = {}, parent = null) {
   meta.proxy = proxy;
 
   if (_config.devtools && raw.__devtoolsId) {
-    _ctxRegistry.set(raw.__devtoolsId, proxy);
+    // Only the local-host devtools API reads the registry, so keeping contexts
+    // in it elsewhere would only retain them in memory.
+    if (_isLocalHostname()) _ctxRegistry.set(raw.__devtoolsId, proxy);
     _devtoolsEmit("ctx:created", {
       id: raw.__devtoolsId,
       parentId: parent?.__raw?.__devtoolsId ?? null,
@@ -270,6 +289,9 @@ export function _collectKeys(ctx) {
   while (c && c.__isProxy) {
     const raw = c.__raw;
     for (const k of Object.keys(raw)) {
+      // Skip the cache itself: copying it into vals would make each new cache
+      // hold the previous one, an unbounded chain pinning every old value.
+      if (k === "__collectKeysCache") continue;
       if (!allKeys.has(k)) {
         allKeys.add(k);
         allVals[k] = raw[k];

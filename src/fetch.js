@@ -2,12 +2,11 @@
 //  FETCH HELPER, URL RESOLUTION & CACHE
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _interceptors, _cache, _plugins, _SENSITIVE_HEADERS, _SENSITIVE_RESPONSE_HEADERS, _log, _warn, _CANCEL, _RESPOND, _REPLACE } from "./globals.js";
+import { _config, _interceptors, _cache, _plugins, _SENSITIVE_HEADERS, _SENSITIVE_RESPONSE_HEADERS, _isSensitiveName, _log, _warn, _CANCEL, _RESPOND, _REPLACE } from "./globals.js";
 
 const _MAX_CACHE = 200;
 const _INTERCEPTOR_TIMEOUT = 5000;
 let _interceptorDepth = 0;
-const _MAX_INTERCEPTOR_DEPTH = 1;
 const _responseOriginals = new WeakMap();
 
 function _withTimeout(promise, ms, label) {
@@ -20,12 +19,92 @@ function _withTimeout(promise, ms, label) {
   ]);
 }
 
-function _isSensitiveHeader(name) {
-  return _SENSITIVE_HEADERS.has(name.toLowerCase()) || /^x-(auth|api)-/i.test(name);
+// Request-interceptor re-entrancy guard: _interceptorDepth is raised only while
+// the interceptor runs synchronously, so a fetch it issues from there skips the
+// chain. It is never held across an await, so it cannot leak into concurrent,
+// unrelated requests.
+function _guardReentry(fn) {
+  return (...args) => {
+    _interceptorDepth++;
+    try {
+      return fn(...args);
+    } finally {
+      _interceptorDepth--;
+    }
+  };
 }
 
-// URL param redaction helper
-function _redactUrlParams(url) {
+// Sensitive headers an untrusted interceptor tries to set are discarded.
+// Warn once per interceptor and header name; never log the value.
+const _droppedHeaderWarnings = new WeakMap();
+
+function _warnDroppedSensitiveHeader(entry, index, header) {
+  let warned = _droppedHeaderWarnings.get(entry);
+  if (!warned) {
+    warned = new Set();
+    _droppedHeaderWarnings.set(entry, warned);
+  }
+  const lower = header.toLowerCase();
+  if (warned.has(lower)) return;
+  warned.add(lower);
+  const source = entry.pluginName ? ` (plugin "${entry.pluginName}")` : "";
+  _warn(
+    `Request interceptor [${index}]${source} set sensitive header "${header}", which was discarded: ` +
+    `only trusted interceptors may set sensitive headers. Register the interceptor synchronously in the ` +
+    `install() of a plugin installed with NoJS.use(plugin, { trusted: true }), or set CSRF tokens with ` +
+    `NoJS.config({ csrf: { token } }).`
+  );
+}
+
+// The configured csrf.header name is treated as sensitive only with
+// strictRedaction; by default untrusted interceptors can read and set it.
+function _isSensitiveHeader(name) {
+  return (
+    _SENSITIVE_HEADERS.has(name.toLowerCase()) ||
+    /^x-(auth|api)-/i.test(name) ||
+    (_config.strictRedaction &&
+      typeof _config.csrf?.header === "string" &&
+      name.toLowerCase() === _config.csrf.header.toLowerCase())
+  );
+}
+
+// String-level URL redaction (strictRedaction / strictDevtools consumers).
+// The #fragment is dropped: it may carry tokens (e.g. OAuth implicit flow)
+// and never reaches the server. In the query, only the values of parameters
+// whose name is sensitive (_isSensitiveName, matched by word, not substring)
+// are replaced; everything else is preserved byte-for-byte.
+export function _redactUrlParams(url) {
+  if (typeof url !== "string") return url;
+  const h = url.indexOf("#");
+  if (h !== -1) url = url.slice(0, h);
+  const q = url.indexOf("?");
+  if (q === -1) return url;
+  const query = url.slice(q + 1).split("&").map((pair) => {
+    const eq = pair.indexOf("=");
+    if (eq === -1) return pair;
+    return _isSensitiveName(_decodeKey(pair.slice(0, eq)))
+      ? pair.slice(0, eq + 1) + "[REDACTED]"
+      : pair;
+  }).join("&");
+  return url.slice(0, q + 1) + query;
+}
+
+// Decode a query key for matching. A malformed escape (e.g. "%ZZ") must not
+// hide the rest of the key, so fall back to decoding each valid %XX alone.
+function _decodeKey(raw) {
+  const key = raw.replace(/\+/g, " ");
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key.replace(/%[0-9a-f]{2}/gi, (m) => {
+      try { return decodeURIComponent(m); } catch { return m; }
+    });
+  }
+}
+
+// v1.21.1 URL redaction (URL-object based, substring match). Default for the
+// URL handed to untrusted response interceptors and the redacted response.
+function _redactUrlParamsLegacy(url) {
   try {
     const u = new URL(url, "http://localhost");
     for (const key of [...u.searchParams.keys()]) {
@@ -40,13 +119,33 @@ function _redactUrlParams(url) {
   }
 }
 
+function _redactInterceptorUrl(url) {
+  return _config.strictRedaction ? _redactUrlParams(url) : _redactUrlParamsLegacy(url);
+}
+
+// URL for fetch:success / fetch:error / error event payloads and the
+// directive failure warnings.
+export function _eventUrl(url) {
+  return _config.strictRedaction ? _redactUrlParams(url) : url;
+}
+
+// URL for nojs:devtools fetch events.
+export function _devtoolsUrl(url) {
+  return _config.strictDevtools ? _redactUrlParams(url) : url;
+}
+
 // Response redaction helper for untrusted interceptors
 function _redactResponse(response) {
   const redactedHeaders = new Headers(response.headers);
   for (const h of _SENSITIVE_RESPONSE_HEADERS) {
     redactedHeaders.delete(h);
   }
-  const redactedUrl = _redactUrlParams(response.url);
+  if (_config.strictRedaction) {
+    for (const h of [...redactedHeaders.keys()]) {
+      if (_isSensitiveHeader(h)) redactedHeaders.delete(h);
+    }
+  }
+  const redactedUrl = _redactInterceptorUrl(response.url);
   const redacted = Object.freeze({
     status: response.status,
     ok: response.ok,
@@ -78,6 +177,37 @@ export function resolveUrl(url, el) {
   return url;
 }
 
+function _originOf(u) {
+  try {
+    return new URL(u.replace(/\\/g, "/"), window.location.href).origin;
+  } catch {
+    return null;
+  }
+}
+
+// Trusted origins are the page, the configured baseApiUrl, and the nearest
+// base=. A parse failure is treated as NOT trusted.
+function _isTrustedOrigin(fullUrl, el) {
+  if (typeof window === "undefined") return true;
+  const target = _originOf(fullUrl);
+  if (!target) return false;
+  if (target === window.location.origin) return true;
+  if (_config.baseApiUrl && target === _originOf(_config.baseApiUrl)) return true;
+  for (let node = el; node; node = node.parentElement) {
+    const base = node.getAttribute?.("base");
+    if (base) return target === _originOf(base);
+  }
+  return false;
+}
+
+// Global config headers go to every request by default. With scopeHeaders
+// they are attached only to trusted origins (see _isTrustedOrigin).
+function _globalHeadersFor(fullUrl, el) {
+  const headers = _config.headers || {};
+  if (_config.scopeHeaders && !_isTrustedOrigin(fullUrl, el)) return {};
+  return headers;
+}
+
 export async function _doFetch(
   url,
   method = "GET",
@@ -91,12 +221,12 @@ export async function _doFetch(
 ) {
   const fullUrl = resolveUrl(url, el);
   if (_config.credentials !== "omit" && fullUrl.startsWith("http://")) {
-    _warn("Credentials sent over insecure HTTP:", fullUrl);
+    _warn("Credentials sent over insecure HTTP:", _eventUrl(fullUrl));
   }
   const upperMethod = method.toUpperCase();
   let opts = {
     method: upperMethod,
-    headers: { ...(_config.headers || {}), ...extraHeaders },
+    headers: { ..._globalHeadersFor(fullUrl, el), ...extraHeaders },
     credentials: _config.credentials,
   };
 
@@ -125,16 +255,8 @@ export async function _doFetch(
   // and uppercase-scheme (HTTP://evil.com) URLs cannot be misclassified as
   // same-origin. A parse failure is treated as NOT same-origin.
   if (_config.csrf && upperMethod !== "GET" && upperMethod !== "QUERY") {
-    let isSameOrigin = false;
-    if (typeof window !== "undefined") {
-      try {
-        isSameOrigin =
-          new URL(fullUrl.replace(/\\/g, "/"), window.location.href).origin ===
-          window.location.origin;
-      } catch {
-        isSameOrigin = false;
-      }
-    }
+    const isSameOrigin =
+      typeof window !== "undefined" && _originOf(fullUrl) === window.location.origin;
     if (isSameOrigin) {
       opts.headers[_config.csrf.header || "X-CSRF-Token"] =
         _config.csrf.token || "";
@@ -154,12 +276,18 @@ export async function _doFetch(
     }
   }
 
-  _interceptorDepth++;
-  try {
-    if (_interceptorDepth <= _MAX_INTERCEPTOR_DEPTH) {
+  // With strictRedaction, untrusted interceptors see a redacted URL; the
+  // request always uses `fullUrl`.
+  const requestInterceptorUrl = _config.strictRedaction ? _redactUrlParams(fullUrl) : fullUrl;
+
+  if (hasRequestInterceptors) {
+    // Skip the chain for a fetch issued from inside a request interceptor
+    // (see _guardReentry). Nothing above is awaited, so a nested _doFetch
+    // reaches this check while the interceptor that issued it is running.
+    if (_interceptorDepth === 0) {
       for (let i = 0; i < _interceptors.request.length; i++) {
         const entry = _interceptors.request[i];
-        const fn = entry.fn ?? entry;
+        const fn = _guardReentry(entry.fn ?? entry);
         const isTrusted = entry.pluginName && _plugins.get(entry.pluginName)?.options?.trusted === true;
 
         const interceptorOpts = isTrusted
@@ -167,7 +295,7 @@ export async function _doFetch(
           : { ...opts, headers: { ...opts.headers } };
 
         const result = await _withTimeout(
-          Promise.resolve(fn(fullUrl, interceptorOpts)),
+          Promise.resolve(fn(isTrusted ? fullUrl : requestInterceptorUrl, interceptorOpts)),
           _INTERCEPTOR_TIMEOUT,
           "Interceptor timeout",
         ).catch(e => {
@@ -192,6 +320,7 @@ export async function _doFetch(
                 // (e.g. an auth-token refresh). Their value overrides the
                 // originally-stripped one when re-applied below.
                 if (isTrusted) sensitiveHeaders[key] = value;
+                else _warnDroppedSensitiveHeader(entry, i, key);
               } else {
                 safeHeaders[key] = value;
               }
@@ -201,8 +330,6 @@ export async function _doFetch(
         }
       }
     }
-  } finally {
-    _interceptorDepth--;
   }
 
   // Re-apply sensitive headers after interceptor chain
@@ -247,7 +374,7 @@ export async function _doFetch(
         const isTrusted = entry.pluginName && _plugins.get(entry.pluginName)?.options?.trusted === true;
 
         const interceptorResponse = isTrusted ? response : _redactResponse(response);
-        const interceptorUrl = isTrusted ? fullUrl : _redactUrlParams(fullUrl);
+        const interceptorUrl = isTrusted ? fullUrl : _redactInterceptorUrl(fullUrl);
 
         const result = await _withTimeout(
           Promise.resolve(fn(interceptorResponse, interceptorUrl)),

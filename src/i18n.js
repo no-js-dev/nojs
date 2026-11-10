@@ -115,8 +115,11 @@ export const _i18n = {
         try { localStorage.setItem("nojs-locale", v); } catch (_) {}
       }
       if (_config.i18n.loadPath) {
-        // Load configured ns + any route-loaded ns for the new locale
-        const allNs = new Set([..._config.i18n.ns, ..._loadedNs]);
+        // Load configured ns + any route-loaded ns for the new locale, or the
+        // single per-locale file in flat mode (no {ns}), as _loadI18nForLocale does
+        const allNs = _config.i18n.loadPath.includes("{ns}")
+          ? new Set([..._config.i18n.ns, ..._loadedNs])
+          : [null];
         Promise.all([...allNs].map((n) => _loadLocale(v, n))).then(() => _notifyI18n());
       } else {
         _notifyI18n();

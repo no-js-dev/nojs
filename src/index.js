@@ -98,11 +98,10 @@ const _BUILTIN_FILTER_NAMES = new Set([
   "default", "date", "datetime", "relative", "fromNow",
 ]);
 
-// Built-in validator names — prevent user code from overwriting core validators
-// (core validators are registered by @no-js-dev/nojs-elements)
+// Reserved validator names: the rules @no-js-dev/nojs-elements implements
+// inline in its `validate` directive. Any other name stays registrable.
 const _BUILTIN_VALIDATOR_NAMES = new Set([
-  "required", "email", "url", "min", "max", "minlength", "maxlength",
-  "pattern", "match", "number", "integer", "alpha", "alphanumeric",
+  "required", "email", "url", "min", "max",
 ]);
 function _deepCheckUnsafe(obj, seen = new Set()) {
   if (!obj || typeof obj !== "object" || seen.has(obj)) return;
@@ -120,6 +119,55 @@ function _deepCheckUnsafe(obj, seen = new Set()) {
     }
     if (val && typeof val === "object") _deepCheckUnsafe(val, seen);
   }
+}
+
+const _MAX_DROPPED_PATHS = 5;
+
+// Built-in prototypes (Map, Set, RegExp, …) are not walked for methods.
+function _isBuiltinProto(proto) {
+  const ctor = Object.getOwnPropertyDescriptor(proto, "constructor")?.value;
+  if (typeof ctor !== "function") return false;
+  try {
+    return /\[native code\]\s*\}$/.test(Function.prototype.toString.call(ctor));
+  } catch {
+    return true;
+  }
+}
+
+// Paths of the function values a JSON round-trip of `obj` drops: own
+// enumerable function properties and class-instance prototype methods.
+// Mirrors JSON.stringify's walk; objects with toJSON() are left to it.
+function _collectFunctionPaths(obj, path, out, seen = new Set()) {
+  if (!obj || typeof obj !== "object" || seen.has(obj)) return out;
+  if (typeof obj.toJSON === "function") return out;
+  seen.add(obj);
+  const isArray = Array.isArray(obj);
+  for (const key of Object.keys(obj)) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (!desc || !("value" in desc)) continue;
+    const val = desc.value;
+    const childPath = isArray ? `${path}[${key}]` : `${path}.${key}`;
+    if (typeof val === "function") out.push(childPath);
+    else _collectFunctionPaths(val, childPath, out, seen);
+  }
+  if (!isArray) {
+    const names = new Set();
+    for (
+      let proto = Object.getPrototypeOf(obj);
+      proto && proto !== Object.prototype && !_isBuiltinProto(proto);
+      proto = Object.getPrototypeOf(proto)
+    ) {
+      for (const key of Object.getOwnPropertyNames(proto)) {
+        if (key === "constructor" || names.has(key) || Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const desc = Object.getOwnPropertyDescriptor(proto, key);
+        if (desc && typeof desc.value === "function") {
+          names.add(key);
+          out.push(`${path}.${key}`);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -160,6 +208,13 @@ const NoJS = {
           delete opts[key];
         }
       }
+      // One-way lock: an app that opted into strictBindings cannot have it
+      // switched off by code running after init (e.g. a plugin). Turning it
+      // on after init stays allowed, so the default locks nothing.
+      if (_config.strictBindings === true && "strictBindings" in opts && opts.strictBindings !== true) {
+        _warn("config.strictBindings cannot be turned off after init()");
+        delete opts.strictBindings;
+      }
     }
     // Save nested objects before shallow assign overwrites them
     const prevHeaders = { ..._config.headers };
@@ -199,6 +254,8 @@ const NoJS = {
     if (opts.i18n) {
       _config.i18n = { ...prevI18n, ...opts.i18n };
       _i18n.locale = opts.i18n.defaultLocale || _i18n.locale;
+      // Re-render active t directives when the flag flips after init()
+      if (_initPromise && !!prevI18n.escapeParams !== !!_config.i18n.escapeParams) _notifyI18n();
     }
     if (opts.stores) {
       for (const [name, data] of Object.entries(opts.stores)) {
@@ -250,6 +307,11 @@ const NoJS = {
     // Warn on trusted access
     if (options.trusted === true) {
       _warn(`WARNING: Plugin "${plugin.name}" installed with trusted access to sensitive HTTP headers.`);
+    } else if (plugin.trusted === true) {
+      _warn(
+        `Plugin "${plugin.name}" sets trusted: true on the plugin object, which is ignored. ` +
+        `Trust is granted only by the install options: NoJS.use(plugin, { trusted: true }).`
+      );
     }
 
     // Set current plugin name for interceptor tracking
@@ -309,7 +371,23 @@ const NoJS = {
     // Sanitize object values to strip __proto__ keys
     if (value && typeof value === "object" && !value.__isProxy) {
       try {
+        let dropped = [];
+        try {
+          dropped = _collectFunctionPaths(value, "$" + name, []);
+        } catch {
+          // Diagnostics only: never let the scan change what gets stored.
+        }
         value = JSON.parse(JSON.stringify(value));
+        if (dropped.length) {
+          const extra = dropped.length - _MAX_DROPPED_PATHS;
+          _warn(
+            `NoJS.global(): "$${name}" is stored as a JSON copy, which drops function values: ` +
+            dropped.slice(0, _MAX_DROPPED_PATHS).join(", ") +
+            (extra > 0 ? ` (and ${extra} more)` : "") +
+            `. Calls to them resolve to undefined. Register each function as a top-level global ` +
+            `(NoJS.global("fnName", fn), called as $fnName()) or use a custom directive.`
+          );
+        }
       } catch {
         // Non-serializable objects — check for dangerous function references
         try {
@@ -428,7 +506,14 @@ const NoJS = {
         setRouterInstance(_createRouter());
       }
 
-      processTree(root); // ← first paint happens here
+      // A directive init error no longer stops the walk; it is rethrown after
+      // the walk. Finish router and plugin init, then reject with it.
+      let initError = null;
+      try {
+        processTree(root); // ← first paint happens here
+      } catch (err) {
+        initError = err;
+      }
 
       // Init router after tree is processed
       if (_routerInstance) await _routerInstance.init();
@@ -446,6 +531,7 @@ const NoJS = {
         if (plugin.init) await plugin.init(NoJS);
       }
       _emitEvent("plugins:ready");
+      if (initError) throw initError;
     })();
     return _initPromise;
   },
@@ -493,6 +579,9 @@ const NoJS = {
     if (Array.isArray(opts.supportedLocales)) _config.i18n.supportedLocales = opts.supportedLocales;
     if (opts.cache != null) _config.i18n.cache = opts.cache;
     if (opts.persist != null) _config.i18n.persist = opts.persist;
+    const prevEscapeParams = !!_config.i18n.escapeParams;
+    if (opts.escapeParams != null) _config.i18n.escapeParams = opts.escapeParams;
+    if (opts.strictLocale != null) _config.i18n.strictLocale = opts.strictLocale;
     if (opts.locales) _i18n.locales = opts.locales;
     if (opts.fallbackLocale) _config.i18n.fallbackLocale = opts.fallbackLocale;
 
@@ -504,7 +593,17 @@ const NoJS = {
     if (_config.i18n.persist && typeof localStorage !== "undefined") {
       try {
         const saved = localStorage.getItem("nojs-locale");
-        if (saved) { _i18n._locale = saved; localeRestored = true; }
+        const supported = _config.i18n.supportedLocales;
+        // Opt-in (i18n.strictLocale): apply the locale setter's allow-list,
+        // ignore a stale or foreign value and drop it from storage. Default
+        // restores it as in v1.21.1.
+        if (saved && _config.i18n.strictLocale && Array.isArray(supported) && supported.length && !supported.includes(saved)) {
+          _log(`i18n: persisted locale "${saved}" is not in supportedLocales; ignoring`);
+          localStorage.removeItem("nojs-locale");
+        } else if (saved) {
+          _i18n._locale = saved;
+          localeRestored = true;
+        }
       } catch (_) {}
     }
 
@@ -528,7 +627,7 @@ const NoJS = {
     if (_initPromise) {
       if (_config.i18n.loadPath && !_i18n.locales[_i18n._locale]) {
         _loadI18nForLocale(_i18n._locale).then(() => _notifyI18n());
-      } else if (opts.locales) {
+      } else if (opts.locales || prevEscapeParams !== !!_config.i18n.escapeParams) {
         _notifyI18n();
       }
     }
@@ -601,7 +700,7 @@ const NoJS = {
   },
 
   // Version
-  version: "1.21.1",
+  version: "1.22.0",
 };
 
 // Expose sentinel symbols as read-only properties

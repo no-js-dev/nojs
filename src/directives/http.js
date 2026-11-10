@@ -17,12 +17,12 @@ import {
   _deleteRouteWatcher,
   _watchI18n,
   _i18nListeners,
-  _extractStoreName,
+  _extractStoreNames,
   _currentEl,
 } from "../globals.js";
 import { createContext } from "../context.js";
-import { evaluate, _execStatement, _interpolate, _FORBIDDEN_PROPS } from "../evaluate.js";
-import { _doFetch, _cacheGet, _cacheSet } from "../fetch.js";
+import { evaluate, _execStatement, _interpolate, _interpolateBody, _FORBIDDEN_PROPS } from "../evaluate.js";
+import { _doFetch, _cacheGet, _cacheSet, _eventUrl, _devtoolsUrl } from "../fetch.js";
 import { findContext, _clearDeclared, _cloneTemplate } from "../dom.js";
 import { registerDirective, processTree, _disposeChildren, _disposeTree } from "../registry.js";
 import { _devtoolsEmit } from "../devtools.js";
@@ -388,7 +388,7 @@ for (const method of HTTP_METHODS) {
               Object.fromEntries(new FormData(el).entries()),
             );
           } else if (bodyAttr) {
-            _cacheBodyPart = _interpolate(bodyAttr, ctx);
+            _cacheBodyPart = _interpolateBody(bodyAttr, ctx).key;
           }
         }
         const cacheKey =
@@ -405,6 +405,12 @@ for (const method of HTTP_METHODS) {
             return;
           }
         }
+
+        // Read form fields before the loading template replaces them
+        const formBody =
+          el.tagName === "FORM"
+            ? Object.fromEntries(new FormData(el).entries())
+            : null;
 
         // Show loading
         if (loadingTpl) {
@@ -425,18 +431,12 @@ for (const method of HTTP_METHODS) {
         try {
           let reqBody = null;
           if (bodyAttr) {
-            const interpolated = _interpolate(bodyAttr, ctx);
-            try {
-              reqBody = JSON.parse(interpolated);
-            } catch {
-              reqBody = interpolated;
-            }
+            reqBody = _interpolateBody(bodyAttr, ctx).body;
           }
 
           // For forms, collect form data
           if (el.tagName === "FORM") {
-            const formData = new FormData(el);
-            reqBody = Object.fromEntries(formData.entries());
+            reqBody = formBody;
           }
 
           const extraHeaders = headersAttr ? JSON.parse(headersAttr) : {};
@@ -656,20 +656,20 @@ for (const method of HTTP_METHODS) {
           if (redirectPath && _routerInstance)
             _routerInstance.push(redirectPath);
 
-          _emitEvent("fetch:success", { url: resolvedUrl, data: _effectiveData });
-          _devtoolsEmit("fetch:success", { method, url: resolvedUrl });
+          _emitEvent("fetch:success", { url: _eventUrl(resolvedUrl), data: _effectiveData });
+          _devtoolsEmit("fetch:success", { method, url: _devtoolsUrl(resolvedUrl) });
         } catch (err) {
           // SwitchMap: silently ignore aborted requests
           if (err.name === "AbortError") return;
 
           _hideSkeleton();
           _warn(
-            `${method.toUpperCase()} ${resolvedUrl} failed:`,
+            `${method.toUpperCase()} ${_eventUrl(resolvedUrl)} failed:`,
             err.message,
           );
-          _emitEvent("fetch:error", { url: resolvedUrl, error: err });
-          _emitEvent("error", { url: resolvedUrl, error: err });
-          _devtoolsEmit("fetch:error", { method, url: resolvedUrl, error: err.message });
+          _emitEvent("fetch:error", { url: _eventUrl(resolvedUrl), error: err });
+          _emitEvent("error", { url: _eventUrl(resolvedUrl), error: err });
+          _devtoolsEmit("fetch:error", { method, url: _devtoolsUrl(resolvedUrl), error: err.message });
 
           if (errorTpl) {
             const clone = _cloneTemplate(errorTpl);
@@ -986,7 +986,7 @@ for (const method of HTTP_METHODS) {
       const hasInterpolation = /\{[^}]+\}/.test(url);
       if (hasInterpolation && trigger !== "none") {
         const debounceMs = parseInt(el.getAttribute("debounce")) || 0;
-        let _lastResolvedUrl = _interpolate(url, ctx);
+        let _lastResolvedUrl = _interpolate(url, ctx, true);
         let _debounceTimer = null;
 
         // For pagination: strip the {page} or {cursor} token to detect
@@ -1000,17 +1000,17 @@ for (const method of HTTP_METHODS) {
             ? url.replace(/\{page\}/g, "__PAGE__")
             : null;
         let _lastNonPaginationUrl = _urlWithoutPagination
-          ? _interpolate(_urlWithoutPagination, ctx)
+          ? _interpolate(_urlWithoutPagination, ctx, true)
           : null;
 
         function onAncestorChange() {
-          const newUrl = _interpolate(url, ctx);
+          const newUrl = _interpolate(url, ctx, true);
           if (newUrl !== _lastResolvedUrl) {
             _lastResolvedUrl = newUrl;
 
             // Check if non-pagination URL parts changed (reset trigger)
             if (isPaginationTrigger && isInsertMode && _urlWithoutPagination) {
-              const newNonPaginationUrl = _interpolate(_urlWithoutPagination, ctx);
+              const newNonPaginationUrl = _interpolate(_urlWithoutPagination, ctx, true);
               if (newNonPaginationUrl !== _lastNonPaginationUrl) {
                 _lastNonPaginationUrl = newNonPaginationUrl;
                 if (_debounceTimer) clearTimeout(_debounceTimer);
@@ -1053,7 +1053,7 @@ for (const method of HTTP_METHODS) {
         // get="/users/{$route.params.id}" trigger re-fetch on change.
         // Without these, only local ancestor context changes fire.
         if (url.includes("$store")) {
-          const partition = _extractStoreName(url) || "*";
+          const partition = _extractStoreNames(url) || "*";
           _addStoreWatcher(onAncestorChange, partition);
           onAncestorChange._el = _currentEl;
           _onDispose(() => _deleteStoreWatcher(onAncestorChange));

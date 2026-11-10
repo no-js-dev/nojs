@@ -16,10 +16,11 @@ import {
   _REPLACE,
   _setDisposing,
   _setCurrentPluginName,
+  _validators,
 } from '../src/globals.js';
 import { createContext } from '../src/context.js';
 import { evaluate, _execStatement } from '../src/evaluate.js';
-import { registerDirective } from '../src/registry.js';
+import { registerDirective, processTree } from '../src/registry.js';
 import { _doFetch } from '../src/fetch.js';
 
 beforeEach(() => {
@@ -486,6 +487,61 @@ describe('Interceptor Sentinels', () => {
     expect(NoJS.CANCEL).toBe(_CANCEL);
     expect(NoJS.RESPOND).toBe(_RESPOND);
     expect(NoJS.REPLACE).toBe(_REPLACE);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  describe('NoJS.validator() reserved names')
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('NoJS.validator() reserved names', () => {
+  const IMPLEMENTED = ['required', 'email', 'url', 'min', 'max'];
+  const UNIMPLEMENTED = [
+    'minlength', 'maxlength', 'pattern', 'match',
+    'number', 'integer', 'alpha', 'alphanumeric',
+  ];
+
+  afterEach(() => {
+    for (const name of [...IMPLEMENTED, ...UNIMPLEMENTED]) delete _validators[name];
+  });
+
+  test.each(UNIMPLEMENTED)('"%s" registers, runs, and reaches plugins via internals', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const fn = jest.fn((value, arg) => (String(value).length >= Number(arg) ? true : `${name} failed`));
+
+    NoJS.validator(name, fn);
+
+    expect(_validators[name]).toBe(fn);
+    expect(NoJS.internals.validators[name]).toBe(fn);
+    expect(_validators[name]('ab', '3')).toBe(`${name} failed`);
+    expect(_validators[name]('abcd', '3')).toBe(true);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expectNoWarning(warnSpy, 'cannot be overridden');
+    warnSpy.mockRestore();
+  });
+
+  test.each(IMPLEMENTED)('"%s" is refused with the built-in warning', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    NoJS.validator(name, () => 'overridden');
+
+    expect(_validators[name]).toBeUndefined();
+    expect(NoJS.internals.validators[name]).toBeUndefined();
+    expectWarning(warnSpy, `NoJS.validator(): "${name}" is a built-in validator and cannot be overridden.`);
+    warnSpy.mockRestore();
+  });
+
+  test('re-registering an unimplemented name replaces the previous handler', () => {
+    const first = () => 'first';
+    const second = () => 'second';
+    NoJS.validator('pattern', first);
+    NoJS.validator('pattern', second);
+    expect(_validators.pattern).toBe(second);
+  });
+
+  test('argument validation still applies to every name', () => {
+    expect(() => NoJS.validator('', () => true)).toThrow(TypeError);
+    expect(() => NoJS.validator('minlength', 'not a function')).toThrow(TypeError);
   });
 });
 
@@ -1216,5 +1272,236 @@ describe('plugin global reactivity ($demo.count++ wakes bind="$demo.count")', ()
     await flush();
     expect(document.getElementById('n').textContent).toBe('1');
     expect(otherWrites).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Directive names covered by core wildcard directives
+// ─────────────────────────────────────────────────────────────────────────
+// v1.21.1 lets plugins register on:*, class-*, bind-* and style-* names; the
+// exact name wins over the core wildcard for that attribute only.
+// strictDirectives: true rejects them.
+describe('Directive freeze — wildcard-covered names (default)', () => {
+  test('strictDirectives defaults to false', () => {
+    expect(_config.strictDirectives).toBe(false);
+  });
+
+  test.each([
+    ['on:clickoutside', 'on:*'],
+    ['class-x', 'class-*'],
+    ['bind-chart', 'bind-*'],
+    ['style-glow', 'style-*'],
+  ])('"%s" registers, runs, and the core %s handler still serves other attributes', (name) => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.directive(name, { init });
+    expectNoWarning(warnSpy, 'Cannot override');
+    warnSpy.mockRestore();
+
+    const host = document.createElement('div');
+    host.innerHTML =
+      `<div state="{ n: 0, on: true, c: 'red' }">` +
+      `<button id="el" ${name}="n" on:click="n = n + 1" class-active="on" bind-title="'t'" style-color="c"></button>` +
+      `<span id="out" bind="n"></span></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    const el = host.querySelector('#el');
+    expect(init).toHaveBeenCalledTimes(1);
+    expect(init.mock.calls[0][0]).toBe(el);
+    expect(init.mock.calls[0][1]).toBe(name);
+    expect(init.mock.calls[0][2]).toBe('n');
+
+    el.click();
+    expect(host.querySelector('#out').textContent).toBe('1');
+    expect(el.classList.contains('active')).toBe(true);
+    expect(el.getAttribute('title')).toBe('t');
+    expect(el.style.color).toBe('red');
+  });
+
+  test('a plugin bind-src runs instead of the core bind-* handler', () => {
+    NoJS.directive('bind-src', { init(el) { el.setAttribute('src', 'javascript:void(0)'); } });
+
+    const host = document.createElement('div');
+    host.innerHTML = `<div state="{ u: 'javascript:alert(1)' }"><img bind-src="u"></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(host.querySelector('img').getAttribute('src')).toBe('javascript:void(0)');
+  });
+
+  test('app.directive() inside NoJS.use() registers a wildcard-covered name', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.use({ name: 'wildcard-plugin', install(app) { app.directive('style-pluginglow', { init }); } });
+    expectNoWarning(warnSpy, 'Cannot override');
+    warnSpy.mockRestore();
+
+    const host = document.createElement('div');
+    host.innerHTML = `<p style-pluginglow="1"></p>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(init).toHaveBeenCalledTimes(1);
+  });
+
+  test('the shadowing is logged in debug mode', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _config.debug = true;
+    NoJS.directive('bind-sparkline', { init() {} });
+    _config.debug = false;
+    expect(logSpy.mock.calls.some((args) =>
+      args.some((a) => typeof a === 'string' && a.includes('Directive "bind-sparkline" shadows core "bind-*" for that attribute.'))
+    )).toBe(true);
+    logSpy.mockRestore();
+  });
+
+  test('the shadowing is silent outside debug mode', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.directive('class-quiet', { init() {} });
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  test('names outside the core wildcards are not logged as shadowing', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    _config.debug = true;
+    NoJS.directive('chart-bar', { init() {} });
+    NoJS.directive('onclick-like', { init() {} });
+    _config.debug = false;
+    expect(logSpy.mock.calls.some((args) =>
+      args.some((a) => typeof a === 'string' && a.includes('shadows core'))
+    )).toBe(false);
+    logSpy.mockRestore();
+  });
+
+  test('exact core names are still rejected', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    registerDirective('bind', { init() {} });
+    registerDirective('on:*', { init() {} });
+    expectWarning(warnSpy, 'Cannot override core directive "bind"');
+    expectWarning(warnSpy, 'Cannot override core directive "on:*"');
+    warnSpy.mockRestore();
+  });
+});
+
+describe('Directive freeze — wildcard-covered names with strictDirectives', () => {
+  beforeEach(() => { _config.strictDirectives = true; });
+  afterEach(() => { _config.strictDirectives = false; });
+
+  test.each(['bind-href', 'on:click', 'class-active', 'style-color'])(
+    'registering "%s" after freeze is rejected and the core handler stays active',
+    (name) => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const init = jest.fn();
+
+      registerDirective(name, { init });
+
+      expectWarning(warnSpy, `Cannot override core directive "${name}"`);
+      warnSpy.mockRestore();
+
+      const host = document.createElement('div');
+      host.innerHTML =
+        `<div state="{ n: 0, on: true, c: 'red', u: '/ok' }">` +
+        `<a id="el" href="#" on:click="n = n + 1" class-active="on" bind-href="u" style-color="c"></a>` +
+        `<span id="out" bind="n"></span></div>`;
+      document.body.appendChild(host);
+      processTree(host);
+
+      const el = host.querySelector('#el');
+      expect(init).not.toHaveBeenCalled();
+      el.click();
+      expect(host.querySelector('#out').textContent).toBe('1');
+      expect(el.classList.contains('active')).toBe(true);
+      expect(el.getAttribute('href')).toBe('/ok');
+      expect(el.style.color).toBe('red');
+    }
+  );
+
+  test('bind-src from a plugin cannot bypass core bind-* sanitization', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    NoJS.directive('bind-poster', { init(el) { el.setAttribute('poster', 'javascript:void(0)'); } });
+
+    const host = document.createElement('div');
+    host.innerHTML = `<div state="{ u: 'javascript:alert(1)' }"><video bind-poster="u"></video></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(host.querySelector('video').getAttribute('poster')).not.toBe('javascript:void(0)');
+    expectWarning(warnSpy, 'Cannot override core directive "bind-poster"');
+    warnSpy.mockRestore();
+  });
+
+  test('a plugin wildcard-named directive never runs', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.directive('class-strictonly', { init });
+    warnSpy.mockRestore();
+
+    const host = document.createElement('div');
+    host.innerHTML = `<div state="{ on: true }"><p class-strictonly="on"></p></div>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(init).not.toHaveBeenCalled();
+    expect(host.querySelector('p').classList.contains('strictonly')).toBe(true);
+  });
+
+  test('app.directive() inside NoJS.use() is rejected too', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+    NoJS.use({ name: 'strict-wildcard-plugin', install(app) { app.directive('on:strictlongpress', { init }); } });
+    expectWarning(warnSpy, 'Cannot override core directive "on:strictlongpress"');
+    warnSpy.mockRestore();
+  });
+
+  test('registrations before init() are rejected (the registry is frozen at load)', () => {
+    expect(NoJS._initialized).toBe(false);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    registerDirective('style-preinit', { init() {} });
+    expectWarning(warnSpy, 'Cannot override core directive "style-preinit"');
+    warnSpy.mockRestore();
+  });
+
+  test('a rejected name is not logged as shadowing', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    _config.debug = true;
+    NoJS.directive('bind-strictchart', { init() {} });
+    _config.debug = false;
+    expect(logSpy.mock.calls.some((args) =>
+      args.some((a) => typeof a === 'string' && a.includes('shadows core'))
+    )).toBe(false);
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  test('the flag applies only to registrations made while it is set', () => {
+    _config.strictDirectives = false;
+    const early = jest.fn();
+    NoJS.directive('class-registeredearly', { init: early });
+    _config.strictDirectives = true;
+
+    const host = document.createElement('div');
+    host.innerHTML = `<p class-registeredearly="1"></p>`;
+    document.body.appendChild(host);
+    processTree(host);
+
+    expect(early).toHaveBeenCalledTimes(1);
+  });
+
+  test('names not covered by a core directive still register', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const init = jest.fn();
+
+    registerDirective('chart-pie', { init });
+    registerDirective('bindings', { init });
+    registerDirective('onclick-strict', { init });
+
+    expectNoWarning(warnSpy, 'Cannot override');
+    warnSpy.mockRestore();
   });
 });

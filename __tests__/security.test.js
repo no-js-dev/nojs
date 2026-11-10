@@ -495,6 +495,7 @@ describe('Security: Config locking after init', () => {
     _config.sanitize = true;
     _config.dangerouslyDisableSanitize = false;
     _config.sanitizeHtml = null;
+    _config.strictBindings = false;
   });
 
   test('config.sanitize cannot be changed after init via NoJS.config()', async () => {
@@ -538,6 +539,37 @@ describe('Security: Config locking after init', () => {
     expect(_config.debug).toBe(true);
 
     _config.debug = false;
+  });
+
+  test('strictBindings stays unlocked by default and can be turned on after init', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = '<div state="{}"></div>';
+    await NoJS.init();
+
+    NoJS.config({ strictBindings: false });
+    expect(_config.strictBindings).toBe(false);
+    NoJS.config({ strictBindings: true });
+    expect(_config.strictBindings).toBe(true);
+    expect(warnSpy.mock.calls.some((a) => a.join(' ').includes('strictBindings'))).toBe(false);
+    warnSpy.mockRestore();
+  });
+
+  test('strictBindings cannot be turned off after init once enabled', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = '<div state="{}"></div>';
+    await NoJS.init();
+    NoJS.config({ strictBindings: true });
+
+    NoJS.config({ strictBindings: false, debug: true });
+
+    expect(_config.strictBindings).toBe(true);
+    expect(_config.debug).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('strictBindings cannot be turned off after init'),
+    );
+    _config.debug = false;
+    warnSpy.mockRestore();
   });
 });
 

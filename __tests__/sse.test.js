@@ -553,6 +553,28 @@ describe('SSE Directive', () => {
       expect(MockEventSource._last.closed).toBe(false);
     });
 
+    test('dot-segment value: escaped, warned once per connection, not on unrelated changes', () => {
+      const { parent } = buildDom(
+        { sse: '/feed/{ch}', as: 'messages' },
+        '',
+        '{ ch: "..", other: 0 }'
+      );
+      processTree(parent);
+      const dotWarns = () => warnSpy.mock.calls.filter((c) => c.join(' ').includes('Dot-segment')).length;
+
+      expect(MockEventSource._last.url).toBe('/feed/%252E%252E');
+      expect(dotWarns()).toBe(1);
+
+      parent.__ctx.other = 1;
+      parent.__ctx.other = 2;
+      expect(MockEventSource._instances).toHaveLength(1);
+      expect(dotWarns()).toBe(1);
+
+      parent.__ctx.ch = '.';
+      expect(MockEventSource._last.url).toBe('/feed/%252E');
+      expect(dotWarns()).toBe(2);
+    });
+
     test('static URL (no interpolation) registers no ancestor watchers', () => {
       const { parent } = buildDom({ sse: '/api/static', as: 'data' });
       processTree(parent);

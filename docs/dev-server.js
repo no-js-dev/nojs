@@ -6,6 +6,7 @@ const PORT = 3999;
 const DOCS = __dirname;
 const PROJECT = path.resolve(DOCS, '..');
 const LOCAL_BUILD = path.join(PROJECT, 'dist/iife/no.js');
+const DOCS_PREFIX = DOCS.endsWith(path.sep) ? DOCS : DOCS + path.sep;
 // NOJS_ELEMENTS_PATH: override to point at a custom nojs-elements.js build (CI, worktrees, standalone clones)
 const LOCAL_ELEMENTS_BUILD = process.env.NOJS_ELEMENTS_PATH || path.resolve(PROJECT, '../NoJS-Elements/dist/iife/nojs-elements.js');
 
@@ -155,6 +156,13 @@ const server = http.createServer((req, res) => {
   // ── SPA fallback: any extensionless path → index.html ──
   const filePath = path.join(DOCS, url === '/' ? 'index.html' : url);
   const resolvedPath = !path.extname(url) ? path.join(DOCS, 'index.html') : filePath;
+
+  // Path traversal guard: resolved path must stay within DOCS
+  if (resolvedPath !== DOCS && !resolvedPath.startsWith(DOCS_PREFIX)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
 
   fs.stat(resolvedPath, (err, stats) => {
     if (err || !stats.isFile()) {

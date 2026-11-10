@@ -302,7 +302,7 @@
       },
       "into": {
         "title": "into — Escrever Resultados de Fetch em um Store",
-        "text": "O atributo into em qualquer diretiva HTTP escreve a resposta diretamente em um store global nomeado.",
+        "text": "O atributo into em qualquer diretiva HTTP escreve a resposta em um store global nomeado, sob a chave definida por as (data quando as é omitido): $store.<into>.<as>. Os campos da resposta não são mesclados no próprio store.",
         "callout": "O store não precisa ser pré-definido — into irá criá-lo se não existir."
       },
       "computed": {
@@ -390,6 +390,17 @@
         "youTyped": "Você digitou:",
         "countLabel": "Contagem:"
       },
+      "unsupported": {
+        "title": "Formas de statement não suportadas",
+        "text": "Handlers executam expressões, declarações <code>const</code>/<code>let</code> e atribuições separadas por <code>;</code>, não statements completos de JavaScript. Uma atribuição (<code>a = x</code>, <code>a += x</code>, <code>a++</code>) só tem efeito no nível superior de um statement:",
+        "colNo": "Não suportado",
+        "colYes": "Escreva assim",
+        "ternary": "(atribuição dentro de um ramo do ternário)",
+        "logical": "(atribuição dentro de um operando lógico)",
+        "comma": "(operador vírgula)",
+        "note": "Uma chamada de função dentro de um ramo funciona (<code>ok ? save() : null</code>). Nas formas não suportadas a atribuição não é executada, e um warning no console com a expressão é emitido.",
+        "errors": "Quando um statement lança um erro, o handler para: as escritas <code>name = value</code> não são aplicadas, enquanto mudanças in-place (como <code>items.push(x)</code>) e escritas em <code>$store</code> feitas antes do erro permanecem, e a página as mostra. O erro é registrado como <code>[No.JS] Expression error: &lt;statement&gt;</code> e dispara um evento <code>nojs:error</code> no elemento, para que o <code>error-boundary</code> possa capturá-lo."
+      },
       "modifiers": {
         "title": "Modificadores de Eventos",
         "text": "Modificadores permitem controlar o comportamento do evento diretamente no atributo:",
@@ -444,7 +455,8 @@
         "preview": "Pré-visualização",
         "checkbox": "Logado",
         "welcome": "✅ Bem-vindo de volta!",
-        "login": "Por favor, faça login."
+        "login": "Por favor, faça login.",
+        "hostCallout": "Quando a condição é falsa, o if limpa o conteúdo do elemento mas mantém o próprio elemento, então padding, border e background continuam visíveis. Para esconder a caixa também, use show/hide ou coloque o if num wrapper sem estilo (como nesta demo)."
       },
       "elseIf": {
         "title": "else-if — Condicionais Encadeadas"
@@ -456,7 +468,7 @@
         "colIf": "if",
         "colShow": "show",
         "mechanism": "Mecanismo",
-        "mechanismIf": "Adiciona/remove elementos do DOM",
+        "mechanismIf": "Adiciona/remove o conteúdo do elemento (o elemento permanece)",
         "mechanismShow": "Alterna CSS display",
         "bestFor": "Melhor para",
         "bestForIf": "Conteúdo raramente alternado",
@@ -681,7 +693,7 @@
         "col1": "Atributo",
         "col2": "Descrição",
         "method": "URL para a requisição",
-        "body": "Corpo da requisição (string JSON com interpolação). Para formulários, serializa campos automaticamente",
+        "body": "Corpo da requisição (string JSON com interpolação). Para formulários, serializa os campos automaticamente em um objeto JSON; inputs de arquivo não são enviados (um arquivo vai como objeto vazio)",
         "success": "ID do template para renderizar em caso de sucesso. Recebe a resposta como var",
         "error": "ID do template para renderizar em caso de erro. Recebe o erro como var",
         "loading": "ID do template para exibir durante a requisição",
@@ -740,6 +752,7 @@
         "basicTitle": "Uso Basico",
         "asyncTitle": "Interceptors Assincronos",
         "asyncText": "Interceptors podem ser <code>async</code>. No.JS aguarda cada interceptor com um timeout de 5 segundos — se o interceptor nao resolver a tempo, ele e ignorado e um warning e registrado.",
+        "sensitiveCallout": "Headers sensíveis (Authorization, Cookie, X-API-Key, X-CSRF-Token, X-Auth-*, X-Api-*, …) só podem ser definidos por um interceptor registrado de forma síncrona dentro do install() de um plugin instalado com NoJS.use(plugin, { trusted: true }). Valores definidos por interceptors da aplicação ou não confiáveis são descartados; para esses headers use NoJS.config({ headers }) ou NoJS.config({ csrf }).",
         "cancelTitle": "Cancelar Requests (NoJS.CANCEL)",
         "cancelText": "Retorne um objeto com <code>[NoJS.CANCEL]: true</code> de um interceptor de request para abortar a request completamente. A diretiva fetch trata isso como um <code>AbortError</code>.",
         "respondTitle": "Short-Circuit de Responses (NoJS.RESPOND)",
@@ -770,7 +783,7 @@
         "title": "$route — Contexto da Rota",
         "col1": "Propriedade",
         "col2": "Descrição",
-        "path": "Caminho atual (ex: \"/users/42\")",
+        "path": "Caminho atual, relativo a router.base (ex: \"/users/42\")",
         "params": "Parâmetros da rota (ex: { id: \"42\" })",
         "query": "Parâmetros de query string (ex: { q: \"hello\" })",
         "hash": "Hash da URL (ex: \"#section\")",
@@ -814,6 +827,7 @@
         "exampleText": "É isso — <strong>duas linhas</strong> para uma SPA completa com seis rotas.",
         "mixingTitle": "Misturando Rotas Explícitas e Baseadas em Arquivos",
         "mixingText": "Declarações explícitas <code>&lt;template route=\"...\"&gt;</code> <strong>sempre têm prioridade</strong>. Isso permite combinar ambas as abordagens — use roteamento baseado em arquivos para páginas simples e templates explícitos para rotas que precisam de guards, parâmetros ou saídas nomeadas:",
+        "mixingPrefetch": "Na inicialização, o No.JS faz prefetch dos arquivos <code>.tpl</code> dos links <code>&lt;a route&gt;</code> que o roteamento baseado em arquivos renderizaria. Definições <code>&lt;template route&gt;</code>, links cujo caminho já tem uma rota explícita para aquele outlet e padrões (<code>:param</code>, <code>*</code>) nunca são buscados na pasta.",
         "autoI18nTitle": "Namespace i18n Automático",
         "autoI18nText": "Quando o elemento <code>route-view</code> tem um atributo <code>i18n-ns</code> (mesmo sem valor), o No.JS carrega automaticamente o namespace i18n correspondente ao nome do arquivo:",
         "autoI18nText2": "Isso substitui a necessidade de adicionar <code>i18n-ns=\"...\"</code> em cada template de rota individualmente."
@@ -868,8 +882,9 @@
         "remoteText": "Rotas wildcard suportam todos os mesmos atributos que templates de rota regulares, incluindo <code>src</code> para carregamento remoto:",
         "remoteText2": "O template remoto é buscado, armazenado em cache e renderizado como qualquer outro template de rota — e tem acesso completo a <code>$route.path</code>, <code>$route.matched</code> e todas as outras funcionalidades do framework.",
         "fileBasedTitle": "404 no Roteamento Baseado em Arquivos",
-        "fileBasedText": "Ao usar roteamento baseado em arquivos, navegar para um caminho cujo arquivo <code>.tpl</code> não existe no servidor (HTTP 404 ou outro erro) aciona automaticamente a cadeia de fallback wildcard.",
-        "fileBasedText2": "A resposta HTTP com falha <strong>não</strong> é armazenada em cache — navegações subsequentes para outros caminhos não são afetadas."
+        "fileBasedText": "Ao usar roteamento baseado em arquivos, navegar para um caminho cujo arquivo <code>.tpl</code> não existe no servidor (HTTP 404 ou outro erro, ou um SPA fallback que responde com o <code>index.html</code> da aplicação) aciona automaticamente a cadeia de fallback wildcard.",
+        "fileBasedText2": "A resposta HTTP com falha <strong>não</strong> é armazenada em cache — navegações subsequentes para outros caminhos não são afetadas.",
+        "fileBasedSpaFallback": "Um servidor com SPA fallback (<code>try_files $uri $uri/ /index.html</code>, <code>_redirects</code>, <code>rewrites</code>) responde a um <code>.tpl</code> ausente com <code>200</code> e o <code>index.html</code> completo. Quando um template que o roteamento baseado em arquivos resolveu a partir da pasta volta como um documento HTML completo (começa com <code>&lt;!DOCTYPE html&gt;</code> ou <code>&lt;html&gt;</code>), o No.JS o trata como não encontrado e registra um warning, de modo que o wildcard é renderizado em vez do shell da página. <code>&lt;template src&gt;</code> e <code>&lt;template route src&gt;</code> explícitos continuam carregando a resposta como está."
       },
       "headAttributes": {
         "title": "Atributos Head em Rotas",
@@ -1435,7 +1450,7 @@
         "col2": "Descrição",
         "fetchSuccess": "{ url, data } em resposta bem-sucedida",
         "fetchError": "{ url, error } em caso de falha",
-        "fetchEnd": "{ url } quando a requisição é concluída (sucesso ou falha)"
+        "error": "{ url, error } em caso de falha, emitido logo após fetch:error"
       },
       "lifecycle": {
         "title": "Ciclo de Vida da Requisição"
@@ -1486,7 +1501,7 @@
       },
       "disposal": {
         "title": "Disposal & Cleanup",
-        "text": "Diretivas customizadas devem limpar após si mesmas. Use o callback _onDispose para remover event listeners, limpar timers e cancelar watchers.",
+        "text": "Diretivas customizadas devem limpar após si mesmas. Adicione uma função de cleanup em el.__disposers (ou chame NoJS.internals.onDispose() de forma síncrona dentro do init) para remover event listeners, limpar timers e cancelar watchers. Uma função retornada pelo init é ignorada.",
         "callout": "Diretivas registradas após init (via plugins) não são congeladas — mas não podem sobrescrever diretivas embutidas."
       }
     },
@@ -1598,9 +1613,26 @@
         "xssList1": "bind sempre define textContent, nunca innerHTML — seguro por padrão.",
         "xssList2": "bind-html sanitiza conteúdo usando um sanitizador estrutural integrado baseado em DOMParser (remove tags <script>, bloqueia handlers de evento on*, remove URIs javascript:).",
         "xssList3": "Expressões de template são avaliadas por um parser sandboxed personalizado — eval() e Function() não são usados, e propriedades perigosas como __proto__ e constructor são bloqueadas.",
+        "xssList4": "Por default, bind-* grava qualquer atributo, inclusive handlers inline (bind-onclick) e documentos de iframe (bind-srcdoc), exatamente como na v1.21.1. Ative strictBindings: true para rejeitar handlers bind-on* e sanitizar bind-srcdoc como o bind-html.",
         "csrfTitle": "Proteção CSRF",
         "cspSecTitle": "Content Security Policy",
         "cspSecText1": "O No.JS usa um parser de expressões personalizado totalmente compatível com CSP — eval() e o construtor Function() não são usados. Nenhuma diretiva unsafe-eval é necessária na sua Content Security Policy."
+      },
+      "hardening": {
+        "title": "Flags de hardening opt-in",
+        "text": "Comportamentos de segurança mais rígidos são opt-in, para que apps feitos na v1.21.1 continuem funcionando sem mudanças. Toda flag tem default false (comportamento da v1.21.1) e é definida via NoJS.config(). A maioria tem efeito imediato, antes ou depois de init(). strictDirectives vale para os registros de directives feitos depois de ativada, e i18n.strictLocale só para a chamada de NoJS.i18n() que restaura o locale persistido. strictBindings é lida quando cada binding inicializa, então defina antes de NoJS.init(); depois de true, não pode ser desligada após init().",
+        "colFlag": "Flag",
+        "colDefault": "Default",
+        "colWhenTrue": "Quando true",
+        "scopeHeaders": "Os headers globais de config({ headers }) são enviados só para origins confiáveis (a página, baseApiUrl e o atributo base mais próximo), em vez de em todo request. Headers por request continuam valendo para qualquer origin.",
+        "strictRedaction": "Interceptors não confiáveis e os payloads dos eventos fetch:success / fetch:error / error recebem redaction mais rígida: o csrf.header é retido, headers de response que são sensíveis como headers de request são removidos, e as URLs perdem o #fragment e têm os valores sensíveis da query substituídos por [REDACTED]. Os nomes de parâmetros são comparados por palavra, então author ou keyword ficam intactos.",
+        "strictDirectives": "NoJS.directive() rejeita nomes cobertos por um wildcard do core (on:*, bind-*, class-*, style-*). O registry é congelado assim que o No.JS carrega, então a flag vale para todo registro feito enquanto ela estiver ativa. Defina-a antes de os plugins registrarem directives.",
+        "strictDevtools": "Os eventos de devtools e os ids de contexts também ficam restritos a hosts locais, os snapshots do devtools e os valores de ctx:updated censuram nomes sensíveis (comparados por palavra) em qualquer profundidade, o getter config censura os headers por chave e as URLs dos eventos de fetch do devtools são censuradas.",
+        "strictJsonld": "Placeholders de page-jsonld dentro de strings JSON são sempre escapados como conteúdo de string JSON, então um valor não consegue fechar a string nem adicionar chaves, e um valor com aspas, barra invertida ou quebra de linha não gera mais JSON inválido. Por default, a saída da v1.21.1 é mantida byte a byte.",
+        "strictBindings": "bind-* rejeita atributos de event handler inline (bind-onclick, bind-onerror, qualquer nome bind-on* sem hífen; bind-onboarding-step continua funcionando) com um warning [Security], e valores de bind-srcdoc passam pelo sanitizer do bind-html (ou pela sua função sanitizeHtml). É lida quando cada binding inicializa, então defina antes de NoJS.init(). Depois de true, não pode voltar para false após init().",
+        "pageRelative": "<template src> é resolvido em relação à página e ignora base e baseApiUrl.",
+        "escapeParams": "Params t-* em traduções t-html são escapados como HTML. Mudar a flag depois de init() re-renderiza as traduções ativas.",
+        "strictLocale": "Um nojs-locale persistido que não está em um supportedLocales não vazio é ignorado no restore e removido do localStorage. Passe a flag na chamada de NoJS.i18n() que restaura o locale, ou defina-a via config() antes dessa chamada."
       }
     },
     "plugins": {
@@ -1675,7 +1707,7 @@
       },
       "trusted": {
         "title": "Interceptors de Confiança",
-        "text": "Por padrão, interceptors recebem cópias censuradas de requests e responses — headers sensíveis e parâmetros de URL são removidos ou substituídos por [REDACTED].",
+        "text": "Por padrão, interceptors recebem cópias censuradas de requests e responses: headers sensíveis são removidos, e response interceptors recebem a URL re-serializada com os valores sensíveis da query como %5BREDACTED%5D. Request interceptors recebem a URL crua, a menos que strictRedaction esteja ativo.",
         "fullAccess": "Plugins de autenticação que precisam de acesso aos headers reais podem ser instalados com { trusted: true }.",
         "callout": "Um aviso no console é registrado quando um plugin é instalado com acesso de confiança. Só conceda trusted a plugins que você controla ou auditou.",
         "redactedTitle": "Headers Censurados",

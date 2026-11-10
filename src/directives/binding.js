@@ -115,8 +115,16 @@ function _sanitizeSvgDataUri(str) {
   }
 }
 
+// strictBindings: SVG's legacy xlink:href is a URL attribute too
+// (bind-xlink:href="javascript:…" on <a>/<use>). Off by default (v1.21.1
+// writes it raw).
+function _isUrlAttr(attrName) {
+  return _SAFE_URL_ATTRS.has(attrName) ||
+    (_config.strictBindings === true && attrName.toLowerCase() === "xlink:href");
+}
+
 function _sanitizeAttrValue(attrName, value) {
-  if (_SAFE_URL_ATTRS.has(attrName)) {
+  if (_isUrlAttr(attrName)) {
     const str = String(value).trimStart();
     // Collapse EVERY ASCII control + whitespace char (U+0000–U+0020) before the
     // scheme check. DOMParser/entity decoding can embed a literal tab/newline/NUL
@@ -143,6 +151,17 @@ registerDirective("bind-*", {
   priority: 20,
   init(el, name, expr) {
     const attrName = name.replace("bind-", "");
+    // strictBindings: inline event-handler attributes (onclick, onerror, …)
+    // would execute bound state as code — stored/reflected XSS. Rejected
+    // when opted in; on:* covers event handling. Handler names never contain
+    // "-", so custom attributes such as onboarding-step stay bindable.
+    if (_config.strictBindings && /^on[^-]*$/i.test(attrName)) {
+      _warn(
+        `[Security] ${name} rejected: event-handler attributes are not bindable — use on:${attrName.slice(2).toLowerCase()} instead.`,
+        el
+      );
+      return;
+    }
     const ctx = findContext(el);
 
     // Two-way binding for value
@@ -176,7 +195,12 @@ registerDirective("bind-*", {
     // (a user click flips `checked`, a script rewrites the attribute), and
     // skipping then would leave the element out of sync with the model —
     // so the skip also requires the live DOM to still agree.
+    // strictBindings: srcdoc is a full HTML document rendered inside the
+    // iframe, so bound state there is as dangerous as bind-html and goes
+    // through the same sanitizer. Off by default (v1.21.1 writes it raw).
+    const sanitizeSrcdoc = _config.strictBindings && attrName.toLowerCase() === "srcdoc";
     let last;
+    let lastRaw;
     function update() {
       const val = evaluate(expr, ctx);
       // Boolean attributes
@@ -190,7 +214,18 @@ registerDirective("bind-*", {
         if (attrName in el) el[attrName] = on;
         return;
       }
-      const str = val != null ? String(_sanitizeAttrValue(attrName, val)) : null;
+      let str = null;
+      if (val != null && sanitizeSrcdoc) {
+        // Memo on the raw string skips re-sanitizing when the markup is
+        // unchanged and the live attribute still matches.
+        const raw = String(val);
+        if (raw === lastRaw && el.getAttribute(attrName) === last) return;
+        lastRaw = raw;
+        str = String(_sanitizeHtml(raw));
+      } else if (val != null) {
+        str = String(_sanitizeAttrValue(attrName, val));
+      }
+      if (str === null) lastRaw = undefined;
       if (str === last && el.getAttribute(attrName) === str) return;
       last = str;
       if (str != null) el.setAttribute(attrName, str);

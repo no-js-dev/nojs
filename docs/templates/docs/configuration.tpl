@@ -35,9 +35,9 @@
     // Router
     router: {
       useHash: false,          // true = hash mode, false = history mode (default)
-      base: '/',
+      base: '/',               // URL prefix (history mode); $route.path excludes it. &lt;base href&gt; is not read
       scrollBehavior: 'top',  // 'top' | 'preserve' | 'smooth'
-      templates: 'pages',      // Default base path for file-based routing
+      templates: 'pages',      // Default base path for file-based routing; use '/pages' in history mode so deep links resolve
       ext: '.tpl',              // Default file extension (fallback: '.html')
       suppressHashWarning: false, // Suppress hash-in-history-mode warning
       focusBehavior: 'none',   // Focus management after navigation
@@ -66,6 +66,7 @@
     sanitize: true,            // Sanitize bind-html (default: true)
     sanitizeHtml: null,        // Custom sanitizer function (default: null)
     dangerouslyDisableSanitize: false, // Bypass ALL sanitization (default: false)
+    strictBindings: false,     // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
 
     // Performance
     exprCacheSize: 500,        // Max entries in expression LRU caches
@@ -240,6 +241,7 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
       <li t="docs.configuration.security.xssList1"></li>
       <li t="docs.configuration.security.xssList2"></li>
       <li t="docs.configuration.security.xssList3"></li>
+      <li t="docs.configuration.security.xssList4"></li>
     </ul>
 
     <h3 class="doc-title" id="config-csrf" t="docs.configuration.security.csrfTitle"></h3>
@@ -254,6 +256,34 @@ NoJS.baseApiUrl = 'https://staging-api.myapp.com/v1';</pre></div>
 
     <h3 class="doc-title" id="config-csp" t="docs.configuration.security.cspSecTitle"></h3>
     <p class="doc-text" t="docs.configuration.security.cspSecText1"></p>
+  </div>
+
+  <!-- Opt-in Hardening Flags -->
+  <div class="doc-section">
+    <h2 class="doc-title" id="config-hardening" t="docs.configuration.hardening.title"></h2>
+    <p class="doc-text" t="docs.configuration.hardening.text"></p>
+    <table class="doc-table doc-table-flags">
+      <thead><tr><th t="docs.configuration.hardening.colFlag"></th><th t="docs.configuration.hardening.colDefault"></th><th t="docs.configuration.hardening.colWhenTrue"></th></tr></thead>
+      <tbody>
+        <tr><td><code>scopeHeaders</code></td><td><code>false</code></td><td t="docs.configuration.hardening.scopeHeaders"></td></tr>
+        <tr><td><code>strictRedaction</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictRedaction"></td></tr>
+        <tr><td><code>strictDirectives</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDirectives"></td></tr>
+        <tr><td><code>strictDevtools</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictDevtools"></td></tr>
+        <tr><td><code>strictJsonld</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictJsonld"></td></tr>
+        <tr><td><code>strictBindings</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictBindings"></td></tr>
+        <tr><td><code>templates.pageRelative</code></td><td><code>false</code></td><td t="docs.configuration.hardening.pageRelative"></td></tr>
+        <tr><td><code>i18n.escapeParams</code></td><td><code>false</code></td><td t="docs.configuration.hardening.escapeParams"></td></tr>
+        <tr><td><code>i18n.strictLocale</code></td><td><code>false</code></td><td t="docs.configuration.hardening.strictLocale"></td></tr>
+      </tbody>
+    </table>
+    <div class="code-block"><pre highlight>&lt;script&gt;
+  NoJS.config({
+    scopeHeaders: true,
+    strictRedaction: true,
+    templates: { pageRelative: true },
+    i18n: { escapeParams: true }
+  });
+&lt;/script&gt;</pre></div>
   </div>
 
 </div>

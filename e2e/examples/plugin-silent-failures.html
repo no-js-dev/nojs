@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plugin silent failures — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    .value { display: inline-block; padding: 0.15rem 0.5rem; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; min-width: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Plugin silent failures</h1>
+
+    <!-- 1. NoJS.global(): object methods are dropped by the JSON copy (warns) -->
+    <section state="{}">
+      <h2 class="test-label">Test 1: global object of actions and top-level function</h2>
+      <p>Title: <span class="value" data-test="actions-title" bind="$actions.title"></span></p>
+      <p>Label: <span class="value" data-test="actions-label" bind="$actions.label(1)"></span></p>
+      <p>Hello: <span class="value" data-test="hello" bind="$hello('ana')"></span></p>
+    </section>
+
+    <!-- 2. Untrusted interceptor tries to set X-CSRF-Token (discarded, warns) -->
+    <section state="{ result: '' }">
+      <h2 class="test-label">Test 2: request interceptor headers</h2>
+      <button type="button" data-test="send" post="/api/echo" as="result">Send</button>
+      <button type="button" data-test="send-again" post="/api/echo" as="result">Send again</button>
+    </section>
+
+    <!-- 3. bind-xlink:href / bind-href on SVG -->
+    <section state="{ bad: 'javascript:window.__xlinkRan = 1', icon: '#dot' }">
+      <h2 class="test-label">Test 3: SVG URL attributes</h2>
+      <svg width="120" height="40">
+        <defs><circle id="dot" cx="10" cy="10" r="8"></circle></defs>
+        <a data-test="svg-xlink" bind-xlink:href="bad"><text x="0" y="30">xlink</text></a>
+        <a data-test="svg-href" bind-href="bad"><text x="50" y="30">href</text></a>
+        <use data-test="svg-use" bind-xlink:href="icon"></use>
+      </svg>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    if (params.get('strict') === '1') NoJS.config({ strictBindings: true });
+
+    NoJS.global('actions', { title: 'T', label: (n) => 'L' + n, save() {} });
+    NoJS.global('hello', (n) => 'hi ' + n);
+
+    NoJS.use({ name: 'object-trusted', trusted: true, install() {} });
+
+    NoJS.interceptor('request', (url, opts) => ({
+      ...opts,
+      headers: { ...opts.headers, 'X-CSRF-Token': 'tok-secret-123', 'X-Debug': '1' },
+    }));
+  </script>
+</body>
+</html>

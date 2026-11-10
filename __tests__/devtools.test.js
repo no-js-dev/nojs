@@ -1,6 +1,6 @@
-import { _config, _stores, _refs } from '../src/globals.js';
+import { _config, _stores, _refs, _plugins, _globals, _isSensitiveName } from '../src/globals.js';
 import { createContext, _resetCtxId } from '../src/context.js';
-import { _devtoolsEmit, _ctxRegistry, initDevtools, destroyDevtools, _isLocalHostname } from '../src/devtools.js';
+import { _devtoolsEmit, _ctxRegistry, initDevtools, destroyDevtools, _isLocalHostname, _devtoolsValue } from '../src/devtools.js';
 import { registerDirective, processElement, _disposeTree } from '../src/registry.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -657,5 +657,274 @@ describe('M12 — destroyDevtools cleanup', () => {
 
     // Clean up
     destroyDevtools();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Default (v1.21.1) devtools surfaces — no strictDevtools
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Devtools default surfaces (strictDevtools off)', () => {
+  afterEach(() => {
+    _config.headers = {};
+    _config.csrf = null;
+    destroyDevtools();
+  });
+
+  test('strictDevtools defaults to false', () => {
+    expect(_config.strictDevtools).toBe(false);
+  });
+
+  test('config getter returns headers and csrf unredacted, as v1.21.1 did', () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    _config.csrf = { token: 'CSRFSECRET', header: 'X-CSRF-Token' };
+    const cfg = window.__NOJS_DEVTOOLS__.config;
+    expect(cfg.headers).toEqual({ Authorization: 'Bearer SECRET', 'X-Custom': 'visible' });
+    expect(cfg.csrf).toEqual({ token: 'CSRFSECRET', header: 'X-CSRF-Token' });
+  });
+
+  test('get:config returns headers as the string [REDACTED] and adds csrf.token', async () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer SECRET', 'X-Custom': 'visible' };
+    _config.csrf = { header: 'X-CSRF-Token' };
+    const res = await sendCommand('get:config');
+    expect(res.headers).toBe('[REDACTED]');
+    expect(res.csrf).toEqual({ header: 'X-CSRF-Token', token: '[REDACTED]' });
+    expect(res.strictDevtools).toBe(false);
+  });
+
+  test('store snapshots keep every key and nested value', async () => {
+    initDevtools({ version: 'x' });
+    const user = { token: 'nested' };
+    _stores.prefs = createContext({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc', user });
+    const snap = window.__NOJS_DEVTOOLS__.stores.prefs;
+    expect(snap).toEqual({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc', user: { token: 'nested' } });
+    expect(snap.user).toBe(user);
+    const res = await sendCommand('inspect:store', { name: 'prefs' });
+    expect(res.data).toEqual({ keyboard: 'dvorak', author: 'ann', token: 'jwt-abc', user: { token: 'nested' } });
+  });
+
+  test('globals and plugins getters return the live entries', () => {
+    initDevtools({ version: 'x' });
+    const entry = { plugin: { name: 'p' }, options: { apiKey: 'AK' } };
+    _plugins.set('p', entry);
+    _globals.session = createContext({ token: 'g' });
+    try {
+      expect(window.__NOJS_DEVTOOLS__.plugins.get('p')).toBe(entry);
+      expect(window.__NOJS_DEVTOOLS__.globals.session).toBe(_globals.session);
+    } finally {
+      _plugins.delete('p');
+      delete _globals.session;
+    }
+  });
+
+  test('ctx:updated still redacts sensitive keys by substring (v1.21.1 behavior)', () => {
+    const { events, cleanup } = collectEvents('ctx:updated');
+    const ctx = createContext({ token: 'a', keyboard: 'q' });
+    ctx.token = 'b';
+    ctx.keyboard = 'w';
+    cleanup();
+    expect(events[0].data.oldValue).toBe('[REDACTED]');
+    expect(events[0].data.newValue).toBe('[REDACTED]');
+    expect(events[1].data.newValue).toBe('[REDACTED]');
+  });
+
+  test('_devtoolsValue returns the value itself', () => {
+    const v = { token: 'x' };
+    expect(_devtoolsValue(v)).toBe(v);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Strict name matcher
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('_isSensitiveName', () => {
+  test.each([
+    'token', 'access_token', 'accessToken', 'refreshToken', 'id_token', 'api_key', 'apiKey', 'apikey', 'API_KEY',
+    'password', 'passwordConfirm', 'secret', 'client_secret', 'session', 'sessionid', 'sessionId', 'X-Session-Id',
+    'auth', 'authorization', 'Authorization', 'X-Auth-Token', 'x-csrf-token', 'Cookie', 'privateKey', 'key', 'sig',
+    'X-Amz-Signature', 'X-Amz-Credential', 'user[password]', 'auth[token]', 'jwt',
+  ])('%s is sensitive', (name) => {
+    expect(_isSensitiveName(name)).toBe(true);
+  });
+
+  test.each([
+    'author', 'keyword', 'keywords', 'keyboard', 'sort_key', 'monkey', 'tokenCount', 'sessionCount', 'primaryKey',
+    'keyId', 'theme', 'X-Tenant', 'X-Custom', 'csrf', '', 'authorName',
+  ])('%s is not sensitive', (name) => {
+    expect(_isSensitiveName(name)).toBe(false);
+  });
+
+  test('non-string names are not sensitive', () => {
+    expect(_isSensitiveName(undefined)).toBe(false);
+    expect(_isSensitiveName(42)).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Redaction on the devtools surfaces (strictDevtools)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Devtools redaction (strictDevtools)', () => {
+  beforeEach(() => {
+    _config.strictDevtools = true;
+  });
+
+  afterEach(() => {
+    _config.strictDevtools = false;
+    _config.headers = {};
+    _config.csrf = null;
+    destroyDevtools();
+  });
+
+  test('get:config keeps the v1.21.1 headers string and redacts the csrf token', async () => {
+    initDevtools({ version: 'x' });
+    _config.headers = { Authorization: 'Bearer secret', 'X-Custom': 'visible' };
+    _config.csrf = { token: 'secret', header: 'X-CSRF' };
+    const result = await sendCommand('get:config');
+    expect(result.headers).toBe('[REDACTED]');
+    expect(result.csrf).toEqual({ token: '[REDACTED]', header: 'X-CSRF' });
+    expect(result.devtools).toBe(true);
+    expect(result.strictDevtools).toBe(true);
+    expect(result.baseApiUrl).toBe('');
+  });
+
+  test('get:config and the config getter do not invent a csrf token', async () => {
+    initDevtools({ version: 'x' });
+    _config.csrf = { header: 'X-CSRF-Token', cookie: 'XSRF-TOKEN' };
+    const result = await sendCommand('get:config');
+    expect(result.csrf).toEqual({ header: 'X-CSRF-Token', cookie: 'XSRF-TOKEN' });
+    expect(window.__NOJS_DEVTOOLS__.config.csrf).toEqual({ header: 'X-CSRF-Token', cookie: 'XSRF-TOKEN' });
+  });
+
+  test('config getter redacts sensitive headers per key and the csrf token', () => {
+    initDevtools({ version: 'x' });
+    _config.headers = {
+      Authorization: 'Bearer SECRET', 'X-Session-Id': 'sid-1', 'X-Api-Key': 'ak', 'X-My-Csrf': 'c1',
+      'X-Tenant': 'acme', 'X-Custom': 'visible', 'X-Author': 'ann',
+    };
+    _config.csrf = { token: 'CSRFSECRET', header: 'X-My-Csrf' };
+    const cfg = window.__NOJS_DEVTOOLS__.config;
+    expect(cfg.headers).toEqual({
+      Authorization: '[REDACTED]', 'X-Session-Id': '[REDACTED]', 'X-Api-Key': '[REDACTED]', 'X-My-Csrf': '[REDACTED]',
+      'X-Tenant': 'acme', 'X-Custom': 'visible', 'X-Author': 'ann',
+    });
+    expect(cfg.csrf).toEqual({ token: '[REDACTED]', header: 'X-My-Csrf' });
+    expect(cfg.credentials).toBe('same-origin');
+    expect(_config.headers.Authorization).toBe('Bearer SECRET');
+  });
+
+  test('store snapshots redact by name, at every depth, without false positives', async () => {
+    initDevtools({ version: 'x' });
+    _stores.app = createContext({
+      name: 'ann', token: 'jwt-abc', password: 'hunter2', apiKey: 'k-1', sessionId: 's-1',
+      author: 'Machado', keyboard: 'qwerty', monkey: 'george', keywords: ['a'], sessionCount: 3, tokenCount: 2, sort_key: 'n',
+      user: { token: 'nested-jwt', profile: { access_token: 'deep' } }, items: [{ password: 'arr-pass', label: 'x' }],
+    });
+    const expected = {
+      name: 'ann', token: '[REDACTED]', password: '[REDACTED]', apiKey: '[REDACTED]', sessionId: '[REDACTED]',
+      author: 'Machado', keyboard: 'qwerty', monkey: 'george', keywords: ['a'], sessionCount: 3, tokenCount: 2, sort_key: 'n',
+      user: { token: '[REDACTED]', profile: { access_token: '[REDACTED]' } }, items: [{ password: '[REDACTED]', label: 'x' }],
+    };
+    expect(window.__NOJS_DEVTOOLS__.stores.app).toEqual(expected);
+    const res = await sendCommand('inspect:store', { name: 'app' });
+    expect(res.data).toEqual(expected);
+    expect(_stores.app.user.token).toBe('nested-jwt');
+  });
+
+  test('snapshots handle nested proxies, cycles, shared references and special values', () => {
+    initDevtools({ version: 'x' });
+    const shared = { label: 'same' };
+    const cyclic = { label: 'loop' };
+    cyclic.self = cyclic;
+    const inner = createContext({ secret: 's', ok: 1 });
+    const date = new Date(0);
+    _stores.mix = createContext({ inner, a: shared, b: shared, cyclic, date, big: 10n, fn: null });
+    const snap = window.__NOJS_DEVTOOLS__.stores.mix;
+    expect(snap.inner).toEqual({ secret: '[REDACTED]', ok: 1 });
+    expect(snap.a).toEqual({ label: 'same' });
+    expect(snap.b).toEqual({ label: 'same' });
+    expect(snap.cyclic).toEqual({ label: 'loop', self: '[Circular]' });
+    expect(snap.date).toBe(date);
+    expect(snap.big).toBe('10');
+    expect(() => JSON.stringify(snap)).not.toThrow();
+  });
+
+  test('a self-referential store snapshot terminates', () => {
+    initDevtools({ version: 'x' });
+    const store = createContext({ name: 'loop' });
+    store.self = store;
+    _stores.loop = store;
+    expect(window.__NOJS_DEVTOOLS__.stores.loop).toEqual({ name: 'loop', self: '[Circular]' });
+  });
+
+  test('inspect:element redacts the element context', async () => {
+    initDevtools({ version: 'x' });
+    document.body.innerHTML = '<div id="el"></div>';
+    document.getElementById('el').__ctx = createContext({ author: 'Ana', tokenCount: 2, password: 'p' });
+    const res = await sendCommand('inspect:element', { selector: '#el' });
+    expect(res.data).toEqual({ author: 'Ana', tokenCount: 2, password: '[REDACTED]' });
+    document.body.innerHTML = '';
+  });
+
+  test('globals getter redacts sensitive names and values', () => {
+    initDevtools({ version: 'x' });
+    _globals.session = createContext({ token: 'g-jwt' });
+    _globals.profile = createContext({ name: 'ann', token: 'p-jwt' });
+    _globals.apiToken = 'raw-token';
+    _globals.theme = 'dark';
+    try {
+      expect(window.__NOJS_DEVTOOLS__.globals).toEqual({
+        session: '[REDACTED]', profile: { name: 'ann', token: '[REDACTED]' }, apiToken: '[REDACTED]', theme: 'dark',
+      });
+      expect(_globals.profile.token).toBe('p-jwt');
+    } finally {
+      delete _globals.session;
+      delete _globals.profile;
+      delete _globals.apiToken;
+      delete _globals.theme;
+    }
+  });
+
+  test('plugins getter redacts plugin options and keeps the plugin', () => {
+    initDevtools({ version: 'x' });
+    const plugin = { name: 'analytics', install() {} };
+    _plugins.set('analytics', { plugin, options: { apiKey: 'AK-123', trusted: true, endpoint: '/a', auth: { password: 'p' } } });
+    _plugins.set('bare', { plugin: { name: 'bare' } });
+    try {
+      const plugins = window.__NOJS_DEVTOOLS__.plugins;
+      expect(plugins.get('analytics').plugin).toBe(plugin);
+      expect(plugins.get('analytics').options).toEqual({ apiKey: '[REDACTED]', trusted: true, endpoint: '/a', auth: '[REDACTED]' });
+      expect(plugins.get('bare').options).toBeUndefined();
+      expect(_plugins.get('analytics').options.apiKey).toBe('AK-123');
+    } finally {
+      _plugins.delete('analytics');
+      _plugins.delete('bare');
+    }
+  });
+
+  test('ctx:updated redacts by name and redacts nested values', () => {
+    const { events, cleanup } = collectEvents('ctx:updated');
+    const ctx = createContext({ token: 'a', keyboard: 'q', user: { name: 'ann', token: 't1' } });
+    ctx.token = 'b';
+    ctx.keyboard = 'w';
+    ctx.user = { name: 'bob', token: 't2' };
+    cleanup();
+    expect(events[0].data).toMatchObject({ key: 'token', oldValue: '[REDACTED]', newValue: '[REDACTED]' });
+    expect(events[1].data).toMatchObject({ key: 'keyboard', oldValue: 'q', newValue: 'w' });
+    expect(events[2].data.oldValue).toEqual({ name: 'ann', token: '[REDACTED]' });
+    expect(events[2].data.newValue).toEqual({ name: 'bob', token: '[REDACTED]' });
+    expect(ctx.user.token).toBe('t2');
+  });
+
+  test('local host: contexts are still registered and events still emitted', () => {
+    const { events, cleanup } = collectEvents();
+    const ctx = createContext({ a: 1 });
+    ctx.a = 2;
+    cleanup();
+    expect(_ctxRegistry.size).toBe(1);
+    expect(events.map((e) => e.type)).toEqual(['ctx:created', 'ctx:updated']);
   });
 });

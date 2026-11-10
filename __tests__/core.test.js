@@ -38,6 +38,7 @@ import {
   _execStatement,
   resolve,
   _interpolate,
+  _interpolateEncoded,
   _exprCache,
   _stmtCache,
 } from '../src/evaluate.js';
@@ -670,6 +671,27 @@ describe('Expression Evaluator', () => {
       expect(result).toBe('/api/users/..%2Fadmin');  // .. + encoded /
     });
 
+    test.each(['.', '..'])('value "%s" stays a non-empty child segment and is warned about', (id) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const result = _interpolate('/a/{id}/b', createContext({ id }));
+      const segs = new URL(result, 'http://localhost').pathname.split('/');
+      expect(segs.length).toBe(4);
+      expect(segs[2]).not.toBe('');
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+      expect(_interpolate('/a/{id}', createContext({ id: 'a.b' }))).toBe('/a/a.b');
+    });
+
+    test('quiet mode escapes the same way without warning', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const ctx = createContext({ id: '..' });
+      const result = _interpolate('/a/{id}', ctx, true);
+      const calls = warn.mock.calls.length;
+      warn.mockRestore();
+      expect(result).toBe('/a/%252E%252E');
+      expect(calls).toBe(0);
+    });
+
     test('encodes spaces and special characters in interpolated values', () => {
       const ctx = createContext({ q: 'hello world' });
       expect(_interpolate('/search?q={q}', ctx)).toBe('/search?q=hello%20world');
@@ -683,6 +705,30 @@ describe('Expression Evaluator', () => {
     test('does not encode plain numeric IDs', () => {
       const ctx = createContext({ id: 123 });
       expect(_interpolate('/api/users/{id}', ctx)).toBe('/api/users/123');
+    });
+  });
+
+  describe('_interpolateEncoded (request bodies, v1.21.1 bytes)', () => {
+    test.each([
+      ['name={n}&x=1', { n: 'a&b=c d' }, 'name=a%26b%3Dc%20d&x=1'],
+      ['{msg}', { msg: 'hello world 100%' }, 'hello%20world%20100%25'],
+      ['{v}', { v: '..' }, '..'],
+      ['/a/{v}/b', { v: '.' }, '/a/./b'],
+      ['{missing}-{nil}', { nil: null }, '-'],
+    ])('%s with %j gives %s', (str, state, expected) => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(_interpolateEncoded(str, createContext(state))).toBe(expected);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    test('_interpolate matches _interpolateEncoded except for path dot-segments', () => {
+      const ctx = createContext({ v: 'a b', d: '..' });
+      expect(_interpolate('/x/{v}?q={d}', ctx)).toBe(_interpolateEncoded('/x/{v}?q={d}', ctx));
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(_interpolate('/x/{d}', ctx)).toBe('/x/%252E%252E');
+      expect(_interpolateEncoded('/x/{d}', ctx)).toBe('/x/..');
+      warn.mockRestore();
     });
   });
 
@@ -1914,6 +1960,104 @@ describe('evaluate — browser globals allow-list', () => {
     }
   });
 
+  // ── Receiver allow-list: only listed members read the real object ───
+
+  // jsdom's own getters do not brand-check through a proxy, so these tests
+  // install getters/methods that throw unless `this` is the real object, the
+  // way browsers do ("Illegal invocation").
+  function brandChecked(owner, real, name, value, rejects) {
+    const proto = Object.prototype.hasOwnProperty.call(owner, name) ? owner : Object.getPrototypeOf(owner);
+    const original = Object.getOwnPropertyDescriptor(proto, name);
+    Object.defineProperty(proto, name, {
+      configurable: true,
+      get() {
+        if (rejects ? this === rejects : this !== real) throw new TypeError('Illegal invocation');
+        return value;
+      },
+    });
+    return () => {
+      if (original) Object.defineProperty(proto, name, original);
+      else delete proto[name];
+    };
+  }
+
+  test('allow-listed navigator getters read from the real navigator', () => {
+    const restore = brandChecked(navigator, navigator, 'language', 'pt-BR');
+    try {
+      expect(evaluate('navigator.language', ctx)).toBe('pt-BR');
+      expect(evaluate('window.navigator.language', ctx)).toBe('pt-BR');
+    } finally { restore(); }
+    expect(evaluate('navigator.onLine', ctx)).toBe(navigator.onLine);
+    expect(evaluate('navigator.userAgent', ctx)).toBe(navigator.userAgent);
+  });
+
+  test('allow-listed window members read from the real window', () => {
+    // jsdom does not pass the proxy through to window getters, so this only
+    // checks the value; the browser behavior is covered by e2e/browser-globals.
+    const restore = brandChecked(window, window, 'devicePixelRatio', 2, evaluate('window', ctx));
+    try {
+      expect(evaluate('window.devicePixelRatio', ctx)).toBe(2);
+      expect(evaluate('document.defaultView.devicePixelRatio', ctx)).toBe(2);
+    } finally { restore(); }
+    expect(evaluate('window.innerWidth', ctx)).toBe(window.innerWidth);
+  });
+
+  test('window.matchMedia runs with the real window and keeps its identity', () => {
+    const original = window.matchMedia;
+    window.matchMedia = function (q) {
+      if (this !== window) throw new TypeError('Illegal invocation');
+      return { matches: q === '(min-width: 1px)' };
+    };
+    try {
+      expect(evaluate("window.matchMedia('(min-width: 1px)').matches", ctx)).toBe(true);
+      expect(evaluate('window.matchMedia === window.matchMedia', ctx)).toBe(true);
+    } finally { window.matchMedia = original; }
+  });
+
+  test('navigator.clipboard exposes only writeText, called on the real clipboard', () => {
+    const writes = [];
+    const clipboard = {
+      writeText(text) {
+        if (this !== clipboard) throw new TypeError('Illegal invocation');
+        writes.push(text);
+        return Promise.resolve();
+      },
+      readText() { return Promise.resolve('secret'); },
+    };
+    const restore = brandChecked(navigator, navigator, 'clipboard', clipboard);
+    try {
+      _execStatement("navigator.clipboard.writeText('hi')", createContext({}));
+      expect(writes).toEqual(['hi']);
+      expect(evaluate('navigator.clipboard.readText', ctx)).toBeUndefined();
+      expect(evaluate('navigator.clipboard.read', ctx)).toBeUndefined();
+      expect(evaluate('navigator.clipboard === navigator.clipboard', ctx)).toBe(true);
+    } finally { restore(); }
+  });
+
+  test('navigator.clipboard is undefined when the browser has none', () => {
+    const restore = brandChecked(navigator, navigator, 'clipboard', undefined);
+    try {
+      expect(evaluate('navigator.clipboard', ctx)).toBeUndefined();
+    } finally { restore(); }
+  });
+
+  test('members outside the allow-list keep the proxy as receiver (unchanged)', () => {
+    const r1 = brandChecked(navigator, navigator, 'serviceWorker', {});
+    const r3 = brandChecked(document, document, '__probe', 'x');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(evaluate('navigator.serviceWorker', ctx)).toBeUndefined();
+      expect(evaluate('document.__probe', ctx)).toBeUndefined();
+    } finally { r1(); r3(); warn.mockRestore(); }
+  });
+
+  test('navigator deny-list still applies', () => {
+    expect(evaluate('navigator.sendBeacon', ctx)).toBeUndefined();
+    expect(evaluate('navigator.credentials', ctx)).toBeUndefined();
+    expect(evaluate("navigator['sendBeacon']", ctx)).toBeUndefined();
+    expect(evaluate('window.navigator.sendBeacon', ctx)).toBeUndefined();
+  });
+
   // ── Window set trap ─────────────────────────────────────────────────
 
   test('window.name writes are blocked (anti-exfiltration)', () => {
@@ -2165,5 +2309,39 @@ describe('Batch drain safety', () => {
     warnSpy.mockRestore();
 
     expect(warned).toBe(true);
+  });
+});
+
+describe('_collectKeys cache retention', () => {
+  // Every cache reachable from ctx by following cached vals back into an
+  // older cache (the shape the leak builds).
+  function cacheChain(ctx) {
+    const links = [];
+    for (let c = ctx.__raw.__collectKeysCache; c; c = c.result.vals.__collectKeysCache) links.push(c);
+    return links;
+  }
+
+  test('statements do not chain old caches or pin replaced state values', () => {
+    const ctx = createContext({ q: '', results: [] });
+    const firstResults = ctx.results;
+    for (let i = 0; i < 50; i++) {
+      ctx.results = [i];
+      _execStatement("q = q + 'a'", ctx);
+    }
+    const links = cacheChain(ctx);
+    expect(links.length).toBeLessThanOrEqual(1);
+    expect(links.some((c) => c.result.vals.results === firstResults)).toBe(false);
+  });
+
+  test('a child cache does not capture its own or its parent cache', () => {
+    const parent = createContext({ x: 0 });
+    const child = createContext({ y: 0 }, parent);
+    for (let i = 1; i <= 5; i++) {
+      parent.x = i;
+      _collectKeys(parent);
+      _collectKeys(child);
+    }
+    expect(cacheChain(child).length).toBeLessThanOrEqual(1);
+    expect(cacheChain(parent).length).toBeLessThanOrEqual(1);
   });
 });

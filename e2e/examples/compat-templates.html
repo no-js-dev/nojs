@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Template src resolution (base= / baseApiUrl / templates.pageRelative) — NoJS E2E</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    .test-label { font-weight: 600; margin: 0 0 0.75rem; color: #555; }
+    nav a { margin-right: 1rem; color: #333; }
+  </style>
+</head>
+<body>
+  <!--
+    Every template file is served by the spec via page.route(). Default mode
+    (v1.21.1): template src goes through base= / baseApiUrl ('/api').
+    ?pageRelative=1 turns on templates.pageRelative: src resolves against the page.
+  -->
+  <main>
+    <h1>Template src resolution</h1>
+
+    <!-- Test 1: plain relative src -->
+    <section data-test="s-plain">
+      <p class="test-label">Test 1: &lt;template src="parts/header.tpl"&gt;</p>
+      <template src="parts/header.tpl"></template>
+    </section>
+
+    <!-- Test 2: "/"-rooted src -->
+    <section data-test="s-rooted">
+      <p class="test-label">Test 2: &lt;template src="/parts/footer.tpl"&gt;</p>
+      <template src="/parts/footer.tpl"></template>
+    </section>
+
+    <!-- Test 3: ancestor base= wins over baseApiUrl -->
+    <section data-test="s-base" base="/cdn">
+      <p class="test-label">Test 3: base="/cdn" on an ancestor</p>
+      <template src="parts/nav.tpl"></template>
+    </section>
+
+    <!-- Test 4: nested ./ resolves against the parent template folder -->
+    <section data-test="s-nested">
+      <p class="test-label">Test 4: remote layout with a nested ./ template</p>
+      <template src="layout/shell.tpl"></template>
+    </section>
+
+    <!-- Test 5: absolute URL is fetched as written -->
+    <section data-test="s-absolute">
+      <p class="test-label">Test 5: absolute https:// src</p>
+      <template src="https://templates.example.test/abs.tpl"></template>
+    </section>
+
+    <!-- Test 6: HTTP directives keep using baseApiUrl in both modes -->
+    <section data-test="s-http" get="/users" as="users">
+      <p class="test-label">Test 6: get="/users"</p>
+      <p data-test="user-name" bind="users[0].name"></p>
+    </section>
+
+    <!-- Test 7–8: route templates in hash mode -->
+    <section data-test="s-routes">
+      <p class="test-label">Test 7–8: route templates (hash mode)</p>
+      <nav>
+        <a route="/" data-test="nav-home">Home</a>
+        <a route="/about" data-test="nav-about">About (declared route src)</a>
+        <a route="/reports" data-test="nav-reports">Reports (file-based)</a>
+      </nav>
+      <div route-view src="./pages/" data-test="outlet"></div>
+    </section>
+  </main>
+
+  <template route="/">
+    <p data-test="page-home">Home</p>
+  </template>
+
+  <template route="/about" src="pages/about.tpl"></template>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({
+      baseApiUrl: '/api',
+      router: { useHash: true, suppressHashWarning: true },
+      templates: { pageRelative: new URLSearchParams(location.search).has('pageRelative') }
+    });
+    NoJS.init();
+  </script>
+</body>
+</html>

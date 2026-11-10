@@ -3144,3 +3144,639 @@ describe('Router — focusBehavior (M2)', () => {
     expect(document.activeElement).toBe(outlet);
   });
 });
+
+describe('Router — history mode keeps ?query and #hash on init and popstate', () => {
+  afterEach(() => {
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
+  });
+
+  test('initial load of /search?q=hello#frag keeps the URL and fills $route.query', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/search?q=hello#frag');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+
+  test('initial load strips the base from the pathname only', async () => {
+    _config.router = { useHash: false, base: '/app', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/search"><p>Search</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/app/search?q=hello');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(window.location.pathname + window.location.search).toBe('/app/search?q=hello');
+  });
+
+  test('Back to /search?q=hello#frag restores $route.query and keeps the URL', async () => {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top' };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/"><p>Home</p></template>
+      <template route="/search"><p>Search</p></template>
+      <template route="/other"><p>Other</p></template>
+      <div route-view></div>
+    `;
+    window.history.pushState({}, '', '/');
+
+    const router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+    await router.push('/search?q=hello#frag');
+    await router.push('/other');
+    expect(router.current.path).toBe('/other');
+
+    window.history.back(); // jsdom fires popstate asynchronously
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(router.current.path).toBe('/search');
+    expect(router.current.query).toEqual({ q: 'hello' });
+    expect(router.current.hash).toBe('#frag');
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/search?q=hello#frag');
+  });
+});
+
+describe('Router — query keeps everything after the first ?', () => {
+  let router;
+  const fullUrl = () => window.location.pathname + window.location.search + window.location.hash;
+
+  async function boot(startUrl, cfg = {}) {
+    _config.router = { useHash: false, base: '/', scrollBehavior: 'top', ...cfg };
+    window.scrollTo = jest.fn();
+    document.body.innerHTML = `
+      <template route="/"><p>Home</p></template>
+      <template route="/login"><p>Login</p></template>
+      <template route="/admin" guard="$route.query.ok" redirect="/login"><p>Admin</p></template>
+      <div route-view></div>
+    `;
+    window.history.replaceState({}, '', startUrl);
+    router = _createRouter();
+    setRouterInstance(router);
+    await router.init();
+  }
+
+  afterEach(() => {
+    if (router) router.destroy();
+    router = null;
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
+  });
+
+  test('history-mode initial load keeps a nested ? in the query value and the URL', async () => {
+    await boot('/login?next=/a?b=1');
+    expect(router.current.path).toBe('/login');
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(fullUrl()).toBe('/login?next=/a?b=1');
+  });
+
+  test('push() keeps a nested ? in the query value and the URL', async () => {
+    await boot('/');
+    await router.push('/login?next=/a?b=1#x');
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(router.current.hash).toBe('#x');
+    expect(fullUrl()).toBe('/login?next=/a?b=1#x');
+  });
+
+  test('hash-mode initial load keeps a nested ? in the query value and the URL', async () => {
+    await boot('/#/login?next=/a?b=1', { useHash: true, suppressHashWarning: true });
+    expect(router.current.query).toEqual({ next: '/a?b=1' });
+    expect(window.location.hash).toBe('#/login?next=/a?b=1');
+  });
+
+  test('guard sees $route.query on the initial load', async () => {
+    await boot('/admin?ok=1');
+    expect(router.current.path).toBe('/admin');
+  });
+
+  test('guard redirect on the initial load still lands on a clean redirect URL', async () => {
+    await boot('/admin?x=1#y');
+    expect(router.current.path).toBe('/login');
+    expect(fullUrl()).toBe('/login');
+  });
+
+  test('fragment-only popstate on the same path does not re-render', async () => {
+    await boot('/login');
+    Element.prototype.scrollIntoView = jest.fn();
+    const listener = jest.fn();
+    router.on(listener);
+    window.history.pushState({}, '', '/login#x');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(listener).not.toHaveBeenCalled();
+    expect(router.current.path).toBe('/login');
+    delete Element.prototype.scrollIntoView;
+  });
+});
+
+// ─── Superseded navigations (NOJS-ROUTE-003) ─────────────────────────────────
+
+describe('Router — superseded navigation', () => {
+  let resolveTpl;
+
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', suppressHashWarning: true };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+    document.title = '';
+    setRouterInstance(null);
+    _templateHtmlCache.clear();
+    // Each template fetch stays pending until the test resolves it
+    const pending = {};
+    global.fetch = jest.fn((url) => new Promise((resolve) => { pending[url] = resolve; }));
+    // html === null answers 404
+    resolveTpl = (name, html) => {
+      const url = Object.keys(pending).find((u) => u.endsWith(name));
+      if (url) pending[url](html === null ? { ok: false, status: 404 } : { ok: true, text: () => Promise.resolve(html) });
+    };
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    document.title = '';
+    delete global.fetch;
+    delete document.startViewTransition;
+    _templateHtmlCache.clear();
+  });
+
+  async function setup() {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="/"><p>Home</p></template>
+      <template route="/slow" src="/slow.tpl" lazy="ondemand" page-title="'Slow'"></template>
+      <template route="/fast" src="/fast.tpl" lazy="ondemand" page-title="'Fast'"></template>
+    `;
+    const router = _createRouter();
+    await router.init();
+    const seen = [];
+    router.on((r) => seen.push(r.path));
+    return { router, seen, outlet: document.querySelector('[route-view]') };
+  }
+
+  test('renders only the newer page when it loads first', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('renders only the newer page when the superseded one loads first', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a repeated navigation waits for the template load already in flight', async () => {
+    const { router, seen, outlet } = await setup();
+    const first = router.push('/slow');
+    const second = router.push('/slow');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await Promise.all([first, second]);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.slow')).toHaveLength(1);
+    expect(document.title).toBe('Slow');
+    expect(seen).toEqual(['/slow']);
+  });
+
+  test('a late file-based layout probe does not replace the newer page', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const docs = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('docs.tpl', '<section class="docs">Docs layout</section>');
+    await docs;
+
+    expect(outlet.querySelector('.docs')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a repeated file-based navigation waits for the layout probe in flight', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const first = router.push('/docs/intro'); // probes pages/docs.tpl as a layout
+    const second = router.push('/docs/intro');
+    resolveTpl('docs.tpl', null); // no layout: fall back to pages/docs/intro.tpl
+    await new Promise((r) => setTimeout(r, 0));
+    resolveTpl('docs/intro.tpl', '<h1 class="intro">Intro</h1>');
+    await Promise.all([first, second]);
+
+    expect(outlet.children).toHaveLength(1);
+    expect(outlet.querySelectorAll('.intro')).toHaveLength(1);
+    expect(seen).toEqual(['/docs/intro']);
+  });
+
+  test('a superseded nested layout drops its unprocessed leaf', async () => {
+    _config.router.templates = 'pages';
+    const { router, seen, outlet } = await setup();
+    const docs = router.push('/docs/intro');
+    resolveTpl('docs.tpl', '<section class="docs"><div route-view></div></section>');
+    await new Promise((r) => setTimeout(r, 0)); // layout rendered, pages/intro.tpl requested
+    resolveTpl('intro.tpl', '<p class="intro">Intro</p><template src="/part.tpl"></template>');
+    await new Promise((r) => setTimeout(r, 0)); // leaf appended, /part.tpl requested
+    const nested = outlet.querySelector('.docs [route-view]');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('part.tpl', '<p class="part">Part</p>');
+    await docs;
+
+    expect(nested.children).toHaveLength(0); // removed, not processed
+    expect(outlet.querySelector('.docs')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a superseded navigation drops its unprocessed nested index route', async () => {
+    const { router, seen, outlet } = await setup();
+    const slow = router.push('/slow');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1><div route-view="tabs" route-index="overview" src="/tabs/"></div>');
+    await new Promise((r) => setTimeout(r, 0)); // page rendered, /tabs/overview.tpl requested
+    resolveTpl('overview.tpl', '<p class="overview">Overview</p><template src="/tabs/part.tpl"></template>');
+    await new Promise((r) => setTimeout(r, 0)); // index appended, /tabs/part.tpl requested
+    const tabs = outlet.querySelector('[route-view="tabs"]');
+    const fast = router.push('/fast');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('part.tpl', '<p class="part">Part</p>');
+    await slow;
+
+    expect(tabs.children).toHaveLength(0); // removed, not processed
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(seen).toEqual(['/fast']);
+  });
+
+  test('a superseded View Transition update callback does not render', async () => {
+    // Browsers run the update callback asynchronously, after the old state is captured
+    document.startViewTransition = jest.fn(({ update }) => {
+      const done = new Promise((r) => setTimeout(r, 0)).then(update);
+      return { updateCallbackDone: done, finished: done, ready: done };
+    });
+    const { router, seen, outlet } = await setup();
+    outlet.setAttribute('transition', 'slide');
+    const slow = router.push('/slow');
+    const fast = router.push('/fast');
+    await new Promise((r) => setTimeout(r, 0)); // both update callbacks have run
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await fast;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(seen).toEqual(['/fast']);
+    // The superseded update callback returns before it starts loading /slow
+    expect(global.fetch).not.toHaveBeenCalledWith('/slow.tpl');
+  });
+
+  async function setupWithGuards() {
+    const ctx = await setup();
+    for (const [route, redirect] of [['/admin', null], ['/admin2', '/fast']]) {
+      const tpl = document.createElement('template');
+      tpl.setAttribute('route', route);
+      tpl.setAttribute('guard', 'false');
+      if (redirect) tpl.setAttribute('redirect', redirect);
+      tpl.innerHTML = '<h1 class="admin">Admin</h1>';
+      document.body.appendChild(tpl);
+      ctx.router.register(route, tpl);
+    }
+    return ctx;
+  }
+
+  test('a guard-blocked navigation does not cancel the render in flight', async () => {
+    const { router, seen, outlet } = await setupWithGuards();
+    const slow = router.push('/slow');
+    await router.push('/admin');
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.admin')).toBeNull();
+    expect(outlet.querySelectorAll('.slow')).toHaveLength(1);
+    expect(document.title).toBe('Slow');
+    expect(window.location.hash).toBe('#/slow');
+    expect(seen).toHaveLength(1);
+  });
+
+  test('a guard redirect supersedes the render in flight', async () => {
+    const { router, seen, outlet } = await setupWithGuards();
+    const slow = router.push('/slow');
+    const admin = router.push('/admin2');
+    resolveTpl('fast.tpl', '<h1 class="fast">Fast</h1>');
+    await admin;
+    resolveTpl('slow.tpl', '<h1 class="slow">Slow</h1>');
+    await slow;
+
+    expect(outlet.querySelector('.slow')).toBeNull();
+    expect(outlet.querySelector('.admin')).toBeNull();
+    expect(outlet.querySelectorAll('.fast')).toHaveLength(1);
+    expect(document.title).toBe('Fast');
+    expect(router.current.path).toBe('/fast');
+    expect(seen).toEqual(['/fast']);
+  });
+});
+
+describe('Router — route template src resolution (base= / baseApiUrl / templates.pageRelative)', () => {
+  const urls = () => global.fetch.mock.calls.map((c) => c[0]);
+
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', templates: '', ext: '.tpl' };
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+    setRouterInstance(null);
+    _templateHtmlCache.clear();
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(url.endsWith('/layout.tpl')
+        ? '<p class="route-content">Layout</p><template src="./part.tpl"></template><template src="extra.tpl"></template>'
+        : '<p class="route-content">Loaded</p>'),
+    }));
+  });
+
+  afterEach(() => {
+    setRouterInstance(null);
+    _config.baseApiUrl = '';
+    _config.templates.pageRelative = false;
+    document.body.removeAttribute('base');
+    document.body.innerHTML = '';
+    window.location.hash = '';
+    _templateHtmlCache.clear();
+    delete global.fetch;
+  });
+
+  function declaredRoute(path, src) {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    document.body.appendChild(outlet);
+    const tpl = document.createElement('template');
+    tpl.setAttribute('route', path);
+    tpl.setAttribute('src', src);
+    document.body.appendChild(tpl);
+    const router = _createRouter();
+    setRouterInstance(router);
+    router.register(path, tpl);
+    return { router, outlet };
+  }
+
+  function fileRoute(srcFolder) {
+    const outlet = document.createElement('div');
+    outlet.setAttribute('route-view', '');
+    outlet.setAttribute('src', srcFolder);
+    document.body.appendChild(outlet);
+    const router = _createRouter();
+    setRouterInstance(router);
+    return { router, outlet };
+  }
+
+  test('default: declared <template route src> goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = declaredRoute('/about', 'pages/about.tpl');
+
+    await router.push('/about');
+
+    expect(urls()).toEqual(['/api/pages/about.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('default: nested templates of a route resolve against the based folder', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = declaredRoute('/layout', '/views/layout.tpl');
+
+    await router.push('/layout');
+
+    expect([...new Set(urls())].sort()).toEqual([
+      '/api/extra.tpl',
+      '/api/views/layout.tpl',
+      '/api/views/part.tpl',
+    ]);
+    expect(outlet.querySelectorAll('.route-content')).toHaveLength(3);
+  });
+
+  test('default: file-based route-view src goes through baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    const { router, outlet } = fileRoute('./pages/');
+
+    await router.push('/analytics');
+
+    expect(urls()).toEqual(['/api/pages/analytics.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('default: file-based routes use a base= on <body>', async () => {
+    document.body.setAttribute('base', 'https://api.example.com/v1');
+    const { router } = fileRoute('/pages/');
+
+    await router.push('/');
+
+    expect(urls()).toEqual(['https://api.example.com/v1/pages/index.tpl']);
+  });
+
+  test('default: without base= or baseApiUrl, route src is fetched as written', async () => {
+    const { router } = fileRoute('./pages/');
+
+    await router.push('/analytics');
+
+    expect(urls()).toEqual(['pages/analytics.tpl']);
+  });
+
+  test('pageRelative: declared route src ignores baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    const { router, outlet } = declaredRoute('/about', 'pages/about.tpl');
+
+    await router.push('/about');
+
+    expect(urls()).toEqual(['pages/about.tpl']);
+    expect(outlet.querySelector('.route-content')).not.toBeNull();
+  });
+
+  test('pageRelative: nested ./ keeps the parent folder, plain src is page-relative', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    const { router, outlet } = declaredRoute('/layout', '/views/layout.tpl');
+
+    await router.push('/layout');
+
+    expect([...new Set(urls())].sort()).toEqual([
+      '/views/layout.tpl',
+      '/views/part.tpl',
+      'extra.tpl',
+    ]);
+    expect(outlet.querySelectorAll('.route-content')).toHaveLength(3);
+  });
+
+  test('pageRelative: file-based routes ignore base= on <body> and baseApiUrl', async () => {
+    _config.baseApiUrl = '/api';
+    _config.templates.pageRelative = true;
+    document.body.setAttribute('base', 'https://api.example.com/v1');
+    const { router } = fileRoute('/pages/');
+
+    await router.push('/');
+
+    expect(urls()).toEqual(['/pages/index.tpl']);
+  });
+});
+
+describe('Router — page-jsonld value escaping', () => {
+  beforeEach(() => {
+    _config.router = { useHash: true, base: '/', scrollBehavior: 'top', suppressHashWarning: true };
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+    window.scrollTo = jest.fn();
+  });
+
+  afterEach(() => {
+    _config.strictJsonld = false;
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+    window.location.hash = '';
+  });
+
+  const ldText = () =>
+    document.querySelector('script[type="application/ld+json"][data-nojs]').textContent;
+
+  let router;
+
+  async function render(route, attr, url) {
+    document.body.innerHTML = `
+      <div route-view></div>
+      <template route="${route}" page-jsonld='${attr.replace(/'/g, '&#39;')}'><p>x</p></template>
+    `;
+    router = _createRouter();
+    await router.init();
+    await router.push(url);
+    return ldText();
+  }
+
+  test('by default, a $route.query value that injects a property is emitted as in v1.21.1', async () => {
+    const out = await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('x","@type":"Organization'));
+    expect(out).toBe('{"@type":"SearchResultsPage","name":"x","@type":"Organization"}');
+  });
+
+  test('with strictJsonld, a $route.query value cannot inject properties into the JSON-LD', async () => {
+    _config.strictJsonld = true;
+    const data = JSON.parse(await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('x","@type":"Organization')));
+    expect(data['@type']).toBe('SearchResultsPage');
+    expect(data.name).toBe('x","@type":"Organization');
+  });
+
+  test('by default, a pre-escaped $route.query value keeps its v1.21.1 bytes', async () => {
+    const out = await render('/search', '{"@type":"SearchResultsPage","name":"{$route.query.q}"}',
+      '/search?q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(out).toBe('{"@type":"SearchResultsPage","name":"Say \\"hi\\""}');
+    expect(JSON.parse(out).name).toBe('Say "hi"');
+  });
+
+  test('with strictJsonld, a pre-escaped $route.query value is escaped as data', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/search', '{"name":"{$route.query.q}","n":{$route.query.n}}',
+      '/search?n=4&q=' + encodeURIComponent('Say \\"hi\\"'));
+    expect(JSON.parse(out)).toEqual({ name: 'Say \\"hi\\"', n: 4 });
+  });
+
+  test('a raw (unquoted) JSON fragment is emitted verbatim, as in v1.21.1', async () => {
+    const out = await render('/p', '{"@type":"Product","offers":{$route.query.o}}',
+      '/p?o=' + encodeURIComponent('{"price":5,"name":"A \\"B\\""}'));
+    expect(out).toBe('{"@type":"Product","offers":{"price":5,"name":"A \\"B\\""}}');
+    expect(JSON.parse(out)).toEqual({ '@type': 'Product', offers: { price: 5, name: 'A "B"' } });
+  });
+
+  test('by default, a quoted value that makes the output invalid JSON keeps the v1.21.1 bytes', async () => {
+    const out = await render('/r/:n', '{"position":{$route.params.n},"name":"{$route.query.q}"}',
+      '/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(out).toBe('{"position":3,"name":"x"\\y\nz"}');
+  });
+
+  test('with strictJsonld, quoted values are escaped into valid JSON; raw numbers are unchanged', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/r/:n', '{"position":{$route.params.n},"name":"{$route.query.q}"}',
+      '/r/3?q=' + encodeURIComponent('x"\\y\nz'));
+    expect(out).toBe('{"position":3,"name":"x\\"\\\\y\\nz"}');
+    expect(JSON.parse(out)).toEqual({ position: 3, name: 'x"\\y\nz' });
+  });
+
+  test('by default, a $route.query value containing </script> keeps the v1.21.1 "<\\/" output', async () => {
+    const out = await render('/item', '{"@type":"Thing","name":"{$route.query.n}"}',
+      '/item?n=' + encodeURIComponent('a</script><b>'));
+    expect(out).toBe('{"@type":"Thing","name":"a<\\/script><b>"}');
+    expect(JSON.parse(out).name).toBe('a</script><b>');
+  });
+
+  test('by default, a quoted value with a quote and </script> keeps the v1.21.1 bytes and cannot close the script', async () => {
+    const out = await render('/item', '{"@type":"Thing","name":"{$route.query.n}"}',
+      '/item?n=' + encodeURIComponent('a"</script><b>'));
+    expect(out).toBe('{"@type":"Thing","name":"a"<\\/script><b>"}');
+    expect(out).not.toContain('</');
+  });
+
+  test('with strictJsonld, quoted and raw values cannot contain "<"', async () => {
+    _config.strictJsonld = true;
+    const out = await render('/x', '{"name":"{$route.query.n}","offers":{$route.query.o}}',
+      '/x?n=' + encodeURIComponent('a"</script><b>') + '&o=' + encodeURIComponent('{"n":"</script><b>"}'));
+    expect(out).not.toContain('<');
+    expect(JSON.parse(out)).toEqual({ name: 'a"</script><b>', offers: { n: '</script><b>' } });
+  });
+
+  test('the JSON-LD follows $route.query across navigations', async () => {
+    const out = await render('/search', '{"name":"{$route.query.q}"}', '/search?q=one');
+    expect(out).toBe('{"name":"one"}');
+    await router.push('/search?q=two');
+    expect(ldText()).toBe('{"name":"two"}');
+    _config.strictJsonld = true;
+    await router.push('/search?q=' + encodeURIComponent('three "quoted"'));
+    expect(JSON.parse(ldText()).name).toBe('three "quoted"');
+  });
+});

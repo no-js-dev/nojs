@@ -114,7 +114,7 @@
       <tbody>
         <tr><td><code>fetch:success</code></td><td t="docs.actionsRefs.events.fetchSuccess"></td></tr>
         <tr><td><code>fetch:error</code></td><td t="docs.actionsRefs.events.fetchError"></td></tr>
-        <tr><td><code>fetch:end</code></td><td t="docs.actionsRefs.events.fetchEnd"></td></tr>
+        <tr><td><code>error</code></td><td t="docs.actionsRefs.events.error"></td></tr>
       </tbody>
     </table>
   </div>

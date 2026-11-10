@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — directives, t-html, JSON-LD — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: custom directives, t-html params, page-jsonld</h1>
+
+    <!-- 1. App directive named on:clickoutside runs instead of the core on:* handler -->
+    <section state="{ outside: 0 }">
+      <h2>1. on:clickoutside</h2>
+      <div data-test="d-clickoutside" on:clickoutside="outside = outside + 1">
+        Inside box. Outside clicks: <span data-test="d-outside-count" bind="outside"></span>
+      </div>
+      <button data-test="d-outside-target">Somewhere else</button>
+    </section>
+
+    <!-- 2. App directive named class-x runs instead of the core class-* handler -->
+    <section state="{ on: false }">
+      <h2>2. class-x</h2>
+      <div data-test="d-class-x" class-x="on">class-x target</div>
+    </section>
+
+    <!-- 3. Plugin directive named bind-chart runs instead of the core bind-* handler -->
+    <section state="{ series: [3, 1, 2] }">
+      <h2>3. bind-chart</h2>
+      <div data-test="d-bind-chart" bind-chart="series"></div>
+    </section>
+
+    <!-- 4. t-html renders markup passed through a t-* param -->
+    <section>
+      <h2>4. t-html param markup</h2>
+      <p data-test="t-link" t="msg" t-html t-link="'&lt;a href=/terms&gt;terms&lt;/a&gt;'"></p>
+    </section>
+
+    <!-- 5. The sanitizer still strips script and on* handlers from t-html params -->
+    <section>
+      <h2>5. t-html param sanitized</h2>
+      <p data-test="t-xss" t="msg" t-html t-link="'&lt;img alt=&quot;&quot; src=&quot;data:image/gif;base64,R0lGODlhAQABAAAAACw=&quot; onerror=&quot;window.__compatPwned=1&quot;&gt;&lt;script&gt;window.__compatPwned=2&lt;/script&gt;&lt;a href=/ok&gt;ok&lt;/a&gt;'"></p>
+    </section>
+
+    <!-- 6. page-jsonld: a raw JSON fragment placed outside quotes stays valid JSON -->
+    <section state="{ name: 'Widget', o: '{&quot;price&quot;:5}' }">
+      <h2>6. page-jsonld raw fragment</h2>
+      <div hidden page-jsonld>{"@context":"https://schema.org","@type":"Product","name":"{name}","offers":{o}}</div>
+      <span data-test="j-ready">ready</span>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.i18n({ locales: { en: { msg: 'Read {link}' } } });
+
+    // App-level directive: fires its statement when a click lands outside the element
+    NoJS.directive('on:clickoutside', {
+      init(el, name, expr) {
+        el.setAttribute('data-custom-directive', name);
+        const ctx = NoJS.findContext(el);
+        const handler = (e) => {
+          if (!el.contains(e.target)) NoJS.internals.execStatement(expr, ctx, { $event: e });
+        };
+        document.addEventListener('click', handler);
+        NoJS.internals.onDispose(() => document.removeEventListener('click', handler));
+      },
+    });
+
+    // App-level directive overlapping the class-* prefix
+    NoJS.directive('class-x', {
+      init(el, name) {
+        el.setAttribute('data-custom-directive', name);
+      },
+    });
+
+    // Plugin directive overlapping the bind-* prefix
+    NoJS.use({
+      name: 'compat-chart',
+      install(nojs) {
+        nojs.directive('bind-chart', {
+          init(el, name, expr) {
+            el.setAttribute('data-custom-directive', name);
+            const series = nojs.evaluate(expr, nojs.findContext(el)) || [];
+            el.textContent = 'chart:' + series.join(',');
+          },
+        });
+      },
+    });
+  </script>
+</body>
+</html>

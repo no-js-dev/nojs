@@ -262,7 +262,7 @@ When `channel` changes from `"general"` to `"alerts"`:
 
 If the resolved URL is the same as the current one, no reconnection occurs.
 
-> **Note:** Interpolated values inside `{expr}` are encoded with `encodeURIComponent`. This means `/` is encoded as `%2F`. If a path segment intentionally contains `/`, pass it as a pre-encoded string or concatenate it outside the `{}` placeholder.
+> **Note:** Interpolated values inside `{expr}` are encoded with `encodeURIComponent`. This means `/` is encoded as `%2F`. If a path segment intentionally contains `/`, pass it as a pre-encoded string or concatenate it outside the `{}` placeholder. A path placeholder whose value is exactly `.` or `..` is escaped to `%252E` / `%252E%252E` so it cannot point the connection at a parent path.
 
 The reactive URL watcher responds to changes in parent contexts, global stores (`$store`), the router (`$route`), and the i18n system (`$i18n`).
 

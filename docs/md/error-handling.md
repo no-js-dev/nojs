@@ -9,7 +9,7 @@ No.JS provides multiple layers of error handling — from per-element HTTP error
 Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an error template. When the request fails, the template renders inside the element:
 
 ```html
-<div get="/api/users" as="users" error="#usersError">
+<div get="/api/users" as="users" error="#usersError" ref="users">
   <div each="user in users" template="userCard"></div>
 </div>
 
@@ -17,7 +17,7 @@ Any HTTP directive (`get`, `post`, `put`, `patch`, `delete`) can declare an erro
   <div class="error-box">
     <p bind="err.message"></p>
     <p>Status: <span bind="err.status"></span></p>
-    <button on:click="$el.parentElement.dispatchEvent(new Event('retry'))">
+    <button on:click="$refs.users.refresh()">
       Try Again
     </button>
   </div>

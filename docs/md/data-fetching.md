@@ -46,6 +46,8 @@ Absolute URLs skip base resolution:
 
 > **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
 
+> **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, the `baseApiUrl` origin, and the origin of the nearest `base` attribute. Per-request `headers` still apply to any origin.
+
 ### Per-Request Headers
 
 ```html
@@ -76,7 +78,7 @@ Absolute URLs skip base resolution:
 | `empty` | `string` | Template ID to show when response is empty array/null |
 | `refresh` | `number` | Auto-refresh interval in ms (polling) |
 | `cached` | `boolean\|string` | Cache responses. `cached` = memory, `cached="local"` = localStorage, `cached="session"` = sessionStorage |
-| `into` | `string` | Write response to a named global store |
+| `into` | `string` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `debounce` | `number` | Debounce in ms (useful with reactive URLs) |
 | `headers` | `string` | JSON string of additional headers |
 | `params` | `string` | Expression that resolves to query params object |
@@ -144,6 +146,8 @@ URLs that reference state variables re-fetch automatically when those values cha
 > <div get="'/files/' + path">...</div>
 > ```
 
+A placeholder in the path part whose whole value is `.` or `..` is escaped to `%252E` / `%252E%252E` (a literal child segment; the server decodes it to the text `%2E` / `%2E%2E`), so it cannot re-target the request to a parent path. A warning is logged once per request. Query-string and fragment values, and request bodies, are not affected.
+
 ---
 
 ## `post`, `put`, `patch`, `delete` — Mutating Requests
@@ -195,14 +199,14 @@ Used on forms or triggered via `call`.
 | Attribute | Description |
 |-----------|-------------|
 | `post`, `put`, `patch`, `delete` | URL for the request |
-| `body` | Request body (JSON string with interpolation). For forms, auto-serializes fields |
+| `body` | Request body (JSON string with interpolation). For forms, auto-serializes the fields into a JSON object; `<input type="file">` values are not uploaded (a file is sent as `{}`) |
 | `success` | Template ID to render on success. Receives response as `var` |
 | `error` | Template ID to render on error. Receives error as `var` |
 | `loading` | Template ID to show during request |
 | `confirm` | Show browser `confirm()` dialog before sending |
 | `redirect` | URL to navigate to on success (SPA route) |
 | `then` | Expression to execute on success (e.g. `"users.push(result)"`) |
-| `into` | Write response to a named global store |
+| `into` | Write response to a named global store, under the `as` key: `$store.<into>.<as>` |
 | `cached` | Cache responses (memory/local/session) |
 
 ### Request Lifecycle
@@ -433,11 +437,11 @@ The button is auto-generated and inserted after the content. It is automatically
 
 ### `fetch:end` Event
 
-The `fetch:end` event fires on the NoJS event bus after every HTTP request completes, regardless of success or failure. This is useful for dismissing global loading indicators:
+The `fetch:end` event fires on the NoJS event bus when a paginated `get` (`get-trigger` with `get-insert`) reaches the end of its data: an empty page, a last-page response header, or an exhausted cursor. Pagination stops at that point. It is not emitted for other requests; use `fetch:success` and `fetch:error` to track individual requests.
 
 ```js
 NoJS.on('fetch:end', ({ url }) => {
-  console.log('Request finished:', url);
+  console.log('No more pages:', url);
 });
 ```
 
@@ -479,10 +483,33 @@ Interceptor functions can be async. Each interceptor is given a 5-second timeout
 ```html
 <script>
   NoJS.interceptor('request', async (url, options) => {
-    const token = await refreshTokenIfExpired();
-    options.headers['Authorization'] = 'Bearer ' + token;
+    options.headers['X-Client-Version'] = await getClientVersion();
     return options;
   });
+</script>
+```
+
+### Setting Sensitive Headers
+
+App-level interceptors (`NoJS.interceptor()`) and interceptors from plugins installed without `{ trusted: true }` cannot set sensitive headers: `Authorization`, `Cookie`, `Set-Cookie`, `Proxy-Authorization`, `X-API-Key`, `X-Auth-Token`, `X-CSRF-Token`, and any `X-Auth-*` / `X-Api-*` header. Values they return for those headers are dropped; their other headers still apply. Use one of these instead:
+
+- **Global header** — `NoJS.config({ headers: { Authorization: 'Bearer ' + token } })`. It can be called again after login; new headers are merged into the existing ones.
+- **CSRF token** — `NoJS.config({ csrf: { token } })` (sent on same-origin non-GET requests). For a token that changes, use a getter: `csrf: { get token() { return readToken(); } }`.
+- **Per request** — the `headers` attribute on the element.
+- **Computed per request** (for example a token refresh) — a request interceptor from a trusted plugin. Trust comes only from the second argument of `NoJS.use()`; a `trusted` property on the plugin object is ignored. The interceptor must be registered synchronously inside `install` — one registered later (in `init`, after an `await`, in a timer) is untrusted:
+
+```html
+<script>
+  NoJS.use({
+    name: 'auth-token',
+    install(app) {
+      app.interceptor('request', async (url, options) => {
+        const token = await refreshTokenIfExpired();
+        options.headers['Authorization'] = 'Bearer ' + token;
+        return options;
+      });
+    }
+  }, { trusted: true });
 </script>
 ```
 
@@ -535,7 +562,9 @@ Return an object keyed by `NoJS.REPLACE` from a response interceptor to replace 
 
 ### Header Redaction
 
-By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. URL query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced with `[REDACTED]`.
+By default, interceptors receive redacted copies of requests and responses. Sensitive headers (`Authorization`, `Cookie`, `X-API-Key`, `X-CSRF-Token`, etc.) are stripped from the options object before it reaches untrusted interceptors, and sensitive response headers (`Set-Cookie`, `WWW-Authenticate`, etc.) are removed from the response proxy. In the URL that response interceptors receive, the values of query parameters matching patterns like `token`, `key`, `secret`, `auth`, `password`, or `credential` are replaced. The URL is re-serialized by the `URL` API, so they read `%5BREDACTED%5D`. Request interceptors, the `url` in `fetch:success` / `fetch:error` / `error` event payloads, and the request failure warnings receive the raw URL.
+
+With [`strictRedaction: true`](configuration.md#opt-in-hardening-flags), the `csrf.header` name is also withheld from untrusted interceptors, sensitive response headers such as `Authorization`, `X-Auth-*` and `X-Api-*` are stripped as well, and all of those URLs drop their `#fragment` and have the values of sensitive query parameters replaced by a literal `[REDACTED]`. Parameter names are matched by word, so `author` or `keyword` stay intact. See [Plugins → With `strictRedaction: true`](plugins.md#with-strictredaction-true).
 
 Plugins installed with `{ trusted: true }` via `NoJS.use()` receive the full, unredacted request and response objects. See [Plugins → Trusted Interceptors](plugins.md#trusted-interceptors) for details.
 

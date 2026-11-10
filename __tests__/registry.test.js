@@ -294,3 +294,45 @@ describe('Disposal', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MATCH CACHE: attribute-name signature separator
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Match cache signature', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const source = fs.readFileSync(path.join(__dirname, '../src/registry.js'));
+
+  test('src/registry.js holds no literal NUL byte', () => {
+    expect(source.includes(0)).toBe(false);
+  });
+
+  test('the separator literal still evaluates to U+0000', () => {
+    const m = /sig \+= attrs\[i\]\.name \+ ("(?:[^"\\]|\\.)*");/.exec(source.toString('utf8'));
+    expect(m).not.toBeNull();
+    expect(vm.runInNewContext(m[1])).toBe('\u0000');
+  });
+
+  test('attribute sets whose names concatenate alike get separate matches', () => {
+    const joined = jest.fn();
+    const split = jest.fn();
+    registerDirective('sigsep-abx', { init: joined });
+    registerDirective('sigsep-a', { init: split });
+
+    const one = document.createElement('div');
+    one.setAttribute('sigsep-abx', '');
+    processElement(one);
+
+    const two = document.createElement('div');
+    two.setAttribute('sigsep-a', '');
+    two.setAttribute('bx', '');
+    processElement(two);
+
+    expect(joined).toHaveBeenCalledTimes(1);
+    expect(joined.mock.calls[0][0]).toBe(one);
+    expect(split).toHaveBeenCalledTimes(1);
+    expect(split.mock.calls[0][0]).toBe(two);
+  });
+});

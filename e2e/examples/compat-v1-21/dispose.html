@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — dispose / config / init — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: reconfigure sanitizer after dispose()</h1>
+
+    <!-- 1. First init: default sanitizer strips on* handlers -->
+    <section state="{ html: '&lt;b data-test=&quot;s-first-b&quot; onclick=&quot;window.__compatClicked=1&quot;&gt;bold&lt;/b&gt;' }">
+      <h2>1. First init (default sanitizer)</h2>
+      <div data-test="s-first" bind-html="html"></div>
+    </section>
+
+    <!-- 2. dispose() → config({ sanitizeHtml }) → init(): the custom sanitizer hook is used -->
+    <!-- 3. dispose() → config({ dangerouslyDisableSanitize: true }) → init(): sanitizer is off -->
+    <section>
+      <h2>2-3. Re-init</h2>
+      <button type="button" data-test="s-reinit-hook">Re-init with sanitizeHtml hook</button>
+      <button type="button" data-test="s-reinit-off">Re-init with dangerouslyDisableSanitize</button>
+      <span data-test="s-status">idle</span>
+      <div id="stage" data-test="s-stage"></div>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    const status = document.querySelector('[data-test="s-status"]');
+    const stage = document.getElementById('stage');
+    const STAGE_HTML =
+      '<div state="{ html: \'<b data-test=&quot;s-stage-b&quot; onclick=&quot;window.__compatClicked=1&quot;>bold</b>\' }">' +
+      '<div data-test="s-stage-out" bind-html="html"></div></div>';
+
+    async function reinit(opts) {
+      status.textContent = 'running';
+      await NoJS.dispose();
+      NoJS.config(opts);
+      stage.innerHTML = STAGE_HTML;
+      await NoJS.init(stage);
+      status.textContent = 'done';
+    }
+
+    document.querySelector('[data-test="s-reinit-hook"]').addEventListener('click', () => {
+      reinit({ sanitizeHtml: () => '<em data-test="s-hooked">hooked</em>' });
+    });
+    document.querySelector('[data-test="s-reinit-off"]').addEventListener('click', () => {
+      reinit({ dangerouslyDisableSanitize: true });
+    });
+  </script>
+</body>
+</html>

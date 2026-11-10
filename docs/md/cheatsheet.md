@@ -17,7 +17,7 @@ Complete reference of every No.JS directive.
 | `headers` | `headers='{"Auth":"Bearer x"}'` | Request headers |
 | `params` | `params="{ page: 1 }"` | Query parameters |
 | `cached` | `cached` or `cached="local"` | Cache responses (memory/local/session) |
-| `into` | `into="currentUser"` | Write response to a named global store |
+| `into` | `into="currentUser"` | Write response to a global store at `$store.<into>.<as>` |
 | `debounce` | `debounce="300"` | Debounce reactive URL refetches (ms) |
 | `refresh` | `refresh="5000"` | Auto-refresh interval in ms (polling) |
 | `skeleton` | `skeleton="cardSkel"` | Show/hide a placeholder element during loading |

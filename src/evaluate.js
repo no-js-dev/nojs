@@ -2,7 +2,7 @@
 //  EXPRESSION EVALUATOR
 // ═══════════════════════════════════════════════════════════════════════
 
-import { _config, _stores, _routerInstance, _filters, _warn, _notifyStoreWatchers, _extractStoreName, _globals, _setExprRootKeysFn } from "./globals.js";
+import { _config, _stores, _routerInstance, _filters, _warn, _withMutedWarnings, _notifyStoreWatchers, _extractStoreNames, _globals, _setExprRootKeysFn } from "./globals.js";
 import { _i18nProxy } from "./i18n.js";
 import { _collectKeys, _startBatch, _endBatch } from "./context.js";
 
@@ -195,7 +195,13 @@ function _tokenize(expr) {
 
 // ── Recursive-descent expression parser ────────────────────────────────
 
-function _parseExpr(tokens) {
+// `issues` (optional) collects what the lenient parser silently dropped, for
+// _reportParseIssues: `strayAssign` (an `=` where an operand belongs, e.g. in
+// a ternary branch), `badTarget` (assignment to a non-assignable left side,
+// e.g. `c && a = 1`), `writes` (every assignment/++/-- node; only one that
+// IS a statement writes state) and `leftover` (first token left after a full
+// parse). Collecting issues never changes the AST.
+function _parseExpr(tokens, issues) {
   if (!tokens || tokens.length === 0) return { type: "Literal", value: undefined };
 
   let pos = 0;
@@ -327,7 +333,9 @@ function _parseExpr(tokens) {
     // Prefix ++ / --
     if (t.type === "Op" && (t.value === "++" || t.value === "--")) {
       next();
-      return { type: "UnaryExpr", op: t.value, argument: parseUnary(), prefix: true };
+      const node = { type: "UnaryExpr", op: t.value, argument: parseUnary(), prefix: true };
+      if (issues) (issues.writes || (issues.writes = [])).push(node);
+      return node;
     }
     return parsePostfix();
   }
@@ -338,6 +346,7 @@ function _parseExpr(tokens) {
     if (t && t.type === "Op" && (t.value === "++" || t.value === "--")) {
       next();
       node = { type: "PostfixExpr", op: t.value, argument: node };
+      if (issues) (issues.writes || (issues.writes = [])).push(node);
     }
     return node;
   }
@@ -548,7 +557,7 @@ function _parseExpr(tokens) {
       return {
         type: "TemplateLiteral",
         parts: t.parts,
-        expressions: t.exprs.map(function(exprTokens) { return _parseExpr(exprTokens); })
+        expressions: t.exprs.map(function(exprTokens) { return _parseExpr(exprTokens, issues); })
       };
     }
 
@@ -611,6 +620,7 @@ function _parseExpr(tokens) {
     // Assignment operators
     if (t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" || t.value === "*=" || t.value === "/=" || t.value === "%=")) {
       // Should not appear as primary; skip
+      if (issues) issues.strayAssign = true;
       next();
       return { type: "Literal", value: undefined };
     }
@@ -710,13 +720,94 @@ function _parseExpr(tokens) {
     if (t && t.type === "Op" && (t.value === "=" || t.value === "+=" || t.value === "-=" || t.value === "*=" || t.value === "/=" || t.value === "%=")) {
       const op = next().value;
       const right = parseExpression();
-      return { type: "AssignExpr", op, left: expr, right };
+      const node = { type: "AssignExpr", op, left: expr, right };
+      if (issues) {
+        if (!_isAssignable(expr)) issues.badTarget = true;
+        (issues.writes || (issues.writes = [])).push(node);
+      }
+      return node;
     }
     return expr;
   }
 
   const ast = parseTopLevel();
+  if (issues && pos < tokens.length && !issues.leftover) issues.leftover = tokens[pos];
   return ast;
+}
+
+function _isAssignable(node) {
+  // Forbidden (`__proto__ = x`) is rejected by the security layer, not here.
+  return node.type === "Identifier" || node.type === "MemberExpr" ||
+    node.type === "OptionalMemberExpr" || node.type === "Forbidden";
+}
+
+// JavaScript statement keywords. The tokenizer has no keywords for them, so
+// `if (x) { … }` parses as a call to `if` and `return x` as the identifier
+// `return` followed by dropped tokens.
+const _STMT_KEYWORDS = new Set([
+  "if", "else", "for", "while", "do", "switch", "case", "return", "var",
+  "function", "try", "catch", "finally", "throw", "break", "continue", "new",
+  "class", "delete", "await", "async", "yield", "import", "export", "with",
+  "debugger", "void",
+]);
+// Keywords that are operators, not statements, in JavaScript.
+const _OPERATOR_KEYWORDS = new Set(["new", "void", "delete", "await", "yield"]);
+const _STMT_KEYWORDS_ALONE = new Set(["return", "break", "continue", "debugger", "else", "do", "try"]);
+const _STMT_KEYWORDS_PAREN = new Set(["if", "for", "while", "switch", "catch", "with", "function"]);
+
+// A chunk that starts with a statement keyword used as one: `if (`, `do {`,
+// `return x`, a bare `break`. A keyword-named state key used as a value
+// (`new.x`, `delete + 1`) or method (`delete(item)`) does not match.
+function _stmtKeywordOf(chunk) {
+  const t0 = chunk[0];
+  if (!t0 || t0.type !== "Ident" || !_STMT_KEYWORDS.has(t0.value)) return null;
+  const t1 = chunk[1];
+  if (!t1) return _STMT_KEYWORDS_ALONE.has(t0.value) ? t0.value : null;
+  if (t1.type === "Ident" || t1.type === "Keyword" || t1.type === "Number" ||
+      t1.type === "String" || t1.type === "Template") return t0.value;
+  if (t1.type === "Punc" && t1.value === "{") return t0.value;
+  if (t1.type === "Punc" && t1.value === "(" && _STMT_KEYWORDS_PAREN.has(t0.value)) return t0.value;
+  return null;
+}
+
+function _stmtKeywordMessage(kw) {
+  if (_OPERATOR_KEYWORDS.has(kw)) return `"${kw}" is not supported in expressions`;
+  return `"${kw}" statements are not supported in expressions — use a ternary (a = cond ? x : y) or ;-separated statements`;
+}
+
+// Expressions already warned about: the parse caches make this once per
+// expression in practice; the set also covers re-parses after LRU eviction
+// and the export/runtime split.
+const _parseWarned = new Set();
+
+// Warn (once per expression) about tokens the lenient parser dropped. The
+// parse result is never changed — only made visible (Core rule 8).
+function _reportParseIssues(expr, chunk, ast, issues, isStatement) {
+  let msg = null;
+  const kw = _stmtKeywordOf(chunk);
+  if (kw) {
+    // Statement context: `if (…)` is a call to an unknown function, which
+    // _execStmtNode rejects with the same message at run time.
+    if (isStatement && ast.type === "CallExpr" && ast.callee.type === "Identifier" && ast.callee.name === kw) return;
+    msg = _stmtKeywordMessage(kw);
+  } else if (issues.strayAssign || issues.badTarget ||
+      (issues.writes && issues.writes.some((w) => !isStatement || w !== ast))) {
+    msg = "assignment is ignored — only a statement of its own (a = x, a++) writes state, not one inside a ternary branch, an &&/|| operand, parentheses or a binding; write a = cond ? x : y, or use ;-separated statements";
+  } else if (issues.leftover) {
+    const t = issues.leftover;
+    let opKw = null;
+    for (let i = 0; i < chunk.length - 1 && !opKw; i++) {
+      const c = chunk[i];
+      if (c.type === "Ident" && _OPERATOR_KEYWORDS.has(c.value) && chunk[i + 1].type === "Ident") opKw = c.value;
+    }
+    msg = opKw ? _stmtKeywordMessage(opKw) : (t.type === "Punc" && t.value === ",")
+      ? 'unexpected "," — the comma operator is not supported and the rest of the expression is ignored; separate statements with ;'
+      : `unexpected ${JSON.stringify(t.type === "Template" ? "`" : String(t.value))} — the rest of the expression is ignored`;
+  }
+  if (!msg || _parseWarned.has(expr)) return;
+  if (_parseWarned.size >= 500) _parseWarned.clear();
+  _parseWarned.add(expr);
+  _warn("Expression error:", expr, msg);
 }
 
 // ---------------------------------------------------------------------------
@@ -824,11 +915,54 @@ const _BLOCKED_DOCUMENT_PROPS = new Set([
   'cookie', 'domain', 'write', 'writeln', 'execCommand',
 ]);
 
+// WebIDL getters and methods throw "Illegal invocation" when `this` is one of
+// the safe proxies below (the proxy is passed as receiver). Only these
+// explicitly allow-listed, read-only members are read against the real object;
+// every other member keeps the proxy as receiver, so anything that was
+// unreachable stays unreachable.
+const _WINDOW_OWNER_READS = new Set([
+  'innerWidth', 'innerHeight', 'scrollX', 'scrollY',
+  'pageXOffset', 'pageYOffset', 'devicePixelRatio',
+]);
+const _WINDOW_OWNER_METHODS = new Set(['matchMedia']);
+const _NAVIGATOR_OWNER_READS = new Set([
+  'language', 'languages', 'onLine', 'userAgent', 'platform',
+  'cookieEnabled', 'hardwareConcurrency', 'maxTouchPoints',
+]);
+
+// Method wrappers are cached per target so identity is stable across reads.
+const _ownerMethodCache = new WeakMap();
+function _ownerMethod(target, name) {
+  let byName = _ownerMethodCache.get(target);
+  if (!byName) { byName = new Map(); _ownerMethodCache.set(target, byName); }
+  if (!byName.has(name)) {
+    const fn = target[name];
+    byName.set(name, typeof fn === 'function' ? (...args) => fn.apply(target, args) : undefined);
+  }
+  return byName.get(name);
+}
+
+// navigator.clipboard is exposed write-only: `writeText` is the one reachable
+// member (read/readText/write stay unreachable).
+let _safeClipboard;
+let _safeClipboardSource;
+function _clipboardFor(nav) {
+  const real = nav.clipboard;
+  if (!real || typeof real.writeText !== 'function') return undefined;
+  if (_safeClipboardSource !== real) {
+    _safeClipboardSource = real;
+    _safeClipboard = Object.freeze({ writeText: (text) => real.writeText(text) });
+  }
+  return _safeClipboard;
+}
+
 const _safeWindow = typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined'
   ? new Proxy(globalThis.window, {
       get(target, prop, receiver) {
         if (typeof prop === 'string' && _BLOCKED_WINDOW_PROPS.has(prop)) return undefined;
         if (typeof prop === 'string' && prop in _WINDOW_PROXY_OVERRIDES) return _WINDOW_PROXY_OVERRIDES[prop];
+        if (_WINDOW_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+        if (_WINDOW_OWNER_METHODS.has(prop)) return _ownerMethod(target, prop);
         return Reflect.get(target, prop, receiver);
       },
       set() {
@@ -916,6 +1050,8 @@ const _safeNavigator = typeof globalThis !== 'undefined' && typeof globalThis.na
   ? new Proxy(globalThis.navigator, {
       get(target, prop, receiver) {
         if (typeof prop === 'string' && _BLOCKED_NAVIGATOR_PROPS.has(prop)) return undefined;
+        if (_NAVIGATOR_OWNER_READS.has(prop)) return Reflect.get(target, prop);
+        if (prop === 'clipboard') return _clipboardFor(target);
         return Reflect.get(target, prop, receiver);
       },
       set() { return true; }, // navigator props are browser-enforced read-only
@@ -1672,7 +1808,10 @@ function _compileFilterSpec(filterStr) {
 
 function _compileProgram(expr) {
   const pipes = _parsePipes(expr);
-  const ast = _parseExpr(_tokenize(pipes[0]));
+  const tokens = _tokenize(pipes[0]);
+  const issues = {};
+  const ast = _parseExpr(tokens, issues);
+  if (tokens.length) _reportParseIssues(expr, tokens, ast, issues, false);
   const filters = [];
   for (let i = 1; i < pipes.length; i++) filters.push(_compileFilterSpec(pipes[i]));
   return { fn: _compileNode(ast), filters };
@@ -1682,26 +1821,128 @@ function _compileProgram(expr) {
 // Statement parser & executor (for on:*, watch, etc.)
 // ---------------------------------------------------------------------------
 
-// Parse semicolon-separated statements into an array of AST nodes
-function _parseStatements(expr) {
-  if (_stmtCache.has(expr)) return _stmtCache.get(expr);
+// A statement starting with `const` or `let` declares handler-local
+// bindings: `const name = expr`, `let name = expr`, `let name`, and
+// comma-separated lists of those. `let` alone (or `let.x`, `let = 1`) stays an
+// ordinary identifier expression for backward compatibility.
+function _isDeclStart(chunk) {
+  const t0 = chunk[0];
+  if (t0.type !== "Ident") return false;
+  if (t0.value === "const") return true;
+  if (t0.value !== "let" || chunk.length < 2) return false;
+  const t1 = chunk[1];
+  return t1.type === "Ident" || t1.type === "Keyword" || t1.type === "Forbidden" ||
+    (t1.type === "Punc" && (t1.value === "[" || t1.value === "{"));
+}
+
+// Split a declarator list on top-level commas (commas nested in (), [] or {}
+// belong to the initializer).
+function _splitDeclarators(tokens) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.type !== "Punc") continue;
+    if (t.value === "(" || t.value === "[" || t.value === "{") depth++;
+    else if (t.value === ")" || t.value === "]" || t.value === "}") depth--;
+    else if (t.value === "," && depth === 0) {
+      parts.push(tokens.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(tokens.slice(start));
+  return parts;
+}
+
+function _parseDeclaration(chunk, declared, issues) {
+  const kind = chunk[0].value;
+  const declarations = [];
+  for (const part of _splitDeclarators(chunk.slice(1))) {
+    const id = part[0];
+    if (id && id.type === "Forbidden") {
+      throw new SyntaxError(`invalid ${kind} declaration name "${id.value}"`);
+    }
+    if (!id || id.type !== "Ident") {
+      throw new SyntaxError(
+        `unsupported ${kind} declaration — only "${kind} name = value" is supported (no destructuring)`,
+      );
+    }
+    const name = id.value;
+    if (name === "const" || name === "let" || _FORBIDDEN_PROPS[name] === 1 || name.charCodeAt(0) === 36 /* $ */) {
+      throw new SyntaxError(`invalid ${kind} declaration name "${name}"`);
+    }
+    if (declared.has(name)) {
+      throw new SyntaxError(`Identifier '${name}' has already been declared`);
+    }
+    declared.add(name);
+    let init = null;
+    if (part.length > 1) {
+      const eq = part[1];
+      if (eq.type !== "Op" || eq.value !== "=" || part.length < 3) {
+        throw new SyntaxError(`unsupported ${kind} declaration "${kind} ${name} …" — expected "${kind} ${name} = value"`);
+      }
+      init = _parseExpr(part.slice(2), issues);
+    } else if (kind === "const") {
+      throw new SyntaxError(`Missing initializer in const declaration "${name}"`);
+    }
+    declarations.push({ name, init });
+  }
+  return { type: "VarDecl", kind, declarations };
+}
+
+// Split a statement string on `;` and parse each statement — expressions and
+// const/let declarations. Shared by the runtime (_parseStatements) and the
+// parseStatements export so tooling sees exactly what the runtime executes.
+// Invalid declarations throw SyntaxError. `report` (runtime only) warns once
+// about tokens the lenient parser dropped.
+function _buildStatements(expr, report) {
   const tokens = _tokenize(expr);
   const stmts = [];
+  let declared = null;
   let start = 0;
   for (let i = 0; i <= tokens.length; i++) {
     if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
       const chunk = tokens.slice(start, i);
-      if (chunk.length > 0) stmts.push(_parseExpr(chunk));
+      if (chunk.length > 0) {
+        const issues = report ? {} : undefined;
+        let node;
+        if (_isDeclStart(chunk)) {
+          if (!declared) declared = new Set();
+          node = _parseDeclaration(chunk, declared, issues);
+        } else {
+          node = _parseExpr(chunk, issues);
+        }
+        stmts.push(node);
+        if (report) _reportParseIssues(expr, chunk, node, issues, true);
+      }
       start = i + 1;
     }
   }
+  // Names declared with const/let — _execStatement keeps them out of the
+  // context write-back so they never leak into state.
+  stmts.locals = declared;
+  return stmts;
+}
+
+// Parse semicolon-separated statements into an array of AST nodes
+function _parseStatements(expr) {
+  if (_stmtCache.has(expr)) return _stmtCache.get(expr);
+  const stmts = _buildStatements(expr, true);
   _stmtCache.set(expr, stmts);
   return stmts;
 }
 
+// scope → Set of const names declared so far by the running statement list.
+const _stmtConsts = new WeakMap();
+
 // Assign a value to an AST target node (Identifier or MemberExpr)
 function _assignToTarget(target, value, scope) {
   if (target.type === "Identifier") {
+    const consts = _stmtConsts.get(scope);
+    if (consts && consts.has(target.name)) {
+      throw new TypeError(`Assignment to constant variable '${target.name}'`);
+    }
     scope[target.name] = value;
   } else if (target.type === "MemberExpr" || target.type === "OptionalMemberExpr") {
     const obj = _evalNode(target.object, scope);
@@ -1718,6 +1959,17 @@ function _assignToTarget(target, value, scope) {
 function _execStmtNode(node, scope) {
   if (!node) return undefined;
   switch (node.type) {
+    case "VarDecl": {
+      for (const d of node.declarations) {
+        scope[d.name] = d.init ? _evalNode(d.init, scope) : undefined;
+        if (node.kind === "const") {
+          let consts = _stmtConsts.get(scope);
+          if (!consts) { consts = new Set(); _stmtConsts.set(scope, consts); }
+          consts.add(d.name);
+        }
+      }
+      return undefined;
+    }
     case "AssignExpr": {
       const rhs = _evalNode(node.right, scope);
       let value;
@@ -1758,6 +2010,7 @@ function _execStmtNode(node, scope) {
       if (node.type === "CallExpr" && node.callee.type === "Identifier") {
         const name = node.callee.name;
         if (!_inScope(scope, name) && !_inSafeGlobals(name) && !_BROWSER_GLOBALS.has(name)) {
+          if (_STMT_KEYWORDS.has(name)) throw new ReferenceError(_stmtKeywordMessage(name));
           throw new ReferenceError(name + " is not defined");
         }
       }
@@ -1843,9 +2096,14 @@ function _applyFilter(value, filterStr) {
   return fn(value, ...args);
 }
 
+// Split filter args by comma, respecting quotes. Whitespace inside a quoted
+// arg is significant (`join:', '` must keep the space) — only unquoted args
+// are trimmed; whitespace outside the quotes of a quoted arg is dropped.
 function _parseFilterArgs(str) {
   const args = [];
+  const quotedArgs = [];
   let current = "";
+  let quoted = false;
   let inStr = false;
   let strChar = "";
   for (const ch of str) {
@@ -1858,20 +2116,32 @@ function _parseFilterArgs(str) {
       continue;
     }
     if (ch === "'" || ch === '"') {
+      if (!quoted && !current.trim()) current = "";
       inStr = true;
+      quoted = true;
       strChar = ch;
       continue;
     }
     if (ch === ",") {
-      args.push(current.trim());
+      args.push(quoted ? current : current.trim());
+      quotedArgs.push(quoted);
       current = "";
+      quoted = false;
       continue;
     }
+    if (quoted && (ch === " " || ch === "\t" || ch === "\n" || ch === "\r")) continue;
     current += ch;
   }
-  if (current.trim()) args.push(current.trim());
-  // Try to parse numbers
-  return args.map((a) => {
+  if (quoted) {
+    args.push(current);
+    quotedArgs.push(true);
+  } else if (current.trim()) {
+    args.push(current.trim());
+    quotedArgs.push(false);
+  }
+  // Try to parse numbers (a whitespace-only quoted arg stays a string)
+  return args.map((a, i) => {
+    if (quotedArgs[i] && !a.trim()) return a;
     const n = Number(a);
     return isNaN(n) ? a : n;
   });
@@ -2116,7 +2386,13 @@ export function _execStatement(expr, ctx, extraVars = {}) {
 
     // Parse and execute statements
     const stmts = _parseStatements(expr);
-    for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
+    let execError = null;
+    try {
+      for (let i = 0; i < stmts.length; i++) _execStmtNode(stmts[i], scope);
+    } catch (e) {
+      execError = e;
+    }
+    const locals = stmts.locals;
 
     // Write back changed values to owning context
     const stmtScan = typeof expr === "string" ? _stmtScan(expr) : _EMPTY_STMT_SCAN;
@@ -2139,16 +2415,21 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     }
     for (const k of chainKeys) {
       if (k.startsWith("$")) continue;
+      if (locals && locals.has(k)) continue;
       if (!(k in scope)) continue;
       const newVal = scope[k];
       const oldVal = originals[k];
-      if (newVal !== oldVal) {
+      // After a throw, reassignments are not written back (the handler's
+      // state writes don't apply), but in-place mutations of the objects the
+      // context still holds already happened and must reach the DOM.
+      const liveVal = execError ? oldVal : newVal;
+      if (newVal !== oldVal && !execError) {
         let c = ctx;
         while (c && c.__isProxy) {
           if (k in c.__raw) { c.$set(k, newVal); break; }
           c = c.$parent;
         }
-      } else if (typeof newVal === "object" && newVal !== null) {
+      } else if (typeof liveVal === "object" && liveVal !== null) {
         // In-place mutation safety net: the statement may have mutated this
         // object's internals without reassigning it. Only keys the statement
         // actually references can have been touched (stmtRoots is null when
@@ -2167,16 +2448,21 @@ export function _execStatement(expr, ctx, extraVars = {}) {
     // Only own properties on scope represent mutations or new assignments —
     // prototype (vals) keys are inherited from the context chain and already
     // handled by the chainKeys write-back above.
-    for (const k in scope) {
+    if (!execError) for (const k in scope) {
       if (!Object.prototype.hasOwnProperty.call(scope, k)) continue;
       if (k.startsWith("$") || k.startsWith("_") || chainKeys.has(k) || k in extraVars) continue;
+      if (locals && locals.has(k)) continue;
       if (_FORBIDDEN_PROPS[k]) continue;
       ctx.$set(k, scope[k]);
     }
 
-    // Notify global store watchers when expression touches $store
+    // Notify global store watchers when expression touches $store — every
+    // store it names (`$store.a.x = 1; $store.b.y = 2` wakes both), or all
+    // of them when one is written as `$store[name]`. Store writes land on
+    // the store proxy directly, so they apply even when a later statement
+    // throws: notify in that case too.
     if (typeof expr === "string" && expr.includes("$store")) {
-      _notifyStoreWatchers(_extractStoreName(expr));
+      _notifyStoreWatchers(_extractStoreNames(expr));
     }
 
     // Statement wrote through a registry-less $-root (plugin global, $refs):
@@ -2196,6 +2482,7 @@ export function _execStatement(expr, ctx, extraVars = {}) {
         c = c.$parent;
       }
     }
+    if (execError) throw execError;
   } catch (e) {
     _warn("Expression error:", expr, e.message);
     // Dispatch a custom DOM event so error-boundary directives can catch it
@@ -2216,15 +2503,221 @@ export function resolve(path, ctx) {
   }, ctx);
 }
 
-// Interpolate strings like "/users/{user.id}?q={search}"
+// Interpolate request bodies like "name={user.name}&page={page}".
+// Every placeholder value is encoded with encodeURIComponent. `_hook` is
+// internal: _interpolate uses it to post-process URL placeholders.
+export function _interpolateEncoded(str, ctx, _hook) {
+  return str.replace(/\{([^}]+)\}/g, (_, expr, offset) => {
+    const val = evaluate(expr.trim(), ctx);
+    if (val == null) return "";
+    const enc = encodeURIComponent(String(val));
+    return _hook ? _hook(enc, expr, offset, val) : enc;
+  });
+}
+
+function _parseJson(s) {
+  try {
+    return { value: JSON.parse(s) };
+  } catch {
+    return null;
+  }
+}
+
+// Resolve an HTTP `body` attribute to { body, key }: the request body handed
+// to _doFetch and the text a QUERY cache key folds in.
+// Default: the v1.21.1 result, byte-for-byte — _interpolateEncoded, then
+// JSON.parse with the raw string as fallback. Three body shapes that v1.21.1
+// always mangled take another path:
+// - JSON template (trimmed text starts with "{" followed by '"' or "}", or
+//   with "[" and holds such an object): the v1.21.1 regex swallowed the "{"
+//   of the object into a placeholder and URL-encoded every value. When that
+//   result is not valid JSON, the placeholders are filled JSON-aware instead
+//   (_interpolateJson); used only when the result is valid JSON.
+// - Object literal (body="{ id: item.id }", "{ email, password }"): v1.21.1
+//   evaluated the inner text and dropped everything after its first token;
+//   the whole text is now evaluated as one object-literal expression.
+// - A single placeholder whose value stringifies to "[object Object]"
+//   (body="{payload}"): the value itself is sent, as JSON.
+export function _interpolateBody(str, ctx) {
+  const t = str.trim();
+  const after = t[0] === "{" ? t.slice(1).trimStart()[0] : undefined;
+  if (t[0] === "[" || after === '"' || after === "}") {
+    let res = null;
+    try {
+      res = _interpolateJson(t, ctx);
+    } catch {
+      res = null;
+    }
+    const json = res && (t[0] === "{" || res.objects) ? res.json : null;
+    const parsed = json === null ? null : _parseJson(json);
+    if (parsed) {
+      const legacy = _withMutedWarnings(() => _interpolateEncoded(str, ctx));
+      const legacyParsed = _parseJson(legacy);
+      if (legacyParsed) return { body: legacyParsed.value, key: legacy };
+      return { body: parsed.value, key: json };
+    }
+  } else if (t[0] === "{" && _isObjectLiteralBody(t)) {
+    const val = evaluate(t, ctx);
+    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
+      return { body: val, key: JSON.stringify(val) };
+    }
+  }
+  const single = /^\s*\{[^}]+\}\s*$/.test(str);
+  let whole;
+  const legacy = _interpolateEncoded(
+    str,
+    ctx,
+    single ? (enc, _expr, _offset, val) => ((whole = val), enc) : undefined,
+  );
+  if (whole !== null && typeof whole === "object" && String(whole).includes("[object Object]")) {
+    return { body: whole, key: JSON.stringify(whole) };
+  }
+  const parsed = _parseJson(legacy);
+  return { body: parsed ? parsed.value : legacy, key: legacy };
+}
+
+// Fill {expr} placeholders in a JSON template. Inside a JSON string the value
+// is escaped as string content ("" for null/undefined, as in v1.21.1);
+// elsewhere it is JSON.stringify(value) ("null" when that is undefined). A "{"
+// outside a string followed by '"' or "}" is JSON structure, not a
+// placeholder. Returns { json, objects } (objects: count of such "{"), or null
+// when a placeholder is not closed.
+function _interpolateJson(t, ctx) {
+  const inString = /\{([^{}"\\]+)\}/y;
+  const structural = /\s*["}]/y;
+  let out = "";
+  let objects = 0;
+  let inStr = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) {
+      if (ch === "\\") {
+        out += t.slice(i, i + 2);
+        i++;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      else if (ch === "{") {
+        inString.lastIndex = i;
+        const m = inString.exec(t);
+        if (m) {
+          const val = evaluate(m[1].trim(), ctx);
+          out += val == null ? "" : JSON.stringify(String(val)).slice(1, -1);
+          i += m[0].length - 1;
+          continue;
+        }
+      }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{") {
+      structural.lastIndex = i + 1;
+      if (!structural.test(t)) {
+        const end = _placeholderEnd(t, i);
+        if (end < 0) return null;
+        const json = JSON.stringify(evaluate(t.slice(i + 1, end).trim(), ctx));
+        out += json === undefined ? "null" : json;
+        i = end;
+        continue;
+      }
+      objects++;
+    }
+    out += ch;
+  }
+  return { json: out, objects };
+}
+
+// Index of the "}" that closes the placeholder opened at `start` (nested
+// braces and quoted strings skipped), or -1.
+function _placeholderEnd(t, start) {
+  let depth = 0;
+  let quote = "";
+  for (let i = start; i < t.length; i++) {
+    const ch = t[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = "";
+    } else if (ch === "'" || ch === '"' || ch === "`") quote = ch;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+// True when `t` ("{...}") parses as one object literal while its inner text,
+// which v1.21.1 evaluated, leaves tokens the lenient parser drops.
+function _isObjectLiteralBody(t) {
+  if (t[t.length - 1] !== "}") return false;
+  try {
+    const inner = {};
+    _parseExpr(_tokenize(_parsePipes(t.slice(1, -1))[0]), inner);
+    if (!inner.leftover) return false;
+    const pipes = _parsePipes(t);
+    if (pipes.length !== 1) return false;
+    const whole = {};
+    const ast = _parseExpr(_tokenize(pipes[0]), whole);
+    return ast.type === "ObjectExpr" && !whole.leftover;
+  } catch {
+    return false;
+  }
+}
+
+// Interpolate URLs like "/users/{user.id}?q={search}"
 // Note: interpolated values are encoded with encodeURIComponent, which encodes
 // "/" as "%2F". Path segments that intentionally contain "/" must be passed
 // as pre-encoded strings or concatenated outside of {} placeholders.
-export function _interpolate(str, ctx) {
-  return str.replace(/\{([^}]+)\}/g, (_, expr) => {
-    const val = evaluate(expr.trim(), ctx);
-    if (val == null) return "";
-    return encodeURIComponent(String(val));
+// `_quiet` skips the dot-segment warning (reactive URL change detection).
+export function _interpolate(str, ctx, _quiet) {
+  return _interpolateEncoded(str, ctx, (enc, expr, offset) => {
+    // In the path part, "." / ".." survive encodeURIComponent and URL parsers
+    // collapse them (and their %2E forms) as dot-segments, re-targeting the
+    // request. Double-encode so the segment stays a literal child segment
+    // (the server decodes it to "%2E%2E"). Query/fragment values are unaffected.
+    if ((enc === "." || enc === "..") && !/[?#]/.test(str.slice(0, offset).replace(/\{[^}]*\}/g, ""))) {
+      if (!_quiet) _warn("Dot-segment value escaped in {" + expr.trim() + "}");
+      return enc.replace(/\./g, "%252E");
+    }
+    return enc;
+  });
+}
+
+// Interpolate {expr} placeholders in a page-jsonld template (`re` is the
+// caller's placeholder regex). Every placeholder is evaluated once, as
+// String(val), "" for null/undefined/errors.
+// Default: the v1.21.1 output, byte-for-byte.
+// strictJsonld: values inside JSON strings are always escaped as JSON string
+// content, so they cannot add or override properties and a '"', '\' or a line
+// break no longer makes the output invalid JSON; "<" in every value becomes
+// \u003c. A placeholder is inside a string when the template text before it
+// (other placeholders ignored) holds an odd count of unescaped '"'. Raw
+// placeholders such as "offers":{o} are emitted as-is.
+export function _interpolateJsonld(str, ctx, re) {
+  const vals = [];
+  const legacy = str.replace(re, (_, expr) => {
+    let s = "";
+    try {
+      const val = evaluate(expr.trim(), ctx);
+      if (val != null) s = String(val);
+    } catch (_) { /* v1.21.1: evaluation errors render as "" */ }
+    vals.push(s);
+    return s;
+  });
+  if (!_config.strictJsonld) return legacy;
+  let i = 0;
+  let last = 0;
+  let inString = false;
+  return str.replace(re, (match, _expr, offset) => {
+    for (let j = last, esc = false; j < offset; j++) {
+      const ch = str[j];
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inString = !inString;
+    }
+    last = offset + match.length;
+    let s = vals[i++];
+    if (inString) s = JSON.stringify(s).slice(1, -1);
+    return s.replace(/</g, "\\u003c");
   });
 }
 
@@ -2248,21 +2741,14 @@ export function parseExpression(str) {
 }
 
 // Parse a semicolon-delimited statement string into one AST node per
-// statement (static-analysis counterpart of _execStatement). Mirrors
-// _parseStatements' splitting but stays cache-free (_stmtCache untouched).
+// statement (static-analysis counterpart of _execStatement). Shares the
+// runtime's splitter, so `const`/`let` statements come back as
+// { type: "VarDecl", kind, declarations: [{ name, init }] } and an invalid
+// declaration throws SyntaxError (the runtime rejects that handler). Stays
+// cache-free (_stmtCache untouched) and silent (no console warnings).
 export function parseStatements(str) {
   if (typeof str !== "string" || str.trim() === "") return [];
-  const tokens = _tokenize(str);
-  const stmts = [];
-  let start = 0;
-  for (let i = 0; i <= tokens.length; i++) {
-    if (i === tokens.length || (tokens[i].type === "Punc" && tokens[i].value === ";")) {
-      const chunk = tokens.slice(start, i);
-      if (chunk.length > 0) stmts.push(_parseExpr(chunk));
-      start = i + 1;
-    }
-  }
-  return stmts;
+  return _buildStatements(str, false).slice();
 }
 
 // Segment a raw directive value into [expression, ...filterSpecs], e.g.

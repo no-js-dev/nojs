@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Routing SPA Fallback (inline routes) — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #333; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; }
+    nav a { margin-right: 1rem; color: #1a5fb4; }
+  </style>
+</head>
+<body>
+  <section>
+    <h1 data-test="shell">Inline routes behind an SPA fallback server</h1>
+    <nav>
+      <a href="/spa-inline/" route="/" data-test="nav-home">Home</a>
+      <a href="/spa-inline/about" route="/about" data-test="nav-about">About</a>
+      <a href="/spa-inline/p/hello" route="/p/hello" data-test="nav-post">Post</a>
+      <a href="/spa-inline/nope" route="/nope" data-test="nav-nope">Missing</a>
+    </nav>
+  </section>
+
+  <section>
+    <main route-view data-test="outlet"></main>
+  </section>
+
+  <template route="/"><p data-test="page-home">Home page</p></template>
+  <template route="/about"><p data-test="page-about">About page</p></template>
+  <template route="/p/:slug"><p data-test="page-post">Post <span bind="$route.params.slug" data-test="post-slug"></span></p></template>
+  <template route="*"><p data-test="page-404">Inline 404 <span bind="$route.path" data-test="404-path"></span></p></template>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({ router: { base: '/spa-inline' } });
+  </script>
+</body>
+</html>

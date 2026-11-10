@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compat v1.21.1 — template src — NoJS E2E</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #222; }
+    section { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Compat v1.21.1: template src resolution</h1>
+
+    <!-- 1. Plain relative src resolves through baseApiUrl -->
+    <section data-test="t-plain">
+      <h2>1. src="parts/header.tpl" with baseApiUrl</h2>
+      <template src="parts/header.tpl"></template>
+    </section>
+
+    <!-- 2. An ancestor base= wins over baseApiUrl -->
+    <section data-test="t-base" base="/cms">
+      <h2>2. ancestor base="/cms"</h2>
+      <template src="parts/footer.tpl"></template>
+    </section>
+
+    <!-- 3. A root-absolute src also goes through baseApiUrl (leading slash dropped) -->
+    <section data-test="t-abs">
+      <h2>3. src="/parts/abs.tpl" with baseApiUrl</h2>
+      <template src="/parts/abs.tpl"></template>
+    </section>
+
+    <!-- 4. "./" src without a parent template folder resolves through baseApiUrl -->
+    <section data-test="t-dot">
+      <h2>4. src="./parts/dot.tpl" with baseApiUrl</h2>
+      <template src="./parts/dot.tpl"></template>
+    </section>
+  </main>
+
+  <script src="/__local__/no.js"></script>
+  <script>
+    NoJS.config({ baseApiUrl: '/api' });
+  </script>
+</body>
+</html>

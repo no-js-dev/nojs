@@ -339,12 +339,18 @@
     <h3 class="doc-title" id="data-fetching-interceptors-async" t="docs.dataFetching.interceptors.asyncTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.asyncText"></p>
     <div class="code-block"><pre highlight>&lt;script&gt;
-  NoJS.interceptor('request', async (url, options) =&gt; {
-    const token = await refreshTokenIfExpired();
-    options.headers['Authorization'] = 'Bearer ' + token;
-    return options;
-  });
+  NoJS.use({
+    name: 'auth-token',
+    install(app) {
+      app.interceptor('request', async (url, options) =&gt; {
+        const token = await refreshTokenIfExpired();
+        options.headers['Authorization'] = 'Bearer ' + token;
+        return options;
+      });
+    }
+  }, { trusted: true });
 &lt;/script&gt;</pre></div>
+    <div class="callout"><p t="docs.dataFetching.interceptors.sensitiveCallout"></p></div>
 
     <h3 class="doc-title" id="data-fetching-interceptors-cancel" t="docs.dataFetching.interceptors.cancelTitle"></h3>
     <p class="doc-text" t="docs.dataFetching.interceptors.cancelText"></p>

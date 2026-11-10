@@ -27,6 +27,41 @@ Bind any DOM event directly in HTML:
 <div on:custom-event="handleCustom($event.detail)"></div>
 ```
 
+### Multiple statements and local variables
+
+Separate statements with `;`. Use `const` or `let` for values that only the handler needs — they are local to that handler run and are never written to state:
+
+```html
+<div state="{ items: ['a', 'b', 'c'] }">
+  <!-- move the first item to the end -->
+  <button on:click="const m = items.splice(0, 1)[0]; items.splice(2, 0, m)">Rotate</button>
+  <button on:click="let n = items.length; n = n * 2; total = n">Double count</button>
+</div>
+```
+
+| Form | Behaviour |
+|------|-----------|
+| `const name = value`, `let name = value`, `let name` | Handler-local binding; visible to the following statements of the same handler only |
+| `const a = 1, b = 2` | Several declarations in one statement |
+| `name = value` (no `const`/`let`) | Writes to the owning state; creates a new state key on the nearest context when none exists |
+| Reassigning a `const` | `TypeError` — the handler stops; its `name = value` writes are not applied (in-place changes such as `items.push(x)` and `$store` writes made before the error stay, and the page shows them) |
+| `const` without a value, declaring a name twice, destructuring (`const [a] = list`), names starting with `$` | Rejected with a warning naming the statement; the handler does not run |
+
+Errors in a handler are logged as `[No.JS] Expression error: <statement>` and dispatch a `nojs:error` event on the element, so `error-boundary` can catch them.
+
+### Unsupported statement forms
+
+Handlers run expressions, `const`/`let` declarations and assignments separated by `;`, not full JavaScript statements. An assignment (`a = x`, `a += x`, `a++`) only takes effect at the top level of a statement:
+
+| Not supported | Write instead |
+|---------------|---------------|
+| `if (ok) { a = 1 }`, `for (…) { … }`, `while (…) { … }`, `return`, `new`, `await` | `a = ok ? 1 : a` |
+| `ok ? a = 1 : b = 2` (assignment inside a ternary branch) | `a = ok ? 1 : a; b = ok ? b : 2` |
+| `ok && (a = 1)`, `ok \|\| (a = 1)`, `ok && count++` (assignment inside a logical operand) | `a = ok ? 1 : a` |
+| `a = 1, b = 2` (comma operator) | `a = 1; b = 2` |
+
+A function call inside a branch works (`ok ? save() : null`). In the unsupported forms the assignment does not run, and a console warning naming the expression is emitted.
+
 ---
 
 ## Event Modifiers

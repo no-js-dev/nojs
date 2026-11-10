@@ -1960,6 +1960,104 @@ describe('evaluate — browser globals allow-list', () => {
     }
   });
 
+  // ── Receiver allow-list: only listed members read the real object ───
+
+  // jsdom's own getters do not brand-check through a proxy, so these tests
+  // install getters/methods that throw unless `this` is the real object, the
+  // way browsers do ("Illegal invocation").
+  function brandChecked(owner, real, name, value, rejects) {
+    const proto = Object.prototype.hasOwnProperty.call(owner, name) ? owner : Object.getPrototypeOf(owner);
+    const original = Object.getOwnPropertyDescriptor(proto, name);
+    Object.defineProperty(proto, name, {
+      configurable: true,
+      get() {
+        if (rejects ? this === rejects : this !== real) throw new TypeError('Illegal invocation');
+        return value;
+      },
+    });
+    return () => {
+      if (original) Object.defineProperty(proto, name, original);
+      else delete proto[name];
+    };
+  }
+
+  test('allow-listed navigator getters read from the real navigator', () => {
+    const restore = brandChecked(navigator, navigator, 'language', 'pt-BR');
+    try {
+      expect(evaluate('navigator.language', ctx)).toBe('pt-BR');
+      expect(evaluate('window.navigator.language', ctx)).toBe('pt-BR');
+    } finally { restore(); }
+    expect(evaluate('navigator.onLine', ctx)).toBe(navigator.onLine);
+    expect(evaluate('navigator.userAgent', ctx)).toBe(navigator.userAgent);
+  });
+
+  test('allow-listed window members read from the real window', () => {
+    // jsdom does not pass the proxy through to window getters, so this only
+    // checks the value; the browser behavior is covered by e2e/browser-globals.
+    const restore = brandChecked(window, window, 'devicePixelRatio', 2, evaluate('window', ctx));
+    try {
+      expect(evaluate('window.devicePixelRatio', ctx)).toBe(2);
+      expect(evaluate('document.defaultView.devicePixelRatio', ctx)).toBe(2);
+    } finally { restore(); }
+    expect(evaluate('window.innerWidth', ctx)).toBe(window.innerWidth);
+  });
+
+  test('window.matchMedia runs with the real window and keeps its identity', () => {
+    const original = window.matchMedia;
+    window.matchMedia = function (q) {
+      if (this !== window) throw new TypeError('Illegal invocation');
+      return { matches: q === '(min-width: 1px)' };
+    };
+    try {
+      expect(evaluate("window.matchMedia('(min-width: 1px)').matches", ctx)).toBe(true);
+      expect(evaluate('window.matchMedia === window.matchMedia', ctx)).toBe(true);
+    } finally { window.matchMedia = original; }
+  });
+
+  test('navigator.clipboard exposes only writeText, called on the real clipboard', () => {
+    const writes = [];
+    const clipboard = {
+      writeText(text) {
+        if (this !== clipboard) throw new TypeError('Illegal invocation');
+        writes.push(text);
+        return Promise.resolve();
+      },
+      readText() { return Promise.resolve('secret'); },
+    };
+    const restore = brandChecked(navigator, navigator, 'clipboard', clipboard);
+    try {
+      _execStatement("navigator.clipboard.writeText('hi')", createContext({}));
+      expect(writes).toEqual(['hi']);
+      expect(evaluate('navigator.clipboard.readText', ctx)).toBeUndefined();
+      expect(evaluate('navigator.clipboard.read', ctx)).toBeUndefined();
+      expect(evaluate('navigator.clipboard === navigator.clipboard', ctx)).toBe(true);
+    } finally { restore(); }
+  });
+
+  test('navigator.clipboard is undefined when the browser has none', () => {
+    const restore = brandChecked(navigator, navigator, 'clipboard', undefined);
+    try {
+      expect(evaluate('navigator.clipboard', ctx)).toBeUndefined();
+    } finally { restore(); }
+  });
+
+  test('members outside the allow-list keep the proxy as receiver (unchanged)', () => {
+    const r1 = brandChecked(navigator, navigator, 'serviceWorker', {});
+    const r3 = brandChecked(document, document, '__probe', 'x');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(evaluate('navigator.serviceWorker', ctx)).toBeUndefined();
+      expect(evaluate('document.__probe', ctx)).toBeUndefined();
+    } finally { r1(); r3(); warn.mockRestore(); }
+  });
+
+  test('navigator deny-list still applies', () => {
+    expect(evaluate('navigator.sendBeacon', ctx)).toBeUndefined();
+    expect(evaluate('navigator.credentials', ctx)).toBeUndefined();
+    expect(evaluate("navigator['sendBeacon']", ctx)).toBeUndefined();
+    expect(evaluate('window.navigator.sendBeacon', ctx)).toBeUndefined();
+  });
+
   // ── Window set trap ─────────────────────────────────────────────────
 
   test('window.name writes are blocked (anti-exfiltration)', () => {

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Package `exports` map with a Node-safe ESM compiler entry, `@no-js-dev/nojs/compiler` (`dist/compiler/compiler.mjs`, built by `node build.js`): `parseExpression`, `parseStatements`, `segmentPipes` and `evaluate` without the framework runtime. Additive: in bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`, as the `browser` field did; Node `import` / `require` of the root now resolve to `src/index.js` (new `main` / `module` fields); `src/*`, `dist/*`, `types/*` and `package.json` have explicit entries and a final `"./*"` catch-all keeps every other existing path importable, so nothing previously reachable is blocked. Re-applies the exports half of [#348](https://github.com/no-js-dev/nojs/pull/348) ([#333](https://github.com/no-js-dev/nojs/issues/333))
 
+### Fixed
+
+- Watchers disposed while a reactive update is running no longer run in that update. A `switch` case being hidden used to re-evaluate its content once with the new value after getting `display: none`, so a `get` inside it requested the new URL (twice) and an `sse` reopened its connection for a case that was already hidden. Content that stays visible is unaffected. Cases hidden on the first render are still reactive until shown and hidden once; this is documented as a known limitation in [Conditionals](docs/md/conditionals.md#hidden-cases)
+
 ## [1.22.0](https://github.com/no-js-dev/nojs/compare/v1.21.1...v1.22.0) — 2026-11-10
 
 Nine opt-in hardening flags, a v1.21.1 compatibility suite, and a batch of fixes. Every hardening flag defaults to `false`: without them, v1.21.1 behavior is unchanged.

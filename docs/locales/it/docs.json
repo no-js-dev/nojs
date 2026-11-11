@@ -481,7 +481,10 @@
         "title": "switch / case",
         "text": "Renderizza uno tra molti template in base a un valore.",
         "inlineSubtitle": "Contenuto Inline (senza template)",
-        "multiValueSubtitle": "Case Multi-Valore"
+        "multiValueSubtitle": "Case Multi-Valore",
+        "hiddenSubtitle": "Case nascosti",
+        "hiddenText": "switch mantiene tutti gli elementi case nel DOM e nasconde quelli che non corrispondono con display: none. Quando un case viene nascosto, il suo contenuto viene rilasciato: i binding smettono di aggiornarsi e get, sse o le altre direttive al suo interno smettono di reagire, finché il case non corrisponde di nuovo e il suo contenuto viene elaborato da capo.",
+        "hiddenLimitation": "Limitazione nota: un case che non corrisponde al primo render dello switch viene nascosto ma non rilasciato. Il suo contenuto inline resta reattivo (i binding continuano ad aggiornarsi, un get il cui URL dipende da uno stato che cambia ripete la richiesta) finché il case non è stato mostrato e nascosto una volta. I case che usano then=\"templateId\" non sono interessati, perché un case template nascosto non ha contenuto. Usa template then per i case il cui contenuto deve restare inerte mentre sono nascosti."
       },
       "elseOnLoops": {
         "title": "else sugli Elementi di Ciclo",

@@ -481,7 +481,10 @@
         "title": "switch / case",
         "text": "Renderize um dentre vários templates com base em um valor.",
         "inlineSubtitle": "Conteúdo Inline (sem templates)",
-        "multiValueSubtitle": "Case com Múltiplos Valores"
+        "multiValueSubtitle": "Case com Múltiplos Valores",
+        "hiddenSubtitle": "Cases ocultos",
+        "hiddenText": "switch mantém todos os elementos case no DOM e oculta os que não correspondem com display: none. Quando um case é ocultado, o conteúdo dele é descartado: os bindings param de atualizar e get, sse ou outras diretivas dentro dele param de reagir, até o case voltar a corresponder e o conteúdo ser processado de novo.",
+        "hiddenLimitation": "Limitação conhecida: um case que não corresponde no primeiro render do switch é ocultado mas não descartado. O conteúdo inline dele continua reativo (os bindings continuam atualizando, um get cuja URL depende de um estado que muda refaz a requisição) até o case ser mostrado e ocultado uma vez. Cases que usam then=\"templateId\" não são afetados, porque um case de template oculto não tem conteúdo. Use templates then nos cases cujo conteúdo precisa ficar inerte enquanto ocultos."
       },
       "elseOnLoops": {
         "title": "else em Elementos de Loop",

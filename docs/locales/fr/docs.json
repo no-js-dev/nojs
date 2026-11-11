@@ -481,7 +481,10 @@
         "title": "switch / case",
         "text": "Affichez l'un parmi plusieurs templates selon une valeur.",
         "inlineSubtitle": "Contenu inline (sans templates)",
-        "multiValueSubtitle": "Case à valeurs multiples"
+        "multiValueSubtitle": "Case à valeurs multiples",
+        "hiddenSubtitle": "Cases masqués",
+        "hiddenText": "switch garde tous les éléments case dans le DOM et masque ceux qui ne correspondent pas avec display: none. Quand un case est masqué, son contenu est libéré : les bindings cessent de se mettre à jour et get, sse ou les autres directives qu'il contient cessent de réagir, jusqu'à ce que le case corresponde de nouveau et que son contenu soit traité à nouveau.",
+        "hiddenLimitation": "Limitation connue : un case qui ne correspond pas au premier rendu du switch est masqué mais pas libéré. Son contenu inline reste réactif (les bindings continuent de se mettre à jour, un get dont l'URL dépend d'un état qui change refait la requête) jusqu'à ce que le case ait été affiché puis masqué une fois. Les case qui utilisent then=\"templateId\" ne sont pas concernés, car un case template masqué n'a pas de contenu. Utilisez des templates then pour les case dont le contenu doit rester inerte quand ils sont masqués."
       },
       "elseOnLoops": {
         "title": "else sur les elements de boucle",

@@ -481,7 +481,10 @@
         "title": "switch / case",
         "text": "Renderiza una de varias plantillas basándose en un valor.",
         "inlineSubtitle": "Contenido Inline (sin plantillas)",
-        "multiValueSubtitle": "Caso con Múltiples Valores"
+        "multiValueSubtitle": "Caso con Múltiples Valores",
+        "hiddenSubtitle": "Casos ocultos",
+        "hiddenText": "switch mantiene todos los elementos case en el DOM y oculta los que no coinciden con display: none. Cuando un case se oculta, su contenido se descarta: los bindings dejan de actualizarse y get, sse u otras directivas dentro de él dejan de reaccionar, hasta que el case vuelve a coincidir y su contenido se procesa de nuevo.",
+        "hiddenLimitation": "Limitación conocida: un case que no coincide cuando el switch se renderiza por primera vez se oculta pero no se descarta. Su contenido inline sigue reactivo (los bindings se siguen actualizando, un get cuya URL depende de un estado que cambia vuelve a pedir datos) hasta que el case se muestra y se oculta una vez. Los case que usan then=\"templateId\" no se ven afectados, porque un case de plantilla oculto no tiene contenido. Usa plantillas then para los case cuyo contenido debe quedar inerte mientras está oculto."
       },
       "elseOnLoops": {
         "title": "else en Elementos de Bucle",

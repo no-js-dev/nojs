@@ -1298,7 +1298,8 @@
         "title": "Filtri per Array"
       },
       "date": {
-        "title": "Filtri per Data"
+        "title": "Filtri per Data",
+        "localeNote": "number, currency, date e datetime formattano con il locale predefinito del browser, non con $i18n.locale: cambiare la lingua dell'app non cambia il loro output. Gli output mostrati sono quelli di un browser en-US. relative e fromNow restituiscono sempre brevi stringhe in inglese (5m ago, in 2h). Per seguire il locale dell'app, registra un filtro che legge NoJS.locale e cita $i18n.locale nel binding così che si aggiorni, ad es. $i18n.locale && createdAt | localDate (gli argomenti dei filtri sono letterali)."
       },
       "utility": {
         "title": "Filtri di Utilità"
@@ -1331,8 +1332,8 @@
         "slugify": "Converte in slug compatibile URL",
         "trim": "Rimuove gli spazi iniziali/finali",
         "encodeUri": "Codifica un componente URI",
-        "currency": "Formatta un numero come valuta",
-        "number": "Formatta un numero con raggruppamento per località",
+        "currency": "Formatta un numero come valuta, nel locale predefinito del browser",
+        "number": "Formatta un numero con raggruppamento, nel locale predefinito del browser",
         "percent": "Formatta un numero come percentuale",
         "ordinal": "Aggiunge suffisso ordinale (1°, 2°, 3°)",
         "filesize": "Formatta i byte in dimensione leggibile",
@@ -1343,10 +1344,10 @@
         "sortBy": "Ordina array per proprietà",
         "first": "Restituisce il primo elemento di un array",
         "last": "Restituisce l'ultimo elemento di un array",
-        "date": "Formatta un oggetto Date",
-        "datetime": "Formatta una Date con l'ora",
-        "relative": "Tempo trascorso dalla data (es: '5 minuti fa')",
-        "fromNow": "Tempo fino a una data futura (es: 'tra 3 ore')",
+        "date": "Formatta un oggetto Date, nel locale predefinito del browser",
+        "datetime": "Formatta una Date con l'ora, nel locale predefinito del browser",
+        "relative": "Tempo trascorso dalla data, in inglese (es: '5m ago')",
+        "fromNow": "Tempo fino a una data futura, in inglese (es: 'in 3h')",
         "json": "Serializza un valore come stringa JSON",
         "default": "Restituisce un fallback se il valore è null/undefined",
         "keys": "Restituisce le chiavi dell'oggetto come array",
@@ -1385,7 +1386,8 @@
         "callout": "L'output HTML viene passato attraverso _sanitizeHtml() per prevenire attacchi XSS. I tag e gli attributi pericolosi vengono rimossi automaticamente."
       },
       "formatting": {
-        "title": "Formattazione Numeri & Date"
+        "title": "Formattazione Numeri & Date",
+        "localeNote": "Questi filtri formattano con il locale predefinito del browser, non con $i18n.locale: cambiare il locale ritraduce le chiavi t ma non cambia il loro output. Gli output qui sotto sono quelli di un browser en-US; un browser pt-BR mostra R$ 1.234,56 e 25/02/2026 per le righe currency:'BRL' e date."
       },
       "liveDemo": {
         "title": "Demo Live — Selettore di Locale",

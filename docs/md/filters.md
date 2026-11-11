@@ -45,12 +45,30 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 ### Date
 
 ```html
-<span bind="date | date:'short'"></span>        <!-- 02/25/26 -->
-<span bind="date | relative"></span>            <!-- 3 days ago -->
-<span bind="date | fromNow"></span>             <!-- in 2 hours -->
+<span bind="date | date:'short'"></span>        <!-- 2/25/26 -->
+<span bind="date | relative"></span>            <!-- 3d ago -->
+<span bind="date | fromNow"></span>             <!-- in 2h -->
 ```
 
-> **Note:** `relative` looks backward ("3 days ago"), while `fromNow` looks forward ("in 2 hours"). For past dates, `fromNow` falls back to `relative`.
+> **Note:** `relative` looks backward ("3d ago"), while `fromNow` looks forward ("in 2h"). For past dates, `fromNow` falls back to `relative`.
+
+### Locale
+
+`number`, `currency`, `date` and `datetime` format with the **browser's default locale** (they call `toLocaleString()` / `toLocaleDateString()` without a locale). They do **not** follow `$i18n.locale` or `NoJS.locale`: switching the app language with i18n does not change their output. The outputs shown on this page are what an `en-US` browser produces; a `pt-BR` browser shows `price | currency:'BRL'` as `R$ 1.234,56` and `date | date:'short'` as `25/02/2026`.
+
+`percent`, `filesize` and `ordinal` do not use a locale (`45%`, `1.5 MB`, `1st`), and `relative` / `fromNow` return short English strings (`just now`, `5m ago`, `in 2h`, `in a moment`); dates older than 30 days fall back to `toLocaleDateString()` in the browser locale.
+
+To format with the app locale, register a filter that reads `NoJS.locale`. Filter arguments are literals, so pass nothing to the filter; instead, mention `$i18n.locale` in the binding so it re-renders when the locale changes:
+
+```html
+<script>
+  NoJS.filter('localDate', (value) =>
+    new Date(value).toLocaleDateString(NoJS.locale, { dateStyle: 'long' }));
+</script>
+
+<!-- "February 25, 2026", then "25 de fevereiro de 2026" after $i18n.locale = 'pt-BR' -->
+<span bind="$i18n.locale && createdAt | localDate"></span>
+```
 
 ### Utility
 
@@ -109,8 +127,8 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 | `slugify` | — | Convert to url-safe-slug |
 | `nl2br` | — | Newlines to `<br>` (HTML-escaped) |
 | `encodeUri` | — | `encodeURIComponent()` |
-| `number` | `decimals` (default: 0) | Locale-formatted number |
-| `currency` | `code` (default: "USD") | Locale-formatted currency |
+| `number` | `decimals` (default: 0) | Number with grouping, in the browser's default locale |
+| `currency` | `code` (default: "USD") | Currency, in the browser's default locale |
 | `percent` | `decimals` (default: 0) | Percentage (multiplies by 100) |
 | `filesize` | — | Human-readable file size |
 | `ordinal` | — | 1st, 2nd, 3rd, etc. |
@@ -123,10 +141,10 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 | `pluck` | `key` | Extract property from each item |
 | `sortBy` | `key` (prefix `-` for desc) | Sort array by property |
 | `where` | `key`, `value` | Filter array where key equals value |
-| `date` | `format` (short/long/full) | Locale-formatted date |
-| `datetime` | — | Locale-formatted date and time |
-| `relative` | — | Relative time ("3d ago") |
-| `fromNow` | — | Future relative time ("in 2h") |
+| `date` | `format` (short/long/full) | Date, in the browser's default locale |
+| `datetime` | — | Date and time, in the browser's default locale |
+| `relative` | — | Relative time, in English ("3d ago") |
+| `fromNow` | — | Future relative time, in English ("in 2h") |
 | `default` | `fallback` (default: "") | Fallback for null/empty |
 | `json` | `indent` (default: 2) | JSON.stringify |
 | `debug` | — | console.log + passthrough |

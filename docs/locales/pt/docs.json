@@ -864,7 +864,7 @@
       "namedOutlets": {
         "title": "Outlets Nomeados (route-view)",
         "text": "Múltiplos outlets route-view podem coexistir na mesma página. Dê a cada outlet um nome via o valor do atributo e aponte templates de rota para outlets específicos usando o atributo outlet.",
-        "callout": "Outlets sem template correspondente para a rota atual são sempre limpos na navegação."
+        "callout": "Outlets sem template correspondente para a rota atual são limpos na navegação, a menos que procurem rotas em arquivos. Por padrão (comportamento da v1.21.1), todo outlet sem src próprio, inclusive outlets nomeados, também procura a rota na pasta router.templates (pages, salvo configuração): em /about acima, sidebar e topbar pedem pages/about.tpl e, se ele não existir, mostram o wildcard route=\"*\" ou o 404 embutido. Defina router.strictOutlets: true para manter essa busca só no outlet padrão, assim outlets nomeados sem src são limpos quando a rota ativa não os preenche. Outlets nomeados com src, e o wildcard em páginas que nenhuma rota explícita encontra, funcionam igual nos dois modos."
       },
       "catchAll": {
         "title": "404 / Rotas Catch-All",
@@ -1639,7 +1639,8 @@
         "pageRelative": "<template src> é resolvido em relação à página e ignora base e baseApiUrl.",
         "escapeParams": "Params t-* em traduções t-html são escapados como HTML. Mudar a flag depois de init() re-renderiza as traduções ativas.",
         "strictLocale": "Um nojs-locale persistido que não está em um supportedLocales não vazio é ignorado no restore e removido do localStorage. Passe a flag na chamada de NoJS.i18n() que restaura o locale, ou defina-a via config() antes dessa chamada.",
-        "strictUnmounted": "on:unmounted também dispara quando uma diretiva remove o elemento (if / else-if, each / foreach, uma troca de rota), uma vez por elemento na próxima microtask, e deixa de disparar para uma linha de um each com key que só foi movida. Um elemento que continua no DOM (um case de switch oculto) não dispara."
+        "strictUnmounted": "on:unmounted também dispara quando uma diretiva remove o elemento (if / else-if, each / foreach, uma troca de rota), uma vez por elemento na próxima microtask, e deixa de disparar para uma linha de um each com key que só foi movida. Um elemento que continua no DOM (um case de switch oculto) não dispara.",
+        "strictOutlets": "Só o outlet padrão procura rotas na pasta router.templates. Um outlet nomeado sem src próprio só é preenchido por rotas outlet=\"name\": numa rota encontrada que não o preenche, ele é limpo em vez de pedir pages/<rota>.tpl e mostrar o wildcard ou o 404 embutido."
       }
     },
     "plugins": {

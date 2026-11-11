@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Named Outlets and router.templates — NoJS E2E</title>
+</head>
+<body>
+  <!-- The routing.md "Named Outlets" example. router.templates keeps its
+       default ("pages"), and no pages/ folder exists next to this file. -->
+  <nav>
+    <a route="/home" data-test="nav-home">Home</a>
+    <a route="/about" data-test="nav-about">About</a>
+  </nav>
+
+  <main route-view data-test="main-outlet"></main>
+  <aside route-view="sidebar" data-test="sidebar-outlet"></aside>
+  <header route-view="topbar" data-test="topbar-outlet"></header>
+
+  <template route="/home"><h1 data-test="home">Home page</h1></template>
+  <template route="/home" outlet="sidebar"><nav data-test="home-sidebar">Home navigation</nav></template>
+  <template route="/home" outlet="topbar"><span data-test="home-topbar">Home breadcrumb</span></template>
+
+  <template route="/about"><h1 data-test="about">About us</h1></template>
+
+  <template route="*"><h1 data-test="not-found">Not found</h1></template>
+
+  <script src="../../dist/iife/no.js"></script>
+  <script>
+    // ?strictOutlets=1 turns on router.strictOutlets
+    const strictOutlets = new URLSearchParams(location.search).get('strictOutlets') === '1';
+    NoJS.config({ router: { useHash: true, suppressHashWarning: true, strictOutlets } });
+    NoJS.init();
+  </script>
+</body>
+</html>

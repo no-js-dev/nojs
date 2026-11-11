@@ -864,7 +864,7 @@
       "namedOutlets": {
         "title": "Salidas Nombradas (route-view)",
         "text": "Múltiples salidas route-view pueden coexistir en la misma página. Dale a cada salida un nombre mediante el valor del atributo, y apunta las plantillas de ruta a salidas específicas usando el atributo outlet.",
-        "callout": "Las salidas sin plantilla coincidente para la ruta actual siempre se limpian al navegar."
+        "callout": "Las salidas sin plantilla coincidente para la ruta actual se limpian al navegar, salvo que busquen rutas en archivos. Por defecto (comportamiento de v1.21.1), toda salida sin src propio, incluidas las salidas con nombre, también busca la ruta en la carpeta router.templates (pages salvo configuración): en /about arriba, sidebar y topbar piden pages/about.tpl y, si no existe, muestran el comodín route=\"*\" o el 404 integrado. Define router.strictOutlets: true para limitar esa búsqueda a la salida por defecto, de modo que las salidas con nombre sin src se limpien cuando la ruta activa no las llena. Las salidas con nombre con src, y el comodín en páginas que ninguna ruta explícita coincide, funcionan igual en ambos modos."
       },
       "catchAll": {
         "title": "404 / Rutas Catch-All",
@@ -1639,7 +1639,8 @@
         "pageRelative": "<template src> se resuelve respecto a la página e ignora base y baseApiUrl.",
         "escapeParams": "Los parámetros t-* en traducciones t-html se escapan como HTML. Cambiarla después de init() vuelve a renderizar las traducciones activas.",
         "strictLocale": "Un nojs-locale persistido que no está en un supportedLocales no vacío se ignora al restaurarlo y se elimina de localStorage. Pásala en la llamada a NoJS.i18n() que restaura el locale, o defínela con config() antes de esa llamada.",
-        "strictUnmounted": "on:unmounted también se dispara cuando una directiva elimina el elemento (if / else-if, each / foreach, un cambio de ruta), una vez por elemento en la siguiente microtarea, y deja de dispararse para una fila de un each con key que solo se movió. Un elemento que sigue en el DOM (un case de switch oculto) no lo dispara."
+        "strictUnmounted": "on:unmounted también se dispara cuando una directiva elimina el elemento (if / else-if, each / foreach, un cambio de ruta), una vez por elemento en la siguiente microtarea, y deja de dispararse para una fila de un each con key que solo se movió. Un elemento que sigue en el DOM (un case de switch oculto) no lo dispara.",
+        "strictOutlets": "Solo la salida por defecto busca rutas en la carpeta router.templates. Una salida con nombre sin src propio solo se llena con rutas outlet=\"name\": en una ruta coincidente que no la llena, se limpia en lugar de pedir pages/<ruta>.tpl y mostrar el comodín o el 404 integrado."
       }
     },
     "plugins": {

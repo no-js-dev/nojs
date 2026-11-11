@@ -864,7 +864,7 @@
       "namedOutlets": {
         "title": "Outlet con Nome (route-view)",
         "text": "Più outlet route-view possono coesistere nella stessa pagina. Dai a ogni outlet un nome tramite il valore dell'attributo, e punta i template di route verso outlet specifici usando l'attributo outlet.",
-        "callout": "Gli outlet senza un template corrispondente per la route corrente vengono sempre svuotati alla navigazione."
+        "callout": "Gli outlet senza un template corrispondente per la route corrente vengono svuotati alla navigazione, a meno che non cerchino le route nei file. Per impostazione predefinita (comportamento di v1.21.1), ogni outlet senza src proprio, outlet con nome inclusi, cerca la route anche nella cartella router.templates (pages se non configurata): su /about sopra, sidebar e topbar richiedono pages/about.tpl e, se manca, mostrano il wildcard route=\"*\" o il 404 integrato. Imposta router.strictOutlets: true per limitare questa ricerca all'outlet predefinito, così gli outlet con nome senza src vengono svuotati quando la route attiva non li riempie. Gli outlet con nome con src, e il wildcard sulle pagine che nessuna route esplicita trova, funzionano allo stesso modo in entrambe le modalità."
       },
       "catchAll": {
         "title": "404 / Route Catch-All",
@@ -1639,7 +1639,8 @@
         "pageRelative": "<template src> viene risolto rispetto alla pagina e ignora base e baseApiUrl.",
         "escapeParams": "I parametri t-* nelle traduzioni t-html vengono escapati come HTML. Cambiarlo dopo init() ri-renderizza le traduzioni attive.",
         "strictLocale": "Un nojs-locale persistito che non è in un supportedLocales non vuoto viene ignorato al ripristino e rimosso dal localStorage. Passalo nella chiamata a NoJS.i18n() che ripristina il locale, oppure impostalo con config() prima di quella chiamata.",
-        "strictUnmounted": "on:unmounted scatta anche quando una direttiva rimuove l'elemento (if / else-if, each / foreach, un cambio di route), una volta per elemento alla microtask successiva, e non scatta più per una riga di un each con key che è stata solo spostata. Un elemento che resta nel DOM (un case di switch nascosto) non lo fa scattare."
+        "strictUnmounted": "on:unmounted scatta anche quando una direttiva rimuove l'elemento (if / else-if, each / foreach, un cambio di route), una volta per elemento alla microtask successiva, e non scatta più per una riga di un each con key che è stata solo spostata. Un elemento che resta nel DOM (un case di switch nascosto) non lo fa scattare.",
+        "strictOutlets": "Solo l'outlet predefinito cerca le route nella cartella router.templates. Un outlet con nome senza src proprio viene riempito solo dalle route outlet=\"name\": su una route trovata che non lo riempie, viene svuotato invece di richiedere pages/<route>.tpl e mostrare il wildcard o il 404 integrato."
       }
     },
     "plugins": {

@@ -29,6 +29,7 @@ export const _config = {
   strictDevtools: false,
   strictJsonld: false,
   strictBindings: false,
+  strictUnmounted: false,
 };
 
 export const _interceptors = { request: [], response: [] };

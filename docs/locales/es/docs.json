@@ -425,7 +425,8 @@
         "onMounted": "El elemento se inserta en el DOM visible",
         "onUpdated": "Mutación del DOM observada (via MutationObserver)",
         "onUnmounted": "El elemento se elimina del DOM",
-        "onError": "Error en el subárbol de este elemento"
+        "onError": "Error en el subárbol de este elemento",
+        "unmountedNote": "Por defecto (comportamiento de v1.21.1), on:unmounted se dispara cuando tu propio código elimina el elemento, por ejemplo con el.remove(). Cuando lo elimina una directiva (if o else-if que pasa a falso, una fila que sale de una lista each, un cambio de ruta), el hook no se ejecuta, y una fila de un each con key que solo se movió lo dispara. Define strictUnmounted: true para ejecutar el hook una vez cuando una directiva elimina el elemento y nunca para una fila movida. Un case de switch oculto sigue en el DOM, así que su hook no se ejecuta en ningún modo."
       },
       "keyModifiers": {
         "title": "Modificadores de Tecla",
@@ -1637,7 +1638,8 @@
         "strictBindings": "bind-* rechaza los atributos de event handler inline (bind-onclick, bind-onerror, cualquier nombre bind-on* sin guion; bind-onboarding-step sigue funcionando) con un aviso [Security], y los valores de bind-srcdoc pasan por el sanitizer de bind-html (o por tu función sanitizeHtml). Se lee cuando se inicializa cada binding, así que defínelo antes de NoJS.init(). Una vez en true, no puede volver a false después de init().",
         "pageRelative": "<template src> se resuelve respecto a la página e ignora base y baseApiUrl.",
         "escapeParams": "Los parámetros t-* en traducciones t-html se escapan como HTML. Cambiarla después de init() vuelve a renderizar las traducciones activas.",
-        "strictLocale": "Un nojs-locale persistido que no está en un supportedLocales no vacío se ignora al restaurarlo y se elimina de localStorage. Pásala en la llamada a NoJS.i18n() que restaura el locale, o defínela con config() antes de esa llamada."
+        "strictLocale": "Un nojs-locale persistido que no está en un supportedLocales no vacío se ignora al restaurarlo y se elimina de localStorage. Pásala en la llamada a NoJS.i18n() que restaura el locale, o defínela con config() antes de esa llamada.",
+        "strictUnmounted": "on:unmounted también se dispara cuando una directiva elimina el elemento (if / else-if, each / foreach, un cambio de ruta), una vez por elemento en la siguiente microtarea, y deja de dispararse para una fila de un each con key que solo se movió. Un elemento que sigue en el DOM (un case de switch oculto) no lo dispara."
       }
     },
     "plugins": {

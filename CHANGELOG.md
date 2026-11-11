@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Package `exports` map with a Node-safe ESM compiler entry, `@no-js-dev/nojs/compiler` (`dist/compiler/compiler.mjs`, built by `node build.js`): `parseExpression`, `parseStatements`, `segmentPipes` and `evaluate` without the framework runtime. Additive: in bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`, as the `browser` field did; Node `import` / `require` of the root now resolve to `src/index.js` (new `main` / `module` fields); `src/*`, `dist/*`, `types/*` and `package.json` have explicit entries and a final `"./*"` catch-all keeps every other existing path importable, so nothing previously reachable is blocked. Re-applies the exports half of [#348](https://github.com/no-js-dev/nojs/pull/348) ([#333](https://github.com/no-js-dev/nojs/issues/333))
+- `strictUnmounted`: `on:unmounted` also fires when a directive removes the element (`if` / `else-if`, `each` / `foreach`, a route change), once and on the next microtask; a keyed `each` row that only moved no longer fires it. By default the hook only sees removals made by your own code, as in v1.21.1, because directives dispose the element (and the hook's observer) before removing it
 
 ### Fixed
 

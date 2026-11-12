@@ -1,5 +1,5 @@
 /**
- * No.JS v1.22.0 — The HTML-First Reactive Framework
+ * No.JS v1.23.0 — The HTML-First Reactive Framework
  * No more JavaScript. Just HTML attributes with superpowers.
  * @author exs.dev
  * @homepage https://no-js.dev

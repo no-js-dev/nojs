@@ -125,7 +125,7 @@ All default to `false`, which keeps v1.21.1 behavior. Set them with `NoJS.config
 ### Metadata
 
 - `NoJS.version: string` — The framework version string (e.g. `"1.17.0"`).
-- Latest release: **v1.22.0** — see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md) for what changed in each version.
+- Latest release: **v1.23.0** — see the [Changelog](https://github.com/no-js-dev/nojs/blob/main/CHANGELOG.md) for what changed in each version.
 
 ## Reference
 

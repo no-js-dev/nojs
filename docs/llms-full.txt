@@ -1167,6 +1167,12 @@ Render one of many templates based on a value.
 </div>
 ```
 
+### Hidden Cases
+
+`switch` keeps every case element in the DOM and hides the ones that do not match with `display: none`. When a case is hidden, its content is disposed: bindings stop updating and `get`, `sse` or other directives inside it stop reacting, until the case matches again and its content is processed anew.
+
+> **Known limitation — cases hidden on the first render.** A case that does not match when the `switch` first renders is hidden but not disposed: its inline content stays reactive (bindings keep updating, a `get` whose URL depends on changing state refetches) until the case has been shown and hidden once. Cases that use `then="templateId"` are not affected, because a hidden template case has no content. Use `then` templates for cases whose content must stay inert while hidden.
+
 ---
 
 ## `else` on Loop Elements
@@ -2177,6 +2183,8 @@ Inside any `on:*` handler, `$event` refers to the native DOM event:
 | `on:unmounted` | Element removed from DOM |
 | `on:error` | Any error in this element's subtree |
 
+> **`on:unmounted` and directive removals.** By default (v1.21.1 behavior), `on:unmounted` fires when your own code removes the element, for example with `el.remove()`. When a directive removes it — `if` / `else-if` turning false, a row leaving an `each` / `foreach` list, a route change replacing the outlet content — No.JS disposes the element before removing it, and the hook does not run. A keyed `each` that moves a row also fires that row's hook, although the row stays on the page. Set `strictUnmounted: true` to fix both: the hook then runs once when a directive removes the element, and never for a row that only moved. A `switch` case that is hidden stays in the DOM (`display: none`), so its hook does not run in either mode. See [Opt-in hardening flags](configuration.md#opt-in-hardening-flags).
+
 ---
 
 ## `trigger` — Emit Custom Events
@@ -2983,12 +2991,30 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 ### Date
 
 ```html
-<span bind="date | date:'short'"></span>        <!-- 02/25/26 -->
-<span bind="date | relative"></span>            <!-- 3 days ago -->
-<span bind="date | fromNow"></span>             <!-- in 2 hours -->
+<span bind="date | date:'short'"></span>        <!-- 2/25/26 -->
+<span bind="date | relative"></span>            <!-- 3d ago -->
+<span bind="date | fromNow"></span>             <!-- in 2h -->
 ```
 
-> **Note:** `relative` looks backward ("3 days ago"), while `fromNow` looks forward ("in 2 hours"). For past dates, `fromNow` falls back to `relative`.
+> **Note:** `relative` looks backward ("3d ago"), while `fromNow` looks forward ("in 2h"). For past dates, `fromNow` falls back to `relative`.
+
+### Locale
+
+`number`, `currency`, `date` and `datetime` format with the **browser's default locale** (they call `toLocaleString()` / `toLocaleDateString()` without a locale). They do **not** follow `$i18n.locale` or `NoJS.locale`: switching the app language with i18n does not change their output. The outputs shown on this page are what an `en-US` browser produces; a `pt-BR` browser shows `price | currency:'BRL'` as `R$ 1.234,56` and `date | date:'short'` as `25/02/2026`.
+
+`percent`, `filesize` and `ordinal` do not use a locale (`45%`, `1.5 MB`, `1st`), and `relative` / `fromNow` return short English strings (`just now`, `5m ago`, `in 2h`, `in a moment`); dates older than 30 days fall back to `toLocaleDateString()` in the browser locale.
+
+To format with the app locale, register a filter that reads `NoJS.locale`. Filter arguments are literals, so pass nothing to the filter; instead, mention `$i18n.locale` in the binding so it re-renders when the locale changes:
+
+```html
+<script>
+  NoJS.filter('localDate', (value) =>
+    new Date(value).toLocaleDateString(NoJS.locale, { dateStyle: 'long' }));
+</script>
+
+<!-- "February 25, 2026", then "25 de fevereiro de 2026" after $i18n.locale = 'pt-BR' -->
+<span bind="$i18n.locale && createdAt | localDate"></span>
+```
 
 ### Utility
 
@@ -3047,8 +3073,8 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 | `slugify` | — | Convert to url-safe-slug |
 | `nl2br` | — | Newlines to `<br>` (HTML-escaped) |
 | `encodeUri` | — | `encodeURIComponent()` |
-| `number` | `decimals` (default: 0) | Locale-formatted number |
-| `currency` | `code` (default: "USD") | Locale-formatted currency |
+| `number` | `decimals` (default: 0) | Number with grouping, in the browser's default locale |
+| `currency` | `code` (default: "USD") | Currency, in the browser's default locale |
 | `percent` | `decimals` (default: 0) | Percentage (multiplies by 100) |
 | `filesize` | — | Human-readable file size |
 | `ordinal` | — | 1st, 2nd, 3rd, etc. |
@@ -3061,10 +3087,10 @@ Filters transform values in `bind` expressions using the `|` pipe syntax.
 | `pluck` | `key` | Extract property from each item |
 | `sortBy` | `key` (prefix `-` for desc) | Sort array by property |
 | `where` | `key`, `value` | Filter array where key equals value |
-| `date` | `format` (short/long/full) | Locale-formatted date |
-| `datetime` | — | Locale-formatted date and time |
-| `relative` | — | Relative time ("3d ago") |
-| `fromNow` | — | Future relative time ("in 2h") |
+| `date` | `format` (short/long/full) | Date, in the browser's default locale |
+| `datetime` | — | Date and time, in the browser's default locale |
+| `relative` | — | Relative time, in English ("3d ago") |
+| `fromNow` | — | Future relative time, in English ("in 2h") |
 | `default` | `fallback` (default: "") | Fallback for null/empty |
 | `json` | `indent` (default: 2) | JSON.stringify |
 | `debug` | — | console.log + passthrough |
@@ -3435,13 +3461,13 @@ Multiple `route-view` outlets can coexist in the same layout. Give each outlet a
   <span>Home breadcrumb</span>
 </template>
 
-<!-- /about only fills default; sidebar and topbar are cleared automatically -->
+<!-- /about only fills default; sidebar and topbar are cleared (see the note below) -->
 <template route="/about">
   <h1>About us</h1>
 </template>
 ```
 
-> Outlets with no matching template for the active route are **always cleared** on navigation.
+> Outlets with no matching template for the active route are cleared on navigation, as long as the outlet does not look routes up in files. **By default (v1.21.1 behavior), every outlet without its own `src` — named outlets included — also looks the route up in the [`router.templates`](configuration.md) folder (`pages` unless configured).** On `/about` above, `sidebar` and `topbar` request `pages/about.tpl` and, when it is missing, render the `route="*"` wildcard or the built-in 404 instead of being cleared. Set `router.strictOutlets: true` to keep the `router.templates` lookup for the default outlet only: a named outlet without `src` is then filled only by `outlet="name"` routes and cleared when the active route has none. A named outlet with its own `src` resolves files from it in both modes, and on a page that no explicit route matches, a named outlet keeps the [wildcard fallback](#named-outlet-wildcards) in both modes.
 
 ### Programmatic Registration
 
@@ -4441,20 +4467,22 @@ Use `<p t="welcome" t-html t-name="user.name"></p>` instead when the params come
 
 ## Number & Date Formatting
 
+These filters format with the **browser's default locale**, not with `$i18n.locale`: changing the locale through i18n re-translates `t` keys but does not change their output. The outputs below are for an `en-US` browser; a `pt-BR` browser shows `R$ 1.234,56` and `25/02/2026` for the first `currency:'BRL'` and `date` lines. See [Filters → Locale](filters.md#locale) for a filter that follows `$i18n.locale`.
+
 ```html
 <!-- Currency -->
 <span bind="price | currency"></span>           <!-- $1,234.56 -->
-<span bind="price | currency:'BRL'"></span>     <!-- R$ 1.234,56 -->
+<span bind="price | currency:'BRL'"></span>     <!-- R$1,234.56 -->
 
 <!-- Date -->
-<span bind="createdAt | date"></span>            <!-- 02/25/2026 -->
+<span bind="createdAt | date"></span>            <!-- 2/25/26 -->
 <span bind="createdAt | date:'long'"></span>     <!-- February 25, 2026 -->
-<span bind="createdAt | datetime"></span>        <!-- 02/25/2026 3:45 PM -->
-<span bind="createdAt | relative"></span>        <!-- 2 hours ago -->
+<span bind="createdAt | datetime"></span>        <!-- 2/25/2026, 3:45:00 PM -->
+<span bind="createdAt | relative"></span>        <!-- 2h ago (always English) -->
 
 <!-- Number -->
-<span bind="value | number"></span>              <!-- 1,234.56 -->
-<span bind="value | number:0"></span>            <!-- 1,235 -->
+<span bind="value | number"></span>              <!-- 1,235 (default: 0 decimals) -->
+<span bind="value | number:2"></span>            <!-- 1,234.56 -->
 <span bind="value | percent"></span>             <!-- 45% -->
 ```
 
@@ -4822,7 +4850,8 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
       ext: '.tpl',             // Default file extension for file-based routing (default: '.tpl')
       suppressHashWarning: false, // Suppress hash-in-history-mode console warning
       focusBehavior: 'none',     // Focus management after navigation: 'none' | (future options)
-      viewTransition: true       // Enable View Transition API for route changes (default: true)
+      viewTransition: true,      // Enable View Transition API for route changes (default: true)
+      strictOutlets: false       // Opt-in: only the default outlet looks routes up in router.templates (default: false)
     },
     // Note: Anchor links (href="#id") are automatically
     // intercepted in both modes — they scroll to the target
@@ -4849,6 +4878,9 @@ When a `bind`, `on:click`, or other expression throws an error, No.JS catches it
     sanitize: true,                       // Sanitize bind-html (default: true)
     dangerouslyDisableSanitize: false,    // Bypass ALL sanitization (not recommended)
     strictBindings: false,                // Opt-in: reject bind-on* handlers, sanitize bind-srcdoc (default: false)
+
+    // Lifecycle
+    strictUnmounted: false,               // Opt-in: fire on:unmounted when a directive removes the element (default: false)
 
     // Performance
     exprCacheSize: 500,        // Max entries in the expression/statement LRU caches
@@ -4900,6 +4932,8 @@ Stricter security behaviors are opt-in so that apps built on v1.21.1 keep workin
 | `strictDevtools` | `false` | Devtools events and context ids are also limited to local hosts, devtools snapshots and `ctx:updated` values redact sensitive names at every depth, the `config` getter redacts headers per key, and devtools fetch events redact tokens in URLs. See [`strictDevtools`](#strictdevtools). |
 | `strictJsonld` | `false` | `page-jsonld` placeholders inside JSON strings are always escaped as JSON string content, so a value cannot end the string or add keys, and a value with `"`, `\` or a line break no longer makes the output invalid JSON. `<` in values is written as `\u003c`. By default the output is the v1.21.1 output byte-for-byte, so untrusted data in quoted placeholders can still inject keys. Takes effect on the next render. See [Head Management](head-management.md#page-jsonld). |
 | `strictBindings` | `false` | Opt-in hardening for `bind-*`. When `true`, inline event-handler attributes are rejected (`bind-onclick`, `bind-onerror`, `bind-OnMouseOver` — any `bind-on*` name without a hyphen; `bind-onboarding-step` still binds) with a `[Security]` warning, and `bind-srcdoc` values go through the `bind-html` sanitizer (or your `sanitizeHtml` function). Read when each binding initializes — set it before `NoJS.init()`. Once `true`, it cannot be set back to `false` after `init()`. See [Data Binding](data-binding.md). |
+| `strictUnmounted` | `false` | `on:unmounted` also fires when a directive removes the element (`if` / `else-if`, `each` / `foreach`, a route change), on the next microtask and at most once per element, and no longer fires for a keyed `each` row that only moved. An element that is disposed but stays in the DOM (a hidden `switch` case, `NoJS.dispose()`) does not fire. By default the hook only sees removals made by your own code, as in v1.21.1. Takes effect immediately. See [Events → Lifecycle Hooks](events.md#lifecycle-hooks). |
+| `router.strictOutlets` | `false` | Only the default outlet looks routes up in the `router.templates` folder. A named outlet (`route-view="name"`) without its own `src` is filled only by `outlet="name"` routes: on an explicitly matched route that does not fill it, it is cleared instead of requesting `pages/<route>.tpl` and rendering the wildcard or the built-in 404. Named outlets with `src` and the wildcard fallback on pages no explicit route matches are unchanged. Takes effect on the next navigation. See [Routing → Named Outlets](routing.md#named-outlets). |
 | `templates.pageRelative` | `false` | `<template src>` resolves against the page and ignores the nearest `base` attribute and `baseApiUrl`. Absolute URLs and `./` paths inside a remote template behave the same in both modes. See [Templates](templates.md#how-src-is-resolved). |
 | `i18n.escapeParams` | `false` | `t-*` param values in `t-html` translations are HTML-escaped before interpolation. Plain `t` is not affected. Changing it after `init()` re-renders active translations. See [Internationalization](i18n.md). |
 | `i18n.strictLocale` | `false` | A persisted `nojs-locale` that is not listed in a non-empty `supportedLocales` is ignored when `NoJS.i18n()` restores it: the stale value is removed from `localStorage` and the locale falls back to browser detection or `defaultLocale`. Pass it in that `NoJS.i18n()` call, or set it with `config()` before the call; setting it afterwards has no effect. |
@@ -5800,8 +5834,10 @@ A full analytics plugin demonstrating the plugin lifecycle, globals, interceptor
 Three named exports give offline tooling (compilers, linters, bundler plugins) direct access to the No.JS expression parser without running the framework. They bypass the runtime LRU caches so they never interfere with a live app.
 
 ```js
-import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/src/index.js';
+import { parseExpression, parseStatements, segmentPipes } from '@no-js-dev/nojs/compiler';
 ```
+
+`@no-js-dev/nojs/compiler` is a Node-safe ESM entry: it loads the parser without the framework runtime (no DOM walk, no directive registration). It also exports `evaluate`, the reference interpreter, for differential testing. The same parser functions are re-exported from the main entry (`@no-js-dev/nojs`), and every deep path keeps working (`@no-js-dev/nojs/src/*`, `@no-js-dev/nojs/dist/*`, `@no-js-dev/nojs/types/*` and any other file in the package). In bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`.
 
 ### `segmentPipes(str)`
 

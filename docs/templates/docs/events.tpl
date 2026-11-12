@@ -108,6 +108,7 @@
         <tr><td><code>on:error</code></td><td t="docs.events.lifecycle.onError"></td></tr>
       </tbody>
     </table>
+    <div class="callout"><p t="docs.events.lifecycle.unmountedNote"></p></div>
     <div class="code-block"><pre><span class="hl-tag">&lt;div</span> <span class="hl-attr">on:mounted</span>=<span class="hl-str">"initChart($el)"</span><span class="hl-tag">&gt;</span>
   <span class="hl-tag">&lt;canvas</span> <span class="hl-attr">ref</span>=<span class="hl-str">"chart"</span><span class="hl-tag">&gt;&lt;/canvas&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span>

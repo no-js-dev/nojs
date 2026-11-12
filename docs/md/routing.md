@@ -352,13 +352,13 @@ Multiple `route-view` outlets can coexist in the same layout. Give each outlet a
   <span>Home breadcrumb</span>
 </template>
 
-<!-- /about only fills default; sidebar and topbar are cleared automatically -->
+<!-- /about only fills default; sidebar and topbar are cleared (see the note below) -->
 <template route="/about">
   <h1>About us</h1>
 </template>
 ```
 
-> Outlets with no matching template for the active route are **always cleared** on navigation.
+> Outlets with no matching template for the active route are cleared on navigation, as long as the outlet does not look routes up in files. **By default (v1.21.1 behavior), every outlet without its own `src` — named outlets included — also looks the route up in the [`router.templates`](configuration.md) folder (`pages` unless configured).** On `/about` above, `sidebar` and `topbar` request `pages/about.tpl` and, when it is missing, render the `route="*"` wildcard or the built-in 404 instead of being cleared. Set `router.strictOutlets: true` to keep the `router.templates` lookup for the default outlet only: a named outlet without `src` is then filled only by `outlet="name"` routes and cleared when the active route has none. A named outlet with its own `src` resolves files from it in both modes, and on a page that no explicit route matches, a named outlet keeps the [wildcard fallback](#named-outlet-wildcards) in both modes.
 
 ### Programmatic Registration
 

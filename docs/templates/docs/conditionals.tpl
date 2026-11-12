@@ -102,6 +102,9 @@
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">case</span>=<span class="hl-str">"'editor','writer'"</span>    <span class="hl-attr">then</span>=<span class="hl-str">"editorPanel"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
   <span class="hl-tag">&lt;div</span> <span class="hl-attr">default</span>                     <span class="hl-attr">then</span>=<span class="hl-str">"viewerPanel"</span><span class="hl-tag">&gt;&lt;/div&gt;</span>
 <span class="hl-tag">&lt;/div&gt;</span></pre></div>
+    <h3 class="doc-subtitle" id="conditionals-switch-hidden-cases" t="docs.conditionals.switchCase.hiddenSubtitle"></h3>
+    <p class="doc-text" t="docs.conditionals.switchCase.hiddenText"></p>
+    <div class="callout"><p t="docs.conditionals.switchCase.hiddenLimitation"></p></div>
   </div>
 
   <!-- else on loop elements -->

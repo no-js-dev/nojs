@@ -425,7 +425,8 @@
         "onMounted": "Elemento inserido no DOM visível",
         "onUpdated": "Mutação no DOM observada (via MutationObserver)",
         "onUnmounted": "Elemento removido do DOM",
-        "onError": "Erro na subárvore deste elemento"
+        "onError": "Erro na subárvore deste elemento",
+        "unmountedNote": "Por padrão (comportamento da v1.21.1), on:unmounted dispara quando o seu próprio código remove o elemento, por exemplo com el.remove(). Quando uma diretiva o remove (if ou else-if que passa a falso, uma linha que sai de uma lista each, uma troca de rota), o hook não roda, e uma linha de um each com key que só foi movida dispara o hook. Defina strictUnmounted: true para rodar o hook uma vez quando uma diretiva remove o elemento e nunca para uma linha movida. Um case de switch oculto continua no DOM, então o hook dele não roda em nenhum dos dois modos."
       },
       "keyModifiers": {
         "title": "Modificadores de Tecla",
@@ -481,7 +482,10 @@
         "title": "switch / case",
         "text": "Renderize um dentre vários templates com base em um valor.",
         "inlineSubtitle": "Conteúdo Inline (sem templates)",
-        "multiValueSubtitle": "Case com Múltiplos Valores"
+        "multiValueSubtitle": "Case com Múltiplos Valores",
+        "hiddenSubtitle": "Cases ocultos",
+        "hiddenText": "switch mantém todos os elementos case no DOM e oculta os que não correspondem com display: none. Quando um case é ocultado, o conteúdo dele é descartado: os bindings param de atualizar e get, sse ou outras diretivas dentro dele param de reagir, até o case voltar a corresponder e o conteúdo ser processado de novo.",
+        "hiddenLimitation": "Limitação conhecida: um case que não corresponde no primeiro render do switch é ocultado mas não descartado. O conteúdo inline dele continua reativo (os bindings continuam atualizando, um get cuja URL depende de um estado que muda refaz a requisição) até o case ser mostrado e ocultado uma vez. Cases que usam then=\"templateId\" não são afetados, porque um case de template oculto não tem conteúdo. Use templates then nos cases cujo conteúdo precisa ficar inerte enquanto ocultos."
       },
       "elseOnLoops": {
         "title": "else em Elementos de Loop",
@@ -860,7 +864,7 @@
       "namedOutlets": {
         "title": "Outlets Nomeados (route-view)",
         "text": "Múltiplos outlets route-view podem coexistir na mesma página. Dê a cada outlet um nome via o valor do atributo e aponte templates de rota para outlets específicos usando o atributo outlet.",
-        "callout": "Outlets sem template correspondente para a rota atual são sempre limpos na navegação."
+        "callout": "Outlets sem template correspondente para a rota atual são limpos na navegação, a menos que procurem rotas em arquivos. Por padrão (comportamento da v1.21.1), todo outlet sem src próprio, inclusive outlets nomeados, também procura a rota na pasta router.templates (pages, salvo configuração): em /about acima, sidebar e topbar pedem pages/about.tpl e, se ele não existir, mostram o wildcard route=\"*\" ou o 404 embutido. Defina router.strictOutlets: true para manter essa busca só no outlet padrão, assim outlets nomeados sem src são limpos quando a rota ativa não os preenche. Outlets nomeados com src, e o wildcard em páginas que nenhuma rota explícita encontra, funcionam igual nos dois modos."
       },
       "catchAll": {
         "title": "404 / Rotas Catch-All",
@@ -1298,7 +1302,8 @@
         "title": "Filtros de Array"
       },
       "date": {
-        "title": "Filtros de Data"
+        "title": "Filtros de Data",
+        "localeNote": "number, currency, date e datetime formatam com o locale padrão do navegador, não com $i18n.locale: trocar o idioma do app não muda a saída deles. As saídas mostradas são as de um navegador en-US. relative e fromNow sempre retornam textos curtos em inglês (5m ago, in 2h). Para seguir o locale do app, registre um filtro que lê NoJS.locale e cite $i18n.locale no binding para ele re-renderizar, por ex. $i18n.locale && createdAt | localDate (argumentos de filtro são literais)."
       },
       "utility": {
         "title": "Filtros Utilitários"
@@ -1331,8 +1336,8 @@
         "slugify": "Converte para slug compatível com URL",
         "trim": "Remove espaços em branco iniciais/finais",
         "encodeUri": "Codifica um componente URI",
-        "currency": "Formata número como moeda",
-        "number": "Formata número com agrupamento por localidade",
+        "currency": "Formata número como moeda, no locale padrão do navegador",
+        "number": "Formata número com agrupamento, no locale padrão do navegador",
         "percent": "Formata número como porcentagem",
         "ordinal": "Adiciona sufixo ordinal (1º, 2º, 3º)",
         "filesize": "Formata bytes para tamanho legível",
@@ -1343,10 +1348,10 @@
         "sortBy": "Ordena array por propriedade",
         "first": "Retorna o primeiro elemento de um array",
         "last": "Retorna o último elemento de um array",
-        "date": "Formata objeto Date",
-        "datetime": "Formata Date com horário",
-        "relative": "Tempo decorrido desde a data (ex: '5 minutos atrás')",
-        "fromNow": "Tempo até uma data futura (ex: 'em 3 horas')",
+        "date": "Formata objeto Date, no locale padrão do navegador",
+        "datetime": "Formata Date com horário, no locale padrão do navegador",
+        "relative": "Tempo decorrido desde a data, em inglês (ex: '5m ago')",
+        "fromNow": "Tempo até uma data futura, em inglês (ex: 'in 3h')",
         "json": "Serializa valor como string JSON",
         "default": "Retorna fallback se valor for null/undefined",
         "keys": "Retorna chaves do objeto como array",
@@ -1385,7 +1390,8 @@
         "callout": "A saída HTML é passada por _sanitizeHtml() para prevenir XSS. Tags e atributos perigosos são removidos automaticamente."
       },
       "formatting": {
-        "title": "Formatação de Números & Datas"
+        "title": "Formatação de Números & Datas",
+        "localeNote": "Esses filtros formatam com o locale padrão do navegador, não com $i18n.locale: trocar o locale retraduz as chaves t mas não muda a saída deles. As saídas abaixo são as de um navegador en-US; um navegador pt-BR mostra R$ 1.234,56 e 25/02/2026 nas linhas currency:'BRL' e date."
       },
       "liveDemo": {
         "title": "Demo ao Vivo — Seletor de Locale",
@@ -1632,7 +1638,9 @@
         "strictBindings": "bind-* rejeita atributos de event handler inline (bind-onclick, bind-onerror, qualquer nome bind-on* sem hífen; bind-onboarding-step continua funcionando) com um warning [Security], e valores de bind-srcdoc passam pelo sanitizer do bind-html (ou pela sua função sanitizeHtml). É lida quando cada binding inicializa, então defina antes de NoJS.init(). Depois de true, não pode voltar para false após init().",
         "pageRelative": "<template src> é resolvido em relação à página e ignora base e baseApiUrl.",
         "escapeParams": "Params t-* em traduções t-html são escapados como HTML. Mudar a flag depois de init() re-renderiza as traduções ativas.",
-        "strictLocale": "Um nojs-locale persistido que não está em um supportedLocales não vazio é ignorado no restore e removido do localStorage. Passe a flag na chamada de NoJS.i18n() que restaura o locale, ou defina-a via config() antes dessa chamada."
+        "strictLocale": "Um nojs-locale persistido que não está em um supportedLocales não vazio é ignorado no restore e removido do localStorage. Passe a flag na chamada de NoJS.i18n() que restaura o locale, ou defina-a via config() antes dessa chamada.",
+        "strictUnmounted": "on:unmounted também dispara quando uma diretiva remove o elemento (if / else-if, each / foreach, uma troca de rota), uma vez por elemento na próxima microtask, e deixa de disparar para uma linha de um each com key que só foi movida. Um elemento que continua no DOM (um case de switch oculto) não dispara.",
+        "strictOutlets": "Só o outlet padrão procura rotas na pasta router.templates. Um outlet nomeado sem src próprio só é preenchido por rotas outlet=\"name\": numa rota encontrada que não o preenche, ele é limpo em vez de pedir pages/<rota>.tpl e mostrar o wildcard ou o 404 embutido."
       }
     },
     "plugins": {

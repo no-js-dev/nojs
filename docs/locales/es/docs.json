@@ -425,7 +425,8 @@
         "onMounted": "El elemento se inserta en el DOM visible",
         "onUpdated": "Mutación del DOM observada (via MutationObserver)",
         "onUnmounted": "El elemento se elimina del DOM",
-        "onError": "Error en el subárbol de este elemento"
+        "onError": "Error en el subárbol de este elemento",
+        "unmountedNote": "Por defecto (comportamiento de v1.21.1), on:unmounted se dispara cuando tu propio código elimina el elemento, por ejemplo con el.remove(). Cuando lo elimina una directiva (if o else-if que pasa a falso, una fila que sale de una lista each, un cambio de ruta), el hook no se ejecuta, y una fila de un each con key que solo se movió lo dispara. Define strictUnmounted: true para ejecutar el hook una vez cuando una directiva elimina el elemento y nunca para una fila movida. Un case de switch oculto sigue en el DOM, así que su hook no se ejecuta en ningún modo."
       },
       "keyModifiers": {
         "title": "Modificadores de Tecla",
@@ -481,7 +482,10 @@
         "title": "switch / case",
         "text": "Renderiza una de varias plantillas basándose en un valor.",
         "inlineSubtitle": "Contenido Inline (sin plantillas)",
-        "multiValueSubtitle": "Caso con Múltiples Valores"
+        "multiValueSubtitle": "Caso con Múltiples Valores",
+        "hiddenSubtitle": "Casos ocultos",
+        "hiddenText": "switch mantiene todos los elementos case en el DOM y oculta los que no coinciden con display: none. Cuando un case se oculta, su contenido se descarta: los bindings dejan de actualizarse y get, sse u otras directivas dentro de él dejan de reaccionar, hasta que el case vuelve a coincidir y su contenido se procesa de nuevo.",
+        "hiddenLimitation": "Limitación conocida: un case que no coincide cuando el switch se renderiza por primera vez se oculta pero no se descarta. Su contenido inline sigue reactivo (los bindings se siguen actualizando, un get cuya URL depende de un estado que cambia vuelve a pedir datos) hasta que el case se muestra y se oculta una vez. Los case que usan then=\"templateId\" no se ven afectados, porque un case de plantilla oculto no tiene contenido. Usa plantillas then para los case cuyo contenido debe quedar inerte mientras está oculto."
       },
       "elseOnLoops": {
         "title": "else en Elementos de Bucle",
@@ -860,7 +864,7 @@
       "namedOutlets": {
         "title": "Salidas Nombradas (route-view)",
         "text": "Múltiples salidas route-view pueden coexistir en la misma página. Dale a cada salida un nombre mediante el valor del atributo, y apunta las plantillas de ruta a salidas específicas usando el atributo outlet.",
-        "callout": "Las salidas sin plantilla coincidente para la ruta actual siempre se limpian al navegar."
+        "callout": "Las salidas sin plantilla coincidente para la ruta actual se limpian al navegar, salvo que busquen rutas en archivos. Por defecto (comportamiento de v1.21.1), toda salida sin src propio, incluidas las salidas con nombre, también busca la ruta en la carpeta router.templates (pages salvo configuración): en /about arriba, sidebar y topbar piden pages/about.tpl y, si no existe, muestran el comodín route=\"*\" o el 404 integrado. Define router.strictOutlets: true para limitar esa búsqueda a la salida por defecto, de modo que las salidas con nombre sin src se limpien cuando la ruta activa no las llena. Las salidas con nombre con src, y el comodín en páginas que ninguna ruta explícita coincide, funcionan igual en ambos modos."
       },
       "catchAll": {
         "title": "404 / Rutas Catch-All",
@@ -1298,7 +1302,8 @@
         "title": "Filtros de Array"
       },
       "date": {
-        "title": "Filtros de Fecha"
+        "title": "Filtros de Fecha",
+        "localeNote": "number, currency, date y datetime formatean con el locale por defecto del navegador, no con $i18n.locale: cambiar el idioma de la app no cambia su salida. Las salidas mostradas son las de un navegador en-US. relative y fromNow siempre devuelven textos cortos en inglés (5m ago, in 2h). Para seguir el locale de la app, registra un filtro que lea NoJS.locale y menciona $i18n.locale en el binding para que se vuelva a renderizar, p. ej. $i18n.locale && createdAt | localDate (los argumentos de los filtros son literales)."
       },
       "utility": {
         "title": "Filtros de Utilidad"
@@ -1331,8 +1336,8 @@
         "slugify": "Convierte a slug compatible con URL",
         "trim": "Elimina espacios en blanco iniciales/finales",
         "encodeUri": "Codifica un componente URI",
-        "currency": "Formatea número como moneda",
-        "number": "Formatea número con agrupación por localidad",
+        "currency": "Formatea número como moneda, en el locale por defecto del navegador",
+        "number": "Formatea número con agrupación, en el locale por defecto del navegador",
         "percent": "Formatea número como porcentaje",
         "ordinal": "Añade sufijo ordinal (1º, 2º, 3º)",
         "filesize": "Formatea bytes a tamaño legible",
@@ -1343,10 +1348,10 @@
         "sortBy": "Ordena array por propiedad",
         "first": "Retorna el primer elemento de un array",
         "last": "Retorna el último elemento de un array",
-        "date": "Formatea objeto Date",
-        "datetime": "Formatea Date con hora",
-        "relative": "Tiempo transcurrido desde la fecha (ej: 'hace 5 minutos')",
-        "fromNow": "Tiempo hasta una fecha futura (ej: 'en 3 horas')",
+        "date": "Formatea objeto Date, en el locale por defecto del navegador",
+        "datetime": "Formatea Date con hora, en el locale por defecto del navegador",
+        "relative": "Tiempo transcurrido desde la fecha, en inglés (ej: '5m ago')",
+        "fromNow": "Tiempo hasta una fecha futura, en inglés (ej: 'in 3h')",
         "json": "Serializa valor como string JSON",
         "default": "Retorna fallback si el valor es null/undefined",
         "keys": "Retorna las claves del objeto como array",
@@ -1385,7 +1390,8 @@
         "callout": "La salida HTML se pasa por _sanitizeHtml() para prevenir XSS. Las etiquetas y atributos peligrosos se eliminan automáticamente."
       },
       "formatting": {
-        "title": "Formato de Números y Fechas"
+        "title": "Formato de Números y Fechas",
+        "localeNote": "Estos filtros formatean con el locale por defecto del navegador, no con $i18n.locale: cambiar el locale vuelve a traducir las claves t pero no cambia su salida. Las salidas de abajo son las de un navegador en-US; un navegador pt-BR muestra R$ 1.234,56 y 25/02/2026 en las líneas currency:'BRL' y date."
       },
       "liveDemo": {
         "title": "Demo en Vivo — Selector de Idioma",
@@ -1632,7 +1638,9 @@
         "strictBindings": "bind-* rechaza los atributos de event handler inline (bind-onclick, bind-onerror, cualquier nombre bind-on* sin guion; bind-onboarding-step sigue funcionando) con un aviso [Security], y los valores de bind-srcdoc pasan por el sanitizer de bind-html (o por tu función sanitizeHtml). Se lee cuando se inicializa cada binding, así que defínelo antes de NoJS.init(). Una vez en true, no puede volver a false después de init().",
         "pageRelative": "<template src> se resuelve respecto a la página e ignora base y baseApiUrl.",
         "escapeParams": "Los parámetros t-* en traducciones t-html se escapan como HTML. Cambiarla después de init() vuelve a renderizar las traducciones activas.",
-        "strictLocale": "Un nojs-locale persistido que no está en un supportedLocales no vacío se ignora al restaurarlo y se elimina de localStorage. Pásala en la llamada a NoJS.i18n() que restaura el locale, o defínela con config() antes de esa llamada."
+        "strictLocale": "Un nojs-locale persistido que no está en un supportedLocales no vacío se ignora al restaurarlo y se elimina de localStorage. Pásala en la llamada a NoJS.i18n() que restaura el locale, o defínela con config() antes de esa llamada.",
+        "strictUnmounted": "on:unmounted también se dispara cuando una directiva elimina el elemento (if / else-if, each / foreach, un cambio de ruta), una vez por elemento en la siguiente microtarea, y deja de dispararse para una fila de un each con key que solo se movió. Un elemento que sigue en el DOM (un case de switch oculto) no lo dispara.",
+        "strictOutlets": "Solo la salida por defecto busca rutas en la carpeta router.templates. Una salida con nombre sin src propio solo se llena con rutas outlet=\"name\": en una ruta coincidente que no la llena, se limpia en lugar de pedir pages/<ruta>.tpl y mostrar el comodín o el 404 integrado."
       }
     },
     "plugins": {

@@ -366,7 +366,7 @@ npm run build && npm test && npm run test:e2e
 
 - All NoJS repositories (Core, Elements, LSP, Server, Skill) share **one version**
 - **Contributors should NOT bump versions** — maintainers handle version bumps and releases
-- [`.versionrc.json`](.versionrc.json) is the source of truth for every place that declares the current version. `package.json` holds the version; the other locations are `package-lock.json` (root + `packages[""]`), `src/index.js` (`NoJS.version`), the "Latest release" line in `docs/llms.txt`, and the rebuilt `dist/iife/no.js` + `.map`
+- [`.versionrc.json`](.versionrc.json) is the source of truth for every place that declares the current version. `package.json` holds the version; the other locations are `package-lock.json` (root + `packages[""]`), `src/index.js` (`NoJS.version`), the "Latest release" line in `docs/llms.txt`, and the rebuilt `dist/iife/no.js` + `.map` and `dist/compiler/compiler.mjs`
 - [`scripts/version.mjs`](scripts/version.mjs) rewrites (`sync`) and verifies (`check`) those locations; `npm install` (`prepare`) installs its git hooks and aliases
 
 ### Releasing / version bumps

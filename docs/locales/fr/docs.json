@@ -425,7 +425,8 @@
         "onMounted": "Élément inséré dans le DOM visible",
         "onUpdated": "Mutation du DOM observée (via MutationObserver)",
         "onUnmounted": "Élément retiré du DOM",
-        "onError": "Erreur dans le sous-arbre de cet élément"
+        "onError": "Erreur dans le sous-arbre de cet élément",
+        "unmountedNote": "Par défaut (comportement de v1.21.1), on:unmounted se déclenche quand votre propre code retire l'élément, par exemple avec el.remove(). Quand une directive le retire (if ou else-if qui devient faux, une ligne qui quitte une liste each, un changement de route), le hook ne s'exécute pas, et une ligne d'un each avec key qui a seulement été déplacée le déclenche. Définissez strictUnmounted: true pour exécuter le hook une fois quand une directive retire l'élément et jamais pour une ligne déplacée. Un case de switch masqué reste dans le DOM : son hook ne s'exécute dans aucun des deux modes."
       },
       "keyModifiers": {
         "title": "Modificateurs de Touche",
@@ -481,7 +482,10 @@
         "title": "switch / case",
         "text": "Affichez l'un parmi plusieurs templates selon une valeur.",
         "inlineSubtitle": "Contenu inline (sans templates)",
-        "multiValueSubtitle": "Case à valeurs multiples"
+        "multiValueSubtitle": "Case à valeurs multiples",
+        "hiddenSubtitle": "Cases masqués",
+        "hiddenText": "switch garde tous les éléments case dans le DOM et masque ceux qui ne correspondent pas avec display: none. Quand un case est masqué, son contenu est libéré : les bindings cessent de se mettre à jour et get, sse ou les autres directives qu'il contient cessent de réagir, jusqu'à ce que le case corresponde de nouveau et que son contenu soit traité à nouveau.",
+        "hiddenLimitation": "Limitation connue : un case qui ne correspond pas au premier rendu du switch est masqué mais pas libéré. Son contenu inline reste réactif (les bindings continuent de se mettre à jour, un get dont l'URL dépend d'un état qui change refait la requête) jusqu'à ce que le case ait été affiché puis masqué une fois. Les case qui utilisent then=\"templateId\" ne sont pas concernés, car un case template masqué n'a pas de contenu. Utilisez des templates then pour les case dont le contenu doit rester inerte quand ils sont masqués."
       },
       "elseOnLoops": {
         "title": "else sur les elements de boucle",
@@ -860,7 +864,7 @@
       "namedOutlets": {
         "title": "Outlets nommés (route-view)",
         "text": "Plusieurs outlets route-view peuvent coexister sur la même page. Donnez un nom à chaque outlet via la valeur de l'attribut, et dirigez les templates de route vers des outlets spécifiques en utilisant l'attribut outlet.",
-        "callout": "Les outlets sans template correspondant pour la route courante sont toujours vidés lors de la navigation."
+        "callout": "Les outlets sans template correspondant pour la route courante sont vidés lors de la navigation, sauf s'ils cherchent les routes dans des fichiers. Par défaut (comportement de v1.21.1), tout outlet sans src propre, outlets nommés compris, cherche aussi la route dans le dossier router.templates (pages sauf configuration) : sur /about ci-dessus, sidebar et topbar demandent pages/about.tpl et, s'il manque, affichent le wildcard route=\"*\" ou le 404 intégré. Définissez router.strictOutlets: true pour limiter cette recherche à l'outlet par défaut : les outlets nommés sans src sont alors vidés quand la route active ne les remplit pas. Les outlets nommés avec src, et le wildcard sur les pages qu'aucune route explicite ne trouve, fonctionnent de la même façon dans les deux modes."
       },
       "catchAll": {
         "title": "404 / Routes Catch-All",
@@ -1298,7 +1302,8 @@
         "title": "Filtres de tableau"
       },
       "date": {
-        "title": "Filtres de date"
+        "title": "Filtres de date",
+        "localeNote": "number, currency, date et datetime formatent avec la locale par défaut du navigateur, pas avec $i18n.locale : changer la langue de l'application ne change pas leur sortie. Les sorties affichées sont celles d'un navigateur en-US. relative et fromNow renvoient toujours de courtes chaînes en anglais (5m ago, in 2h). Pour suivre la locale de l'application, enregistrez un filtre qui lit NoJS.locale et mentionnez $i18n.locale dans le binding pour qu'il se mette à jour, par ex. $i18n.locale && createdAt | localDate (les arguments de filtre sont des littéraux)."
       },
       "utility": {
         "title": "Filtres utilitaires"
@@ -1331,8 +1336,8 @@
         "slugify": "Convertit en slug compatible URL",
         "trim": "Supprime les espaces en début/fin",
         "encodeUri": "Encode un composant URI",
-        "currency": "Formate un nombre en devise",
-        "number": "Formate un nombre avec groupement par localité",
+        "currency": "Formate un nombre en devise, dans la locale par défaut du navigateur",
+        "number": "Formate un nombre avec groupement, dans la locale par défaut du navigateur",
         "percent": "Formate un nombre en pourcentage",
         "ordinal": "Ajoute un suffixe ordinal (1er, 2e, 3e)",
         "filesize": "Formate les octets en taille lisible",
@@ -1343,10 +1348,10 @@
         "sortBy": "Trie un tableau par propriété",
         "first": "Retourne le premier élément d'un tableau",
         "last": "Retourne le dernier élément d'un tableau",
-        "date": "Formate un objet Date",
-        "datetime": "Formate une Date avec l'heure",
-        "relative": "Temps écoulé depuis la date (ex : 'il y a 5 minutes')",
-        "fromNow": "Temps jusqu'à une date future (ex : 'dans 3 heures')",
+        "date": "Formate un objet Date, dans la locale par défaut du navigateur",
+        "datetime": "Formate une Date avec l'heure, dans la locale par défaut du navigateur",
+        "relative": "Temps écoulé depuis la date, en anglais (ex : '5m ago')",
+        "fromNow": "Temps jusqu'à une date future, en anglais (ex : 'in 3h')",
         "json": "Sérialise une valeur en chaîne JSON",
         "default": "Retourne un fallback si la valeur est null/undefined",
         "keys": "Retourne les clés de l'objet en tableau",
@@ -1385,7 +1390,8 @@
         "callout": "La sortie HTML est passée par _sanitizeHtml() pour prévenir les attaques XSS. Les balises et attributs dangereux sont supprimés automatiquement."
       },
       "formatting": {
-        "title": "Formatage des nombres & dates"
+        "title": "Formatage des nombres & dates",
+        "localeNote": "Ces filtres formatent avec la locale par défaut du navigateur, pas avec $i18n.locale : changer la locale retraduit les clés t mais ne change pas leur sortie. Les sorties ci-dessous sont celles d'un navigateur en-US ; un navigateur pt-BR affiche R$ 1.234,56 et 25/02/2026 pour les lignes currency:'BRL' et date."
       },
       "liveDemo": {
         "title": "Démo en direct — Sélecteur de locale",
@@ -1632,7 +1638,9 @@
         "strictBindings": "bind-* rejette les attributs d'event handler inline (bind-onclick, bind-onerror, tout nom bind-on* sans tiret ; bind-onboarding-step reste lié) avec un avertissement [Security], et les valeurs de bind-srcdoc passent par le sanitizer de bind-html (ou par votre fonction sanitizeHtml). Lu à l'initialisation de chaque binding : définissez-le avant NoJS.init(). Une fois à true, il ne peut plus repasser à false après init().",
         "pageRelative": "<template src> est résolu par rapport à la page et ignore base et baseApiUrl.",
         "escapeParams": "Les paramètres t-* des traductions t-html sont échappés en HTML. Le modifier après init() réaffiche les traductions actives.",
-        "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel."
+        "strictLocale": "Un nojs-locale persisté qui n'est pas dans un supportedLocales non vide est ignoré à la restauration et supprimé du localStorage. Passez-le dans l'appel de NoJS.i18n() qui restaure la locale, ou définissez-le via config() avant cet appel.",
+        "strictUnmounted": "on:unmounted se déclenche aussi quand une directive retire l'élément (if / else-if, each / foreach, un changement de route), une fois par élément à la microtâche suivante, et ne se déclenche plus pour une ligne d'un each avec key qui a seulement été déplacée. Un élément qui reste dans le DOM (un case de switch masqué) ne le déclenche pas.",
+        "strictOutlets": "Seul l'outlet par défaut cherche les routes dans le dossier router.templates. Un outlet nommé sans src propre n'est rempli que par les routes outlet=\"name\" : sur une route trouvée qui ne le remplit pas, il est vidé au lieu de demander pages/<route>.tpl et d'afficher le wildcard ou le 404 intégré."
       }
     },
     "plugins": {

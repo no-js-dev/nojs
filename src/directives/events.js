@@ -5,7 +5,7 @@
 import { evaluate, _execStatement } from "../evaluate.js";
 import { findContext } from "../dom.js";
 import { registerDirective } from "../registry.js";
-import { _onDispose } from "../globals.js";
+import { _onDispose, _config } from "../globals.js";
 
 const _LIFECYCLE_EVENTS = new Set(["mounted", "init", "updated", "error", "unmounted"]);
 
@@ -83,11 +83,21 @@ registerDirective("on:*", {
       return;
     }
     if (event === "unmounted") {
+      // strictUnmounted: fire at most once, and only once the element has
+      // really left the document. A keyed-each move (insertBefore) produces
+      // a removal record for a node that is still connected.
+      let fired = false;
+      const fire = () => {
+        fired = true;
+        _execStatement(expr, ctx, { $el: el });
+      };
       const observer = new MutationObserver((mutations) => {
+        if (fired) return;
         for (const m of mutations) {
           for (const node of m.removedNodes) {
             if (node === el || node.contains?.(el)) {
-              _execStatement(expr, ctx, { $el: el });
+              if (_config.strictUnmounted === true && el.isConnected) continue;
+              fire();
               observer.disconnect();
               return;
             }
@@ -96,7 +106,18 @@ registerDirective("on:*", {
       });
       if (el.parentElement)
         observer.observe(el.parentElement, { childList: true, subtree: true });
-      _onDispose(() => observer.disconnect());
+      _onDispose(() => {
+        observer.disconnect();
+        // Directives dispose an element before removing it, so the observer
+        // is gone when the removal happens. With strictUnmounted, check once
+        // the removing code has finished: a disposed element that stays
+        // connected (switch hide, NoJS.dispose()) does not fire.
+        if (_config.strictUnmounted === true && !fired) {
+          queueMicrotask(() => {
+            if (!fired && !el.isConnected) fire();
+          });
+        }
+      });
       return;
     }
 

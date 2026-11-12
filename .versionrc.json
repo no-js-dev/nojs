@@ -7,6 +7,7 @@
     { "file": "docs/llms.txt", "pattern": "- Latest release: **v{v}** — see" },
     { "file": "dist/iife/no.js", "pattern": " * No.JS v{v} — ", "generated": true },
     { "file": "dist/iife/no.js", "pattern": "version:\"{v}\"", "generated": true },
+    { "file": "dist/compiler/compiler.mjs", "pattern": " * No.JS v{v} — ", "generated": true },
     { "file": "dist/iife/no.js.map", "pattern": "version: \\\"{v}\\\",", "generated": true }
   ],
   "build": "node build.js",

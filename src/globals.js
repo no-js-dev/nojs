@@ -12,7 +12,7 @@ export const _config = {
   csrf: null,
   cache: { strategy: "none", ttl: 300000 },
   templates: { cache: true, pageRelative: false },
-  router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true },
+  router: { useHash: false, base: "/", scrollBehavior: "top", templates: "pages", ext: ".tpl", suppressHashWarning: false, focusBehavior: "none", viewTransition: true, strictOutlets: false },
   i18n: { defaultLocale: "en", fallbackLocale: "en", detectBrowser: false, loadPath: null, ns: [], supportedLocales: [], cache: true, persist: false, escapeParams: false, strictLocale: false },
   debug: false,
   devtools: false,
@@ -29,6 +29,7 @@ export const _config = {
   strictDevtools: false,
   strictJsonld: false,
   strictBindings: false,
+  strictUnmounted: false,
 };
 
 export const _interceptors = { request: [], response: [] };
@@ -198,6 +199,7 @@ function _notifyPartition(set, seen) {
       if (seen.has(fn)) continue;
       seen.add(fn);
     }
+    if (fn._disposed) continue;
     if (fn._el && !fn._el.isConnected) {
       set.delete(fn);
       continue;
@@ -293,6 +295,7 @@ export function _deleteStoreWatcher(fn) {
 
 export function _notifyRouteWatchers() {
   for (const fn of [..._routeWatchers]) {
+    if (fn._disposed) continue;
     if (fn._el && !fn._el.isConnected) {
       _routeWatchers.delete(fn);
       continue;
@@ -382,6 +385,7 @@ export function _watchExpr(expr, ctx, fn) {
     (_currentEl.__watcherFns || (_currentEl.__watcherFns = [])).push(fn);
   } else {
     _onDispose(() => {
+      fn._disposed = true;
       let d = ctx;
       while (d && d.__isProxy) {
         d.__listeners.delete(fn);

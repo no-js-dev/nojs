@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.22.0...HEAD)
+## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.23.0...HEAD)
+
+## [1.23.0](https://github.com/no-js-dev/nojs/compare/v1.22.0...v1.23.0) — 2026-11-12
+
+### Added
+
+- Package `exports` map with a Node-safe ESM compiler entry, `@no-js-dev/nojs/compiler` (`dist/compiler/compiler.mjs`, built by `node build.js`): `parseExpression`, `parseStatements`, `segmentPipes` and `evaluate` without the framework runtime. Additive: in bundlers (`browser` condition) the package root still resolves to `dist/iife/no.js`, as the `browser` field did; Node `import` / `require` of the root now resolve to `src/index.js` (new `main` / `module` fields); `src/*`, `dist/*`, `types/*` and `package.json` have explicit entries and a final `"./*"` catch-all keeps every other existing path importable, so nothing previously reachable is blocked. Re-applies the exports half of [#348](https://github.com/no-js-dev/nojs/pull/348) ([#333](https://github.com/no-js-dev/nojs/issues/333))
+- `strictUnmounted`: `on:unmounted` also fires when a directive removes the element (`if` / `else-if`, `each` / `foreach`, a route change), once and on the next microtask; a keyed `each` row that only moved no longer fires it. By default the hook only sees removals made by your own code, as in v1.21.1, because directives dispose the element (and the hook's observer) before removing it
+- `router.strictOutlets`: only the default outlet looks routes up in the `router.templates` folder; a named outlet (`route-view="name"`) without its own `src` is filled only by `outlet="name"` routes, so on an explicitly matched route that does not fill it, it is cleared instead of requesting `pages/<route>.tpl` and rendering the `route="*"` wildcard or the built-in 404 (the v1.21.1 default, kept). Named outlets with `src` and the wildcard fallback on pages no explicit route matches are unchanged
+
+### Fixed
+
+- Watchers disposed while a reactive update is running no longer run in that update. A `switch` case being hidden used to re-evaluate its content once with the new value after getting `display: none`, so a `get` inside it requested the new URL (twice) and an `sse` reopened its connection for a case that was already hidden. Content that stays visible is unaffected. Cases hidden on the first render are still reactive until shown and hidden once; this is documented as a known limitation in [Conditionals](docs/md/conditionals.md#hidden-cases)
+- Docs: the filters and i18n pages state that `number`, `currency`, `date` and `datetime` format with the browser's default locale, not `$i18n.locale`, and that `relative` / `fromNow` return English strings; the example outputs now match what core produces in an `en-US` browser (`R$1,234.56`, `2/25/26`, `2/25/2026, 3:45:00 PM`, `2h ago`, `3d ago`, `in 2h`). No code change
 
 ## [1.22.0](https://github.com/no-js-dev/nojs/compare/v1.21.1...v1.22.0) — 2026-11-10
 

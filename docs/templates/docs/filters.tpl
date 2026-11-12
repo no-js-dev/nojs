@@ -42,10 +42,11 @@
   <!-- Date Filters -->
   <div class="doc-section">
     <h2 class="doc-title" id="filters-date" t="docs.filters.date.title"></h2>
-    <div class="code-block"><pre><span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | date:'short'"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 02/25/26 --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | relative"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- 3 days ago --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | datetime"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- Feb 25, 2026, 3:30 PM --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | fromNow"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>             <span class="hl-cmt">&lt;!-- in 2 hours --&gt;</span></pre></div>
+    <div class="code-block"><pre><span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | date:'short'"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 2/25/26 --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | relative"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- 3d ago --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | datetime"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- 2/25/2026, 3:30:00 PM --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"date | fromNow"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>             <span class="hl-cmt">&lt;!-- in 2h --&gt;</span></pre></div>
+    <div class="callout"><p t="docs.filters.date.localeNote"></p></div>
   </div>
 
   <!-- Utility Filters -->

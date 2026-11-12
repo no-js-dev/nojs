@@ -133,15 +133,16 @@
   <!-- Number & Date Formatting -->
   <div class="doc-section">
     <h2 class="doc-title" id="i18n-formatting" t="docs.i18n.formatting.title" t-html></h2>
+    <p class="doc-text" t="docs.i18n.formatting.localeNote"></p>
     <div class="code-block"><pre><span class="hl-cmt">&lt;!-- Currency --&gt;</span>
 <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"price | currency"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>           <span class="hl-cmt">&lt;!-- $1,234.56 --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"price | currency:'BRL'"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>     <span class="hl-cmt">&lt;!-- R$ 1.234,56 --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"price | currency:'BRL'"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>     <span class="hl-cmt">&lt;!-- R$1,234.56 --&gt;</span>
 
 <span class="hl-cmt">&lt;!-- Date --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | date"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- 02/25/2026 --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | date"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>            <span class="hl-cmt">&lt;!-- 2/25/26 --&gt;</span>
 <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | date:'long'"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>     <span class="hl-cmt">&lt;!-- February 25, 2026 --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | datetime"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 02/25/2026 3:45 PM --&gt;</span>
-<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | relative"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 2 hours ago --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | datetime"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 2/25/2026, 3:45:00 PM --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"createdAt | relative"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>        <span class="hl-cmt">&lt;!-- 2h ago (always English) --&gt;</span>
 
 <span class="hl-cmt">&lt;!-- Number --&gt;</span>
 <span class="hl-tag">&lt;span</span> <span class="hl-attr">bind</span>=<span class="hl-str">"value | number"</span><span class="hl-tag">&gt;&lt;/span&gt;</span>              <span class="hl-cmt">&lt;!-- 1,235 (default: 0 decimals) --&gt;</span>

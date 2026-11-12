@@ -425,7 +425,8 @@
         "onMounted": "Element inserted into visible DOM",
         "onUpdated": "DOM mutation observed (via MutationObserver)",
         "onUnmounted": "Element removed from DOM",
-        "onError": "Error in this element's subtree"
+        "onError": "Error in this element's subtree",
+        "unmountedNote": "By default (v1.21.1 behavior), on:unmounted fires when your own code removes the element, for example with el.remove(). When a directive removes it (if or else-if turning false, a row leaving an each list, a route change), the hook does not run, and a keyed each row that only moved fires it. Set strictUnmounted: true to run the hook once when a directive removes the element and never for a moved row. A hidden switch case stays in the DOM, so its hook does not run in either mode."
       },
       "keyModifiers": {
         "title": "Key Modifiers",
@@ -481,7 +482,10 @@
         "title": "switch / case",
         "text": "Render one of many templates based on a value.",
         "inlineSubtitle": "Inline Content (no templates)",
-        "multiValueSubtitle": "Multi-Value Case"
+        "multiValueSubtitle": "Multi-Value Case",
+        "hiddenSubtitle": "Hidden Cases",
+        "hiddenText": "switch keeps every case element in the DOM and hides the ones that do not match with display: none. When a case is hidden, its content is disposed: bindings stop updating and get, sse or other directives inside it stop reacting, until the case matches again and its content is processed anew.",
+        "hiddenLimitation": "Known limitation: a case that does not match when the switch first renders is hidden but not disposed. Its inline content stays reactive (bindings keep updating, a get whose URL depends on changing state refetches) until the case has been shown and hidden once. Cases that use then=\"templateId\" are not affected, because a hidden template case has no content. Use then templates for cases whose content must stay inert while hidden."
       },
       "elseOnLoops": {
         "title": "else on Loop Elements",
@@ -860,7 +864,7 @@
       "namedOutlets": {
         "title": "Named Outlets (route-view)",
         "text": "Multiple route-view outlets can coexist in the same page. Give each outlet a name via the attribute value, and point route templates at specific outlets using the outlet attribute.",
-        "callout": "Outlets with no matching template for the current route are always cleared on navigation."
+        "callout": "Outlets with no matching template for the current route are cleared on navigation, unless they look routes up in files. By default (v1.21.1 behavior), every outlet without its own src, named outlets included, also looks the route up in the router.templates folder (pages unless configured): on /about above, sidebar and topbar request pages/about.tpl and, when it is missing, render the route=\"*\" wildcard or the built-in 404. Set router.strictOutlets: true to keep that lookup for the default outlet only, so named outlets without src are cleared when the active route does not fill them. Named outlets with src, and the wildcard fallback on pages no explicit route matches, work the same in both modes."
       },
       "catchAll": {
         "title": "404 / Catch-All Routes",
@@ -1298,7 +1302,8 @@
         "title": "Array Filters"
       },
       "date": {
-        "title": "Date Filters"
+        "title": "Date Filters",
+        "localeNote": "number, currency, date and datetime format with the browser's default locale, not with $i18n.locale: switching the app language does not change their output. The outputs shown are for an en-US browser. relative and fromNow always return short English strings (5m ago, in 2h). To follow the app locale, register a filter that reads NoJS.locale and mention $i18n.locale in the binding so it re-renders, e.g. $i18n.locale && createdAt | localDate (filter arguments are literals)."
       },
       "utility": {
         "title": "Utility Filters"
@@ -1319,8 +1324,8 @@
         "slugify": "Converts to URL-friendly slug",
         "trim": "Removes leading/trailing whitespace",
         "encodeUri": "Encodes a URI component",
-        "currency": "Formats number as currency",
-        "number": "Formats number with locale grouping",
+        "currency": "Formats number as currency, in the browser's default locale",
+        "number": "Formats number with grouping, in the browser's default locale",
         "percent": "Formats number as percentage",
         "ordinal": "Adds ordinal suffix (1st, 2nd, 3rd)",
         "filesize": "Formats bytes to human-readable size",
@@ -1331,10 +1336,10 @@
         "sortBy": "Sorts array by property",
         "first": "Returns the first element of an array",
         "last": "Returns the last element of an array",
-        "date": "Formats Date object",
-        "datetime": "Formats Date with time",
-        "relative": "Time elapsed since date (e.g. '5 minutes ago')",
-        "fromNow": "Time until future date (e.g. 'in 3 hours')",
+        "date": "Formats Date object, in the browser's default locale",
+        "datetime": "Formats Date with time, in the browser's default locale",
+        "relative": "Time elapsed since date, in English (e.g. '5m ago')",
+        "fromNow": "Time until future date, in English (e.g. 'in 3h')",
         "json": "Serializes value as JSON string",
         "default": "Returns fallback if value is null/undefined",
         "keys": "Returns object keys as array",
@@ -1385,7 +1390,8 @@
         "callout": "The HTML output is passed through _sanitizeHtml() to prevent XSS. Dangerous tags and attributes are stripped automatically."
       },
       "formatting": {
-        "title": "Number & Date Formatting"
+        "title": "Number & Date Formatting",
+        "localeNote": "These filters format with the browser's default locale, not with $i18n.locale: changing the locale re-translates t keys but does not change their output. The outputs below are for an en-US browser; a pt-BR browser shows R$ 1.234,56 and 25/02/2026 for the currency:'BRL' and date lines."
       },
       "fallback": {
         "title": "Fallback Behavior",
@@ -1632,7 +1638,9 @@
         "strictBindings": "bind-* rejects inline event-handler attributes (bind-onclick, bind-onerror, any bind-on* name without a hyphen; bind-onboarding-step still binds) with a [Security] warning, and bind-srcdoc values go through the bind-html sanitizer (or your sanitizeHtml function). Read when each binding initializes, so set it before NoJS.init(). Once true, it cannot be set back to false after init().",
         "pageRelative": "<template src> resolves against the page and ignores base and baseApiUrl.",
         "escapeParams": "t-* params in t-html translations are HTML-escaped. Changing it after init() re-renders active translations.",
-        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call."
+        "strictLocale": "A persisted nojs-locale that is not in a non-empty supportedLocales is ignored on restore and removed from localStorage. Pass it in the NoJS.i18n() call that restores the locale, or set it with config() before that call.",
+        "strictUnmounted": "on:unmounted also fires when a directive removes the element (if / else-if, each / foreach, a route change), once per element on the next microtask, and no longer fires for a keyed each row that only moved. An element that stays in the DOM (a hidden switch case) does not fire.",
+        "strictOutlets": "Only the default outlet looks routes up in the router.templates folder. A named outlet without its own src is filled only by outlet=\"name\" routes: on a matched route that does not fill it, it is cleared instead of requesting pages/<route>.tpl and rendering the wildcard or the built-in 404."
       }
     },
     "plugins": {

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Switch hidden case — NoJS E2E</title>
+</head>
+<body>
+  <!-- A case being hidden must not re-run its directives with the new
+       switch value: its `get` would request /api/item-b for a case that is
+       already display:none. -->
+  <div state="{ s: 'a' }">
+    <div switch="s">
+      <section case="'a'" data-test="case-a">
+        <div get="/api/item-{s}" as="item"><span data-test="item-a" bind="item.name"></span></div>
+      </section>
+      <section case="'b'" data-test="case-b">B view</section>
+    </div>
+    <button data-test="to-a" on:click="s = 'a'">a</button>
+    <button data-test="to-b" on:click="s = 'b'">b</button>
+  </div>
+
+  <script src="../../dist/iife/no.js"></script>
+</body>
+</html>

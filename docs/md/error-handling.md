@@ -38,7 +38,7 @@ Add `retry` and `retry-delay` to automatically retry failed requests before show
 </div>
 ```
 
-Retries use linear delay (not exponential backoff). The `loading` template remains visible during retries. HTTP status codes 5xx and network errors trigger retries; 4xx errors (client errors) do not.
+Retries use linear delay (not exponential backoff). The `loading` template remains visible during retries. HTTP status codes 5xx, network errors and timeouts trigger retries; 4xx errors (client errors) do not. Use `retry="0"` to disable retries on one element.
 
 ---
 

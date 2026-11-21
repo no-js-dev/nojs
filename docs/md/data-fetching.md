@@ -44,7 +44,7 @@ Absolute URLs skip base resolution:
 </script>
 ```
 
-> **Note:** `retries` applies to 5xx server errors and network failures. Client errors (4xx) are not retried.
+> **Note:** `retries` applies to 5xx server errors and network failures, including request timeouts. Client errors (4xx) are not retried.
 
 > **Note:** Global `headers` are sent with every request, including requests to other origins. Set [`scopeHeaders: true`](configuration.md#opt-in-hardening-flags) to send them only to trusted origins: the page, the `baseApiUrl` origin, and the origin of the nearest `base` attribute. Per-request `headers` still apply to any origin.
 

@@ -37,7 +37,7 @@ test.describe('Plugin System', () => {
     await expect(page.getByTestId('cancel-signal')).toHaveText('cancelled');
     // Status should remain 'idle' because the then expression never ran
     await expect(page.getByTestId('cancel-status')).toHaveText('idle');
-    // Error template should NOT be visible (AbortError is silently swallowed)
-    await expect(page.getByTestId('cancel-error')).not.toBeVisible();
+    // Error template renders (docs: CANCEL triggers the element's error template)
+    await expect(page.getByTestId('cancel-error')).toBeVisible();
   });
 });

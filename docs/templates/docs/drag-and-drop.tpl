@@ -6,7 +6,7 @@
   <div class="nojs-deprecation-banner">
     <strong>&#x26A0;&#xFE0F; Moved to NoJS Elements</strong>
     <p>The <code>drag</code>, <code>drop</code>, <code>drag-list</code>, and <code>drag-multiple</code> directives have moved to <code>@no-js-dev/nojs-elements</code> as of v1.13.0. They are still available in core as deprecation stubs that emit warnings. Install the Elements plugin for full functionality.</p>
-    <p><a route="/docs/plugins">Migration Guide &rarr;</a></p>
+    <p><a href="/docs/plugins" route="/docs/plugins">Migration Guide &rarr;</a></p>
   </div>
 
   <!-- drag -->

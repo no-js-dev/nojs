@@ -20,8 +20,8 @@
         <div class="sidebar-group">
           <h4 class="sidebar-heading" t="faq.sidebar.resources"></h4>
           <ul class="sidebar-list">
-            <li><a route="/docs" class="sidebar-link" on:click="sidebarOpen = false" t="faq.sidebar.documentation"></a></li>
-            <li><a route="/examples" class="sidebar-link" on:click="sidebarOpen = false" t="faq.sidebar.examples"></a></li>
+            <li><a href="/docs" route="/docs" class="sidebar-link" on:click="sidebarOpen = false" t="faq.sidebar.documentation"></a></li>
+            <li><a href="/examples" route="/examples" class="sidebar-link" on:click="sidebarOpen = false" t="faq.sidebar.examples"></a></li>
             <li><a href="https://discord.gg/CaSbGYg3xY" target="_blank" class="sidebar-link" on:click="sidebarOpen = false" t="faq.sidebar.discord"></a></li>
           </ul>
         </div>

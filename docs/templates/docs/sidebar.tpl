@@ -36,7 +36,7 @@
       <h4 class="sidebar-heading" bind="section.heading"></h4>
       <ul class="sidebar-list">
         <li foreach="link in section.links" key="link.route">
-          <a bind-route="link.route" class="sidebar-link" route-active="active"
+          <a bind-href="link.route" bind-route="link.route" class="sidebar-link" route-active="active"
              on:click="sidebarOpen = false" bind="link.label"></a>
         </li>
       </ul>

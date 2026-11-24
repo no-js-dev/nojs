@@ -67,20 +67,23 @@
     <div data-test="html-output" bind-html="html"></div>
   </section>
 
-  <!-- 8. External store mutation via notify() -->
+  <!-- 8. External store mutation via notify(): page JavaScript outside NoJS
+       changes the store and calls NoJS.notify(). The button uses a native
+       listener because NoJS expressions cannot call window functions. -->
+  <section state="{}">
+    <p class="test-label">Test 8: External store mutation + notify()</p>
+    <span class="value" data-test="notify-display" bind="$store.app.theme"></span>
+    <button data-test="notify-toggle">
+      Toggle via JS
+    </button>
+  </section>
   <script>
     function toggleThemeExternal() {
       NoJS.store.app.theme = NoJS.store.app.theme === 'light' ? 'dark' : 'light';
       NoJS.notify();
     }
+    document.querySelector('[data-test="notify-toggle"]').addEventListener('click', toggleThemeExternal);
   </script>
-  <section state="{}">
-    <p class="test-label">Test 8: External store mutation + notify()</p>
-    <span class="value" data-test="notify-display" bind="$store.app.theme"></span>
-    <button data-test="notify-toggle" on:click="toggleThemeExternal()">
-      Toggle via JS
-    </button>
-  </section>
 
   <script src="../../dist/iife/no.js"></script>
   <script>NoJS.init();</script>

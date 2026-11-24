@@ -76,10 +76,12 @@ test.describe('State & Binding', () => {
     const display = page.getByTestId('notify-display');
     await expect(display).toHaveText('light');
 
-    await page.evaluate(() => (window as any).toggleThemeExternal());
+    const toggle = page.getByTestId('notify-toggle');
+    await toggle.click();
     await expect(display).toHaveText('dark');
+    await expect(page.getByTestId('store-display')).toHaveText('dark');
 
-    await page.evaluate(() => (window as any).toggleThemeExternal());
+    await toggle.click();
     await expect(display).toHaveText('light');
   });
 });

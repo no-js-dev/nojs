@@ -35,6 +35,6 @@ Run `node .claude/skills/verify-nojs/scripts/verify.mjs drive --journey .claude/
 
 - `test-server.js` rewrites only `https://cdn.no-js.dev/` to the local build. NoJS-Elements still comes from `https://cdn-elements.no-js.dev/` (redirects to `nojs-elements@main` on jsDelivr), so the dropdown runs the published Elements, not a local checkout, and the journey fails offline.
 - Language options are `role=menuitem`, not buttons. The mobile pills duplicate the codes as buttons, so unscoped `role=button[name="PT"]` is ambiguous.
-- Route links have no `href`: select them by `[route="/..."]`, not `role=link`.
+- The docs site's route links carry `href` next to `route`, so they appear as links in ARIA snapshots (`link "Docs"` with `/url: /docs`). Keep selecting them by `[route="/..."]`: the accessible names change with the locale.
 - The page embeds Google Analytics; the harness aborts it and logs one `[error] Failed to load resource: net::ERR_FAILED` in `console.log`. That line is expected.
 - The playground (`/playground`) runs the editor in an iframe; it is not mapped yet.

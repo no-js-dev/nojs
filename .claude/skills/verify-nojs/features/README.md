@@ -12,7 +12,7 @@ This directory is the maintained source for verifying what a NoJS site author an
 ## Driving conventions
 
 - Every journey starts from a fresh browser context with empty storage.
-- Fixture handles are `data-test` attributes; docs-site navigation handles are `route` attributes. NoJS route links have no `href`, so `role=link` never matches them.
+- Fixture handles are `data-test` attributes; docs-site navigation handles are `route` attributes. The router never adds `href`: links written with only `route` (the e2e fixtures) are not `role=link`; docs-site links have `href` written next to `route`.
 - Treat every step as literal: keep selectors, quotes and values unchanged.
 - Mock only the site's backend under `/api/`. Everything else is served by `test-server.js` from this checkout.
 

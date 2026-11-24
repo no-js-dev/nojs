@@ -3116,10 +3116,9 @@ Full client-side routing with no page reloads.
 ```html
 <body>
   <nav>
-    <a route="/">Home</a>
-    <a route="/about">About</a>
-    <a route="/users">Users</a>
-    <a route="/users/:id">User Detail</a>
+    <a href="/" route="/">Home</a>
+    <a href="/about" route="/about">About</a>
+    <a href="/users" route="/users">Users</a>
   </nav>
 
   <!-- This is where route content renders -->
@@ -3148,6 +3147,23 @@ Full client-side routing with no page reloads.
   </template>
 </body>
 ```
+
+### Links: write `href` next to `route`
+
+The router handles a click on any element with a `route` attribute, so `<a route="/about">` navigates without `href`. Without `href`, though, the browser does not treat the anchor as a link: it cannot be reached with Tab, screen readers do not announce it as a link, crawlers do not follow it, and a middle click opens nothing. Write the same destination in `href`:
+
+```html
+<!-- History mode (the default) -->
+<a href="/about" route="/about">About</a>
+
+<!-- Hash mode (router: { useHash: true }) -->
+<a href="#/about" route="/about">About</a>
+
+<!-- Dynamic destination -->
+<a bind-href="'/users/' + user.id" bind-route="'/users/' + user.id" bind="user.name"></a>
+```
+
+A normal click still navigates without reloading the page; `href` is for keyboard users, assistive technology, crawlers, new tabs and visitors without JavaScript. With [`router.base`](configuration.md) set, put the base in `href` (`href="/app/about"`) and keep `route` relative to the base (`route="/about"`). In history mode, a visit to that URL without JavaScript (or in a new tab) needs the server's SPA fallback; see [Deployment](#deployment).
 
 ---
 

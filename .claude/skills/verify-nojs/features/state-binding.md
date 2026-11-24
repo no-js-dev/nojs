@@ -34,10 +34,10 @@ Run the whole recipe with `node .claude/skills/verify-nojs/scripts/verify.mjs dr
 - **Read the HTML binding.** Step `["expect-contains", "[data-test=html-output] strong", "bold"]`. The markup renders as elements, not escaped text.
 - **Persist a value.** Step `["fill", "[data-test=persist-input]", "kept across reload"]`, then `["reload"]`. After the reload `[data-test=persist-input]` has value `kept across reload` and `[data-test=persist-display]` shows it, while the non-persisted counter is back to `0`.
 - **Proof.** Steps `["screenshot", "01-after-actions"]`, `["aria", "01-after-actions"]` before the reload and `["screenshot", "02-after-reload"]` after it.
-- **External notify (currently fails).** Run `drive --journey .claude/skills/verify-nojs/journeys/state-binding-notify.json`. Step `["click", "[data-test=notify-toggle]"]` should flip `[data-test=notify-display]` to `dark`; it stays `light`.
+- **External notify.** Run `drive --journey .claude/skills/verify-nojs/journeys/state-binding-notify.json`. Step `["click", "[data-test=notify-toggle]"]` flips `[data-test=notify-display]` and `[data-test=store-display]` to `dark`.
 
 ## Gotchas
 
-- `state-binding-notify.json` fails at step 4 on `main` (ede16b0). The `Toggle via JS` button calls `toggleThemeExternal()` from an `on:click` expression, and the expression allow-list blocks window functions, so `console.log` shows `[warning] [No.JS] Expression error: toggleThemeExternal() toggleThemeExternal is not defined`. The e2e spec bypasses the button with `page.evaluate`. `NoJS.notify()` stays unverified from the visitor's side until the fixture wires the button another way.
+- The `Toggle via JS` button is wired with a native `addEventListener`, not `on:click`: NoJS expressions cannot call window functions (expression allow-list). Up to d168ccb it used `on:click="toggleThemeExternal()"`, which only logged `Expression error: ... toggleThemeExternal is not defined`.
 - The watcher output is `changed to <n>` only after the first change; on load it is empty.
 - `persist-key="e2e-test"` writes localStorage key `e2e-test`. A drive's context starts empty, so a stale value from another run cannot leak in; inside one journey, assert persistence only after `reload`.

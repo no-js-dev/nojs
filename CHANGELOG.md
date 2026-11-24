@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.23.0...HEAD)
 
+### Fixed
+
+- Router: a failed route guard reached by a link click or `$router.push()` now adds its `redirect` target as a new history entry instead of replacing the entry of the page the user navigated from, so Back returns to that page (hash and history mode). `$router.replace()`, Back/Forward onto a guarded entry and a page load at a guarded URL still replace the blocked URL, so Back never lands on it
+- E2E fixture `state-binding.html` (test 8): the "Toggle via JS" button runs `NoJS.notify()` from a native click listener; its `on:click="toggleThemeExternal()"` was blocked by the expression allow-list. The spec now clicks the button instead of calling the function through `page.evaluate`
+- `CONTRIBUTING.md` gives the docs dev server's real port, 3999 (`npm start`, `docs/dev-server.js`); 3000 stays the e2e test server's default
+
 ## [1.23.0](https://github.com/no-js-dev/nojs/compare/v1.22.0...v1.23.0) — 2026-11-12
 
 ### Added

@@ -122,7 +122,7 @@ npm install
 # Build (outputs to dist/)
 npm run build
 
-# Start the dev server (docs site at http://localhost:3000)
+# Start the dev server (docs site at http://localhost:3999)
 npm start
 
 # Run unit tests
@@ -258,7 +258,7 @@ This is the most involved type of contribution. A directive touches both repos a
 - [ ] Markdown docs go in `docs/md/`
 - [ ] Template files go in `docs/templates/` (`.tpl` extension)
 - [ ] i18n: **all 5 locales** must stay in sync — `en` is the source of truth
-- [ ] Preview your changes locally with `npm start` (http://localhost:3000)
+- [ ] Preview your changes locally with `npm start` (http://localhost:3999)
 
 ---
 

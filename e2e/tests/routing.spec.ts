@@ -87,4 +87,18 @@ test.describe('Routing', () => {
     await expect(about).toBeVisible();
     await expect(page.getByTestId('page-home')).toBeHidden();
   });
+
+  test('9 — Route guard: Back after the redirect returns to the page the user left', async ({ page }) => {
+    await page.getByTestId('nav-about').click();
+    await expect(page.getByTestId('page-about')).toBeVisible();
+
+    await page.getByTestId('nav-protected').click();
+    await expect(page.getByTestId('page-login')).toBeVisible();
+    await expect(page).toHaveURL(/#\/login$/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/about$/);
+    await expect(page.getByTestId('page-about')).toBeVisible();
+    await expect(page.getByTestId('page-login')).toBeHidden();
+  });
 });

@@ -36,11 +36,11 @@ Run `node .claude/skills/verify-nojs/scripts/verify.mjs drive --journey .claude/
 - **Navigate from an expression.** Step `["click", "[data-test=prog-nav]"]`. URL contains `#/about` and the About page renders.
 - **Deep link.** Step `["goto", "/e2e/examples/routing.html#/users/7"]`. `[data-test=user-id]` reads `7`.
 - **Proof.** Steps `["screenshot", "01-about-via-router-push"]`, `["aria", "01-about-via-router-push"]`, `["screenshot", "02-deep-link"]`.
-- **Back after a guard redirect (currently fails).** Run `drive --journey .claude/skills/verify-nojs/journeys/routing-guard-back.json`: About, then Protected (redirected to `#/login`), then `["back"]`. URL should contain `#/about`; it lands on `#/`.
+- **Back after a guard redirect.** Run `drive --journey .claude/skills/verify-nojs/journeys/routing-guard-back.json`: About, then Protected (redirected to `#/login`), then `["back"]`. URL contains `#/about` and the About page renders.
 
 ## Gotchas
 
-- `routing-guard-back.json` fails at step 8 on `main` (ede16b0). The guard redirect calls `navigate(redirect, true)` before the blocked URL is ever pushed, so the replace overwrites the entry of the page the visitor clicked from (`#/about`), and Back skips it. Same code path in history mode.
+- A guard redirect follows the navigation that hit the guard: a link click or `$router.push` adds the redirect target as a new entry (Back returns to the page the visitor left); `$router.replace`, Back/Forward onto a guarded entry and a deep link replace the blocked URL. Up to d168ccb every redirect replaced, so `routing-guard-back.json` failed at step 8 (Back landed on `#/`).
 - The fixture runs in hash mode (`router.useHash: true`): assert with `expect-url "#/..."`. History-mode routes (docs site) need `expect-path`.
 - `Home` uses `route-active-exact`, the other links `route-active`; the class is `active`. Assert the rendered template, not only the class.
 - Route links have no `href`, so they are not exposed as links in the ARIA snapshot (they appear as text) and are not reachable with Tab.

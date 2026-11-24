@@ -167,7 +167,11 @@ export function _createRouter() {
         const allowed = evaluate(guardExpr, ctx);
         if (!allowed) {
           if (redirectPath && _isSafeRedirect(redirectPath)) {
-            await navigate(redirectPath, true);
+            // The blocked path was never written to the URL. A push lands on
+            // the redirect target as a new entry, so Back returns to the page
+            // the user left; a replace, a history pop and the initial load
+            // (where the URL already shows the blocked path) replace it.
+            await navigate(redirectPath, replace);
           } else if (redirectPath) {
             _warn(`Route guard redirect blocked — "${redirectPath}" is not a relative path.`);
             _clearOutlets();
@@ -193,7 +197,7 @@ export function _createRouter() {
           const allowed = evaluate(guardExpr, ctx);
           if (!allowed) {
             if (redirectPath && _isSafeRedirect(redirectPath)) {
-              await navigate(redirectPath, true);
+              await navigate(redirectPath, replace);
             } else if (redirectPath) {
               _warn(`Route guard redirect blocked — "${redirectPath}" is not a relative path.`);
               _clearOutlets();

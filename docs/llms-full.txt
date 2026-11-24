@@ -3225,6 +3225,8 @@ In history mode, `path` is relative to [`router.base`](configuration.md): with `
 </template>
 ```
 
+When the guard fails, the router goes to `redirect` instead and the guarded URL never enters the browser history. The redirect follows the navigation that hit the guard: after a link click or `$router.push()`, the redirect target is a new history entry, so Back returns to the page the user was on; after `$router.replace()`, Back/Forward onto a guarded entry, or a page load at a guarded URL, the redirect target replaces the current entry.
+
 ---
 
 ## Programmatic Navigation

@@ -180,7 +180,7 @@
     <div store="nav" state="{ menuOpen: false }"></div>
     <nav class="sticky-nav" id="sticky-nav" class-menu-open="$store.nav.menuOpen">
       <div class="nav-container">
-        <a route="/" class="nav-logo">
+        <a href="/" route="/" class="nav-logo">
           <img src="assets/img/logo.svg" alt="NoJS" class="logo-img">
           <span class="logo-text">No<span class="logo-dot">.</span>JS</span>
         </a>
@@ -192,12 +192,12 @@
       </div>
     </nav>
     <div class="nav-links" class-open="$store.nav.menuOpen">
-          <a route="/" route-active="active" t="shell.header.home" on:click="$store.nav.menuOpen = false"></a>
-          <a route="/features" route-active="active" t="shell.header.features" on:click="$store.nav.menuOpen = false"></a>
-          <a route="/docs" route-active="active" t="shell.header.docs" on:click="$store.nav.menuOpen = false"></a>
-          <a route="/examples" route-active="active" t="shell.header.examples" on:click="$store.nav.menuOpen = false"></a>
-          <a route="/faq" route-active="active" t="shell.header.faq" on:click="$store.nav.menuOpen = false"></a>
-          <a route="/playground" route-active="active" t="shell.header.playground" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/" route="/" route-active="active" t="shell.header.home" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/features" route="/features" route-active="active" t="shell.header.features" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/docs" route="/docs" route-active="active" t="shell.header.docs" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/examples" route="/examples" route-active="active" t="shell.header.examples" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/faq" route="/faq" route-active="active" t="shell.header.faq" on:click="$store.nav.menuOpen = false"></a>
+          <a href="/playground" route="/playground" route-active="active" t="shell.header.playground" on:click="$store.nav.menuOpen = false"></a>
           <div class="nav-divider section-divider"><span class="section-divider-symbol"><span class="section-divider-bracket">&lt;</span><svg class="section-divider-bolt" width="14" height="14" viewBox="0 0 150 150" fill="currentColor" aria-hidden="true"><path d="m119.5 16h-54l-26 51h18l-27 67 73-67h-18z"/></svg><span class="section-divider-bracket">&gt;</span></span></div>
           <div class="nav-dropdown" dropdown dropdown-position="bottom" dropdown-align="end">
             <button class="nav-dropdown-toggle" dropdown-toggle>
@@ -309,12 +309,12 @@
         <div class="footer-top">
           <div class="footer-col">
             <h4 class="footer-col-title" t="shell.footer.nav"></h4>
-            <a route="/" class="footer-link" t="shell.header.home"></a>
-            <a route="/features" class="footer-link" t="shell.header.features"></a>
-            <a route="/docs" class="footer-link" t="shell.header.docs"></a>
-            <a route="/examples" class="footer-link" t="shell.header.examples"></a>
-            <a route="/faq" class="footer-link" t="shell.header.faq"></a>
-            <a route="/playground" class="footer-link" t="shell.header.playground"></a>
+            <a href="/" route="/" class="footer-link" t="shell.header.home"></a>
+            <a href="/features" route="/features" class="footer-link" t="shell.header.features"></a>
+            <a href="/docs" route="/docs" class="footer-link" t="shell.header.docs"></a>
+            <a href="/examples" route="/examples" class="footer-link" t="shell.header.examples"></a>
+            <a href="/faq" route="/faq" class="footer-link" t="shell.header.faq"></a>
+            <a href="/playground" route="/playground" class="footer-link" t="shell.header.playground"></a>
           </div>
           <div class="footer-col">
             <h4 class="footer-col-title" t="shell.footer.tools"></h4>

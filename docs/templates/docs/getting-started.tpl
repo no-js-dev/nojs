@@ -94,7 +94,7 @@
         <tr><td>30</td><td><code>validate</code> <sup class="deprecation-sup">*</sup></td><td t="docs.gettingStarted.coreConcepts.tableRow7"></td></tr>
       </tbody>
     </table>
-    <p class="deprecation-footnote"><sup class="deprecation-sup">*</sup> Moved to <code>@no-js-dev/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a route="/docs/plugins">Plugins</a>.</p>
+    <p class="deprecation-footnote"><sup class="deprecation-sup">*</sup> Moved to <code>@no-js-dev/nojs-elements</code> as of v1.13.0. Core retains deprecation stubs. See <a href="/docs/plugins" route="/docs/plugins">Plugins</a>.</p>
 
     <h3 class="doc-subtitle" id="getting-started-expressions" t="docs.gettingStarted.coreConcepts.expressionSubtitle"></h3>
     <p class="doc-text" t="docs.gettingStarted.coreConcepts.expressionText"></p>

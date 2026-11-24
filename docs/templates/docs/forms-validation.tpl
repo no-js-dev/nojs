@@ -6,7 +6,7 @@
   <div class="nojs-deprecation-banner">
     <strong>&#x26A0;&#xFE0F; Validation moved to NoJS Elements</strong>
     <p>The <code>validate</code> directive and related validation attributes (<code>validate-on</code>, <code>validate-if</code>, <code>error-*</code>, <code>$form</code> context) have moved to <code>@no-js-dev/nojs-elements</code> as of v1.13.0. They are still available in core as deprecation stubs that emit warnings. Install the Elements plugin for full functionality. The <code>error-boundary</code> directive remains in core.</p>
-    <p><a route="/docs/plugins">Migration Guide &rarr;</a></p>
+    <p><a href="/docs/plugins" route="/docs/plugins">Migration Guide &rarr;</a></p>
   </div>
 
   <!-- Declarative Form Submission -->

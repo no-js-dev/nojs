@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/no-js-dev/nojs/compare/v1.23.0...HEAD)
 
+### Changed
+
+- Docs: the routing guide (`docs/md/routing.md`, `llms-full.txt`) recommends writing `href` next to `route` on links (`href="#/path"` in hash mode, `bind-href` next to `bind-route`, `router.base` in `href`): without it the anchor cannot be reached with Tab, is not announced as a link, is not crawled and does not open in a new tab. The router handles the click either way. The docs site's header, footer, sidebar and in-page route links now carry `href`. An opt-in `router.linkHref` that sets it automatically is tracked in [#446](https://github.com/no-js-dev/nojs/issues/446)
+
 ### Fixed
 
 - Router: a failed route guard reached by a link click or `$router.push()` now adds its `redirect` target as a new history entry instead of replacing the entry of the page the user navigated from, so Back returns to that page (hash and history mode). `$router.replace()`, Back/Forward onto a guarded entry and a page load at a guarded URL still replace the blocked URL, so Back never lands on it

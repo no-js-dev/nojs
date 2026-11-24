@@ -1,0 +1,11 @@
+{
+  "name": "state-binding-notify",
+  "steps": [
+    ["goto", "/e2e/examples/state-binding.html"],
+    ["expect-text", "[data-test=notify-display]", "light"],
+    ["click", "[data-test=notify-toggle]"],
+    ["expect-text", "[data-test=notify-display]", "dark"],
+    ["expect-text", "[data-test=store-display]", "dark"],
+    ["screenshot", "01-after-toggle-via-js"]
+  ]
+}

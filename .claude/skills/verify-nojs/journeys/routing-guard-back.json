@@ -1,0 +1,15 @@
+{
+  "name": "routing-guard-back",
+  "steps": [
+    ["goto", "/e2e/examples/routing.html"],
+    ["click", "[data-test=nav-about]"],
+    ["expect-url", "#/about"],
+    ["click", "[data-test=nav-protected]"],
+    ["expect-url", "#/login"],
+    ["expect-visible", "[data-test=page-login]"],
+    ["back"],
+    ["expect-url", "#/about"],
+    ["expect-visible", "[data-test=page-about]"],
+    ["screenshot", "01-back-after-guard-redirect"]
+  ]
+}

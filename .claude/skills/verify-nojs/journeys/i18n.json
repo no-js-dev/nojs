@@ -1,0 +1,18 @@
+{
+  "name": "i18n",
+  "steps": [
+    ["goto", "/e2e/examples/i18n.html"],
+    ["expect-text", "[data-test=welcome-text]", "Welcome to our app"],
+    ["expect-text", "[data-test=greeting-text]", "Hello, Alice!"],
+    ["expect-text", "[data-test=plural-text]", "one item"],
+    ["click", "[data-test=set-five]"],
+    ["expect-text", "[data-test=plural-text]", "5 items"],
+    ["click", "[data-test=lang-es]"],
+    ["expect-text", "[data-test=farewell-text]", "Adiós"],
+    ["expect-text", "[data-test=welcome-text]", "Bienvenido a nuestra app"],
+    ["expect-text", "[data-test=greeting-text]", "Hola, Alice!"],
+    ["expect-text", "[data-test=plural-text]", "5 elementos"],
+    ["screenshot", "01-spanish"],
+    ["aria", "01-spanish"]
+  ]
+}

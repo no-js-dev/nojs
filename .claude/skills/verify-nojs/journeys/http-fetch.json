@@ -1,0 +1,32 @@
+{
+  "name": "http-fetch",
+  "steps": [
+    ["mock", "**/api/users", 200, [{ "name": "Alice" }, { "name": "Bob" }, { "name": "Charlie" }], { "method": "GET" }],
+    ["mock", "**/api/users", 201, { "id": 1 }, { "method": "POST" }],
+    ["mock", "**/api/slow", 200, { "message": "Done!" }, { "delay": 1500 }],
+    ["mock", "**/api/error", 500, {}],
+    ["mock", "**/api/empty", 200, []],
+    ["mock", "**/api/users/1", 200, { "name": "Leanne" }],
+    ["mock", "**/api/users/2", 200, { "name": "Ervin" }],
+    ["mock", "**/api/search/*", 200, [{ "name": "match" }]],
+    ["mock", "**/api/search-form", 200, { "ok": true }],
+    ["goto", "/e2e/examples/fetch.html"],
+    ["expect-visible", "[data-test=loading-msg]"],
+    ["expect-count", "[data-test=user-item]", 3],
+    ["expect-text", "[data-test=user-item] >> nth=0", "Alice"],
+    ["expect-visible", "[data-test=error-msg]"],
+    ["expect-visible", "[data-test=empty-msg]"],
+    ["expect-text", "[data-test=reactive-user]", "Leanne"],
+    ["expect-text", "[data-test=loaded-data]", "Done!"],
+    ["expect-hidden", "[data-test=loading-msg]"],
+    ["fill", "[data-test=user-id-input]", "2"],
+    ["expect-text", "[data-test=reactive-user]", "Ervin"],
+    ["expect-request", "GET", "**/api/users/2"],
+    ["fill", "[data-test=form-name]", "Ada"],
+    ["click", "[data-test=form-submit]"],
+    ["expect-visible", "[data-test=post-result]"],
+    ["expect-request", "POST", "**/api/users", "Ada"],
+    ["screenshot", "01-all-states"],
+    ["aria", "01-all-states"]
+  ]
+}

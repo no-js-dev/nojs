@@ -1,0 +1,27 @@
+{
+  "name": "docs-site",
+  "steps": [
+    ["goto", "/"],
+    ["expect-contains", "h1.headline", "Build the Web."],
+    ["expect-text", ".lang-select-toggle", "EN"],
+    ["click", ".nav-links a[route=\"/docs\"]"],
+    ["expect-path", "/docs"],
+    ["expect-text", "header.subpage-hero h1.section-title", "Documentation"],
+    ["expect-visible", "#getting-started-introduction"],
+    ["screenshot", "01-docs-en"],
+    ["click", ".lang-select-toggle"],
+    ["click", ".lang-select-menu >> role=menuitem[name=\"PT\"]"],
+    ["expect-text", ".lang-select-toggle", "PT"],
+    ["expect-text", ".nav-links a[route=\"/\"]", "Início"],
+    ["expect-text", "header.subpage-hero h1.section-title", "Documentação"],
+    ["click", ".nav-links a[route=\"/\"]"],
+    ["expect-path", "/"],
+    ["expect-contains", "h1.headline", "Construa a Web."],
+    ["screenshot", "02-home-pt"],
+    ["reload"],
+    ["expect-text", ".lang-select-toggle", "PT"],
+    ["expect-contains", "h1.headline", "Construa a Web."],
+    ["aria", "03-nav-pt-after-reload", ".nav-links"],
+    ["screenshot", "03-home-pt-after-reload"]
+  ]
+}

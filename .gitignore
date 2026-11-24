@@ -31,6 +31,9 @@ test-results
 .github/agents
 node-compile-cache
 jest_dx
-# Claude Code local settings/cache
-.claude/
+# Claude Code local settings/cache (project skills are tracked)
+.claude/*
+!.claude/skills/
+# verify-nojs skill run state and evidence
+.verify/
 __benchmarks__

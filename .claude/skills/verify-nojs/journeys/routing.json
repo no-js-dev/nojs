@@ -1,0 +1,32 @@
+{
+  "name": "routing",
+  "steps": [
+    ["goto", "/e2e/examples/routing.html"],
+    ["expect-visible", "[data-test=outlet] [data-test=page-home]"],
+    ["click", "[data-test=nav-about]"],
+    ["expect-url", "#/about"],
+    ["expect-visible", "[data-test=outlet] [data-test=page-about]"],
+    ["expect-hidden", "[data-test=page-home]"],
+    ["click", "[data-test=nav-user]"],
+    ["expect-url", "#/users/42"],
+    ["expect-text", "[data-test=user-id]", "42"],
+    ["click", "[data-test=nav-search]"],
+    ["expect-url", "#/search?q=hello"],
+    ["expect-text", "[data-test=search-query]", "hello"],
+    ["back"],
+    ["expect-url", "#/users/42"],
+    ["expect-text", "[data-test=user-id]", "42"],
+    ["click", "[data-test=nav-protected]"],
+    ["expect-url", "#/login"],
+    ["expect-visible", "[data-test=page-login]"],
+    ["expect-hidden", "[data-test=page-protected]"],
+    ["click", "[data-test=prog-nav]"],
+    ["expect-url", "#/about"],
+    ["expect-visible", "[data-test=page-about]"],
+    ["screenshot", "01-about-via-router-push"],
+    ["aria", "01-about-via-router-push"],
+    ["goto", "/e2e/examples/routing.html#/users/7"],
+    ["expect-text", "[data-test=user-id]", "7"],
+    ["screenshot", "02-deep-link"]
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "state-binding",
+  "steps": [
+    ["goto", "/e2e/examples/state-binding.html"],
+    ["expect-text", "[data-test=counter-value]", "0"],
+    ["click", "[data-test=counter-inc]"],
+    ["click", "[data-test=counter-inc]"],
+    ["expect-text", "[data-test=counter-value]", "2"],
+    ["expect-text", "[data-test=computed-value]", "4"],
+    ["expect-text", "[data-test=watch-output]", "changed to 2"],
+    ["click", "[data-test=counter-dec]"],
+    ["expect-text", "[data-test=counter-value]", "1"],
+    ["fill", "[data-test=name-input]", "Ada Lovelace"],
+    ["expect-text", "[data-test=name-display]", "Ada Lovelace"],
+    ["expect-text", "[data-test=store-display]", "light"],
+    ["click", "[data-test=store-toggle]"],
+    ["expect-text", "[data-test=store-display]", "dark"],
+    ["expect-text", "[data-test=notify-display]", "dark"],
+    ["expect-contains", "[data-test=html-output] strong", "bold"],
+    ["fill", "[data-test=persist-input]", "kept across reload"],
+    ["expect-text", "[data-test=persist-display]", "kept across reload"],
+    ["screenshot", "01-after-actions"],
+    ["aria", "01-after-actions"],
+    ["reload"],
+    ["expect-value", "[data-test=persist-input]", "kept across reload"],
+    ["expect-text", "[data-test=persist-display]", "kept across reload"],
+    ["expect-text", "[data-test=counter-value]", "0"],
+    ["screenshot", "02-after-reload"]
+  ]
+}
